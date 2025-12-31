@@ -18,7 +18,7 @@ export function ProductPrice({
           </s>
         </div>
       ) : price ? (
-        <Money data={price} />
+        <Money data={price} withoutTrailingZeros />
       ) : (
         <span>&nbsp;</span>
       )}

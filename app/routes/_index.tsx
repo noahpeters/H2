@@ -84,9 +84,11 @@ function FeaturedCollection({
         </div>
       )}
       <h1>{collection.title}</h1>
-      {collection.products.nodes.length > 0 && collection.products.nodes.map(product => 
-        <ProductItem key={product.id} product={product} />
-      )}
+      <div className="featured-collection-products-grid">
+        {collection.products.nodes.length > 0 && collection.products.nodes.map(product => 
+          <ProductItem key={product.id} product={product} />
+        )}
+      </div>
     </Link>
   );
 }
