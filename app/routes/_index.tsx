@@ -84,6 +84,9 @@ function FeaturedCollection({
         </div>
       )}
       <h1>{collection.title}</h1>
+      {collection.products.nodes.length > 0 && collection.products.nodes.map(product => 
+        <ProductItem key={product.id} product={product} />
+      )}
     </Link>
   );
 }
@@ -115,6 +118,24 @@ function RecommendedProducts({
 }
 
 const FEATURED_COLLECTION_QUERY = `#graphql
+  fragment FeaturedProduct on Product {
+    id
+    title
+    handle
+    priceRange {
+      minVariantPrice {
+        amount
+        currencyCode
+      }
+    }
+    featuredImage {
+      id
+      url
+      altText
+      width
+      height
+    }
+  }
   fragment FeaturedCollection on Collection {
     id
     title
@@ -126,6 +147,11 @@ const FEATURED_COLLECTION_QUERY = `#graphql
       height
     }
     handle
+    products(first: 100) {
+      nodes {
+        ...FeaturedProduct
+      }
+    }
   }
   query FeaturedCollection($country: CountryCode, $language: LanguageCode)
     @inContext(country: $country, language: $language) {
