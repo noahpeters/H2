@@ -77,25 +77,9 @@ ${shopId ? `Disallow: /${shopId}/checkouts` : ''}
 ${shopId ? `Disallow: /${shopId}/orders` : ''}
 Disallow: /carts
 Disallow: /account
-Disallow: /collections/*sort_by*
-Disallow: /*/collections/*sort_by*
-Disallow: /collections/*+*
-Disallow: /collections/*%2B*
-Disallow: /collections/*%2b*
-Disallow: /*/collections/*+*
-Disallow: /*/collections/*%2B*
-Disallow: /*/collections/*%2b*
-Disallow: */collections/*filter*&*filter*
-Disallow: /blogs/*+*
-Disallow: /blogs/*%2B*
-Disallow: /blogs/*%2b*
-Disallow: /*/blogs/*+*
-Disallow: /*/blogs/*%2B*
-Disallow: /*/blogs/*%2b*
 Disallow: /*?*oseid=*
 Disallow: /*preview_theme_id*
 Disallow: /*preview_script_id*
-Disallow: /policies/
 Disallow: /*/*?*ls=*&ls=*
 Disallow: /*/*?*ls%3D*%3Fls%3D*
 Disallow: /*/*?*ls%3d*%3fls%3d*

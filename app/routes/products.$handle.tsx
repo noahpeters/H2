@@ -12,6 +12,7 @@ import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import type {Key} from 'react';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -100,6 +101,17 @@ export default function Product() {
   return (
     <div className="product">
       <ProductImage image={selectedVariant?.image} />
+      {selectedVariant.product.media?.nodes
+        ?.map(
+          (
+            mediaItem: {id: Key | null | undefined; url: unknown},
+            index: number,
+          ) =>
+            index > 0 ? (
+              <ProductImage key={mediaItem.id} image={mediaItem.url} />
+            ) : null,
+        )
+        .filter(Boolean) ?? null}
       <div className="product-main">
         <h1>{title}</h1>
         <ProductPrice
@@ -162,6 +174,28 @@ const PRODUCT_VARIANT_FRAGMENT = `#graphql
     product {
       title
       handle
+      media(first: 10) {
+        nodes {
+          ... on MediaImage {
+            id
+            image {
+              id
+              url
+              altText
+              width
+              height
+            }
+          }
+          ... on Model3d {
+            id
+            sources {
+              url
+              mimeType
+              format
+            }
+          }
+        }
+      }
     }
     selectedOptions {
       name
