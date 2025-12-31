@@ -33,6 +33,9 @@ export default function Policies() {
             <Link to={`/policies/${policy.handle}`}>{policy.title}</Link>
           </fieldset>
         ))}
+        <fieldset>
+          <Link to={`/policies/contact-information`}>Contact</Link>
+        </fieldset>
       </div>
     </div>
   );

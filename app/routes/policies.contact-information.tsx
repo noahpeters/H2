@@ -101,7 +101,13 @@ export default function ContactInformation() {
   const {contactPolicy} = useLoaderData<typeof loader>();
 
   return (
-    <div className="contact-information">
+    <div className="policy">
+      <br />
+      <br />
+      <div>
+        <Link to="/policies">← Back to Policies</Link>
+      </div>
+      <br />
       <h1>{contactPolicy?.title}</h1>
       <p>
         {contactPolicy?.body ? (
