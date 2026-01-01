@@ -8,6 +8,7 @@ import type {
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
 import stylex from '~/lib/stylex';
+import Carousel from '~/components/Carousel';
 
 export const meta: Route.MetaFunction = () => {
   return [{title: 'Hydrogen | Home'}];
@@ -98,10 +99,12 @@ function FeaturedCollection({
         </h1>
       </Link>
       <div className="featured-collection-products-grid">
-        {collection.products.nodes.length > 0 &&
-          collection.products.nodes.map((product) => (
-            <ProductItem key={product.id} product={product} />
-          ))}
+        <Carousel>
+          {collection.products.nodes.length > 0 &&
+            collection.products.nodes.map((product) => (
+              <ProductItem key={product.id} product={product} />
+            ))}
+        </Carousel>
       </div>
     </div>
   );
