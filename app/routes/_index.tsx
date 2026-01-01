@@ -7,6 +7,7 @@ import type {
   RecommendedProductsQuery,
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
+import * as stylex from '@stylexjs/stylex';
 
 export const meta: Route.MetaFunction = () => {
   return [{title: 'Hydrogen | Home'}];
@@ -56,6 +57,12 @@ function loadDeferredData({context}: Route.LoaderArgs) {
   };
 }
 
+const styles = stylex.create({
+  color: {
+    color: 'green',
+  },
+});
+
 export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
@@ -81,7 +88,7 @@ function FeaturedCollection({
             <Image data={image} sizes="100vw" />
           </div>
         )}
-        <h1>{collection.title}</h1>
+        <h1 {...stylex.props(styles.color)}>{collection.title}</h1>
       </Link>
       <div className="featured-collection-products-grid">
         {collection.products.nodes.length > 0 &&

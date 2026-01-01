@@ -151,6 +151,15 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <link rel="stylesheet" href={resetStyles}></link>
         <link rel="stylesheet" href={appStyles}></link>
+        {import.meta.env.DEV ? (
+          <link rel="stylesheet" href="/virtual:stylex.css" />
+        ) : null}
+        {import.meta.env.DEV ? (
+          <script
+            type="module"
+            src="/@id/virtual:stylex:runtime"
+          />
+        ) : null}
         <Meta />
         <Links />
       </head>
