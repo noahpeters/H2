@@ -8,6 +8,7 @@ import typescriptEslint from '@typescript-eslint/eslint-plugin';
 import _import from 'eslint-plugin-import';
 import tsParser from '@typescript-eslint/parser';
 import jest from 'eslint-plugin-jest';
+import stylex from '@stylexjs/eslint-plugin';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import js from '@eslint/js';
@@ -46,6 +47,7 @@ export default [
   {
     plugins: {
       'eslint-comments': fixupPluginRules(eslintComments),
+      '@stylexjs': fixupPluginRules(stylex),
       react: fixupPluginRules(react),
       'react-hooks': fixupPluginRules(reactHooks),
       'jsx-a11y': fixupPluginRules(jsxA11Y),
@@ -70,6 +72,10 @@ export default [
     },
     rules: {
       'eslint-comments/no-unused-disable': 'error',
+      '@stylexjs/valid-styles': 'error',
+      '@stylexjs/no-unused': 'error',
+      '@stylexjs/valid-shorthands': 'warn',
+      '@stylexjs/sort-keys': 'warn',
       'no-console': [
         'warn',
         {
