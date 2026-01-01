@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import stylex from '~/lib/stylex';
 
 const styles = stylex.create({
@@ -11,6 +11,7 @@ const styles = stylex.create({
     padding: 16,
     listStyle: 'none',
     overflowX: 'scroll',
+    overflowY: 'hidden',
     scrollSnapType: 'x mandatory',
     /* Hide scrollbar in Firefox */
     scrollbarWidth: 'none',
@@ -22,19 +23,21 @@ const styles = stylex.create({
   },
   item: {
     flexShrink: 0,
-    width: '80%',
-    height: '90vh',
-    backgroundColor: '#FFF',
+    width: '40%',
+    height: '60vh',
+    backgroundColor: 'var(--color-light-translucent)',
     scrollSnapAlign: 'center',
+    '@media (max-width: 640px)': {
+      width: '80%',
+    },
   },
   content: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    fontFamily: 'sans-serif',
-    fontSize: '64px',
-    fontWeight: 'bold',
+    padding: 16,
+    overflow: 'hidden',
   },
   button: {
     position: 'absolute',
@@ -56,7 +59,33 @@ const styles = stylex.create({
 export default function Carousel({children}: {children: React.ReactNode}) {
   'use client';
 
-  const carouselRef = React.useRef<HTMLUListElement>(null);
+  const carouselRef = useRef<HTMLUListElement>(null);
+
+  const [manualScroll, setManualScroll] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (manualScroll) {
+        clearInterval(id);
+        return;
+      }
+      if (carouselRef.current == null) {
+        return;
+      }
+      const itemWidth =
+        carouselRef.current.firstElementChild?.clientWidth ?? 100;
+      const maxScrollLeft =
+        carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
+      if (carouselRef.current.scrollLeft + itemWidth > maxScrollLeft) {
+        // Scroll back to start
+        carouselRef.current.scrollTo({left: 0, behavior: 'smooth'});
+      } else {
+        carouselRef.current.scrollBy({left: itemWidth, behavior: 'smooth'});
+      }
+    }, 5000);
+
+    return () => clearInterval(id);
+  }, [manualScroll]);
 
   return (
     <div className={stylex(styles.carouselContainer)}>
@@ -76,6 +105,7 @@ export default function Carousel({children}: {children: React.ReactNode}) {
           if (carouselRef.current == null) {
             return;
           }
+          setManualScroll(true);
           const itemWidth =
             carouselRef.current.firstElementChild?.clientWidth ?? 100;
           carouselRef.current.scrollBy({left: -itemWidth, behavior: 'smooth'});
@@ -90,6 +120,7 @@ export default function Carousel({children}: {children: React.ReactNode}) {
           if (carouselRef.current == null) {
             return;
           }
+          setManualScroll(true);
           const itemWidth =
             carouselRef.current.firstElementChild?.clientWidth ?? 100;
           carouselRef.current.scrollBy({left: itemWidth, behavior: 'smooth'});

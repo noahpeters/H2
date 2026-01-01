@@ -7,7 +7,6 @@ import type {
   RecommendedProductsQuery,
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
-import stylex from '~/lib/stylex';
 import Carousel from '~/components/Carousel';
 
 export const meta: Route.MetaFunction = () => {
@@ -58,17 +57,6 @@ function loadDeferredData({context}: Route.LoaderArgs) {
   };
 }
 
-const styles = stylex.create({
-  color: {
-    color: 'blue',
-  },
-  border: {
-    borderWidth: 1,
-    borderColor: 'black',
-    borderStyle: 'solid',
-  },
-});
-
 export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
@@ -94,9 +82,7 @@ function FeaturedCollection({
             <Image data={image} sizes="100vw" />
           </div>
         )}
-        <h1 className={stylex(styles.color, styles.border)}>
-          {collection.title}
-        </h1>
+        <h1>{collection.title}</h1>
       </Link>
       <div className="featured-collection-products-grid">
         <Carousel>
