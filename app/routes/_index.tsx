@@ -59,7 +59,7 @@ function loadDeferredData({context}: Route.LoaderArgs) {
 
 const styles = stylex.create({
   color: {
-    color: 'green',
+    color: 'red',
   },
 });
 

@@ -11,6 +11,7 @@ export default defineConfig({
       useCSSLayers: false,
       devMode: 'full',
       devPersistToDisk: true,
+      cssInjectionTarget: (fileName) => fileName.includes('stylex'),
     }),
     hydrogen(),
     oxygen(),

@@ -15,6 +15,7 @@ import favicon from '~/assets/favicon.svg';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
+import stylexStyles from '~/styles/stylex.css?url';
 import {PageLayout} from './components/PageLayout';
 
 export type RootLoader = typeof loader;
@@ -52,7 +53,7 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
  * https://github.com/remix-run/remix/issues/9242
  */
 export function links() {
-  return [
+  const linksList = [
     {
       rel: 'preconnect',
       href: 'https://cdn.shopify.com',
@@ -63,6 +64,12 @@ export function links() {
     },
     {rel: 'icon', type: 'image/svg+xml', href: favicon},
   ];
+
+  if (!import.meta.env.DEV) {
+    linksList.push({rel: 'stylesheet', href: stylexStyles});
+  }
+
+  return linksList;
 }
 
 export async function loader(args: Route.LoaderArgs) {
