@@ -8,6 +8,7 @@ import stylex from '@stylexjs/unplugin';
 export default defineConfig({
   plugins: [
     stylex.vite({
+      importSources: ['@stylexjs/stylex', 'stylex', '~/lib/stylex'],
       useCSSLayers: false,
       devMode: 'full',
       devPersistToDisk: true,
