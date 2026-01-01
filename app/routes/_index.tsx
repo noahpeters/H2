@@ -74,22 +74,22 @@ function FeaturedCollection({
   if (!collection) return null;
   const image = collection?.image;
   return (
-    <Link
-      className="featured-collection"
-      to={`/collections/${collection.handle}`}
-    >
-      {image && (
-        <div className="featured-collection-image">
-          <Image data={image} sizes="100vw" />
-        </div>
-      )}
-      <h1>{collection.title}</h1>
-      <div className="featured-collection-products-grid">
-        {collection.products.nodes.length > 0 && collection.products.nodes.map(product => 
-          <ProductItem key={product.id} product={product} />
+    <div className="featured-collection">
+      <Link to={`/collections/${collection.handle}`}>
+        {image && (
+          <div className="featured-collection-image">
+            <Image data={image} sizes="100vw" />
+          </div>
         )}
+        <h1>{collection.title}</h1>
+      </Link>
+      <div className="featured-collection-products-grid">
+        {collection.products.nodes.length > 0 &&
+          collection.products.nodes.map((product) => (
+            <ProductItem key={product.id} product={product} />
+          ))}
       </div>
-    </Link>
+    </div>
   );
 }
 

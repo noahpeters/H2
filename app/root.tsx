@@ -165,9 +165,19 @@ export function Layout({children}: {children?: React.ReactNode}) {
 
 export default function App() {
   const data = useRouteLoaderData<RootLoader>('root');
+  const isDev = import.meta.env.DEV;
+  const hasCheckoutDomain = Boolean(data?.consent?.checkoutDomain);
 
   if (!data) {
     return <Outlet />;
+  }
+
+  if (isDev || !hasCheckoutDomain) {
+    return (
+      <PageLayout {...data}>
+        <Outlet />
+      </PageLayout>
+    );
   }
 
   return (
