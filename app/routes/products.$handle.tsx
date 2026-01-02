@@ -101,6 +101,7 @@ export default function Product() {
 
   return (
     <div className="product">
+      <div role="presentation" />
       <ProductImage image={selectedVariant?.image} />
       {selectedVariant.product.media?.nodes
         ?.map(
