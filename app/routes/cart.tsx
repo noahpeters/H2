@@ -1,4 +1,9 @@
-import {useLoaderData, data, type HeadersFunction} from 'react-router';
+import {
+  useLoaderData,
+  data,
+  type HeadersFunction,
+  redirect,
+} from 'react-router';
 import type {Route} from './+types/cart';
 import type {CartQueryDataReturn} from '@shopify/hydrogen';
 import {CartForm} from '@shopify/hydrogen';
@@ -27,6 +32,13 @@ export async function action({request, context}: Route.ActionArgs) {
   switch (action) {
     case CartForm.ACTIONS.LinesAdd:
       result = await cart.addLines(inputs.lines);
+
+      // If this submit was "Buy Now", jump to checkout
+      if (formData.get('buyNow') === '1') {
+        const checkoutUrl = result?.cart?.checkoutUrl;
+        if (checkoutUrl) return redirect(checkoutUrl);
+      }
+
       break;
     case CartForm.ACTIONS.LinesUpdate:
       result = await cart.updateLines(inputs.lines);

@@ -7,6 +7,15 @@ import type {
 import {AddToCartButton} from './AddToCartButton';
 import {useAside} from './Aside';
 import type {ProductFragment} from 'storefrontapi.generated';
+import {BuyNowButton} from './BuyNowButton';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  buttonsContainer: {
+    display: 'flex',
+    gap: '1rem',
+  },
+});
 
 export function ProductForm({
   productOptions,
@@ -17,6 +26,17 @@ export function ProductForm({
 }) {
   const navigate = useNavigate();
   const {open} = useAside();
+
+  const lines = selectedVariant
+    ? [
+        {
+          merchandiseId: selectedVariant.id,
+          quantity: 1,
+          selectedVariant,
+        },
+      ]
+    : [];
+
   return (
     <div className="product-form">
       {productOptions.map((option) => {
@@ -101,25 +121,23 @@ export function ProductForm({
           </div>
         );
       })}
-      <AddToCartButton
-        disabled={!selectedVariant || !selectedVariant.availableForSale}
-        onClick={() => {
-          open('cart');
-        }}
-        lines={
-          selectedVariant
-            ? [
-                {
-                  merchandiseId: selectedVariant.id,
-                  quantity: 1,
-                  selectedVariant,
-                },
-              ]
-            : []
-        }
-      >
-        {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
-      </AddToCartButton>
+      <div className={stylex(styles.buttonsContainer)}>
+        <AddToCartButton
+          disabled={!selectedVariant || !selectedVariant.availableForSale}
+          onClick={() => {
+            open('cart');
+          }}
+          lines={lines}
+        >
+          {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
+        </AddToCartButton>
+        <BuyNowButton
+          disabled={!selectedVariant || !selectedVariant.availableForSale}
+          lines={lines}
+        >
+          Buy now
+        </BuyNowButton>
+      </div>
     </div>
   );
 }

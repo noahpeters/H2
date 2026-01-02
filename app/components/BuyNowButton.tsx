@@ -19,7 +19,7 @@ const styles = stylex.create({
   },
 });
 
-export function AddToCartButton({
+export function BuyNowButton({
   analytics,
   children,
   disabled,
@@ -41,6 +41,9 @@ export function AddToCartButton({
             type="hidden"
             value={JSON.stringify(analytics)}
           />
+          {/* Flag for the cart action to redirect */}
+          <input name="buyNow" type="hidden" value="1" />
+
           <button
             className={stylex(styles.button)}
             type="submit"
