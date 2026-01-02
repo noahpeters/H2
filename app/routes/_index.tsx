@@ -10,7 +10,7 @@ import {ProductItem} from '~/components/ProductItem';
 import Carousel from '~/components/Carousel';
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: 'Hydrogen | Home'}];
+  return [{title: 'from trees'}];
 };
 
 export async function loader(args: Route.LoaderArgs) {

@@ -91,6 +91,16 @@ export function HeaderMenu({
           </NavLink>
         );
       })}
+      <NavLink
+        className="header-menu-item"
+        end
+        onClick={close}
+        prefetch="intent"
+        style={activeLinkStyle}
+        to="/contact"
+      >
+        Contact
+      </NavLink>
     </nav>
   );
 }

@@ -44,10 +44,64 @@ export default async function handleRequest(
   }
 
   responseHeaders.set('Content-Type', 'text/html');
-  responseHeaders.set('Content-Security-Policy', header);
+  responseHeaders.set(
+    'Content-Security-Policy',
+    patchTurnstileCsp(header, request.url),
+  );
 
   return new Response(body, {
     headers: responseHeaders,
     status: responseStatusCode,
   });
+}
+
+function addCspSource(csp: string, directive: string, source: string): string {
+  const parts = csp
+    .split(';')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const idx = parts.findIndex((p) => p.startsWith(`${directive} `));
+  if (idx === -1) {
+    parts.push(`${directive} ${source}`);
+    return parts.join('; ');
+  }
+
+  const tokens = parts[idx].split(/\s+/);
+  if (!tokens.includes(source)) tokens.push(source);
+  parts[idx] = tokens.join(' ');
+  return parts.join('; ');
+}
+
+function patchTurnstileCsp(csp: string, requestUrl: string): string {
+  let out = csp;
+
+  // Turnstile
+  const cf = 'https://challenges.cloudflare.com';
+  out = addCspSource(out, 'script-src', cf);
+  out = addCspSource(out, 'frame-src', cf);
+  out = addCspSource(out, 'connect-src', cf);
+
+  // DEV: allow Vite module scripts (stylex runtime etc.)
+  const {hostname, protocol} = new URL(requestUrl);
+  const isLocalDev =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]';
+
+  if (isLocalDev) {
+    // Allow scripts served from the dev origin
+    const origin = `${protocol}//${hostname}:3000`;
+    out = addCspSource(out, 'script-src', origin);
+
+    // Many dev bundles use eval/source maps; Safari/Vite often needs this
+    out = addCspSource(out, 'script-src', "'unsafe-eval'");
+
+    // Websocket/HMR and module fetching
+    out = addCspSource(out, 'connect-src', origin);
+    out = addCspSource(out, 'connect-src', 'ws:');
+    out = addCspSource(out, 'connect-src', 'wss:');
+  }
+
+  return out;
 }

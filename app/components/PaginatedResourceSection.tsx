@@ -42,11 +42,16 @@ export function PaginatedResourceSection<NodesType>({
   );
 }
 
-function PaginationUrlCleaner({
+function PaginationUrlCleaner<NodesType>({
   state,
 }: {
   state: {
-    pagination?: Record<string, unknown>;
+    nodes: Array<NodesType>;
+    pageInfo: {
+      endCursor?: string | null;
+      startCursor?: string | null;
+      hasPreviousPage: boolean;
+    };
   };
 }) {
   const location = useLocation();
@@ -56,8 +61,7 @@ function PaginationUrlCleaner({
     if (!location.search) return;
 
     const params = new URLSearchParams(location.search);
-    const hasPaginationParams =
-      params.has('cursor') || params.has('direction');
+    const hasPaginationParams = params.has('cursor') || params.has('direction');
 
     if (!hasPaginationParams) return;
 
@@ -69,14 +73,11 @@ function PaginationUrlCleaner({
       ? `${location.pathname}?${cleanSearch}`
       : location.pathname;
 
-    if (state?.pagination) {
-      if (typeof window !== 'undefined' && window.history?.replaceState) {
-        window.history.replaceState(window.history.state, '', cleanUrl);
-      }
-      return;
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(window.history.state, '', cleanUrl);
+    } else {
+      navigate(cleanUrl, {replace: true});
     }
-
-    navigate(cleanUrl, {replace: true});
   }, [location.pathname, location.search, navigate, state]);
 
   return null;
@@ -143,11 +144,7 @@ function AutoLoadMore<NodesType>({
   if (!hasNextPage) return null;
 
   return (
-    <div
-      ref={sentinelRef}
-      aria-hidden
-      style={{height: 1, width: '100%'}}
-    >
+    <div ref={sentinelRef} aria-hidden style={{height: 1, width: '100%'}}>
       {!supportsObserver ? (
         <button
           type="button"

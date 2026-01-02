@@ -163,12 +163,19 @@ export function Layout({children}: {children?: React.ReactNode}) {
         ) : null}
         {import.meta.env.DEV ? (
           <script
+            nonce={nonce}
             type="module"
             src="/@id/virtual:stylex:runtime"
           />
         ) : null}
         <Meta />
         <Links />
+        <script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          nonce={nonce}
+          async
+          defer
+        />
       </head>
       <body>
         {children}
