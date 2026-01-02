@@ -85,8 +85,6 @@ export async function loader({context}: Route.LoaderArgs) {
     (policy) => policy.type === 'CONTACT_INFORMATION',
   );
 
-  console.log('Contact Policy:', JSON.stringify(contactPolicy));
-
   return {
     contactPolicy,
     headers: {

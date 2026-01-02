@@ -77,7 +77,7 @@ export default [
       '@stylexjs/valid-shorthands': 'warn',
       '@stylexjs/sort-keys': 'warn',
       'no-console': [
-        'warn',
+        'error',
         {
           allow: ['warn', 'error'],
         },
