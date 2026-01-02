@@ -27,9 +27,14 @@ const styles = stylex.create({
     height: 'auto',
     // backgroundColor: 'var(--color-light-translucent)',
     scrollSnapAlign: 'left',
+    padding: 4,
+    borderRadius: 4,
     '@media (max-width: 640px)': {
       width: '80%',
       scrollSnapAlign: 'center',
+    },
+    ':hover': {
+      backgroundColor: 'var(--color-light)',
     },
   },
   content: {
