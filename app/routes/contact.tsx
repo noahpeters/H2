@@ -1,7 +1,7 @@
 import {Form, useActionData, useLoaderData, useNavigation} from 'react-router';
 import type {Route} from './+types/contact';
 import {Resend} from 'resend';
-import {useEffect} from 'react';
+import {useEffect, useRef} from 'react';
 import stylex from '~/lib/stylex';
 
 type LoaderData = {
@@ -197,7 +197,55 @@ export default function ContactPage() {
   const {turnstileSiteKey} = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const nav = useNavigation();
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+  const widgetIdRef = useRef<string | null>(null);
   const busy = nav.state !== 'idle';
+
+  useEffect(() => {
+    if (!turnstileSiteKey || !turnstileRef.current) return;
+
+    const renderTurnstile = () => {
+      const turnstile = (
+        window as Window & {
+          turnstile?: {
+            render: (
+              element: HTMLElement,
+              options: {sitekey: string},
+            ) => string;
+          };
+        }
+      ).turnstile;
+
+      if (!turnstile || !turnstileRef.current || widgetIdRef.current) return;
+
+      widgetIdRef.current = turnstile.render(turnstileRef.current, {
+        sitekey: turnstileSiteKey,
+      });
+    };
+
+    if ((window as Window & {turnstile?: unknown}).turnstile) {
+      renderTurnstile();
+      return;
+    }
+
+    const scriptId = 'turnstile-script';
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.src =
+        'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    script.addEventListener('load', renderTurnstile);
+    return () => {
+      script?.removeEventListener('load', renderTurnstile);
+    };
+  }, [turnstileSiteKey]);
 
   if (actionData?.ok) {
     return (
@@ -266,7 +314,7 @@ export default function ContactPage() {
         )}
         <br />
         {/* Turnstile */}
-        <div className="cf-turnstile" data-sitekey={turnstileSiteKey} />
+        <div ref={turnstileRef} className="cf-turnstile" />
 
         <button type="submit" disabled={busy} className={stylex(styles.button)}>
           {busy ? 'Sending…' : 'Send'}

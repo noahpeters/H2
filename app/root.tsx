@@ -159,23 +159,21 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <link rel="stylesheet" href={resetStyles}></link>
         <link rel="stylesheet" href={appStyles}></link>
         {import.meta.env.DEV ? (
-          <link rel="stylesheet" href="/virtual:stylex.css" />
+          <link
+            rel="stylesheet"
+            href="/virtual:stylex.css"
+            suppressHydrationWarning
+          />
         ) : null}
         {import.meta.env.DEV ? (
           <script
-            nonce={nonce}
             type="module"
             src="/@id/virtual:stylex:runtime"
+            suppressHydrationWarning
           />
         ) : null}
         <Meta />
         <Links />
-        <script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-          nonce={nonce}
-          async
-          defer
-        />
       </head>
       <body>
         {children}

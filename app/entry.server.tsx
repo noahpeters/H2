@@ -96,6 +96,8 @@ function patchTurnstileCsp(csp: string, requestUrl: string): string {
 
     // Many dev bundles use eval/source maps; Safari/Vite often needs this
     out = addCspSource(out, 'script-src', "'unsafe-eval'");
+    // Dev tools and injected scripts can be inline during HMR
+    out = addCspSource(out, 'script-src', "'unsafe-inline'");
 
     // Websocket/HMR and module fetching
     out = addCspSource(out, 'connect-src', origin);
