@@ -36,7 +36,7 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    padding: 16,
+    padding: 0,
     overflow: 'hidden',
   },
   button: {

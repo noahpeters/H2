@@ -13,6 +13,7 @@ import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import type {Key} from 'react';
+import type {Maybe, Image} from '@shopify/hydrogen/storefront-api-types';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -104,12 +105,30 @@ export default function Product() {
       {selectedVariant.product.media?.nodes
         ?.map(
           (
-            mediaItem: {id: Key | null | undefined; url: unknown},
+            mediaItem: {
+              __typename: string;
+              image:
+                | Maybe<
+                    {__typename: 'Image'} & Pick<
+                      Image,
+                      'id' | 'altText' | 'url' | 'width' | 'height'
+                    >
+                  >
+                | undefined;
+              id: Key | null | undefined;
+            },
             index: number,
-          ) =>
-            index > 0 ? (
-              <ProductImage key={mediaItem.id} image={mediaItem.url} />
-            ) : null,
+          ) => {
+            if (index === 0) return null;
+
+            if (mediaItem.__typename === 'MediaImage' && mediaItem.image) {
+              return (
+                <ProductImage key={mediaItem.id} image={mediaItem.image} />
+              );
+            }
+
+            return null;
+          },
         )
         .filter(Boolean) ?? null}
       <div className="product-main">
@@ -179,6 +198,7 @@ const PRODUCT_VARIANT_FRAGMENT = `#graphql
           ... on MediaImage {
             id
             image {
+              __typename
               id
               url
               altText
