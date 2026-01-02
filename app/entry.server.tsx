@@ -82,6 +82,9 @@ function patchTurnstileCsp(csp: string, requestUrl: string): string {
   out = addCspSource(out, 'frame-src', cf);
   out = addCspSource(out, 'connect-src', cf);
 
+  // Allow Oxygen CDN scripts in production
+  out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
+
   // DEV: allow Vite module scripts (stylex runtime etc.)
   const {hostname, protocol} = new URL(requestUrl);
   const isLocalDev =
