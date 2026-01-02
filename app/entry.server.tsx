@@ -46,7 +46,7 @@ export default async function handleRequest(
   responseHeaders.set('Content-Type', 'text/html');
   responseHeaders.set(
     'Content-Security-Policy',
-    patchTurnstileCsp(header, request.url),
+    patchTurnstileCsp(header, request.url, nonce),
   );
 
   return new Response(body, {
@@ -73,7 +73,11 @@ function addCspSource(csp: string, directive: string, source: string): string {
   return parts.join('; ');
 }
 
-function patchTurnstileCsp(csp: string, requestUrl: string): string {
+function patchTurnstileCsp(
+  csp: string,
+  requestUrl: string,
+  nonce?: string,
+): string {
   let out = csp;
 
   // Turnstile
@@ -84,6 +88,9 @@ function patchTurnstileCsp(csp: string, requestUrl: string): string {
 
   // Allow Oxygen CDN scripts in production
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
+  if (nonce) {
+    out = addCspSource(out, 'script-src', `'nonce-${nonce}'`);
+  }
 
   // DEV: allow Vite module scripts (stylex runtime etc.)
   const {hostname, protocol} = new URL(requestUrl);
