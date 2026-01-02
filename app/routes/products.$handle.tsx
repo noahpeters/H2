@@ -1,4 +1,4 @@
-import {redirect, useLoaderData} from 'react-router';
+import {useLoaderData} from 'react-router';
 import type {Route} from './+types/products.$handle';
 import {
   getSelectedProductOptions,
@@ -12,8 +12,7 @@ import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
-import type {Key} from 'react';
-import type {Maybe, Image} from '@shopify/hydrogen/storefront-api-types';
+import Carousel from '~/components/Carousel';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -100,74 +99,73 @@ export default function Product() {
   const {title, descriptionHtml} = product;
 
   return (
-    <div className="product">
+    <>
       <div role="presentation" />
-      <ProductImage image={selectedVariant?.image} />
-      {selectedVariant.product.media?.nodes
-        ?.map(
-          (
-            mediaItem: {
-              __typename: string;
-              image:
-                | Maybe<
-                    {__typename: 'Image'} & Pick<
-                      Image,
-                      'id' | 'altText' | 'url' | 'width' | 'height'
-                    >
-                  >
-                | undefined;
-              id: Key | null | undefined;
-            },
-            index: number,
-          ) => {
-            if (index === 0) return null;
+      <div className="product">
+        {selectedVariant.product.media && (
+          <div>
+            {selectedVariant.product.media.nodes.length > 1 ? (
+              <Carousel>
+                {selectedVariant.product.media.nodes
+                  ?.map((mediaItem: any) => {
+                    if (
+                      mediaItem.__typename === 'MediaImage' &&
+                      mediaItem.image
+                    ) {
+                      return (
+                        <ProductImage
+                          key={mediaItem.id}
+                          image={mediaItem.image}
+                        />
+                      );
+                    }
 
-            if (mediaItem.__typename === 'MediaImage' && mediaItem.image) {
-              return (
-                <ProductImage key={mediaItem.id} image={mediaItem.image} />
-              );
-            }
-
-            return null;
-          },
-        )
-        .filter(Boolean) ?? null}
-      <div className="product-main">
-        <h1>{title}</h1>
-        <ProductPrice
-          price={selectedVariant?.price}
-          compareAtPrice={selectedVariant?.compareAtPrice}
+                    return null;
+                  })
+                  .filter(Boolean) ?? null}
+              </Carousel>
+            ) : (
+              <ProductImage image={selectedVariant?.image} />
+            )}
+          </div>
+        )}
+        <div className="product-main">
+          <h1>{title}</h1>
+          <ProductPrice
+            price={selectedVariant?.price}
+            compareAtPrice={selectedVariant?.compareAtPrice}
+          />
+          <br />
+          <ProductForm
+            productOptions={productOptions}
+            selectedVariant={selectedVariant}
+          />
+          <br />
+          <br />
+          <p>
+            <strong>Description</strong>
+          </p>
+          <br />
+          <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
+          <br />
+        </div>
+        <Analytics.ProductView
+          data={{
+            products: [
+              {
+                id: product.id,
+                title: product.title,
+                price: selectedVariant?.price.amount || '0',
+                vendor: product.vendor,
+                variantId: selectedVariant?.id || '',
+                variantTitle: selectedVariant?.title || '',
+                quantity: 1,
+              },
+            ],
+          }}
         />
-        <br />
-        <ProductForm
-          productOptions={productOptions}
-          selectedVariant={selectedVariant}
-        />
-        <br />
-        <br />
-        <p>
-          <strong>Description</strong>
-        </p>
-        <br />
-        <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
-        <br />
       </div>
-      <Analytics.ProductView
-        data={{
-          products: [
-            {
-              id: product.id,
-              title: product.title,
-              price: selectedVariant?.price.amount || '0',
-              vendor: product.vendor,
-              variantId: selectedVariant?.id || '',
-              variantTitle: selectedVariant?.title || '',
-              quantity: 1,
-            },
-          ],
-        }}
-      />
-    </div>
+    </>
   );
 }
 
@@ -197,6 +195,7 @@ const PRODUCT_VARIANT_FRAGMENT = `#graphql
       media(first: 10) {
         nodes {
           ... on MediaImage {
+            __typename
             id
             image {
               __typename
