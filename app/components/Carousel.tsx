@@ -7,7 +7,7 @@ const styles = stylex.create({
   },
   carousel: {
     display: 'flex',
-    gap: 8,
+    gap: 32,
     padding: 16,
     listStyle: 'none',
     overflowX: 'scroll',
@@ -23,12 +23,13 @@ const styles = stylex.create({
   },
   item: {
     flexShrink: 0,
-    width: '40%',
-    height: '60vh',
-    backgroundColor: 'var(--color-light-translucent)',
-    scrollSnapAlign: 'center',
+    width: 'auto',
+    height: 'auto',
+    // backgroundColor: 'var(--color-light-translucent)',
+    scrollSnapAlign: 'left',
     '@media (max-width: 640px)': {
       width: '80%',
+      scrollSnapAlign: 'center',
     },
   },
   content: {
@@ -42,7 +43,6 @@ const styles = stylex.create({
   button: {
     position: 'absolute',
     top: '50%',
-
     width: '3rem',
     height: '3rem',
     transform: 'translateY(-50%)',
@@ -63,25 +63,39 @@ export default function Carousel({children}: {children: React.ReactNode}) {
 
   const [manualScroll, setManualScroll] = useState(false);
 
+  const scrollLeft = () => {
+    if (carouselRef.current == null) {
+      return;
+    }
+    const itemWidth =
+      (carouselRef.current.firstElementChild?.clientWidth ?? 100) + 32; // + gap
+    carouselRef.current.scrollBy({left: -itemWidth, behavior: 'smooth'});
+  };
+
+  const scrollRight = (allowReset: boolean = false) => {
+    if (carouselRef.current == null) {
+      return;
+    }
+    const itemWidth =
+      (carouselRef.current.firstElementChild?.clientWidth ?? 100) + 32; // + gap
+    const maxScrollLeft =
+      carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
+    const currentScrollLeft = carouselRef.current.scrollLeft;
+    if (allowReset && currentScrollLeft + 1 > maxScrollLeft) {
+      // Scroll back to start
+      carouselRef.current.scrollTo({left: 0, behavior: 'smooth'});
+    } else {
+      carouselRef.current.scrollBy({left: itemWidth, behavior: 'smooth'});
+    }
+  };
+
   useEffect(() => {
     const id = setInterval(() => {
       if (manualScroll) {
         clearInterval(id);
         return;
       }
-      if (carouselRef.current == null) {
-        return;
-      }
-      const itemWidth =
-        carouselRef.current.firstElementChild?.clientWidth ?? 100;
-      const maxScrollLeft =
-        carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
-      if (carouselRef.current.scrollLeft + itemWidth > maxScrollLeft) {
-        // Scroll back to start
-        carouselRef.current.scrollTo({left: 0, behavior: 'smooth'});
-      } else {
-        carouselRef.current.scrollBy({left: itemWidth, behavior: 'smooth'});
-      }
+      scrollRight(true);
     }, 5000);
 
     return () => clearInterval(id);
@@ -101,14 +115,10 @@ export default function Carousel({children}: {children: React.ReactNode}) {
       <button
         className={stylex(styles.button, styles.buttonPrevious)}
         type="button"
+        disabled={carouselRef.current == null}
         onClick={() => {
-          if (carouselRef.current == null) {
-            return;
-          }
           setManualScroll(true);
-          const itemWidth =
-            carouselRef.current.firstElementChild?.clientWidth ?? 100;
-          carouselRef.current.scrollBy({left: -itemWidth, behavior: 'smooth'});
+          scrollLeft();
         }}
       >
         ➜
@@ -116,14 +126,10 @@ export default function Carousel({children}: {children: React.ReactNode}) {
       <button
         className={stylex(styles.button, styles.buttonNext)}
         type="button"
+        disabled={carouselRef.current == null}
         onClick={() => {
-          if (carouselRef.current == null) {
-            return;
-          }
           setManualScroll(true);
-          const itemWidth =
-            carouselRef.current.firstElementChild?.clientWidth ?? 100;
-          carouselRef.current.scrollBy({left: itemWidth, behavior: 'smooth'});
+          scrollRight();
         }}
       >
         ➜
