@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import stylex from '~/lib/stylex';
 
 type AsideType = 'search' | 'cart' | 'mobile' | 'closed';
 type AsideContextValue = {
@@ -12,6 +13,15 @@ type AsideContextValue = {
   open: (mode: AsideType) => void;
   close: () => void;
 };
+
+const styles = stylex.create({
+  aside: {
+    backgroundColor: 'var(--color-secondary)',
+  },
+  asideHeader: {
+    color: 'var(--color-light)',
+  },
+});
 
 /**
  * A side bar component with Overlay
@@ -59,10 +69,16 @@ export function Aside({
       role="dialog"
     >
       <button className="close-outside" onClick={close} />
-      <aside>
+      <aside className={stylex(type === 'mobile' ? styles.aside : null)}>
         <header>
-          <h3>{heading}</h3>
-          <button className="close reset" onClick={close} aria-label="Close">
+          <h3 className={stylex(type === 'mobile' ? styles.asideHeader : null)}>
+            {heading}
+          </h3>
+          <button
+            className={`close reset ${stylex(type === 'mobile' ? styles.asideHeader : null)}`}
+            onClick={close}
+            aria-label="Close"
+          >
             &times;
           </button>
         </header>
