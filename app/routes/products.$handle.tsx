@@ -107,6 +107,31 @@ const styles = stylex.create({
     width: 1,
     backgroundColor: 'var(--color-primary)',
   },
+  valuesContainer: {
+    display: 'flex',
+    gap: 16,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    '@media (max-width: 640px)': {
+      flexDirection: 'column',
+    },
+  },
+  valuesBox: {
+    flex: 1,
+    textAlign: 'center',
+    backgroundColor: 'var(--color-secondary)',
+    color: 'var(--color-light)',
+    padding: 16,
+    borderRadius: 8,
+    paddingBottom: 24,
+  },
+  valuesHeader: {
+    color: 'var(--color-light)',
+  },
+  valuesDivider: {
+    width: 1,
+    backgroundColor: 'var(--color-secondary)',
+  },
 });
 
 export default function Product() {
@@ -184,6 +209,44 @@ export default function Product() {
               ],
             }}
           />
+        </div>
+      </section>
+      <section>
+        <div className={stylex(styles.valuesContainer)}>
+          <div className={stylex(styles.valuesBox)}>
+            <h3 className={stylex(styles.valuesHeader)}>Materials</h3>
+            <p>
+              Crafted from carefully selected solid hardwoods, chosen for grain
+              consistency, stability, and aging characteristics. No veneers, no
+              particleboard, no MDF—just genuine, full-thickness hardwood.
+              <br />
+              Finished with natural oils and waxes that enhance the wood's
+              innate beauty while providing a durable, tactile surface.
+            </p>
+          </div>
+          <div className={stylex(styles.valuesDivider)}></div>
+          <div className={stylex(styles.valuesBox)}>
+            <h3 className={stylex(styles.valuesHeader)}>Craftsmanship</h3>
+            <p>
+              Boards are milled, matched, and assembled for visual calm rather
+              than dramatic contrast. Joinery is structural and time-tested,
+              with mortise-and-tenon connections and properly engineered
+              expansion points to ensure long-term stability. Edges are shaped
+              by hand, surfaces are finished smooth and warm to the touch, and
+              every detail—visible or not—is refined with intention.
+            </p>
+          </div>
+          <div className={stylex(styles.valuesDivider)}></div>
+          <div className={stylex(styles.valuesBox)}>
+            <h3 className={stylex(styles.valuesHeader)}>Legacy</h3>
+            <p>
+              Our products are designed to be heirlooms—durable, timeless, and
+              repairable. With proper care, they will age gracefully, developing
+              a rich patina that tells the story of a life well-lived. This is
+              furniture built slowly, thoughtfully, and to a standard that
+              doesn’t compromise.
+            </p>
+          </div>
         </div>
       </section>
       <section id="customize">
