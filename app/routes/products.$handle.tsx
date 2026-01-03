@@ -109,6 +109,10 @@ const styles = stylex.create({
   descriptionDivider: {
     width: 1,
     backgroundColor: 'var(--color-primary)',
+    '@media (max-width: 640px)': {
+      width: 'unset',
+      height: 1,
+    },
   },
   valuesContainer: {
     display: 'flex',
@@ -134,6 +138,10 @@ const styles = stylex.create({
   valuesDivider: {
     width: 1,
     backgroundColor: 'var(--color-secondary)',
+    '@media (max-width: 640px)': {
+      width: 'unset',
+      height: 1,
+    },
   },
 });
 
