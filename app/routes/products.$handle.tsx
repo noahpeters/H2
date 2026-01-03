@@ -249,7 +249,7 @@ export default function Product() {
           </div>
         </div>
       </section>
-      <section id="customize">
+      <section>
         <div className="product">
           <div>
             {selectedVariant.product.media.nodes.length > 1 ? (
@@ -286,10 +286,12 @@ export default function Product() {
               />
             </div>
             <br />
-            <ProductForm
-              productOptions={productOptions}
-              selectedVariant={selectedVariant}
-            />
+            <div id="customize">
+              <ProductForm
+                productOptions={productOptions}
+                selectedVariant={selectedVariant}
+              />
+            </div>
           </div>
         </div>
       </section>
