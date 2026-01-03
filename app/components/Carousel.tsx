@@ -51,6 +51,10 @@ const styles = stylex.create({
     width: '3rem',
     height: '3rem',
     transform: 'translateY(-50%)',
+    backgroundColor: 'var(--color-light-translucent)',
+    color: 'var(--color-primary)',
+    borderStyle: 'none',
+    borderRadius: '50%',
   },
   buttonPrevious: {
     left: '1.5rem',

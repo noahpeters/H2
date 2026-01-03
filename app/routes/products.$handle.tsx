@@ -7,12 +7,14 @@ import {
   getProductOptions,
   getAdjacentAndFirstAvailableVariants,
   useSelectedOptionInUrlParam,
+  RichText,
 } from '@shopify/hydrogen';
 import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import Carousel from '~/components/Carousel';
+import stylex from '~/lib/stylex';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -77,6 +79,36 @@ function loadDeferredData({context, params}: Route.LoaderArgs) {
   return {};
 }
 
+const styles = stylex.create({
+  priceRange: {
+    display: 'flex',
+    gap: 4,
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#111827',
+  },
+  anchorButton: {
+    display: 'inline-block',
+    padding: '12px 24px',
+    backgroundColor: 'var(--color-primary)',
+    color: 'var(--color-light)',
+    borderRadius: '8px',
+  },
+  descriptionContainer: {
+    display: 'flex',
+    gap: 16,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  descriptionBox: {
+    flex: 1,
+  },
+  descriptionDivider: {
+    width: 1,
+    backgroundColor: 'var(--color-primary)',
+  },
+});
+
 export default function Product() {
   const {product} = useLoaderData<typeof loader>();
 
@@ -98,11 +130,75 @@ export default function Product() {
 
   const {title, descriptionHtml} = product;
 
+  console.log({product});
+
   return (
     <>
-      <div role="presentation" />
-      <div className="product">
-        {selectedVariant.product.media && (
+      <section>
+        <div role="presentation" />
+        <div className="product">
+          {selectedVariant.product.media && (
+            <div>
+              <ProductImage image={selectedVariant?.image} />
+            </div>
+          )}
+          <div className="product-main">
+            <h1>{title}</h1>
+            <div className={stylex(styles.priceRange)}>
+              <ProductPrice price={product.priceRange.minVariantPrice} />-
+              <ProductPrice price={product.priceRange.maxVariantPrice} />
+            </div>
+            <br />
+            <br />
+            <div className={stylex(styles.descriptionContainer)}>
+              <div
+                className={stylex(styles.descriptionBox)}
+                dangerouslySetInnerHTML={{__html: descriptionHtml}}
+              />
+              {product.specs?.value != null ? (
+                <>
+                  <div className={stylex(styles.descriptionDivider)}></div>
+                  <div className={stylex(styles.descriptionBox)}>
+                    <RichText data={product.specs?.value ?? ''} />
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <br />
+            <a href="#customize" className={stylex(styles.anchorButton)}>
+              Customize & Purchase
+            </a>
+          </div>
+          <Analytics.ProductView
+            data={{
+              products: [
+                {
+                  id: product.id,
+                  title: product.title,
+                  price: selectedVariant?.price.amount || '0',
+                  vendor: product.vendor,
+                  variantId: selectedVariant?.id || '',
+                  variantTitle: selectedVariant?.title || '',
+                  quantity: 1,
+                },
+              ],
+            }}
+          />
+        </div>
+      </section>
+      <section id="customize">
+        <div className="product">
+          <div className="product-main">
+            <ProductPrice
+              price={selectedVariant?.price}
+              compareAtPrice={selectedVariant?.compareAtPrice}
+            />
+            <br />
+            <ProductForm
+              productOptions={productOptions}
+              selectedVariant={selectedVariant}
+            />
+          </div>
           <div>
             {selectedVariant.product.media.nodes.length > 1 ? (
               <Carousel>
@@ -116,6 +212,7 @@ export default function Product() {
                         <ProductImage
                           key={mediaItem.id}
                           image={mediaItem.image}
+                          shortened={true}
                         />
                       );
                     }
@@ -128,43 +225,8 @@ export default function Product() {
               <ProductImage image={selectedVariant?.image} />
             )}
           </div>
-        )}
-        <div className="product-main">
-          <h1>{title}</h1>
-          <ProductPrice
-            price={selectedVariant?.price}
-            compareAtPrice={selectedVariant?.compareAtPrice}
-          />
-          <br />
-          <ProductForm
-            productOptions={productOptions}
-            selectedVariant={selectedVariant}
-          />
-          <br />
-          <br />
-          <p>
-            <strong>Description</strong>
-          </p>
-          <br />
-          <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
-          <br />
         </div>
-        <Analytics.ProductView
-          data={{
-            products: [
-              {
-                id: product.id,
-                title: product.title,
-                price: selectedVariant?.price.amount || '0',
-                vendor: product.vendor,
-                variantId: selectedVariant?.id || '',
-                variantTitle: selectedVariant?.title || '',
-                quantity: 1,
-              },
-            ],
-          }}
-        />
-      </div>
+      </section>
     </>
   );
 }
@@ -234,6 +296,7 @@ const PRODUCT_FRAGMENT = `#graphql
   fragment Product on Product {
     id
     title
+    tags
     vendor
     handle
     descriptionHtml
@@ -260,12 +323,25 @@ const PRODUCT_FRAGMENT = `#graphql
     selectedOrFirstAvailableVariant(selectedOptions: $selectedOptions, ignoreUnknownOptions: true, caseInsensitiveMatch: true) {
       ...ProductVariant
     }
+    priceRange {
+      minVariantPrice {
+        amount
+        currencyCode
+      }
+      maxVariantPrice {
+        amount
+        currencyCode
+      }
+    }
     adjacentVariants (selectedOptions: $selectedOptions) {
       ...ProductVariant
     }
     seo {
       description
       title
+    }
+    specs: metafield(key:"specs" namespace: "custom") {
+      value
     }
   }
   ${PRODUCT_VARIANT_FRAGMENT}
