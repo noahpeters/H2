@@ -251,17 +251,6 @@ export default function Product() {
       </section>
       <section id="customize">
         <div className="product">
-          <div className="product-main">
-            <ProductPrice
-              price={selectedVariant?.price}
-              compareAtPrice={selectedVariant?.compareAtPrice}
-            />
-            <br />
-            <ProductForm
-              productOptions={productOptions}
-              selectedVariant={selectedVariant}
-            />
-          </div>
           <div>
             {selectedVariant.product.media.nodes.length > 1 ? (
               <Carousel>
@@ -287,6 +276,20 @@ export default function Product() {
             ) : (
               <ProductImage image={selectedVariant?.image} />
             )}
+          </div>
+          <div className="product-main">
+            <div className={stylex(styles.priceRange)}>
+              <strong>Configured Price: </strong>
+              <ProductPrice
+                price={selectedVariant?.price}
+                compareAtPrice={selectedVariant?.compareAtPrice}
+              />
+            </div>
+            <br />
+            <ProductForm
+              productOptions={productOptions}
+              selectedVariant={selectedVariant}
+            />
           </div>
         </div>
       </section>
