@@ -99,6 +99,9 @@ const styles = stylex.create({
     gap: 16,
     flexDirection: 'row',
     alignItems: 'stretch',
+    '@media (max-width: 640px)': {
+      flexDirection: 'column',
+    },
   },
   descriptionBox: {
     flex: 1,
