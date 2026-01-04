@@ -67,8 +67,8 @@ const styles = stylex.create({
     objectFit: 'cover',
   },
   media: {
-    width: '3rem',
-    height: '3rem',
+    width: '4.5rem',
+    height: '4.5rem',
     borderRadius: 6,
     overflow: 'hidden',
     display: 'inline-flex',
