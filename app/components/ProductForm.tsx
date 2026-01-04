@@ -25,12 +25,28 @@ const styles = stylex.create({
     backgroundColor: 'transparent',
     fontSize: '1rem',
     fontFamily: 'inherit',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'transparent',
+    color: 'var(--color-dark)',
   },
   optionItemLink: {
     ':hover': {
-      textDecoration: 'underline',
+      textDecoration: 'none',
       cursor: 'pointer',
+      borderColor: 'var(--color-secondary)',
+      backgroundColor: 'var(--color-light)',
+      color: 'var(--color-primary)',
     },
+  },
+  optionItemSelected: {
+    borderColor: 'var(--color-primary)',
+    backgroundColor: 'var(--color-light)',
+    color: 'var(--color-primary)',
+    fontWeight: 600,
+  },
+  optionItemUnavailable: {
+    opacity: 0.3,
   },
   swatch: {
     width: '1.25rem',
@@ -46,7 +62,7 @@ export function ProductForm({
   productOptions,
   selectedVariant,
 }: {
-  productOptions: MappedProductOptions[];
+  productOptions?: MappedProductOptions[];
   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
 }) {
   const navigate = useNavigate();
@@ -64,18 +80,17 @@ export function ProductForm({
 
   return (
     <div>
-      {productOptions.map((option) => {
-        // If there is only a single value in the option values, don't display the option
+      {productOptions?.map((option) => {
         if (option.optionValues.length === 1) return null;
 
         return (
-            <div key={option.name}>
-              <h5>{option.name}</h5>
-              <div className={stylex(styles.optionsGrid)}>
-                {option.optionValues.map((value) => {
-                  const {
-                    name,
-                    handle,
+          <div key={option.name}>
+            <h5>{option.name}</h5>
+            <div className={stylex(styles.optionsGrid)}>
+              {option.optionValues.map((value) => {
+                const {
+                  name,
+                  handle,
                   variantUriQuery,
                   selected,
                   available,
@@ -84,63 +99,45 @@ export function ProductForm({
                   swatch,
                 } = value;
 
+                const itemStyles = [
+                  styles.optionItem,
+                  selected && styles.optionItemSelected,
+                  !available && styles.optionItemUnavailable,
+                ];
+
                 if (isDifferentProduct) {
-                  // SEO
-                  // When the variant is a combined listing child product
-                  // that leads to a different url, we need to render it
-                  // as an anchor tag
                   return (
                     <Link
-                      className={stylex(styles.optionItem)}
                       key={option.name + name}
                       prefetch="intent"
                       preventScrollReset
                       replace
                       to={`/products/${handle}?${variantUriQuery}`}
-                      style={{
-                        border: selected
-                          ? '1px solid black'
-                          : '1px solid transparent',
-                        opacity: available ? 1 : 0.3,
-                      }}
+                      className={stylex(itemStyles)}
                     >
                       <ProductOptionSwatch swatch={swatch} name={name} />
                     </Link>
                   );
-                } else {
-                  // SEO
-                  // When the variant is an update to the search param,
-                  // render it as a button with javascript navigating to
-                  // the variant so that SEO bots do not index these as
-                  // duplicated links
-                  return (
+                }
+
+                return (
                     <button
                       type="button"
-                      className={stylex(
-                        styles.optionItem,
-                        exists && !selected && styles.optionItemLink,
-                      )}
                       key={option.name + name}
-                      style={{
-                        border: selected
-                          ? '1px solid black'
-                          : '1px solid transparent',
-                        opacity: available ? 1 : 0.3,
-                      }}
+                      className={stylex(itemStyles, styles.optionItemLink)}
                       disabled={!exists}
                       onClick={() => {
-                        if (!selected) {
-                          void navigate(`?${variantUriQuery}`, {
-                            replace: true,
-                            preventScrollReset: true,
-                          });
-                        }
-                      }}
-                    >
-                      <ProductOptionSwatch swatch={swatch} name={name} />
-                    </button>
-                  );
-                }
+                      if (!selected) {
+                        void navigate(`?${variantUriQuery}`, {
+                          replace: true,
+                          preventScrollReset: true,
+                        });
+                      }
+                    }}
+                  >
+                    <ProductOptionSwatch swatch={swatch} name={name} />
+                  </button>
+                );
               })}
             </div>
             <br />

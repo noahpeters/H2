@@ -12,9 +12,11 @@ import {
 import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
+import {VariantOptionPickers} from '~/components/product/VariantOptionPickers';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import Carousel from '~/components/Carousel';
 import stylex from '~/lib/stylex';
+import {buildPresentationMap} from '~/lib/options/buildPresentationMap';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -173,15 +175,15 @@ export default function Product() {
   // only when no search params are set in the url
   useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
 
-  // Get the product options array
-  const productOptions = getProductOptions({
+  const productWithSelection = {
     ...product,
     selectedOrFirstAvailableVariant: selectedVariant,
-  });
+  };
+  const presentationMap = buildPresentationMap([]);
+  const hasPresentationMap = Object.keys(presentationMap).length > 0;
+  const productOptions = getProductOptions(productWithSelection);
 
   const {title, descriptionHtml} = product;
-
-  console.log({product});
 
   return (
     <>
@@ -313,8 +315,14 @@ export default function Product() {
             </div>
             <br />
             <div id="customize">
+              {hasPresentationMap ? (
+                <VariantOptionPickers
+                  product={productWithSelection}
+                  presentationMap={presentationMap}
+                />
+              ) : null}
               <ProductForm
-                productOptions={productOptions}
+                productOptions={hasPresentationMap ? undefined : productOptions}
                 selectedVariant={selectedVariant}
               />
             </div>
@@ -412,6 +420,11 @@ const PRODUCT_FRAGMENT = `#graphql
             }
           }
         }
+      }
+    }
+    variants(first: 250) {
+      nodes {
+        ...ProductVariant
       }
     }
     selectedOrFirstAvailableVariant(selectedOptions: $selectedOptions, ignoreUnknownOptions: true, caseInsensitiveMatch: true) {
