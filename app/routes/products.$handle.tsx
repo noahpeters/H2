@@ -80,6 +80,21 @@ function loadDeferredData({context, params}: Route.LoaderArgs) {
 }
 
 const styles = stylex.create({
+  product: {
+    display: 'grid',
+    '@media (min-width: 45em)': {
+      gridTemplateColumns: '1fr 1fr',
+      gap: '4rem',
+    },
+  },
+  productTitle: {
+    marginTop: 0,
+  },
+  productMain: {
+    alignSelf: 'start',
+    position: 'sticky',
+    top: '6rem',
+  },
   priceRange: {
     display: 'flex',
     gap: 4,
@@ -172,14 +187,14 @@ export default function Product() {
     <>
       <section>
         <div role="presentation" />
-        <div className="product">
+        <div className={stylex(styles.product)}>
           {selectedVariant.product.media && (
             <div>
               <ProductImage image={selectedVariant?.image} />
             </div>
           )}
-          <div className="product-main">
-            <h1>{title}</h1>
+          <div className={stylex(styles.productMain)}>
+            <h1 className={stylex(styles.productTitle)}>{title}</h1>
             <div className={stylex(styles.priceRange)}>
               <ProductPrice price={product.priceRange.minVariantPrice} />-
               <ProductPrice price={product.priceRange.maxVariantPrice} />
@@ -261,7 +276,7 @@ export default function Product() {
         </div>
       </section>
       <section>
-        <div className="product">
+        <div className={stylex(styles.product)}>
           <div>
             {selectedVariant.product.media.nodes.length > 1 ? (
               <Carousel>
@@ -288,7 +303,7 @@ export default function Product() {
               <ProductImage image={selectedVariant?.image} />
             )}
           </div>
-          <div className="product-main">
+          <div className={stylex(styles.productMain)}>
             <div className={stylex(styles.priceRange)}>
               <strong>Configured Price: </strong>
               <ProductPrice

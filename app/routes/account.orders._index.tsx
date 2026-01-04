@@ -23,11 +23,52 @@ import type {
   OrderItemFragment,
 } from 'customer-accountapi.generated';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
+import stylex from '~/lib/stylex';
 
 type OrdersLoaderData = {
   customer: CustomerOrdersFragment;
   filters: OrderFilterParams;
 };
+
+const styles = stylex.create({
+  searchForm: {
+    marginBottom: '1.5rem',
+  },
+  searchFieldset: {
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#e5e5e5',
+    borderRadius: 4,
+    padding: '1rem',
+  },
+  searchLegend: {
+    fontWeight: 600,
+    padding: '0 0.5rem',
+  },
+  searchInputs: {
+    display: 'grid',
+    gap: '1rem',
+    margin: '0.25rem 0 1rem',
+    gridTemplateColumns: '1fr',
+    '@media (min-width: 640px)': {
+      gridTemplateColumns: '1fr 1fr',
+    },
+  },
+  searchInput: {
+    width: '100%',
+    padding: '0.5rem',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#d1d5db',
+    borderRadius: 4,
+    fontSize: '1rem',
+  },
+  searchButtons: {
+    display: 'flex',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+  },
+});
 
 export const meta: Route.MetaFunction = () => {
   return [{title: 'Orders'}];
@@ -152,20 +193,20 @@ function OrderSearchForm({
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="order-search-form"
+      className={stylex(styles.searchForm)}
       aria-label="Search orders"
     >
-      <fieldset className="order-search-fieldset">
-        <legend className="order-search-legend">Filter Orders</legend>
+      <fieldset className={stylex(styles.searchFieldset)}>
+        <legend className={stylex(styles.searchLegend)}>Filter Orders</legend>
 
-        <div className="order-search-inputs">
+        <div className={stylex(styles.searchInputs)}>
           <input
             type="search"
             name={ORDER_FILTER_FIELDS.NAME}
             placeholder="Order #"
             aria-label="Order number"
             defaultValue={currentFilters.name || ''}
-            className="order-search-input"
+            className={stylex(styles.searchInput)}
           />
           <input
             type="search"
@@ -173,11 +214,11 @@ function OrderSearchForm({
             placeholder="Confirmation #"
             aria-label="Confirmation number"
             defaultValue={currentFilters.confirmationNumber || ''}
-            className="order-search-input"
+            className={stylex(styles.searchInput)}
           />
         </div>
 
-        <div className="order-search-buttons">
+        <div className={stylex(styles.searchButtons)}>
           <button type="submit" disabled={isSearching}>
             {isSearching ? 'Searching' : 'Search'}
           </button>

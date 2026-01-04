@@ -1,5 +1,16 @@
 import {Money} from '@shopify/hydrogen';
 import type {MoneyV2} from '@shopify/hydrogen/storefront-api-types';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  onSale: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  compareAt: {
+    opacity: 0.5,
+  },
+});
 
 export function ProductPrice({
   price,
@@ -9,11 +20,11 @@ export function ProductPrice({
   compareAtPrice?: MoneyV2 | null;
 }) {
   return (
-    <div className="product-price">
+    <div>
       {compareAtPrice ? (
-        <div className="product-price-on-sale">
+        <div className={stylex(styles.onSale)}>
           {price ? <Money data={price} withoutTrailingZeros /> : null}
-          <s>
+          <s className={stylex(styles.compareAt)}>
             <Money data={compareAtPrice} withoutTrailingZeros />
           </s>
         </div>

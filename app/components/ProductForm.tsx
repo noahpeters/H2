@@ -15,6 +15,31 @@ const styles = stylex.create({
     display: 'flex',
     gap: '1rem',
   },
+  optionsGrid: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.75rem',
+  },
+  optionItem: {
+    padding: '0.25rem 0.5rem',
+    backgroundColor: 'transparent',
+    fontSize: '1rem',
+    fontFamily: 'inherit',
+  },
+  optionItemLink: {
+    ':hover': {
+      textDecoration: 'underline',
+      cursor: 'pointer',
+    },
+  },
+  swatch: {
+    width: '1.25rem',
+    height: '1.25rem',
+    margin: '0.25rem 0',
+  },
+  swatchImage: {
+    width: '100%',
+  },
 });
 
 export function ProductForm({
@@ -38,19 +63,19 @@ export function ProductForm({
     : [];
 
   return (
-    <div className="product-form">
+    <div>
       {productOptions.map((option) => {
         // If there is only a single value in the option values, don't display the option
         if (option.optionValues.length === 1) return null;
 
         return (
-          <div className="product-options" key={option.name}>
-            <h5>{option.name}</h5>
-            <div className="product-options-grid">
-              {option.optionValues.map((value) => {
-                const {
-                  name,
-                  handle,
+            <div key={option.name}>
+              <h5>{option.name}</h5>
+              <div className={stylex(styles.optionsGrid)}>
+                {option.optionValues.map((value) => {
+                  const {
+                    name,
+                    handle,
                   variantUriQuery,
                   selected,
                   available,
@@ -66,7 +91,7 @@ export function ProductForm({
                   // as an anchor tag
                   return (
                     <Link
-                      className="product-options-item"
+                      className={stylex(styles.optionItem)}
                       key={option.name + name}
                       prefetch="intent"
                       preventScrollReset
@@ -91,9 +116,10 @@ export function ProductForm({
                   return (
                     <button
                       type="button"
-                      className={`product-options-item${
-                        exists && !selected ? ' link' : ''
-                      }`}
+                      className={stylex(
+                        styles.optionItem,
+                        exists && !selected && styles.optionItemLink,
+                      )}
                       key={option.name + name}
                       style={{
                         border: selected
@@ -157,12 +183,14 @@ function ProductOptionSwatch({
   return (
     <div
       aria-label={name}
-      className="product-option-label-swatch"
+      className={stylex(styles.swatch)}
       style={{
         backgroundColor: color || 'transparent',
       }}
     >
-      {!!image && <img src={image} alt={name} />}
+      {!!image && (
+        <img src={image} alt={name} className={stylex(styles.swatchImage)} />
+      )}
     </div>
   );
 }

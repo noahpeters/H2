@@ -3,6 +3,19 @@ import type {Route} from './+types/collections._index';
 import {getPaginationVariables, Image} from '@shopify/hydrogen';
 import type {CollectionFragment} from 'storefrontapi.generated';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  collectionsGrid: {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    marginBottom: '2rem',
+  },
+  collectionImage: {
+    height: 'auto',
+  },
+});
 
 export async function loader(args: Route.LoaderArgs) {
   // Start fetching non-critical data without blocking time to first byte
@@ -46,11 +59,11 @@ export default function Collections() {
   const {collections} = useLoaderData<typeof loader>();
 
   return (
-    <div className="collections">
+    <div>
       <h1>Collections</h1>
       <PaginatedResourceSection<CollectionFragment>
         connection={collections}
-        resourcesClassName="collections-grid"
+        resourcesClassName={stylex(styles.collectionsGrid)}
       >
         {({node: collection, index}) => (
           <CollectionItem
@@ -85,6 +98,7 @@ function CollectionItem({
           data={collection.image}
           loading={index < 3 ? 'eager' : undefined}
           sizes="(min-width: 45em) 400px, 100vw"
+          className={stylex(styles.collectionImage)}
         />
       )}
       <h5>{collection.title}</h5>

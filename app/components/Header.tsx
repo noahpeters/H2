@@ -7,6 +7,7 @@ import {
 } from '@shopify/hydrogen';
 import type {HeaderQuery, CartApiQueryFragment} from 'storefrontapi.generated';
 import {useAside} from '~/components/Aside';
+import stylex from '~/lib/stylex';
 
 interface HeaderProps {
   header: HeaderQuery;
@@ -17,6 +18,62 @@ interface HeaderProps {
 
 type Viewport = 'desktop' | 'mobile';
 
+const styles = stylex.create({
+  header: {
+    alignItems: 'center',
+    backgroundColor: 'var(--color-primary)',
+    color: 'var(--color-light)',
+    display: 'flex',
+    height: 'var(--header-height)',
+    padding: '0 1rem',
+    position: 'sticky',
+    top: 0,
+    zIndex: 1,
+  },
+  link: {
+    color: 'inherit',
+    textDecoration: 'none',
+  },
+  menuMobile: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+  },
+  menuDesktop: {
+    display: 'none',
+    gap: '1rem',
+    '@media (min-width: 45em)': {
+      display: 'flex',
+      marginLeft: '3rem',
+    },
+  },
+  menuItem: {
+    cursor: 'pointer',
+  },
+  ctas: {
+    alignItems: 'center',
+    display: 'flex',
+    gap: '1rem',
+    marginLeft: 'auto',
+  },
+  ctaItem: {
+    minWidth: 'fit-content',
+  },
+  menuMobileToggle: {
+    '@media (min-width: 48em)': {
+      display: 'none',
+    },
+  },
+  resetButton: {
+    backgroundColor: 'inherit',
+    borderWidth: 0,
+    borderStyle: 'none',
+    borderColor: 'transparent',
+    fontSize: 'inherit',
+    cursor: 'pointer',
+  },
+});
+
 export function Header({
   header,
   isLoggedIn,
@@ -25,8 +82,14 @@ export function Header({
 }: HeaderProps) {
   const {shop, menu} = header;
   return (
-    <header className="header">
-      <NavLink prefetch="intent" to="/" style={activeLinkStyle} end>
+    <header className={stylex(styles.header)}>
+      <NavLink
+        prefetch="intent"
+        to="/"
+        style={activeLinkStyle}
+        end
+        className={stylex(styles.link)}
+      >
         <strong>{shop.name}</strong>
       </NavLink>
       <HeaderMenu
@@ -51,11 +114,12 @@ export function HeaderMenu({
   viewport: Viewport;
   publicStoreDomain: HeaderProps['publicStoreDomain'];
 }) {
-  const className = `header-menu-${viewport}`;
+  const className =
+    viewport === 'mobile' ? styles.menuMobile : styles.menuDesktop;
   const {close} = useAside();
 
   return (
-    <nav className={className} role="navigation">
+    <nav className={stylex(className)} role="navigation">
       {viewport === 'mobile' && (
         <NavLink
           end
@@ -63,6 +127,7 @@ export function HeaderMenu({
           prefetch="intent"
           style={activeLinkStyle}
           to="/"
+          className={stylex(styles.link, styles.menuItem)}
         >
           Home
         </NavLink>
@@ -79,25 +144,25 @@ export function HeaderMenu({
             : item.url;
         return (
           <NavLink
-            className="header-menu-item"
             end
             key={item.id}
             onClick={close}
             prefetch="intent"
             style={activeLinkStyle}
             to={url}
+            className={stylex(styles.link, styles.menuItem)}
           >
             {item.title}
           </NavLink>
         );
       })}
       <NavLink
-        className="header-menu-item"
         end
         onClick={close}
         prefetch="intent"
         style={activeLinkStyle}
         to="/contact"
+        className={stylex(styles.link, styles.menuItem)}
       >
         Contact
       </NavLink>
@@ -110,7 +175,7 @@ function HeaderCtas({
   cart,
 }: Pick<HeaderProps, 'isLoggedIn' | 'cart'>) {
   return (
-    <nav className="header-ctas" role="navigation">
+    <nav className={stylex(styles.ctas)} role="navigation">
       <HeaderMenuMobileToggle />
       {/* <NavLink prefetch="intent" to="/account" style={activeLinkStyle}>
         <Suspense fallback="Sign in">
@@ -129,7 +194,11 @@ function HeaderMenuMobileToggle() {
   const {open} = useAside();
   return (
     <button
-      className="header-menu-mobile-toggle reset"
+      className={stylex(
+        styles.resetButton,
+        styles.menuMobileToggle,
+        styles.ctaItem,
+      )}
       onClick={() => open('mobile')}
     >
       <h3>☰</h3>
@@ -140,7 +209,10 @@ function HeaderMenuMobileToggle() {
 function SearchToggle() {
   const {open} = useAside();
   return (
-    <button className="reset" onClick={() => open('search')}>
+    <button
+      className={stylex(styles.resetButton, styles.ctaItem)}
+      onClick={() => open('search')}
+    >
       Search
     </button>
   );
@@ -153,6 +225,7 @@ function CartBadge({count}: {count: number | null}) {
   return (
     <a
       href="/cart"
+      className={stylex(styles.link, styles.ctaItem)}
       onClick={(e) => {
         e.preventDefault();
         open('cart');

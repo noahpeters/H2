@@ -8,6 +8,39 @@ import type {
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
 import Carousel from '~/components/Carousel';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  featuredCollection: {
+    display: 'block',
+    marginBottom: '2rem',
+    position: 'relative',
+  },
+  featuredCollectionImage: {
+    aspectRatio: '1 / 1',
+    '@media (min-width: 45em)': {
+      aspectRatio: '16 / 9',
+    },
+  },
+  featuredCollectionImageMedia: {
+    height: 'auto',
+    maxHeight: '100%',
+    objectFit: 'cover',
+  },
+  featuredCollectionProductsGrid: {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+  },
+  recommendedProductsGrid: {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    '@media (min-width: 45em)': {
+      gridTemplateColumns: 'repeat(4, 1fr)',
+    },
+  },
+});
 
 export const meta: Route.MetaFunction = () => {
   return [{title: 'from trees'}];
@@ -60,7 +93,7 @@ function loadDeferredData({context}: Route.LoaderArgs) {
 export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
-    <div className="home">
+    <div>
       <FeaturedCollection collection={data.featuredCollection} />
       <RecommendedProducts products={data.recommendedProducts} />
     </div>
@@ -75,16 +108,20 @@ function FeaturedCollection({
   if (!collection) return null;
   const image = collection?.image;
   return (
-    <div className="featured-collection">
+    <div className={stylex(styles.featuredCollection)}>
       <Link to={`/collections/${collection.handle}`}>
         {image && (
-          <div className="featured-collection-image">
-            <Image data={image} sizes="100vw" />
+          <div className={stylex(styles.featuredCollectionImage)}>
+            <Image
+              data={image}
+              sizes="100vw"
+              className={stylex(styles.featuredCollectionImageMedia)}
+            />
           </div>
         )}
         <h1>{collection.title}</h1>
       </Link>
-      <div className="featured-collection-products-grid">
+      <div className={stylex(styles.featuredCollectionProductsGrid)}>
         <Carousel>
           {collection.products.nodes.length > 0 &&
             collection.products.nodes.map((product) => (
@@ -102,12 +139,12 @@ function RecommendedProducts({
   products: Promise<RecommendedProductsQuery | null>;
 }) {
   return (
-    <div className="recommended-products">
+    <div>
       <h2>Recommended Products</h2>
       <Suspense fallback={<div>Loading...</div>}>
         <Await resolve={products}>
           {(response) => (
-            <div className="recommended-products-grid">
+            <div className={stylex(styles.recommendedProductsGrid)}>
               {response
                 ? response.products.nodes.map((product) => (
                     <ProductItem key={product.id} product={product} />

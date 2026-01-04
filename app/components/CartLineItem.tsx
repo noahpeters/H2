@@ -6,8 +6,24 @@ import {Link} from 'react-router';
 import {ProductPrice} from './ProductPrice';
 import {useAside} from './Aside';
 import type {CartApiQueryFragment} from 'storefrontapi.generated';
+import stylex from '~/lib/stylex';
 
 type CartLine = OptimisticCartLine<CartApiQueryFragment>;
+
+const styles = stylex.create({
+  line: {
+    display: 'flex',
+    padding: '0.75rem 0',
+  },
+  image: {
+    display: 'block',
+    height: '100%',
+    marginRight: '0.75rem',
+  },
+  quantity: {
+    display: 'flex',
+  },
+});
 
 /**
  * A single line item in the cart. It displays the product image, title, price.
@@ -26,7 +42,7 @@ export function CartLineItem({
   const {close} = useAside();
 
   return (
-    <li key={id} className="cart-line">
+    <li key={id} className={stylex(styles.line)}>
       {image && (
         <Image
           alt={title}
@@ -35,6 +51,7 @@ export function CartLineItem({
           height={100}
           loading="lazy"
           width={100}
+          className={stylex(styles.image)}
         />
       )}
 
@@ -80,7 +97,7 @@ function CartLineQuantity({line}: {line: CartLine}) {
   const nextQuantity = Number((quantity + 1).toFixed(0));
 
   return (
-    <div className="cart-line-quantity">
+    <div className={stylex(styles.quantity)}>
       <small>Quantity: {quantity} &nbsp;&nbsp;</small>
       <CartLineUpdateButton lines={[{id: lineId, quantity: prevQuantity}]}>
         <button

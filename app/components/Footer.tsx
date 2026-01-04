@@ -1,12 +1,32 @@
 import {Suspense} from 'react';
 import {Await, NavLink} from 'react-router';
 import type {FooterQuery, HeaderQuery} from 'storefrontapi.generated';
+import stylex from '~/lib/stylex';
 
 interface FooterProps {
   footer: Promise<FooterQuery | null>;
   header: HeaderQuery;
   publicStoreDomain: string;
 }
+
+const styles = stylex.create({
+  footer: {
+    backgroundColor: 'var(--color-dark)',
+    marginTop: 'auto',
+  },
+  menu: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '1rem',
+    justifyContent: 'center',
+    padding: '1rem',
+  },
+  link: {
+    color: 'var(--color-light)',
+    minWidth: 'fit-content',
+    textDecoration: 'none',
+  },
+});
 
 export function Footer({
   footer: footerPromise,
@@ -17,7 +37,7 @@ export function Footer({
     <Suspense>
       <Await resolve={footerPromise}>
         {(footer) => (
-          <footer className="footer">
+          <footer className={stylex(styles.footer)}>
             {footer?.menu && header.shop.primaryDomain?.url && (
               <FooterMenu
                 menu={footer.menu}
@@ -42,7 +62,7 @@ function FooterMenu({
   publicStoreDomain: string;
 }) {
   return (
-    <nav className="footer-menu" role="navigation">
+    <nav className={stylex(styles.menu)} role="navigation">
       {(menu || FALLBACK_FOOTER_MENU).items.map((item) => {
         if (!item.url) return null;
         // if the url is internal, we strip the domain
@@ -54,7 +74,13 @@ function FooterMenu({
             : item.url;
         const isExternal = !url.startsWith('/');
         return isExternal ? (
-          <a href={url} key={item.id} rel="noopener noreferrer" target="_blank">
+          <a
+            href={url}
+            key={item.id}
+            rel="noopener noreferrer"
+            target="_blank"
+            className={stylex(styles.link)}
+          >
             {item.title}
           </a>
         ) : (
@@ -64,6 +90,7 @@ function FooterMenu({
             prefetch="intent"
             style={activeLinkStyle}
             to={url}
+            className={stylex(styles.link)}
           >
             {item.title}
           </NavLink>

@@ -2,6 +2,17 @@ import {useLoaderData} from 'react-router';
 import type {Route} from './+types/blogs.$blogHandle.$articleHandle';
 import {Image} from '@shopify/hydrogen';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  articleImage: {
+    height: 'auto',
+    width: '100%',
+  },
+  articleContent: {
+    width: '100%',
+  },
+});
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [{title: `Hydrogen | ${data?.article.title ?? ''} article`}];
@@ -76,7 +87,7 @@ export default function Article() {
   }).format(new Date(article.publishedAt));
 
   return (
-    <div className="article">
+    <div>
       <h1>
         {title}
         <div>
@@ -85,10 +96,18 @@ export default function Article() {
         </div>
       </h1>
 
-      {image && <Image data={image} sizes="90vw" loading="eager" />}
+      {image && (
+        <Image
+          data={image}
+          sizes="90vw"
+          loading="eager"
+          className={stylex(styles.articleImage)}
+        />
+      )}
+      <style>{`.article-content img { height: auto; width: 100%; }`}</style>
       <div
         dangerouslySetInnerHTML={{__html: contentHtml}}
-        className="article"
+        className={`${stylex(styles.articleContent)} article-content`}
       />
     </div>
   );

@@ -4,6 +4,23 @@ import {Image, getPaginationVariables} from '@shopify/hydrogen';
 import type {ArticleItemFragment} from 'storefrontapi.generated';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  blogGrid: {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    marginBottom: '2rem',
+  },
+  articleImage: {
+    aspectRatio: '3 / 2',
+    display: 'block',
+  },
+  articleImageMedia: {
+    height: '100%',
+  },
+});
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [{title: `Hydrogen | ${data?.blog.title ?? ''} blog`}];
@@ -65,9 +82,9 @@ export default function Blog() {
   const {articles} = blog;
 
   return (
-    <div className="blog">
+    <div>
       <h1>{blog.title}</h1>
-      <div className="blog-grid">
+      <div className={stylex(styles.blogGrid)}>
         <PaginatedResourceSection<ArticleItemFragment> connection={articles}>
           {({node: article, index}) => (
             <ArticleItem
@@ -95,16 +112,17 @@ function ArticleItem({
     day: 'numeric',
   }).format(new Date(article.publishedAt!));
   return (
-    <div className="blog-article" key={article.id}>
+    <div key={article.id}>
       <Link to={`/blogs/${article.blog.handle}/${article.handle}`}>
         {article.image && (
-          <div className="blog-article-image">
+          <div className={stylex(styles.articleImage)}>
             <Image
               alt={article.image.altText || article.title}
               aspectRatio="3/2"
               data={article.image}
               loading={loading}
               sizes="(min-width: 768px) 50vw, 100vw"
+              className={stylex(styles.articleImageMedia)}
             />
           </div>
         )}

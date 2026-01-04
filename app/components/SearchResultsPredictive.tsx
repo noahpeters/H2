@@ -7,6 +7,7 @@ import {
   type PredictiveSearchReturn,
 } from '~/lib/search';
 import {useAside} from './Aside';
+import stylex from '~/lib/stylex';
 
 type PredictiveSearchItems = PredictiveSearchReturn['result']['items'];
 
@@ -35,6 +36,26 @@ type PartialPredictiveSearchResult<
 type SearchResultsPredictiveProps = {
   children: (args: SearchResultsPredictiveArgs) => React.ReactNode;
 };
+
+const styles = stylex.create({
+  result: {
+    marginBottom: '2rem',
+  },
+  resultTitle: {
+    textTransform: 'uppercase',
+  },
+  resultItem: {
+    marginBottom: '0.5rem',
+  },
+  resultLink: {
+    alignItems: 'center',
+    display: 'flex',
+  },
+  resultImage: {
+    marginRight: '0.75rem',
+    height: '100%',
+  },
+});
 
 /**
  * Component that renders predictive search results
@@ -88,8 +109,8 @@ function SearchResultsPredictiveArticles({
   if (!articles.length) return null;
 
   return (
-    <div className="predictive-search-result" key="articles">
-      <h5>Articles</h5>
+    <div className={stylex(styles.result)} key="articles">
+      <h5 className={stylex(styles.resultTitle)}>Articles</h5>
       <ul>
         {articles.map((article) => {
           const articleUrl = urlWithTrackingParams({
@@ -99,14 +120,19 @@ function SearchResultsPredictiveArticles({
           });
 
           return (
-            <li className="predictive-search-result-item" key={article.id}>
-              <Link onClick={closeSearch} to={articleUrl}>
+            <li className={stylex(styles.resultItem)} key={article.id}>
+              <Link
+                onClick={closeSearch}
+                to={articleUrl}
+                className={stylex(styles.resultLink)}
+              >
                 {article.image?.url && (
                   <Image
                     alt={article.image.altText ?? ''}
                     src={article.image.url}
                     width={50}
                     height={50}
+                    className={stylex(styles.resultImage)}
                   />
                 )}
                 <div>
@@ -129,8 +155,8 @@ function SearchResultsPredictiveCollections({
   if (!collections.length) return null;
 
   return (
-    <div className="predictive-search-result" key="collections">
-      <h5>Collections</h5>
+    <div className={stylex(styles.result)} key="collections">
+      <h5 className={stylex(styles.resultTitle)}>Collections</h5>
       <ul>
         {collections.map((collection) => {
           const collectionUrl = urlWithTrackingParams({
@@ -140,14 +166,19 @@ function SearchResultsPredictiveCollections({
           });
 
           return (
-            <li className="predictive-search-result-item" key={collection.id}>
-              <Link onClick={closeSearch} to={collectionUrl}>
+            <li className={stylex(styles.resultItem)} key={collection.id}>
+              <Link
+                onClick={closeSearch}
+                to={collectionUrl}
+                className={stylex(styles.resultLink)}
+              >
                 {collection.image?.url && (
                   <Image
                     alt={collection.image.altText ?? ''}
                     src={collection.image.url}
                     width={50}
                     height={50}
+                    className={stylex(styles.resultImage)}
                   />
                 )}
                 <div>
@@ -170,8 +201,8 @@ function SearchResultsPredictivePages({
   if (!pages.length) return null;
 
   return (
-    <div className="predictive-search-result" key="pages">
-      <h5>Pages</h5>
+    <div className={stylex(styles.result)} key="pages">
+      <h5 className={stylex(styles.resultTitle)}>Pages</h5>
       <ul>
         {pages.map((page) => {
           const pageUrl = urlWithTrackingParams({
@@ -181,8 +212,12 @@ function SearchResultsPredictivePages({
           });
 
           return (
-            <li className="predictive-search-result-item" key={page.id}>
-              <Link onClick={closeSearch} to={pageUrl}>
+            <li className={stylex(styles.resultItem)} key={page.id}>
+              <Link
+                onClick={closeSearch}
+                to={pageUrl}
+                className={stylex(styles.resultLink)}
+              >
                 <div>
                   <span>{page.title}</span>
                 </div>
@@ -203,8 +238,8 @@ function SearchResultsPredictiveProducts({
   if (!products.length) return null;
 
   return (
-    <div className="predictive-search-result" key="products">
-      <h5>Products</h5>
+    <div className={stylex(styles.result)} key="products">
+      <h5 className={stylex(styles.resultTitle)}>Products</h5>
       <ul>
         {products.map((product) => {
           const productUrl = urlWithTrackingParams({
@@ -216,14 +251,19 @@ function SearchResultsPredictiveProducts({
           const price = product?.selectedOrFirstAvailableVariant?.price;
           const image = product?.selectedOrFirstAvailableVariant?.image;
           return (
-            <li className="predictive-search-result-item" key={product.id}>
-              <Link to={productUrl} onClick={closeSearch}>
+            <li className={stylex(styles.resultItem)} key={product.id}>
+              <Link
+                to={productUrl}
+                onClick={closeSearch}
+                className={stylex(styles.resultLink)}
+              >
                 {image && (
                   <Image
                     alt={image.altText ?? ''}
                     src={image.url}
                     width={50}
                     height={50}
+                    className={stylex(styles.resultImage)}
                   />
                 )}
                 <div>

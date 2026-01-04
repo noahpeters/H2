@@ -1,6 +1,7 @@
 import {Link} from 'react-router';
 import {Image, Money, Pagination} from '@shopify/hydrogen';
 import {urlWithTrackingParams, type RegularSearchReturn} from '~/lib/search';
+import stylex from '~/lib/stylex';
 
 type SearchItems = RegularSearchReturn['result']['items'];
 type PartialSearchResult<ItemType extends keyof SearchItems> = Pick<
@@ -12,6 +13,20 @@ type PartialSearchResult<ItemType extends keyof SearchItems> = Pick<
 type SearchResultsProps = RegularSearchReturn & {
   children: (args: SearchItems & {term: string}) => React.ReactNode;
 };
+
+const styles = stylex.create({
+  result: {
+    marginBottom: '1.5rem',
+  },
+  item: {
+    marginBottom: '0.5rem',
+  },
+  itemLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+});
 
 export function SearchResults({
   term,
@@ -39,7 +54,7 @@ function SearchResultsArticles({
   }
 
   return (
-    <div className="search-result">
+    <div className={stylex(styles.result)}>
       <h2>Articles</h2>
       <div>
         {articles?.nodes?.map((article) => {
@@ -50,8 +65,12 @@ function SearchResultsArticles({
           });
 
           return (
-            <div className="search-results-item" key={article.id}>
-              <Link prefetch="intent" to={articleUrl}>
+            <div className={stylex(styles.item)} key={article.id}>
+              <Link
+                prefetch="intent"
+                to={articleUrl}
+                className={stylex(styles.itemLink)}
+              >
                 {article.title}
               </Link>
             </div>
@@ -69,7 +88,7 @@ function SearchResultsPages({term, pages}: PartialSearchResult<'pages'>) {
   }
 
   return (
-    <div className="search-result">
+    <div className={stylex(styles.result)}>
       <h2>Pages</h2>
       <div>
         {pages?.nodes?.map((page) => {
@@ -80,8 +99,12 @@ function SearchResultsPages({term, pages}: PartialSearchResult<'pages'>) {
           });
 
           return (
-            <div className="search-results-item" key={page.id}>
-              <Link prefetch="intent" to={pageUrl}>
+            <div className={stylex(styles.item)} key={page.id}>
+              <Link
+                prefetch="intent"
+                to={pageUrl}
+                className={stylex(styles.itemLink)}
+              >
                 {page.title}
               </Link>
             </div>
@@ -102,7 +125,7 @@ function SearchResultsProducts({
   }
 
   return (
-    <div className="search-result">
+    <div className={stylex(styles.result)}>
       <h2>Products</h2>
       <Pagination connection={products}>
         {({nodes, isLoading, NextLink, PreviousLink}) => {
@@ -117,8 +140,12 @@ function SearchResultsProducts({
             const image = product?.selectedOrFirstAvailableVariant?.image;
 
             return (
-              <div className="search-results-item" key={product.id}>
-                <Link prefetch="intent" to={productUrl}>
+              <div className={stylex(styles.item)} key={product.id}>
+                <Link
+                  prefetch="intent"
+                  to={productUrl}
+                  className={stylex(styles.itemLink)}
+                >
                   {image && (
                     <Image data={image} alt={product.title} width={50} />
                   )}

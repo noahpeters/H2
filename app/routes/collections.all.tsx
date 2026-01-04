@@ -4,6 +4,16 @@ import {getPaginationVariables, Image, Money} from '@shopify/hydrogen';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {ProductItem} from '~/components/ProductItem';
 import type {CollectionItemFragment} from 'storefrontapi.generated';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  productsGrid: {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    marginBottom: '2rem',
+  },
+});
 
 export const meta: Route.MetaFunction = () => {
   return [{title: `Hydrogen | Products`}];
@@ -51,11 +61,11 @@ export default function Collection() {
   const {products} = useLoaderData<typeof loader>();
 
   return (
-    <div className="collection">
+    <div>
       <h1>Products</h1>
       <PaginatedResourceSection<CollectionItemFragment>
         connection={products}
-        resourcesClassName="products-grid"
+        resourcesClassName={stylex(styles.productsGrid)}
       >
         {({node: product, index}) => (
           <ProductItem

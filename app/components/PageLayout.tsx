@@ -14,6 +14,7 @@ import {
   SearchFormPredictive,
 } from '~/components/SearchFormPredictive';
 import {SearchResultsPredictive} from '~/components/SearchResultsPredictive';
+import stylex from '~/lib/stylex';
 
 interface PageLayoutProps {
   cart: Promise<CartApiQueryFragment | null>;
@@ -23,6 +24,13 @@ interface PageLayoutProps {
   publicStoreDomain: string;
   children?: React.ReactNode;
 }
+
+const styles = stylex.create({
+  predictiveSearch: {
+    height: 'calc(100vh - var(--header-height) - 40px)',
+    overflowY: 'auto',
+  },
+});
 
 export function PageLayout({
   cart,
@@ -73,7 +81,7 @@ function SearchAside() {
   const queriesDatalistId = 'predictive-search-queries';
   return (
     <Aside type="search" heading="SEARCH">
-      <div className="predictive-search">
+      <div className={stylex(styles.predictiveSearch)}>
         <br />
         <SearchFormPredictive>
           {({fetchResults, goToSearch, inputRef}) => (

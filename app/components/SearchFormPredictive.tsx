@@ -7,6 +7,7 @@ import {
 import React, {useRef, useEffect} from 'react';
 import type {PredictiveSearchReturn} from '~/lib/search';
 import {useAside} from './Aside';
+import stylex from '~/lib/stylex';
 
 type SearchFormPredictiveChildren = (args: {
   fetchResults: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -19,6 +20,14 @@ type SearchFormPredictiveProps = Omit<FormProps, 'children'> & {
   children: SearchFormPredictiveChildren | null;
 };
 
+const styles = stylex.create({
+  form: {
+    backgroundColor: 'var(--color-light)',
+    position: 'sticky',
+    top: 0,
+  },
+});
+
 export const SEARCH_ENDPOINT = '/search';
 
 /**
@@ -26,7 +35,6 @@ export const SEARCH_ENDPOINT = '/search';
  **/
 export function SearchFormPredictive({
   children,
-  className = 'predictive-search-form',
   ...props
 }: SearchFormPredictiveProps) {
   const fetcher = useFetcher<PredictiveSearchReturn>({key: 'search'});
@@ -69,7 +77,7 @@ export function SearchFormPredictive({
   }
 
   return (
-    <fetcher.Form {...props} className={className} onSubmit={resetInput}>
+    <fetcher.Form {...props} className={stylex(styles.form)} onSubmit={resetInput}>
       {children({inputRef, fetcher, fetchResults, goToSearch})}
     </fetcher.Form>
   );

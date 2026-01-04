@@ -6,6 +6,14 @@ import type {
   RecommendedProductFragment,
 } from 'storefrontapi.generated';
 import {useVariantUrl} from '~/lib/variants';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  image: {
+    height: 'auto',
+    width: '100%',
+  },
+});
 
 export function ProductItem({
   product,
@@ -21,7 +29,6 @@ export function ProductItem({
   const image = product.featuredImage;
   return (
     <Link
-      className="product-item"
       key={product.id}
       prefetch="intent"
       to={variantUrl}
@@ -33,6 +40,7 @@ export function ProductItem({
           data={image}
           loading={loading}
           sizes="(min-width: 45em) 400px, 100vw"
+          className={stylex(styles.image)}
         />
       )}
       <h4>{product.title}</h4>

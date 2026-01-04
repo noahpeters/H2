@@ -4,20 +4,45 @@ import {CartForm, Money, type OptimisticCart} from '@shopify/hydrogen';
 import {useEffect, useRef} from 'react';
 import {useFetcher} from 'react-router';
 import type {FetcherWithComponents} from 'react-router';
+import stylex from '~/lib/stylex';
 
 type CartSummaryProps = {
   cart: OptimisticCart<CartApiQueryFragment | null>;
   layout: CartLayout;
 };
 
+const styles = stylex.create({
+  summaryPage: {
+    position: 'relative',
+  },
+  summaryAside: {
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--color-dark)',
+    bottom: 0,
+    paddingTop: '0.75rem',
+    position: 'absolute',
+    width: 'calc(var(--aside-width) - 40px)',
+  },
+  subtotal: {
+    alignItems: 'center',
+    display: 'flex',
+  },
+  discount: {
+    alignItems: 'center',
+    display: 'flex',
+    marginTop: '0.25rem',
+  },
+});
+
 export function CartSummary({cart, layout}: CartSummaryProps) {
-  const className =
-    layout === 'page' ? 'cart-summary-page' : 'cart-summary-aside';
+  const className = layout === 'page' ? styles.summaryPage : styles.summaryAside;
 
   return (
-    <div aria-labelledby="cart-summary" className={className}>
+    <div aria-labelledby="cart-summary" className={stylex(className)}>
       <h4>Totals</h4>
-      <dl className="cart-subtotal">
+      <dl className={stylex(styles.subtotal)}>
         <dt>Subtotal</dt>
         <dd>
           {cart?.cost?.subtotalAmount?.amount ? (
@@ -64,7 +89,7 @@ function CartDiscounts({
         <div>
           <dt>Discount(s)</dt>
           <UpdateDiscountForm>
-            <div className="cart-discount">
+            <div className={stylex(styles.discount)}>
               <code>{codes?.join(', ')}</code>
               &nbsp;
               <button>Remove</button>
@@ -136,7 +161,7 @@ function CartGiftCard({
           <dt>Applied Gift Card(s)</dt>
           {giftCardCodes.map((giftCard) => (
             <RemoveGiftCardForm key={giftCard.id} giftCardId={giftCard.id}>
-              <div className="cart-discount">
+              <div className={stylex(styles.discount)}>
                 <code>***{giftCard.lastCharacters}</code>
                 &nbsp;
                 <Money data={giftCard.amountUsed} />

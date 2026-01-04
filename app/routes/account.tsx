@@ -7,6 +7,13 @@ import {
 } from 'react-router';
 import type {Route} from './+types/account';
 import {CUSTOMER_DETAILS_QUERY} from '~/graphql/customer-account/CustomerDetailsQuery';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  logout: {
+    display: 'inline-block',
+  },
+});
 
 export function shouldRevalidate() {
   return true;
@@ -90,7 +97,7 @@ function AccountMenu() {
 
 function Logout() {
   return (
-    <Form className="account-logout" method="POST" action="/account/logout">
+    <Form className={stylex(styles.logout)} method="POST" action="/account/logout">
       &nbsp;<button type="submit">Sign out</button>
     </Form>
   );

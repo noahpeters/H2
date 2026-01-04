@@ -5,6 +5,23 @@ import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {ProductItem} from '~/components/ProductItem';
 import type {ProductItemFragment} from 'storefrontapi.generated';
+import stylex from '~/lib/stylex';
+
+const styles = stylex.create({
+  description: {
+    marginBottom: '1rem',
+    maxWidth: '95%',
+    '@media (min-width: 45em)': {
+      maxWidth: 600,
+    },
+  },
+  productsGrid: {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    marginBottom: '2rem',
+  },
+});
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [{title: `Hydrogen | ${data?.collection.title ?? ''} Collection`}];
@@ -69,12 +86,12 @@ export default function Collection() {
   const {collection} = useLoaderData<typeof loader>();
 
   return (
-    <div className="collection">
+    <div>
       <h1>{collection.title}</h1>
-      <p className="collection-description">{collection.description}</p>
+      <p className={stylex(styles.description)}>{collection.description}</p>
       <PaginatedResourceSection<ProductItemFragment>
         connection={collection.products}
-        resourcesClassName="products-grid"
+        resourcesClassName={stylex(styles.productsGrid)}
       >
         {({node: product, index}) => (
           <ProductItem
