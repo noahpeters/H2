@@ -1,5 +1,6 @@
 import {useLoaderData} from 'react-router';
 import type {Route} from './+types/products.$handle';
+import type {ProductFragment} from 'storefrontapi.generated';
 import {
   getSelectedProductOptions,
   Analytics,
@@ -179,8 +180,14 @@ export default function Product() {
     ...product,
     selectedOrFirstAvailableVariant: selectedVariant,
   };
-  const presentationMap = buildPresentationMap([]);
-  const hasPresentationMap = Object.keys(presentationMap).length > 0;
+  const optionUiEntries = getOptionUiEntries(product);
+  const presentationMap = buildPresentationMap(optionUiEntries);
+  const optionUiNodes = (
+    product as ProductFragment & {
+      option_ui?: {references?: {nodes?: unknown[]}};
+    }
+  ).option_ui?.references?.nodes;
+  const hasPresentationMap = (optionUiNodes?.length ?? 0) > 0;
   const productOptions = getProductOptions(productWithSelection);
 
   const {title, descriptionHtml} = product;
@@ -248,7 +255,7 @@ export default function Product() {
               consistency, stability, and aging characteristics. No veneers, no
               particleboard, no MDF—just genuine, full-thickness hardwood.
               <br />
-              Finished with natural oils and waxes that enhance the wood's
+              Finished with natural oils and waxes that enhance the wood&apos;s
               innate beauty while providing a durable, tactile surface.
             </p>
           </div>
@@ -272,7 +279,7 @@ export default function Product() {
               repairable. With proper care, they will age gracefully, developing
               a rich patina that tells the story of a life well-lived. This is
               furniture built slowly, thoughtfully, and to a standard that
-              doesn’t compromise.
+              doesn&apos;t compromise.
             </p>
           </div>
         </div>
@@ -331,6 +338,84 @@ export default function Product() {
       </section>
     </>
   );
+}
+
+type OptionUiField = {
+  key: string;
+  value?: string | null;
+  type?: string | null;
+  reference?: unknown;
+};
+
+function getOptionUiEntries(product: ProductFragment) {
+  const optionUi = (
+    product as ProductFragment & {
+      optionUi?: {
+        references?: {
+          nodes?: Array<{
+            __typename?: string;
+            fields?: OptionUiField[];
+          }>;
+        };
+      };
+      option_ui?: {
+        references?: {
+          nodes?: Array<{
+            __typename?: string;
+            fields?: OptionUiField[];
+          }>;
+        };
+      };
+    }
+  ).optionUi;
+  const optionUiLegacyAlias = (
+    product as ProductFragment & {
+      option_ui?: {
+        references?: {
+          nodes?: Array<{
+            __typename?: string;
+            fields?: OptionUiField[];
+          }>;
+        };
+      };
+    }
+  ).option_ui;
+
+  const nodes =
+    optionUi?.references?.nodes ?? optionUiLegacyAlias?.references?.nodes ?? [];
+
+  return nodes
+    .map((node: {fields?: OptionUiField[]}) => {
+      const fields = node.fields ?? [];
+      const fieldMap: Record<string, OptionUiField> = {};
+
+      for (const field of fields) {
+        fieldMap[field.key] = field;
+      }
+
+      return {
+        optionName:
+          fieldMap.option_name?.value ??
+          fieldMap.optionName?.value ??
+          fieldMap.option?.value ??
+          null,
+        value: fieldMap.value?.value ?? null,
+        label: fieldMap.label?.value ?? null,
+        type: (fieldMap.type?.value ?? undefined) as
+          | 'swatch'
+          | 'thumbnail'
+          | 'icon'
+          | 'text'
+          | undefined,
+        swatchColor:
+          fieldMap.swatch_color?.value ?? fieldMap.swatchColor?.value ?? null,
+        image: fieldMap.image?.reference,
+        icon: fieldMap.icon?.reference,
+      };
+    })
+    .filter((entry: {optionName: string | null; value: string | null}) =>
+      Boolean(entry.optionName && entry.value),
+    );
 }
 
 const PRODUCT_VARIANT_FRAGMENT = `#graphql
@@ -449,6 +534,36 @@ const PRODUCT_FRAGMENT = `#graphql
     }
     specs: metafield(key:"specs" namespace: "custom") {
       value
+    }
+    option_ui: metafield(key: "option_ui", namespace: "custom") {
+      references(first: 100) {
+        nodes {
+          __typename
+          ... on Metaobject {
+            id
+            type
+            handle
+            fields {
+              key
+              value
+              type
+              reference {
+                ... on MediaImage {
+                  image {
+                    url
+                    altText
+                    width
+                    height
+                  }
+                }
+                ... on GenericFile {
+                  url
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
   ${PRODUCT_VARIANT_FRAGMENT}

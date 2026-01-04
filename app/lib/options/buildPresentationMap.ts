@@ -53,7 +53,13 @@ export function buildPresentationMap(
     const image = resolveMedia(entry.image as MediaLike);
     const icon = resolveMedia(entry.icon as MediaLike);
 
-    map[getOptionPresentationKey(optionName, value)] = {
+    const key = getOptionPresentationKey(optionName, value);
+    const normalizedKey = getOptionPresentationKey(
+      optionName.trim().toLowerCase(),
+      value.trim().toLowerCase(),
+    );
+
+    const presentation = {
       type: entry.type ?? undefined,
       label: entry.label ?? undefined,
       swatchColor: entry.swatchColor ?? undefined,
@@ -61,6 +67,8 @@ export function buildPresentationMap(
       icon,
     };
 
+    map[key] = presentation;
+    map[normalizedKey] = presentation;
     return map;
   }, {});
 }

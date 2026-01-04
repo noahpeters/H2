@@ -46,6 +46,9 @@ const styles = stylex.create({
   },
   itemMedia: {
     padding: '0.35rem',
+    width: '5.5rem',
+    justifyContent: 'center',
+    minHeight: '6.5rem',
   },
   text: {
     whiteSpace: 'nowrap',
@@ -76,6 +79,20 @@ const styles = stylex.create({
     width: '100%',
     height: '100%',
     objectFit: 'cover',
+  },
+  mediaStack: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.25rem',
+    justifyContent: 'flex-start',
+  },
+  mediaLabel: {
+    fontSize: '0.85rem',
+    lineHeight: 1.2,
+    textAlign: 'center',
+    minHeight: '2.2rem',
+    maxWidth: '5rem',
   },
 });
 
@@ -133,10 +150,16 @@ export function OptionPicker({
     >
       <div className={stylex(styles.grid)}>
         {values.map((value) => {
+          const normalizedKey = getOptionPresentationKey(
+            optionName.trim().toLowerCase(),
+            value.value.trim().toLowerCase(),
+          );
           const presentation =
             presentationMap?.[
               getOptionPresentationKey(optionName, value.value)
-            ] ?? presentationMap?.[value.value];
+            ] ??
+            presentationMap?.[normalizedKey] ??
+            presentationMap?.[value.value];
           const label = presentation?.label ?? value.label ?? value.value;
           const mode = resolvePresentationMode(value, presentation);
           const isDisabled = value.disabled || value.exists === false;
@@ -163,6 +186,8 @@ export function OptionPicker({
               <Link
                 key={`${optionName}-${value.value}`}
                 to={value.to}
+                preventScrollReset
+                replace
                 className={stylex(itemStyles)}
                 aria-label={label}
                 aria-checked={isSelected}
@@ -272,16 +297,16 @@ function renderMedia(
   label: string,
 ) {
   if (!media) return <span className={stylex(styles.text)}>{label}</span>;
+
+  let mediaNode: ReactNode;
   if (typeof media === 'string') {
-    return (
+    mediaNode = (
       <span className={stylex(styles.media)} aria-hidden="true">
         <img src={media} alt={label} className={stylex(styles.mediaImage)} />
       </span>
     );
-  }
-
-  if (typeof media === 'object' && 'url' in media) {
-    return (
+  } else if (typeof media === 'object' && 'url' in media) {
+    mediaNode = (
       <span className={stylex(styles.media)} aria-hidden="true">
         <img
           src={media.url}
@@ -292,7 +317,14 @@ function renderMedia(
         />
       </span>
     );
+  } else {
+    mediaNode = <span className={stylex(styles.media)}>{media}</span>;
   }
 
-  return <span className={stylex(styles.media)}>{media}</span>;
+  return (
+    <span className={stylex(styles.mediaStack)}>
+      {mediaNode}
+      <span className={stylex(styles.mediaLabel)}>{label}</span>
+    </span>
+  );
 }
