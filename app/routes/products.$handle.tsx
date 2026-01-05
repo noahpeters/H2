@@ -328,6 +328,45 @@ export default function Product() {
           </div>
         </div>
       </section>
+      <section>
+        <div className={stylex(styles.valuesContainer)}>
+          <div className={stylex(styles.valuesBox)}>
+            <h3 className={stylex(styles.valuesHeader)}>Made To Order</h3>
+            <p>
+              Each piece of furniture is made to order and built specifically
+              for your space and selections. Because every piece is constructed
+              individually, decisions about proportion, grain orientation, edge
+              treatment, and finish are resolved during the build rather than
+              pulled from a fixed template. This approach allows each piece to
+              respond naturally to the material and the design, resulting in a
+              finished piece that is singular in character. Natural variation is
+              an inherent part of working with solid wood. Grain patterns, color
+              shifts, and subtle differences in figure ensure that no two pieces
+              are ever exactly alike. These variations are not deviations from
+              the design, but an essential part of what gives each piece its own
+              presence and identity.
+            </p>
+          </div>
+          <div className={stylex(styles.valuesDivider)}></div>
+          <div className={stylex(styles.valuesBox)}>
+            <h3 className={stylex(styles.valuesHeader)}>
+              Lead Time & Expectations
+            </h3>
+            <p>
+              Our made-to-order process prioritizes careful execution over
+              speed. Production timelines vary based on design details, material
+              selection, and finishing requirements, but most orders are
+              completed within 8–10 weeks. This timeframe allows the work to
+              progress at a pace that respects the material and the build
+              process, rather than compressing it to meet an arbitrary schedule.
+              Because each piece is built specifically for you, the finished
+              result will reflect both your selections and the natural character
+              of the wood itself. The furniture you receive will be unmistakably
+              yours—familiar in form, yet unique in detail.
+            </p>
+          </div>
+        </div>
+      </section>
     </>
   );
 }
