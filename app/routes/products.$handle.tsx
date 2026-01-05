@@ -401,6 +401,7 @@ function getOptionUiEntries(product: ProductFragment) {
           null,
         value: fieldMap.value?.value ?? null,
         label: fieldMap.label?.value ?? null,
+        description: fieldMap.description?.value ?? null,
         type: (fieldMap.type?.value ?? undefined) as
           | 'swatch'
           | 'thumbnail'

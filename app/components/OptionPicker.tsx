@@ -50,6 +50,11 @@ const styles = stylex.create({
     justifyContent: 'center',
     minHeight: '6.5rem',
   },
+  itemMediaSelected: {
+    width: 'auto',
+    minHeight: 'auto',
+    alignItems: 'flex-start',
+  },
   text: {
     whiteSpace: 'nowrap',
   },
@@ -60,6 +65,16 @@ const styles = stylex.create({
     borderRadius: '50%',
     overflow: 'hidden',
     display: 'inline-flex',
+  },
+  swatchRow: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  swatchDescription: {
+    fontSize: '0.85rem',
+    lineHeight: 1.2,
+    maxWidth: '12rem',
   },
   swatchImage: {
     width: '100%',
@@ -94,6 +109,21 @@ const styles = stylex.create({
     minHeight: '2.2rem',
     maxWidth: '5rem',
   },
+  descriptionRow: {
+    display: 'inline-flex',
+    alignItems: 'flex-start',
+    gap: '0.75rem',
+  },
+  descriptionText: {
+    fontSize: '0.85rem',
+    lineHeight: 1.2,
+    maxWidth: '14rem',
+  },
+  descriptionDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: 'var(--color-primary)',
+  },
 });
 
 export type OptionMedia =
@@ -108,6 +138,7 @@ export type OptionMedia =
 export type OptionPresentation = {
   type?: 'swatch' | 'thumbnail' | 'icon' | 'text';
   label?: string;
+  description?: string;
   swatchColor?: string;
   image?: OptionMedia;
   icon?: OptionMedia | ReactNode;
@@ -170,12 +201,18 @@ export function OptionPicker({
             mode,
             presentation,
             swatch: value.swatch,
+            isSelected,
           });
+          const hasSelectedDescription =
+            isSelected && Boolean(presentation?.description);
           const onSelectValue = value.onSelect ?? onSelect ?? null;
           const itemStyles = [
             styles.item,
             mode === 'swatch' && styles.itemSwatch,
             (mode === 'thumbnail' || mode === 'icon') && styles.itemMedia,
+            hasSelectedDescription &&
+              (mode === 'thumbnail' || mode === 'icon') &&
+              styles.itemMediaSelected,
             isSelected && styles.itemSelected,
             !isAvailable && styles.itemUnavailable,
             isDisabled && styles.itemDisabled,
@@ -254,11 +291,13 @@ function renderOptionContent({
   mode,
   presentation,
   swatch,
+  isSelected,
 }: {
   label: string;
   mode: 'swatch' | 'thumbnail' | 'icon' | 'text';
   presentation?: OptionPresentation;
   swatch?: Maybe<ProductOptionValueSwatch>;
+  isSelected: boolean;
 }) {
   if (mode === 'text') {
     return <span className={stylex(styles.text)}>{label}</span>;
@@ -267,29 +306,63 @@ function renderOptionContent({
   if (mode === 'swatch') {
     const image = swatch?.image?.previewImage?.url;
     const color = swatch?.color ?? presentation?.swatchColor;
+    const description = presentation?.description ?? '';
 
-    if (image) {
-      return (
-        <span className={stylex(styles.swatch)} aria-hidden="true">
-          <img src={image} alt={label} className={stylex(styles.swatchImage)} />
-        </span>
-      );
-    }
-
-    return (
+    const swatchNode = image ? (
+      <span className={stylex(styles.swatch)} aria-hidden="true">
+        <img src={image} alt={label} className={stylex(styles.swatchImage)} />
+      </span>
+    ) : (
       <span
         className={stylex(styles.swatch)}
         aria-hidden="true"
         style={{backgroundColor: color || 'transparent'}}
       />
     );
+
+    if (isSelected && description) {
+      return (
+        <span className={stylex(styles.swatchRow)}>
+          {swatchNode}
+          <span className={stylex(styles.swatchDescription)}>
+            {description}
+          </span>
+        </span>
+      );
+    }
+
+    return swatchNode;
   }
 
   if (mode === 'thumbnail') {
-    return renderMedia(presentation?.image, label);
+    const media = renderMedia(presentation?.image, label);
+    const description = presentation?.description ?? '';
+    if (isSelected && description) {
+      return (
+        <span className={stylex(styles.descriptionRow)}>
+          {media}
+          <span className={stylex(styles.descriptionDivider)} aria-hidden />
+          <span className={stylex(styles.descriptionText)}>
+            {description}
+          </span>
+        </span>
+      );
+    }
+    return media;
   }
 
-  return renderMedia(presentation?.icon, label);
+  const media = renderMedia(presentation?.icon, label);
+  const description = presentation?.description ?? '';
+  if (isSelected && description) {
+    return (
+      <span className={stylex(styles.descriptionRow)}>
+        {media}
+        <span className={stylex(styles.descriptionDivider)} aria-hidden />
+        <span className={stylex(styles.descriptionText)}>{description}</span>
+      </span>
+    );
+  }
+  return media;
 }
 
 function renderMedia(

@@ -9,6 +9,7 @@ export type OptionPresentationEntry = {
   option_name?: string | null;
   value?: string | null;
   label?: string | null;
+  description?: string | null;
   type?: OptionPresentation['type'];
   swatchColor?: string | null;
   image?: unknown;
@@ -62,6 +63,7 @@ export function buildPresentationMap(
     const presentation = {
       type: entry.type ?? undefined,
       label: entry.label ?? undefined,
+      description: entry.description ?? undefined,
       swatchColor: entry.swatchColor ?? undefined,
       image,
       icon,
