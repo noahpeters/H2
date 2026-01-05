@@ -8,12 +8,22 @@ import {AddToCartButton} from './AddToCartButton';
 import {useAside} from './Aside';
 import type {ProductFragment} from 'storefrontapi.generated';
 import {BuyNowButton} from './BuyNowButton';
+import {ProductPrice} from './ProductPrice';
 import stylex from '~/lib/stylex';
 
 const styles = stylex.create({
   buttonsContainer: {
     display: 'flex',
     gap: '1rem',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  priceBlock: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.5rem',
+    color: '#111827',
+    fontWeight: 600,
   },
   optionsGrid: {
     display: 'flex',
@@ -145,6 +155,13 @@ export function ProductForm({
         );
       })}
       <div className={stylex(styles.buttonsContainer)}>
+        <div className={stylex(styles.priceBlock)}>
+          <span>Configured Price:</span>
+          <ProductPrice
+            price={selectedVariant?.price}
+            compareAtPrice={selectedVariant?.compareAtPrice}
+          />
+        </div>
         <AddToCartButton
           disabled={!selectedVariant || !selectedVariant.availableForSale}
           onClick={() => {

@@ -49,6 +49,7 @@ const styles = stylex.create({
     width: '5.5rem',
     justifyContent: 'center',
     minHeight: '6.5rem',
+    transition: 'width 200ms ease, min-height 200ms ease',
   },
   itemMediaSelected: {
     width: 'auto',
@@ -117,12 +118,36 @@ const styles = stylex.create({
   descriptionText: {
     fontSize: '0.85rem',
     lineHeight: 1.2,
-    maxWidth: '14rem',
   },
   descriptionDivider: {
-    width: 1,
+    width: 0,
     alignSelf: 'stretch',
     backgroundColor: 'var(--color-primary)',
+    opacity: 0,
+    transform: 'scaleY(0.6)',
+    transition: 'none',
+  },
+  descriptionDividerExpanded: {
+    width: 1,
+    opacity: 1,
+    transform: 'scaleY(1)',
+    transition: 'width 200ms ease, opacity 200ms ease, transform 200ms ease',
+  },
+  descriptionPanel: {
+    maxWidth: 0,
+    maxHeight: 0,
+    opacity: 0,
+    overflow: 'hidden',
+    transform: 'translateX(-4px)',
+    transition: 'none',
+  },
+  descriptionPanelExpanded: {
+    maxWidth: '14rem',
+    maxHeight: '6rem',
+    opacity: 1,
+    transform: 'translateX(0)',
+    transition:
+      'max-width 200ms ease, max-height 200ms ease, opacity 200ms ease, transform 200ms ease',
   },
 });
 
@@ -320,12 +345,26 @@ function renderOptionContent({
       />
     );
 
-    if (isSelected && description) {
+    if (description) {
       return (
         <span className={stylex(styles.swatchRow)}>
           {swatchNode}
-          <span className={stylex(styles.swatchDescription)}>
-            {description}
+          <span
+            className={stylex(
+              styles.descriptionDivider,
+              isSelected && styles.descriptionDividerExpanded,
+            )}
+            aria-hidden
+          />
+          <span
+            className={stylex(
+              styles.descriptionPanel,
+              isSelected && styles.descriptionPanelExpanded,
+            )}
+          >
+            <span className={stylex(styles.swatchDescription)}>
+              {description}
+            </span>
           </span>
         </span>
       );
@@ -337,13 +376,26 @@ function renderOptionContent({
   if (mode === 'thumbnail') {
     const media = renderMedia(presentation?.image, label);
     const description = presentation?.description ?? '';
-    if (isSelected && description) {
+    if (description) {
       return (
         <span className={stylex(styles.descriptionRow)}>
           {media}
-          <span className={stylex(styles.descriptionDivider)} aria-hidden />
-          <span className={stylex(styles.descriptionText)}>
-            {description}
+          <span
+            className={stylex(
+              styles.descriptionDivider,
+              isSelected && styles.descriptionDividerExpanded,
+            )}
+            aria-hidden
+          />
+          <span
+            className={stylex(
+              styles.descriptionPanel,
+              isSelected && styles.descriptionPanelExpanded,
+            )}
+          >
+            <span className={stylex(styles.descriptionText)}>
+              {description}
+            </span>
           </span>
         </span>
       );
@@ -353,12 +405,25 @@ function renderOptionContent({
 
   const media = renderMedia(presentation?.icon, label);
   const description = presentation?.description ?? '';
-  if (isSelected && description) {
+  if (description) {
     return (
       <span className={stylex(styles.descriptionRow)}>
         {media}
-        <span className={stylex(styles.descriptionDivider)} aria-hidden />
-        <span className={stylex(styles.descriptionText)}>{description}</span>
+        <span
+          className={stylex(
+            styles.descriptionDivider,
+            isSelected && styles.descriptionDividerExpanded,
+          )}
+          aria-hidden
+        />
+        <span
+          className={stylex(
+            styles.descriptionPanel,
+            isSelected && styles.descriptionPanelExpanded,
+          )}
+        >
+          <span className={stylex(styles.descriptionText)}>{description}</span>
+        </span>
       </span>
     );
   }

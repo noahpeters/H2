@@ -313,14 +313,6 @@ export default function Product() {
             )}
           </div>
           <div className={stylex(styles.productMain)}>
-            <div className={stylex(styles.priceRange)}>
-              <strong>Configured Price: </strong>
-              <ProductPrice
-                price={selectedVariant?.price}
-                compareAtPrice={selectedVariant?.compareAtPrice}
-              />
-            </div>
-            <br />
             <div id="customize">
               {hasPresentationMap ? (
                 <VariantOptionPickers
