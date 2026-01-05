@@ -10,6 +10,8 @@ export type OptionPresentationEntry = {
   value?: string | null;
   label?: string | null;
   description?: string | null;
+  sortOrder?: string | number | null;
+  sort_order?: string | number | null;
   type?: OptionPresentation['type'];
   swatchColor?: string | null;
   image?: unknown;
@@ -64,6 +66,7 @@ export function buildPresentationMap(
       type: entry.type ?? undefined,
       label: entry.label ?? undefined,
       description: entry.description ?? undefined,
+      sortOrder: coerceSortOrder(entry.sortOrder ?? entry.sort_order),
       swatchColor: entry.swatchColor ?? undefined,
       image,
       icon,
@@ -108,5 +111,16 @@ function resolveMedia(media: MediaLike | null | undefined): OptionMedia | undefi
     }
   }
 
+  return undefined;
+}
+
+function coerceSortOrder(value: string | number | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
   return undefined;
 }

@@ -433,6 +433,8 @@ function getOptionUiEntries(product: ProductFragment) {
         value: fieldMap.value?.value ?? null,
         label: fieldMap.label?.value ?? null,
         description: fieldMap.description?.value ?? null,
+        sortOrder:
+          fieldMap.sort_order?.value ?? fieldMap.sortOrder?.value ?? null,
         type: (fieldMap.type?.value ?? undefined) as
           | 'swatch'
           | 'thumbnail'

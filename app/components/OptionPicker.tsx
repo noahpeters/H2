@@ -164,6 +164,7 @@ export type OptionPresentation = {
   type?: 'swatch' | 'thumbnail' | 'icon' | 'text';
   label?: string;
   description?: string;
+  sortOrder?: number;
   swatchColor?: string;
   image?: OptionMedia;
   icon?: OptionMedia | ReactNode;
@@ -198,6 +199,8 @@ export function OptionPicker({
   presentationMap,
   onSelect,
 }: OptionPickerProps) {
+  const sortedValues = sortValuesByPresentation(values, optionName, presentationMap);
+
   return (
     <div
       role="radiogroup"
@@ -205,7 +208,7 @@ export function OptionPicker({
       className={stylex(styles.container)}
     >
       <div className={stylex(styles.grid)}>
-        {values.map((value) => {
+        {sortedValues.map((value) => {
           const normalizedKey = getOptionPresentationKey(
             optionName.trim().toLowerCase(),
             value.value.trim().toLowerCase(),
@@ -294,6 +297,45 @@ export function OptionPicker({
       </div>
     </div>
   );
+}
+
+function sortValuesByPresentation(
+  values: OptionPickerValue[],
+  optionName: string,
+  presentationMap?: Record<string, OptionPresentation>,
+) {
+  if (!presentationMap) return values;
+
+  const normalizedOption = optionName.trim().toLowerCase();
+  const keyedValues = values.map((value, index) => {
+    const rawKey = getOptionPresentationKey(optionName, value.value);
+    const normalizedKey = getOptionPresentationKey(
+      normalizedOption,
+      value.value.trim().toLowerCase(),
+    );
+    const presentation =
+      presentationMap[rawKey] ??
+      presentationMap[normalizedKey] ??
+      presentationMap[value.value];
+    return {
+      value,
+      index,
+      sortOrder: presentation?.sortOrder,
+    };
+  });
+
+  return keyedValues
+    .slice()
+    .sort((a, b) => {
+      if (a.sortOrder == null && b.sortOrder == null) {
+        return a.index - b.index;
+      }
+      if (a.sortOrder == null) return 1;
+      if (b.sortOrder == null) return -1;
+      if (a.sortOrder === b.sortOrder) return a.index - b.index;
+      return a.sortOrder - b.sortOrder;
+    })
+    .map((entry) => entry.value);
 }
 
 function resolvePresentationMode(
