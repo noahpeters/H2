@@ -18,6 +18,10 @@ import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import Carousel from '~/components/Carousel';
 import stylex from '~/lib/stylex';
 import {buildPresentationMap} from '~/lib/options/buildPresentationMap';
+import {
+  parseLineItemFieldSet,
+  type MetaobjectField,
+} from '~/lib/cart/lineItemFieldSet';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -51,11 +55,14 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
     throw new Error('Expected product handle to be defined');
   }
 
-  const [{product}] = await Promise.all([
+  const [{product}, {product: fieldSetProduct}] = await Promise.all([
     storefront.query(PRODUCT_QUERY, {
       variables: {handle, selectedOptions: getSelectedProductOptions(request)},
     }),
-    // Add other queries here, so that they are loaded in parallel
+    storefront.query(LINE_ITEM_FIELD_SET_QUERY, {
+      cache: storefront.CacheNone(),
+      variables: {handle},
+    }),
   ]);
 
   if (!product?.id) {
@@ -67,6 +74,8 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
 
   return {
     product,
+    lineItemFieldSetReference:
+      fieldSetProduct?.line_item_field_set?.reference ?? null,
   };
 }
 
@@ -164,7 +173,7 @@ const styles = stylex.create({
 });
 
 export default function Product() {
-  const {product} = useLoaderData<typeof loader>();
+  const {product, lineItemFieldSetReference} = useLoaderData<typeof loader>();
 
   // Optimistically selects a variant with given available variant information
   const selectedVariant = useOptimisticVariant(
@@ -182,6 +191,11 @@ export default function Product() {
   };
   const optionUiEntries = getOptionUiEntries(product);
   const presentationMap = buildPresentationMap(optionUiEntries);
+  const lineItemFieldSet = lineItemFieldSetReference
+    ? parseLineItemFieldSet(
+        lineItemFieldSetReference as {fields?: MetaobjectField[] | null},
+      )
+    : null;
   const optionUiNodes = (
     product as ProductFragment & {
       option_ui?: {references?: {nodes?: unknown[]}};
@@ -323,6 +337,7 @@ export default function Product() {
               <ProductForm
                 productOptions={hasPresentationMap ? undefined : productOptions}
                 selectedVariant={selectedVariant}
+                lineItemFieldSet={lineItemFieldSet}
               />
             </div>
           </div>
@@ -599,6 +614,54 @@ const PRODUCT_FRAGMENT = `#graphql
         }
       }
     }
+    line_item_field_set: metafield(key: "line_item_field_set", namespace: "custom") {
+      reference {
+        __typename
+        ... on Metaobject {
+          fields {
+            key
+            type
+            value
+            references(first: 50) {
+              nodes {
+                __typename
+                ... on Metaobject {
+                  fields {
+                    key
+                    type
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    lineItemFieldSet: metafield(key: "line_item_field_set", namespace: "custom") {
+      reference {
+        __typename
+        ... on Metaobject {
+          fields {
+            key
+            type
+            value
+            references(first: 50) {
+              nodes {
+                __typename
+                ... on Metaobject {
+                  fields {
+                    key
+                    type
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
   ${PRODUCT_VARIANT_FRAGMENT}
 ` as const;
@@ -615,4 +678,38 @@ const PRODUCT_QUERY = `#graphql
     }
   }
   ${PRODUCT_FRAGMENT}
+` as const;
+
+const LINE_ITEM_FIELD_SET_QUERY = `#graphql
+  query LineItemFieldSet($handle: String!) {
+    product(handle: $handle) {
+      line_item_field_set: metafield(
+        key: "line_item_field_set"
+        namespace: "custom"
+      ) {
+        reference {
+          __typename
+          ... on Metaobject {
+            fields {
+              key
+              type
+              value
+              references(first: 50) {
+                nodes {
+                  __typename
+                  ... on Metaobject {
+                    fields {
+                      key
+                      type
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 ` as const;

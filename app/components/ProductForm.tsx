@@ -1,5 +1,5 @@
 import {Link, useNavigate} from 'react-router';
-import {useState} from 'react';
+import {useEffect, useMemo, useState, type ChangeEvent} from 'react';
 import {type MappedProductOptions} from '@shopify/hydrogen';
 import type {
   Maybe,
@@ -11,10 +11,7 @@ import type {ProductFragment} from 'storefrontapi.generated';
 import {BuyNowButton} from './BuyNowButton';
 import {ProductPrice} from './ProductPrice';
 import stylex from '~/lib/stylex';
-import {
-  isEngravingSelected,
-  normalizeAttributes,
-} from '~/lib/cart/lineAttributes';
+import type {LineItemFieldSet, LineItemField} from '~/lib/cart/lineItemFieldSet';
 
 const styles = stylex.create({
   buttonsContainer: {
@@ -36,6 +33,12 @@ const styles = stylex.create({
     gap: '0.75rem',
     marginBottom: '1rem',
   },
+  customizationTitle: {
+    fontSize: '1.05rem',
+    fontWeight: 700,
+    color: 'var(--color-primary)',
+    marginBottom: '0.25rem',
+  },
   customizationRow: {
     display: 'flex',
     flexDirection: 'column',
@@ -49,6 +52,10 @@ const styles = stylex.create({
   helper: {
     fontSize: '0.85rem',
     color: 'var(--color-secondary)',
+  },
+  helperDisabled: {
+    color: 'var(--color-secondary)',
+    fontStyle: 'italic',
   },
   input: {
     padding: '0.5rem 0.65rem',
@@ -126,38 +133,71 @@ const styles = stylex.create({
 export function ProductForm({
   productOptions,
   selectedVariant,
+  lineItemFieldSet,
 }: {
   productOptions?: MappedProductOptions[];
   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
+  lineItemFieldSet?: LineItemFieldSet | null;
 }) {
   const navigate = useNavigate();
   const {open} = useAside();
-  const [engravingText, setEngravingText] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [color, setColor] = useState('');
-  const [notes, setNotes] = useState('');
+  const initialValues = useMemo(
+    () =>
+      (lineItemFieldSet?.fields ?? []).reduce<Record<string, string>>(
+        (acc, field) => {
+          acc[field.key] = '';
+          return acc;
+        },
+        {},
+      ),
+    [lineItemFieldSet?.fields],
+  );
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(
+    initialValues,
+  );
 
-  const engravingEnabled = selectedVariant
-    ? isEngravingSelected(selectedVariant.selectedOptions)
-    : false;
-  const helperText = 'Select Engraving to add text or a logo.';
+  useEffect(() => {
+    setFieldValues((prev) => ({...initialValues, ...prev}));
+  }, [initialValues]);
+
+  const selectedOptions = selectedVariant?.selectedOptions ?? [];
+  const normalizedSelectedOptions = selectedOptions.map((option) => ({
+    name: (option.name ?? '').trim().toLowerCase(),
+    value: (option.value ?? '').trim().toLowerCase(),
+  }));
+  const helperText = 'Select engraving to add text or a logo.';
+
+  const isFieldAvailable = (field: LineItemField) => {
+    if (!field.showWhenOptionName || !field.showWhenOptionValue) return true;
+    const normalizedName = field.showWhenOptionName.trim().toLowerCase();
+    const normalizedValue = field.showWhenOptionValue.trim().toLowerCase();
+    return normalizedSelectedOptions.some(
+      (option) =>
+        option.name === normalizedName &&
+        (option.value === normalizedValue ||
+          option.value.includes(normalizedValue)),
+    );
+  };
+
+  const attributes = (lineItemFieldSet?.fields ?? [])
+    .filter((field) => isFieldAvailable(field))
+    .map((field) => {
+      const value = fieldValues[field.key]?.trim();
+      if (!value) return null;
+      return {key: field.key, value};
+    })
+    .filter(
+      (entry): entry is {key: string; value: string} => entry != null,
+    );
 
   const lines = selectedVariant
     ? [
-        (() => {
-          const attributes = normalizeAttributes({
-            engravingText,
-            logoUrl,
-            color,
-            notes,
-          });
-          return {
-            merchandiseId: selectedVariant.id,
-            quantity: 1,
-            selectedVariant,
-            ...(attributes.length ? {attributes} : {}),
-          };
-        })(),
+        {
+          merchandiseId: selectedVariant.id,
+          quantity: 1,
+          selectedVariant,
+          ...(attributes.length ? {attributes} : {}),
+        },
       ]
     : [];
 
@@ -227,64 +267,78 @@ export function ProductForm({
           </div>
         );
       })}
-      <div className={stylex(styles.customization)}>
-        <div className={stylex(styles.customizationRow)}>
-          <span className={stylex(styles.label)}>Engraving Text</span>
-          <input
-            className={stylex(styles.input)}
-            type="text"
-            value={engravingText}
-            onChange={(event) => setEngravingText(event.target.value)}
-            disabled={!engravingEnabled}
-            placeholder="Up to 25 characters"
-          />
-          {!engravingEnabled ? (
-            <span className={stylex(styles.helper)}>{helperText}</span>
-          ) : null}
+      {lineItemFieldSet?.fields?.length ? (
+        <div className={stylex(styles.customization)}>
+          <div className={stylex(styles.customizationTitle)}>Customization</div>
+          {lineItemFieldSet.fields.map((field) => {
+            const isAvailable = isFieldAvailable(field);
+            const value = fieldValues[field.key] ?? '';
+            const helper = !isAvailable
+              ? field.helpText
+                ? `${helperText} ${field.helpText}`
+                : helperText
+              : field.helpText;
+            const commonProps = {
+              value,
+              onChange: (
+                event: ChangeEvent<
+                  HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+                >,
+              ) =>
+                setFieldValues((prev) => ({
+                  ...prev,
+                  [field.key]: event.target.value,
+                })),
+              disabled: !isAvailable,
+            };
+
+            return (
+              <div key={field.key} className={stylex(styles.customizationRow)}>
+                <span className={stylex(styles.label)}>{field.label}</span>
+                {field.type === 'textarea' ? (
+                  <textarea
+                    className={stylex(styles.textarea)}
+                    maxLength={field.maxLength}
+                    placeholder={field.required ? 'Required' : undefined}
+                    {...commonProps}
+                  />
+                ) : field.type === 'select' ? (
+                  <select
+                    className={stylex(styles.select)}
+                    {...commonProps}
+                  >
+                    <option value="">Select...</option>
+                    {(field.choices ?? []).map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className={stylex(styles.input)}
+                    type={field.type === 'url' ? 'url' : 'text'}
+                    inputMode={field.type === 'url' ? 'url' : undefined}
+                    maxLength={field.maxLength}
+                    placeholder={field.required ? 'Required' : undefined}
+                    {...commonProps}
+                  />
+                )}
+                {helper ? (
+                  <span
+                    className={stylex(
+                      styles.helper,
+                      !isAvailable && styles.helperDisabled,
+                    )}
+                  >
+                    {helper}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
-        <div className={stylex(styles.customizationRow)}>
-          <span className={stylex(styles.label)}>Engraving Logo URL</span>
-          <input
-            className={stylex(styles.input)}
-            type="url"
-            inputMode="url"
-            value={logoUrl}
-            onChange={(event) => setLogoUrl(event.target.value)}
-            disabled={!engravingEnabled}
-            placeholder="https://example.com/logo.png"
-          />
-          {!engravingEnabled ? (
-            <span className={stylex(styles.helper)}>{helperText}</span>
-          ) : (
-            <span className={stylex(styles.helper)}>
-              TODO: replace with an upload flow that returns a public URL.
-            </span>
-          )}
-        </div>
-        <div className={stylex(styles.customizationRow)}>
-          <span className={stylex(styles.label)}>Color (optional)</span>
-          <select
-            className={stylex(styles.select)}
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-          >
-            <option value="">Select color</option>
-            <option value="Natural">Natural</option>
-            <option value="Light">Light</option>
-            <option value="Medium">Medium</option>
-            <option value="Dark">Dark</option>
-          </select>
-        </div>
-        <div className={stylex(styles.customizationRow)}>
-          <span className={stylex(styles.label)}>Customer Notes</span>
-          <textarea
-            className={stylex(styles.textarea)}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Anything else we should know?"
-          />
-        </div>
-      </div>
+      ) : null}
       <div className={stylex(styles.buttonsContainer)}>
         <div className={stylex(styles.priceBlock)}>
           <span>Configured Price:</span>
