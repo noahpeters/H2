@@ -7,6 +7,14 @@ import {ProductPrice} from './ProductPrice';
 import {useAside} from './Aside';
 import type {CartApiQueryFragment} from 'storefrontapi.generated';
 import stylex from '~/lib/stylex';
+import {useEffect, useMemo, useState} from 'react';
+import {
+  mergeAttributes,
+  normalizeAttributes,
+  parseAttributes,
+  isEngravingSelected,
+  CUSTOM_ATTRIBUTE_KEYS,
+} from '~/lib/cart/lineAttributes';
 
 type CartLine = OptimisticCartLine<CartApiQueryFragment>;
 
@@ -22,6 +30,76 @@ const styles = stylex.create({
   },
   quantity: {
     display: 'flex',
+  },
+  customization: {
+    marginTop: '0.75rem',
+  },
+  customizationSummary: {
+    fontSize: '0.85rem',
+    color: 'var(--color-secondary)',
+  },
+  details: {
+    marginTop: '0.5rem',
+  },
+  summary: {
+    cursor: 'pointer',
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+  },
+  editor: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+    marginTop: '0.75rem',
+  },
+  row: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.35rem',
+  },
+  label: {
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+  },
+  helper: {
+    fontSize: '0.8rem',
+    color: 'var(--color-secondary)',
+  },
+  input: {
+    padding: '0.45rem 0.6rem',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-secondary)',
+    borderRadius: 6,
+    fontSize: '0.9rem',
+    fontFamily: 'inherit',
+  },
+  textarea: {
+    padding: '0.45rem 0.6rem',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-secondary)',
+    borderRadius: 6,
+    fontSize: '0.9rem',
+    fontFamily: 'inherit',
+    minHeight: '4.5rem',
+    resize: 'vertical',
+  },
+  select: {
+    padding: '0.45rem 0.6rem',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-secondary)',
+    borderRadius: 6,
+    fontSize: '0.9rem',
+    fontFamily: 'inherit',
+    backgroundColor: 'var(--color-light)',
+  },
+  actions: {
+    display: 'flex',
+    gap: '0.75rem',
+    alignItems: 'center',
   },
 });
 
@@ -40,6 +118,43 @@ export function CartLineItem({
   const {product, title, image, selectedOptions} = merchandise;
   const lineItemUrl = useVariantUrl(product.handle, selectedOptions);
   const {close} = useAside();
+  const engravingEnabled = isEngravingSelected(selectedOptions);
+  const helperText = 'Select Engraving to add text or a logo.';
+  const parsedAttributes = useMemo(
+    () => parseAttributes(line.attributes),
+    [line.attributes],
+  );
+  const [engravingText, setEngravingText] = useState(
+    parsedAttributes.engravingText,
+  );
+  const [logoUrl, setLogoUrl] = useState(parsedAttributes.logoUrl);
+  const [color, setColor] = useState(parsedAttributes.color);
+  const [notes, setNotes] = useState(parsedAttributes.notes);
+
+  useEffect(() => {
+    setEngravingText(parsedAttributes.engravingText);
+    setLogoUrl(parsedAttributes.logoUrl);
+    setColor(parsedAttributes.color);
+    setNotes(parsedAttributes.notes);
+  }, [parsedAttributes]);
+
+  const summaryParts = [
+    engravingText ? `${CUSTOM_ATTRIBUTE_KEYS.engravingText}: ${engravingText}` : null,
+    logoUrl ? `${CUSTOM_ATTRIBUTE_KEYS.logoUrl}: ${logoUrl}` : null,
+    color ? `${CUSTOM_ATTRIBUTE_KEYS.color}: ${color}` : null,
+    notes ? `${CUSTOM_ATTRIBUTE_KEYS.notes}: ${notes}` : null,
+  ].filter(Boolean);
+
+  const attributesUpdate = mergeAttributes(
+    line.attributes,
+    normalizeAttributes({
+      engravingText,
+      logoUrl,
+      color,
+      notes,
+    }),
+  );
+  const clearAttributes = mergeAttributes(line.attributes, []);
 
   return (
     <li key={id} className={stylex(styles.line)}>
@@ -79,6 +194,88 @@ export function CartLineItem({
             </li>
           ))}
         </ul>
+        <div className={stylex(styles.customization)}>
+          {summaryParts.length ? (
+            <div className={stylex(styles.customizationSummary)}>
+              {summaryParts.join(' · ')}
+            </div>
+          ) : null}
+          <details className={stylex(styles.details)}>
+            <summary className={stylex(styles.summary)}>
+              Edit customization
+            </summary>
+            <div className={stylex(styles.editor)}>
+              <div className={stylex(styles.row)}>
+                <span className={stylex(styles.label)}>Engraving Text</span>
+                <input
+                  className={stylex(styles.input)}
+                  type="text"
+                  value={engravingText}
+                  onChange={(event) => setEngravingText(event.target.value)}
+                  disabled={!engravingEnabled}
+                  placeholder="Up to 25 characters"
+                />
+                {!engravingEnabled ? (
+                  <span className={stylex(styles.helper)}>{helperText}</span>
+                ) : null}
+              </div>
+              <div className={stylex(styles.row)}>
+                <span className={stylex(styles.label)}>Engraving Logo URL</span>
+                <input
+                  className={stylex(styles.input)}
+                  type="url"
+                  inputMode="url"
+                  value={logoUrl}
+                  onChange={(event) => setLogoUrl(event.target.value)}
+                  disabled={!engravingEnabled}
+                  placeholder="https://example.com/logo.png"
+                />
+                {!engravingEnabled ? (
+                  <span className={stylex(styles.helper)}>{helperText}</span>
+                ) : (
+                  <span className={stylex(styles.helper)}>
+                    TODO: replace with an upload flow that returns a public URL.
+                  </span>
+                )}
+              </div>
+              <div className={stylex(styles.row)}>
+                <span className={stylex(styles.label)}>Color (optional)</span>
+                <select
+                  className={stylex(styles.select)}
+                  value={color}
+                  onChange={(event) => setColor(event.target.value)}
+                >
+                  <option value="">Select color</option>
+                  <option value="Natural">Natural</option>
+                  <option value="Light">Light</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Dark">Dark</option>
+                </select>
+              </div>
+              <div className={stylex(styles.row)}>
+                <span className={stylex(styles.label)}>Customer Notes</span>
+                <textarea
+                  className={stylex(styles.textarea)}
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Anything else we should know?"
+                />
+              </div>
+              <div className={stylex(styles.actions)}>
+                <CartLineUpdateButton
+                  lines={[{id, attributes: attributesUpdate}]}
+                >
+                  <button type="submit">Save</button>
+                </CartLineUpdateButton>
+                <CartLineUpdateButton
+                  lines={[{id, attributes: clearAttributes}]}
+                >
+                  <button type="submit">Clear</button>
+                </CartLineUpdateButton>
+              </div>
+            </div>
+          </details>
+        </div>
         <CartLineQuantity line={line} />
       </div>
     </li>
