@@ -8,6 +8,7 @@ import {
 import type {HeaderQuery, CartApiQueryFragment} from 'storefrontapi.generated';
 import {useAside} from '~/components/Aside';
 import stylex from '~/lib/stylex';
+import logoWhite from '~/assets/logo-white.png';
 
 interface HeaderProps {
   header: HeaderQuery;
@@ -30,6 +31,28 @@ const styles = stylex.create({
     top: 0,
     zIndex: 1,
   },
+  logoCenter: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '128px',
+    height: '128px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--color-primary)',
+    bottom: '-32px',
+    paddingTop: '14px',
+  },
+  logoImage: {
+    width: '84px',
+    height: '84px',
+    display: 'block',
+    position: 'relative',
+    top: '6px',
+    paddingTop: 20,
+  },
   link: {
     color: 'inherit',
     textDecoration: 'none',
@@ -44,7 +67,7 @@ const styles = stylex.create({
     gap: '1rem',
     '@media (min-width: 45em)': {
       display: 'flex',
-      marginLeft: '3rem',
+      marginLeft: 0,
     },
   },
   menuItem: {
@@ -86,11 +109,11 @@ export function Header({
       <NavLink
         prefetch="intent"
         to="/"
-        style={activeLinkStyle}
         end
-        className={stylex(styles.link)}
+        className={stylex(styles.logoCenter)}
+        aria-label="Home"
       >
-        <strong>{shop.name}</strong>
+        <img src={logoWhite} alt="" className={stylex(styles.logoImage)} />
       </NavLink>
       <HeaderMenu
         menu={menu}
