@@ -10,13 +10,14 @@ const styles = stylex.create({
   productsGrid: {
     display: 'grid',
     gap: '1.5rem',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
     marginBottom: '2rem',
   },
 });
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: `Hydrogen | Products`}];
+  return [{title: `from trees | Products`}];
 };
 
 export async function loader(args: Route.LoaderArgs) {

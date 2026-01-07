@@ -10,7 +10,8 @@ const styles = stylex.create({
   blogGrid: {
     display: 'grid',
     gap: '1.5rem',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
     marginBottom: '2rem',
   },
   articleImage: {
@@ -23,7 +24,7 @@ const styles = stylex.create({
 });
 
 export const meta: Route.MetaFunction = ({data}) => {
-  return [{title: `Hydrogen | ${data?.blog.title ?? ''} blog`}];
+  return [{title: `from trees | ${data?.blog.title ?? ''} blog`}];
 };
 
 export async function loader(args: Route.LoaderArgs) {

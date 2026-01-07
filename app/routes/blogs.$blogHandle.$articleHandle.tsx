@@ -15,7 +15,7 @@ const styles = stylex.create({
 });
 
 export const meta: Route.MetaFunction = ({data}) => {
-  return [{title: `Hydrogen | ${data?.article.title ?? ''} article`}];
+  return [{title: `from trees | ${data?.article.title ?? ''} article`}];
 };
 
 export async function loader(args: Route.LoaderArgs) {
