@@ -95,6 +95,12 @@ const styles = stylex.create({
     height: '100%',
     objectFit: 'cover',
   },
+  mediaRound: {
+    borderRadius: '50%',
+  },
+  mediaImageRound: {
+    borderRadius: '50%',
+  },
   mediaStack: {
     display: 'flex',
     flexDirection: 'column',
@@ -162,6 +168,7 @@ export type OptionPresentation = {
   swatchColor?: string;
   image?: OptionMedia;
   icon?: OptionMedia | ReactNode;
+  imageShape?: 'circle';
 };
 
 export type OptionPickerValue = {
@@ -410,7 +417,7 @@ function renderOptionContent({
   }
 
   if (mode === 'thumbnail') {
-    const media = renderMedia(presentation?.image, label);
+    const media = renderMedia(presentation?.image, label, presentation);
     const description = presentation?.description ?? '';
     if (description) {
       return (
@@ -439,7 +446,7 @@ function renderOptionContent({
     return media;
   }
 
-  const media = renderMedia(presentation?.icon, label);
+  const media = renderMedia(presentation?.icon, label, presentation);
   const description = presentation?.description ?? '';
   if (description) {
     return (
@@ -469,25 +476,37 @@ function renderOptionContent({
 function renderMedia(
   media: OptionPresentation['icon'] | OptionPresentation['image'],
   label: string,
+  presentation?: OptionPresentation,
 ) {
   if (!media) return <span className={stylex(styles.text)}>{label}</span>;
 
+  const isRound = presentation?.imageShape === 'circle';
   let mediaNode: ReactNode;
   if (typeof media === 'string') {
     mediaNode = (
-      <span className={stylex(styles.media)} aria-hidden="true">
-        <img src={media} alt={label} className={stylex(styles.mediaImage)} />
+      <span
+        className={stylex(styles.media, isRound && styles.mediaRound)}
+        aria-hidden="true"
+      >
+        <img
+          src={media}
+          alt={label}
+          className={stylex(styles.mediaImage, isRound && styles.mediaImageRound)}
+        />
       </span>
     );
   } else if (typeof media === 'object' && 'url' in media) {
     mediaNode = (
-      <span className={stylex(styles.media)} aria-hidden="true">
+      <span
+        className={stylex(styles.media, isRound && styles.mediaRound)}
+        aria-hidden="true"
+      >
         <img
           src={media.url}
           alt={media.alt ?? label}
           width={media.width ?? undefined}
           height={media.height ?? undefined}
-          className={stylex(styles.mediaImage)}
+          className={stylex(styles.mediaImage, isRound && styles.mediaImageRound)}
         />
       </span>
     );

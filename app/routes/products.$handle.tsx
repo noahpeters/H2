@@ -22,6 +22,10 @@ import {
   parseLineItemFieldSet,
   type MetaobjectField,
 } from '~/lib/cart/lineItemFieldSet';
+import {
+  parseWoodColorPalette,
+  type MetaobjectField as PaletteMetaobjectField,
+} from '~/lib/options/woodColorPalettes';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -191,6 +195,7 @@ export default function Product() {
   };
   const optionUiEntries = getOptionUiEntries(product);
   const presentationMap = buildPresentationMap(optionUiEntries);
+  const woodColorPalettes = getWoodColorPalettes(product);
   const lineItemFieldSet = lineItemFieldSetReference
     ? parseLineItemFieldSet(
         lineItemFieldSetReference as {fields?: MetaobjectField[] | null},
@@ -338,6 +343,7 @@ export default function Product() {
                 productOptions={hasPresentationMap ? undefined : productOptions}
                 selectedVariant={selectedVariant}
                 lineItemFieldSet={lineItemFieldSet}
+                woodColorPalettes={woodColorPalettes}
               />
             </div>
           </div>
@@ -465,6 +471,30 @@ function getOptionUiEntries(product: ProductFragment) {
     .filter((entry: {optionName: string | null; value: string | null}) =>
       Boolean(entry.optionName && entry.value),
     );
+}
+
+function getWoodColorPalettes(product: ProductFragment) {
+  const palettes = getWoodColorPalettesRaw(product);
+  return (
+    palettes
+      ?.map((node) => parseWoodColorPalette(node ?? {}))
+      .filter((palette): palette is NonNullable<typeof palette> => palette != null) ??
+    []
+  );
+}
+
+function getWoodColorPalettesRaw(product: ProductFragment) {
+  return (
+    (
+      product as ProductFragment & {
+        wood_color_palettes?: {
+          references?: {
+            nodes?: Array<{fields?: PaletteMetaobjectField[]} | null> | null;
+          } | null;
+        } | null;
+      }
+    ).wood_color_palettes?.references?.nodes ?? null
+  );
 }
 
 const PRODUCT_VARIANT_FRAGMENT = `#graphql
@@ -654,6 +684,45 @@ const PRODUCT_FRAGMENT = `#graphql
                     key
                     type
                     value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    wood_color_palettes: metafield(key: "wood_color_palettes", namespace: "custom") {
+      references(first: 20) {
+        nodes {
+          __typename
+          ... on Metaobject {
+            fields {
+              key
+              type
+              value
+              references(first: 20) {
+                nodes {
+                  __typename
+                  ... on Metaobject {
+                    fields {
+                      key
+                      type
+                      value
+                      reference {
+                        ... on MediaImage {
+                          image {
+                            url
+                            altText
+                            width
+                            height
+                          }
+                        }
+                        ... on GenericFile {
+                          url
+                        }
+                      }
+                    }
                   }
                 }
               }

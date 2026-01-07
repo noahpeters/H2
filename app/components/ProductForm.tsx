@@ -12,6 +12,9 @@ import {BuyNowButton} from './BuyNowButton';
 import {ProductPrice} from './ProductPrice';
 import stylex from '~/lib/stylex';
 import type {LineItemFieldSet, LineItemField} from '~/lib/cart/lineItemFieldSet';
+import type {WoodColorPalette} from '~/lib/options/woodColorPalettes';
+import {buildPaletteMatch} from '~/lib/options/woodColorPalettes';
+import {FinishColorPicker} from '~/components/product/FinishColorPicker';
 
 const styles = stylex.create({
   buttonsContainer: {
@@ -134,10 +137,12 @@ export function ProductForm({
   productOptions,
   selectedVariant,
   lineItemFieldSet,
+  woodColorPalettes,
 }: {
   productOptions?: MappedProductOptions[];
   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
   lineItemFieldSet?: LineItemFieldSet | null;
+  woodColorPalettes?: WoodColorPalette[];
 }) {
   const navigate = useNavigate();
   const {open} = useAside();
@@ -165,6 +170,14 @@ export function ProductForm({
     name: (option.name ?? '').trim().toLowerCase(),
     value: (option.value ?? '').trim().toLowerCase(),
   }));
+  const paletteMatch = buildPaletteMatch(woodColorPalettes ?? [], selectedOptions);
+  const swatchLabels = useMemo(
+    () => paletteMatch?.palette.swatches.map((swatch) => swatch.label) ?? [],
+    [paletteMatch?.palette.swatches],
+  );
+  const [selectedFinishColorLabel, setSelectedFinishColorLabel] = useState<
+    string | null
+  >(null);
   const helperText = 'Select engraving to add text or a logo.';
 
   const isFieldAvailable = (field: LineItemField) => {
@@ -179,16 +192,41 @@ export function ProductForm({
     );
   };
 
-  const attributes = (lineItemFieldSet?.fields ?? [])
-    .filter((field) => isFieldAvailable(field))
-    .map((field) => {
-      const value = fieldValues[field.key]?.trim();
-      if (!value) return null;
-      return {key: field.key, value};
-    })
-    .filter(
-      (entry): entry is {key: string; value: string} => entry != null,
-    );
+  const finishColorAttributes =
+    paletteMatch && selectedFinishColorLabel
+      ? [
+          {key: 'Finish Color', value: selectedFinishColorLabel},
+          {key: 'Finish Color Wood', value: paletteMatch.selectedWoodValue},
+        ]
+      : [];
+  const attributes = [
+    ...(lineItemFieldSet?.fields ?? [])
+      .filter((field) => isFieldAvailable(field))
+      .map((field) => {
+        const value = fieldValues[field.key]?.trim();
+        if (!value) return null;
+        return {key: field.key, value};
+      })
+      .filter(
+        (entry): entry is {key: string; value: string} => entry != null,
+      ),
+    ...finishColorAttributes,
+  ];
+
+  useEffect(() => {
+    if (!paletteMatch || swatchLabels.length === 0) {
+      if (selectedFinishColorLabel !== null) {
+        setSelectedFinishColorLabel(null);
+      }
+      return;
+    }
+    if (
+      !selectedFinishColorLabel ||
+      !swatchLabels.includes(selectedFinishColorLabel)
+    ) {
+      setSelectedFinishColorLabel(swatchLabels[0]);
+    }
+  }, [paletteMatch, selectedFinishColorLabel, swatchLabels]);
 
   const lines = selectedVariant
     ? [
@@ -267,6 +305,14 @@ export function ProductForm({
           </div>
         );
       })}
+      {paletteMatch ? (
+        <FinishColorPicker
+          palettes={woodColorPalettes ?? []}
+          selectedOptions={selectedOptions}
+          selectedFinishColorLabel={selectedFinishColorLabel}
+          onChange={setSelectedFinishColorLabel}
+        />
+      ) : null}
       {lineItemFieldSet?.fields?.length ? (
         <div className={stylex(styles.customization)}>
           <div className={stylex(styles.customizationTitle)}>Customization</div>
