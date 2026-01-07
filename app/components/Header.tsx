@@ -44,6 +44,7 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-primary)',
     bottom: '-32px',
     paddingTop: '14px',
+    boxShadow: '0 10px 24px rgba(0, 0, 0, 0.2)',
   },
   logoImage: {
     width: '84px',
@@ -56,6 +57,9 @@ const styles = stylex.create({
   link: {
     color: 'inherit',
     textDecoration: 'none',
+  },
+  burger: {
+    color: 'var(--color-light)',
   },
   menuMobile: {
     display: 'flex',
@@ -224,7 +228,7 @@ function HeaderMenuMobileToggle() {
       )}
       onClick={() => open('mobile')}
     >
-      <h3>☰</h3>
+      <h3 className={stylex(styles.burger)}>☰</h3>
     </button>
   );
 }
