@@ -49,7 +49,6 @@ const styles = stylex.create({
     width: '5.5rem',
     justifyContent: 'center',
     minHeight: '6.5rem',
-    transition: 'width 200ms ease, min-height 200ms ease',
   },
   itemMediaSelected: {
     width: 'auto',
@@ -125,13 +124,11 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-primary)',
     opacity: 0,
     transform: 'scaleY(0.6)',
-    transition: 'none',
   },
   descriptionDividerExpanded: {
     width: 1,
     opacity: 1,
     transform: 'scaleY(1)',
-    transition: 'width 200ms ease, opacity 200ms ease, transform 200ms ease',
   },
   descriptionPanel: {
     maxWidth: 0,
@@ -139,15 +136,12 @@ const styles = stylex.create({
     opacity: 0,
     overflow: 'hidden',
     transform: 'translateX(-4px)',
-    transition: 'none',
   },
   descriptionPanelExpanded: {
     maxWidth: '14rem',
-    maxHeight: '6rem',
+    maxHeight: 'none',
     opacity: 1,
     transform: 'translateX(0)',
-    transition:
-      'max-width 200ms ease, max-height 200ms ease, opacity 200ms ease, transform 200ms ease',
   },
 });
 
