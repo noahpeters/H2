@@ -147,18 +147,6 @@ export function HeaderMenu({
 
   return (
     <nav className={stylex(className)} role="navigation">
-      {viewport === 'mobile' && (
-        <NavLink
-          end
-          onClick={close}
-          prefetch="intent"
-          style={activeLinkStyle}
-          to="/"
-          className={stylex(styles.link, styles.menuItem)}
-        >
-          Home
-        </NavLink>
-      )}
       {(menu || FALLBACK_HEADER_MENU).items.map((item) => {
         if (!item.url) return null;
 
