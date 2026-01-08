@@ -80,6 +80,14 @@ const styles = stylex.create({
     minHeight: '5rem',
     resize: 'vertical',
   },
+  disclosure: {
+    marginTop: '0.25rem',
+  },
+  disclosureSummary: {
+    cursor: 'pointer',
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+  },
   select: {
     padding: '0.5rem 0.65rem',
     borderWidth: 1,
@@ -338,6 +346,41 @@ export function ProductForm({
               disabled: !isAvailable,
             };
 
+            if (
+              field.key.toLowerCase() === 'customer notes' &&
+              field.type === 'textarea'
+            ) {
+              return (
+                <details
+                  key={field.key}
+                  className={stylex(styles.disclosure)}
+                >
+                  <summary className={stylex(styles.disclosureSummary)}>
+                    Add notes to the maker
+                  </summary>
+                  <div className={stylex(styles.customizationRow)}>
+                    <span className={stylex(styles.label)}>{field.label}</span>
+                    <textarea
+                      className={stylex(styles.textarea)}
+                      maxLength={field.maxLength}
+                      placeholder={field.required ? 'Required' : undefined}
+                      {...commonProps}
+                    />
+                    {helper ? (
+                      <span
+                        className={stylex(
+                          styles.helper,
+                          !isAvailable && styles.helperDisabled,
+                        )}
+                      >
+                        {helper}
+                      </span>
+                    ) : null}
+                  </div>
+                </details>
+              );
+            }
+
             return (
               <div key={field.key} className={stylex(styles.customizationRow)}>
                 <span className={stylex(styles.label)}>{field.label}</span>
@@ -349,10 +392,7 @@ export function ProductForm({
                     {...commonProps}
                   />
                 ) : field.type === 'select' ? (
-                  <select
-                    className={stylex(styles.select)}
-                    {...commonProps}
-                  >
+                  <select className={stylex(styles.select)} {...commonProps}>
                     <option value="">Select...</option>
                     {(field.choices ?? []).map((choice) => (
                       <option key={choice} value={choice}>
