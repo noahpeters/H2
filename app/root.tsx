@@ -1,4 +1,5 @@
 import {Analytics, getShopAnalytics, useNonce} from '@shopify/hydrogen';
+import {PageViewAnalytics} from '~/components/PageAnalyticsView';
 import {
   Outlet,
   useRouteError,
@@ -210,6 +211,7 @@ export default function App() {
       consent={data.consent}
     >
       <PageLayout {...data}>
+        <PageViewAnalytics />
         <Outlet />
       </PageLayout>
     </Analytics.Provider>

@@ -9,7 +9,6 @@ import type {
 import {ProductItem} from '~/components/ProductItem';
 import Carousel from '~/components/Carousel';
 import stylex from '~/lib/stylex';
-import {PageViewAnalytics} from '~/components/PageAnalyticsView';
 
 const styles = stylex.create({
   featuredCollection: {
@@ -96,7 +95,6 @@ export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
     <div>
-      <PageViewAnalytics />
       <FeaturedCollection collection={data.featuredCollection} />
       <RecommendedProducts products={data.recommendedProducts} />
     </div>
