@@ -9,6 +9,7 @@ import type {
 import {ProductItem} from '~/components/ProductItem';
 import Carousel from '~/components/Carousel';
 import stylex from '~/lib/stylex';
+import {PageViewAnalytics} from '~/components/PageAnalyticsView';
 
 const styles = stylex.create({
   featuredCollection: {
@@ -30,7 +31,8 @@ const styles = stylex.create({
   featuredCollectionProductsGrid: {
     display: 'grid',
     gap: '1.5rem',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(var(--grid-item-width), 1fr))',
   },
   recommendedProductsGrid: {
     display: 'grid',
@@ -94,6 +96,7 @@ export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
     <div>
+      <PageViewAnalytics />
       <FeaturedCollection collection={data.featuredCollection} />
       <RecommendedProducts products={data.recommendedProducts} />
     </div>
