@@ -91,6 +91,8 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'connect-src', 'https://www.google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'connect-src', 'https://www.google.com');
+  out = addCspSource(out, 'connect-src', 'https://www.merchant-center-analytics.goog');
   out = addCspSource(out, 'frame-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
