@@ -178,7 +178,11 @@ export function ProductForm({
     name: (option.name ?? '').trim().toLowerCase(),
     value: (option.value ?? '').trim().toLowerCase(),
   }));
-  const paletteMatch = buildPaletteMatch(woodColorPalettes ?? [], selectedOptions);
+  const paletteMatch = buildPaletteMatch(
+    woodColorPalettes ?? [],
+    selectedOptions,
+  );
+  const selectedWoodValue = paletteMatch?.selectedWoodValue ?? null;
   const swatchLabels = useMemo(
     () => paletteMatch?.palette.swatches.map((swatch) => swatch.label) ?? [],
     [paletteMatch?.palette.swatches],
@@ -220,6 +224,10 @@ export function ProductForm({
       ),
     ...finishColorAttributes,
   ];
+
+  useEffect(() => {
+    setSelectedFinishColorLabel(null);
+  }, [selectedWoodValue]);
 
   useEffect(() => {
     if (!paletteMatch || swatchLabels.length === 0) {
@@ -315,6 +323,7 @@ export function ProductForm({
       })}
       {paletteMatch ? (
         <FinishColorPicker
+          key={selectedWoodValue ?? 'default'}
           palettes={woodColorPalettes ?? []}
           selectedOptions={selectedOptions}
           selectedFinishColorLabel={selectedFinishColorLabel}
