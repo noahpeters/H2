@@ -1,4 +1,4 @@
-import type {Route} from './+types/sitemap.custom[.xml]';
+import type {Route} from './+types/[sitemap.custom.xml]';
 
 const MENU_QUERY = `#graphql
   fragment MenuItemFields on MenuItem {
