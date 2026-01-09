@@ -158,6 +158,25 @@ function loadDeferredData({context}: Route.LoaderArgs) {
   };
 }
 
+export function TawkToTag({nonce}: {nonce?: string}) {
+  useEffect(() => {
+    const existing = document.querySelector(
+      `script[src="https://embed.tawk.to/695f3d8c231fb5197e2a62f0/1jee0gr4m"]`,
+    );
+    if (existing) return;
+
+    const s1 = document.createElement('script');
+    s1.async = true;
+    s1.src = 'https://embed.tawk.to/695f3d8c231fb5197e2a62f0/1jee0gr4m';
+    s1.charset = 'UTF-8';
+    if (nonce) s1.nonce = nonce;
+    s1.setAttribute('crossorigin', '*');
+    document.head.appendChild(s1);
+  }, [nonce]);
+
+  return null;
+}
+
 export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
   useEffect(() => {
     // avoid double-inject (HMR, client nav, etc.)
@@ -219,6 +238,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
         <GoogleTag nonce={nonce} id={gtagId} />
+        <TawkToTag nonce={nonce} />
       </body>
     </html>
   );

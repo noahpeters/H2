@@ -89,6 +89,10 @@ function patchTurnstileCsp(
   // Allow Oxygen CDN scripts in production
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'script-src', 'https://embed.tawk.to');
+  out = addCspSource(out, 'style-src', 'https://embed.tawk.to');
+  out = addCspSource(out, 'img-src', 'https://embed.tawk.to');
+  out = addCspSource(out, 'font-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'connect-src', 'https://www.google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'connect-src', 'https://www.google.com');
