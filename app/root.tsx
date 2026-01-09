@@ -159,8 +159,6 @@ function loadDeferredData({context}: Route.LoaderArgs) {
 }
 
 export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
-  'use client';
-
   useEffect(() => {
     // avoid double-inject (HMR, client nav, etc.)
     const existing = document.querySelector(
