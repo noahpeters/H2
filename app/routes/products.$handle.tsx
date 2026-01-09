@@ -1,4 +1,4 @@
-import {useLoaderData} from 'react-router';
+import {useLoaderData, useLocation} from 'react-router';
 import type {Route} from './+types/products.$handle';
 import type {ProductFragment} from 'storefrontapi.generated';
 import {
@@ -187,7 +187,12 @@ export default function Product() {
 
   // Sets the search param to the selected variant without navigation
   // only when no search params are set in the url
-  useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
+  const location = useLocation();
+  const hasSearchParams =
+    new URLSearchParams(location.search).size > 0;
+  useSelectedOptionInUrlParam(
+    hasSearchParams ? [] : selectedVariant.selectedOptions,
+  );
 
   const productWithSelection = {
     ...product,
