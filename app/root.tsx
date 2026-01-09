@@ -18,6 +18,13 @@ import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import stylexStyles from '~/styles/stylex.css?url';
 import {PageLayout} from './components/PageLayout';
+import {useEffect} from 'react';
+
+declare global {
+  interface Window {
+    dataLayer: unknown[];
+  }
+}
 
 export type RootLoader = typeof loader;
 
@@ -151,8 +158,39 @@ function loadDeferredData({context}: Route.LoaderArgs) {
   };
 }
 
+export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
+  'use client';
+
+  useEffect(() => {
+    // avoid double-inject (HMR, client nav, etc.)
+    const existing = document.querySelector(
+      `script[src="https://www.googletagmanager.com/gtag/js?id=${id}"]`,
+    );
+    if (existing) return;
+
+    const s1 = document.createElement('script');
+    s1.async = true;
+    s1.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+    if (nonce) s1.nonce = nonce;
+    document.head.appendChild(s1);
+
+    const s2 = document.createElement('script');
+    if (nonce) s2.nonce = nonce;
+    s2.text = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){window.dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${id}');
+    `;
+    document.head.appendChild(s2);
+  }, [id, nonce]);
+
+  return null;
+}
+
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
+  const gtagId = 'GT-TXBKGK45';
 
   return (
     <html lang="en">
@@ -182,6 +220,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         {children}
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
+        <GoogleTag nonce={nonce} id={gtagId} />
       </body>
     </html>
   );

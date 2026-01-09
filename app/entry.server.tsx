@@ -88,6 +88,14 @@ function patchTurnstileCsp(
 
   // Allow Oxygen CDN scripts in production
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
+  out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'connect-src', 'https://www.google-analytics.com');
+  out = addCspSource(out, 'connect-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'frame-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'img-src', 'https://www.google.com');
+  out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'img-src', "'self'");
+  out = addCspSource(out, 'img-src', 'https://cdn.shopify.com');
   if (nonce) {
     out = addCspSource(out, 'script-src', `'nonce-${nonce}'`);
   }

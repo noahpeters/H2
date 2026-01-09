@@ -1184,6 +1184,64 @@ export type ProductFragment = Pick<
         })
     >;
   }>;
+  wood_color_palettes?: StorefrontAPI.Maybe<{
+    references?: StorefrontAPI.Maybe<{
+      nodes: Array<
+        | {
+            __typename:
+              | 'Collection'
+              | 'GenericFile'
+              | 'MediaImage'
+              | 'Model3d'
+              | 'Page'
+              | 'Product'
+              | 'ProductVariant'
+              | 'Video';
+          }
+        | ({__typename: 'Metaobject'} & {
+            fields: Array<
+              Pick<StorefrontAPI.MetaobjectField, 'key' | 'type' | 'value'> & {
+                references?: StorefrontAPI.Maybe<{
+                  nodes: Array<
+                    | {
+                        __typename:
+                          | 'Collection'
+                          | 'GenericFile'
+                          | 'MediaImage'
+                          | 'Model3d'
+                          | 'Page'
+                          | 'Product'
+                          | 'ProductVariant'
+                          | 'Video';
+                      }
+                    | ({__typename: 'Metaobject'} & {
+                        fields: Array<
+                          Pick<
+                            StorefrontAPI.MetaobjectField,
+                            'key' | 'type' | 'value'
+                          > & {
+                            reference?: StorefrontAPI.Maybe<
+                              | Pick<StorefrontAPI.GenericFile, 'url'>
+                              | {
+                                  image?: StorefrontAPI.Maybe<
+                                    Pick<
+                                      StorefrontAPI.Image,
+                                      'url' | 'altText' | 'width' | 'height'
+                                    >
+                                  >;
+                                }
+                            >;
+                          }
+                        >;
+                      })
+                  >;
+                }>;
+              }
+            >;
+          })
+      >;
+    }>;
+  }>;
 };
 
 export type ProductQueryVariables = StorefrontAPI.Exact<{
@@ -1560,6 +1618,67 @@ export type ProductQuery = {
             })
         >;
       }>;
+      wood_color_palettes?: StorefrontAPI.Maybe<{
+        references?: StorefrontAPI.Maybe<{
+          nodes: Array<
+            | {
+                __typename:
+                  | 'Collection'
+                  | 'GenericFile'
+                  | 'MediaImage'
+                  | 'Model3d'
+                  | 'Page'
+                  | 'Product'
+                  | 'ProductVariant'
+                  | 'Video';
+              }
+            | ({__typename: 'Metaobject'} & {
+                fields: Array<
+                  Pick<
+                    StorefrontAPI.MetaobjectField,
+                    'key' | 'type' | 'value'
+                  > & {
+                    references?: StorefrontAPI.Maybe<{
+                      nodes: Array<
+                        | {
+                            __typename:
+                              | 'Collection'
+                              | 'GenericFile'
+                              | 'MediaImage'
+                              | 'Model3d'
+                              | 'Page'
+                              | 'Product'
+                              | 'ProductVariant'
+                              | 'Video';
+                          }
+                        | ({__typename: 'Metaobject'} & {
+                            fields: Array<
+                              Pick<
+                                StorefrontAPI.MetaobjectField,
+                                'key' | 'type' | 'value'
+                              > & {
+                                reference?: StorefrontAPI.Maybe<
+                                  | Pick<StorefrontAPI.GenericFile, 'url'>
+                                  | {
+                                      image?: StorefrontAPI.Maybe<
+                                        Pick<
+                                          StorefrontAPI.Image,
+                                          'url' | 'altText' | 'width' | 'height'
+                                        >
+                                      >;
+                                    }
+                                >;
+                              }
+                            >;
+                          })
+                      >;
+                    }>;
+                  }
+                >;
+              })
+          >;
+        }>;
+      }>;
     }
   >;
 };
@@ -1892,7 +2011,7 @@ interface GeneratedQueryTypes {
     return: PoliciesQuery;
     variables: PoliciesQueryVariables;
   };
-  '#graphql\n  query Product(\n    $country: CountryCode\n    $handle: String!\n    $language: LanguageCode\n    $selectedOptions: [SelectedOptionInput!]!\n  ) @inContext(country: $country, language: $language) {\n    product(handle: $handle) {\n      ...Product\n    }\n  }\n  #graphql\n  fragment Product on Product {\n    id\n    title\n    tags\n    vendor\n    handle\n    descriptionHtml\n    description\n    encodedVariantExistence\n    encodedVariantAvailability\n    options {\n      name\n      optionValues {\n        name\n        firstSelectableVariant {\n          ...ProductVariant\n        }\n        swatch {\n          color\n          image {\n            previewImage {\n              url\n            }\n          }\n        }\n      }\n    }\n    variants(first: 250) {\n      nodes {\n        ...ProductVariant\n      }\n    }\n    selectedOrFirstAvailableVariant(selectedOptions: $selectedOptions, ignoreUnknownOptions: true, caseInsensitiveMatch: true) {\n      ...ProductVariant\n    }\n    priceRange {\n      minVariantPrice {\n        amount\n        currencyCode\n      }\n      maxVariantPrice {\n        amount\n        currencyCode\n      }\n    }\n    adjacentVariants (selectedOptions: $selectedOptions) {\n      ...ProductVariant\n    }\n    seo {\n      description\n      title\n    }\n    specs: metafield(key:"specs" namespace: "custom") {\n      value\n    }\n    option_ui: metafield(key: "option_ui", namespace: "custom") {\n      references(first: 100) {\n        nodes {\n          __typename\n          ... on Metaobject {\n            id\n            type\n            handle\n            fields {\n              key\n              value\n              type\n              reference {\n                ... on MediaImage {\n                  image {\n                    url\n                    altText\n                    width\n                    height\n                  }\n                }\n                ... on GenericFile {\n                  url\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    line_item_field_set: metafield(key: "line_item_field_set", namespace: "custom") {\n      reference {\n        __typename\n        ... on Metaobject {\n          fields {\n            key\n            type\n            value\n            references(first: 50) {\n              nodes {\n                __typename\n                ... on Metaobject {\n                  fields {\n                    key\n                    type\n                    value\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    lineItemFieldSet: metafield(key: "line_item_field_set", namespace: "custom") {\n      reference {\n        __typename\n        ... on Metaobject {\n          fields {\n            key\n            type\n            value\n            references(first: 50) {\n              nodes {\n                __typename\n                ... on Metaobject {\n                  fields {\n                    key\n                    type\n                    value\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n  #graphql\n  fragment ProductVariant on ProductVariant {\n    availableForSale\n    compareAtPrice {\n      amount\n      currencyCode\n    }\n    id\n    image {\n      __typename\n      id\n      url\n      altText\n      width\n      height\n    }\n    price {\n      amount\n      currencyCode\n    }\n    product {\n      title\n      handle\n      media(first: 10) {\n        nodes {\n          ... on MediaImage {\n            __typename\n            id\n            image {\n              __typename\n              id\n              url\n              altText\n              width\n              height\n            }\n          }\n          ... on Model3d {\n            id\n            sources {\n              url\n              mimeType\n              format\n            }\n          }\n        }\n      }\n    }\n    selectedOptions {\n      name\n      value\n    }\n    sku\n    title\n    unitPrice {\n      amount\n      currencyCode\n    }\n  }\n\n\n': {
+  '#graphql\n  query Product(\n    $country: CountryCode\n    $handle: String!\n    $language: LanguageCode\n    $selectedOptions: [SelectedOptionInput!]!\n  ) @inContext(country: $country, language: $language) {\n    product(handle: $handle) {\n      ...Product\n    }\n  }\n  #graphql\n  fragment Product on Product {\n    id\n    title\n    tags\n    vendor\n    handle\n    descriptionHtml\n    description\n    encodedVariantExistence\n    encodedVariantAvailability\n    options {\n      name\n      optionValues {\n        name\n        firstSelectableVariant {\n          ...ProductVariant\n        }\n        swatch {\n          color\n          image {\n            previewImage {\n              url\n            }\n          }\n        }\n      }\n    }\n    variants(first: 250) {\n      nodes {\n        ...ProductVariant\n      }\n    }\n    selectedOrFirstAvailableVariant(selectedOptions: $selectedOptions, ignoreUnknownOptions: true, caseInsensitiveMatch: true) {\n      ...ProductVariant\n    }\n    priceRange {\n      minVariantPrice {\n        amount\n        currencyCode\n      }\n      maxVariantPrice {\n        amount\n        currencyCode\n      }\n    }\n    adjacentVariants (selectedOptions: $selectedOptions) {\n      ...ProductVariant\n    }\n    seo {\n      description\n      title\n    }\n    specs: metafield(key:"specs" namespace: "custom") {\n      value\n    }\n    option_ui: metafield(key: "option_ui", namespace: "custom") {\n      references(first: 100) {\n        nodes {\n          __typename\n          ... on Metaobject {\n            id\n            type\n            handle\n            fields {\n              key\n              value\n              type\n              reference {\n                ... on MediaImage {\n                  image {\n                    url\n                    altText\n                    width\n                    height\n                  }\n                }\n                ... on GenericFile {\n                  url\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    line_item_field_set: metafield(key: "line_item_field_set", namespace: "custom") {\n      reference {\n        __typename\n        ... on Metaobject {\n          fields {\n            key\n            type\n            value\n            references(first: 50) {\n              nodes {\n                __typename\n                ... on Metaobject {\n                  fields {\n                    key\n                    type\n                    value\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    lineItemFieldSet: metafield(key: "line_item_field_set", namespace: "custom") {\n      reference {\n        __typename\n        ... on Metaobject {\n          fields {\n            key\n            type\n            value\n            references(first: 50) {\n              nodes {\n                __typename\n                ... on Metaobject {\n                  fields {\n                    key\n                    type\n                    value\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    wood_color_palettes: metafield(key: "wood_color_palettes", namespace: "custom") {\n      references(first: 20) {\n        nodes {\n          __typename\n          ... on Metaobject {\n            fields {\n              key\n              type\n              value\n              references(first: 20) {\n                nodes {\n                  __typename\n                  ... on Metaobject {\n                    fields {\n                      key\n                      type\n                      value\n                      reference {\n                        ... on MediaImage {\n                          image {\n                            url\n                            altText\n                            width\n                            height\n                          }\n                        }\n                        ... on GenericFile {\n                          url\n                        }\n                      }\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n  #graphql\n  fragment ProductVariant on ProductVariant {\n    availableForSale\n    compareAtPrice {\n      amount\n      currencyCode\n    }\n    id\n    image {\n      __typename\n      id\n      url\n      altText\n      width\n      height\n    }\n    price {\n      amount\n      currencyCode\n    }\n    product {\n      title\n      handle\n      media(first: 10) {\n        nodes {\n          ... on MediaImage {\n            __typename\n            id\n            image {\n              __typename\n              id\n              url\n              altText\n              width\n              height\n            }\n          }\n          ... on Model3d {\n            id\n            sources {\n              url\n              mimeType\n              format\n            }\n          }\n        }\n      }\n    }\n    selectedOptions {\n      name\n      value\n    }\n    sku\n    title\n    unitPrice {\n      amount\n      currencyCode\n    }\n  }\n\n\n': {
     return: ProductQuery;
     variables: ProductQueryVariables;
   };
