@@ -99,6 +99,7 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'connect-src', 'https://www.merchant-center-analytics.goog');
   out = addCspSource(out, 'connect-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'connect-src', 'https://va.tawk.to');
+  out = addCspSource(out, 'connect-src', 'wss://vsa14.tawk.to');
   out = addCspSource(out, 'frame-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
