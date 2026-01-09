@@ -24,12 +24,27 @@ export function FinishColorPicker({
   selectedOptions,
   selectedFinishColorLabel,
   onChange,
+  isLoading = false,
 }: {
   palettes: WoodColorPalette[];
   selectedOptions: Array<{name?: string | null; value?: string | null}>;
   selectedFinishColorLabel: string | null;
   onChange: (label: string) => void;
+  isLoading?: boolean;
 }) {
+  if (isLoading) {
+    return (
+      <div className={stylex(styles.section)}>
+        <h5 className={stylex(styles.title)}>Finish Color</h5>
+        <div className="skeleton-row" aria-hidden="true">
+          {Array.from({length: 6}).map((_, index) => (
+            <span key={index} className="skeleton skeleton-swatch" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const match = buildPaletteMatch(palettes, selectedOptions);
   if (!match || !match.palette.swatches.length) return null;
 

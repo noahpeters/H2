@@ -24,3 +24,42 @@ h1, h2, h3, h4, h5, h6 {
 img {
   border-radius: 4px;
 }
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e7dcc7 25%, #f2e9d9 50%, #e7dcc7 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.skeleton-text {
+  height: 1em;
+  width: 5rem;
+}
+
+.skeleton-price {
+  height: 1.1em;
+  width: 7rem;
+}
+
+.skeleton-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.skeleton-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+}

@@ -1,4 +1,4 @@
-import {Link, useNavigate} from 'react-router';
+import {Link, useNavigate, useNavigation} from 'react-router';
 import {useEffect, useMemo, useState, type ChangeEvent} from 'react';
 import {type MappedProductOptions} from '@shopify/hydrogen';
 import type {
@@ -153,6 +153,7 @@ export function ProductForm({
   woodColorPalettes?: WoodColorPalette[];
 }) {
   const navigate = useNavigate();
+  const navigation = useNavigation();
   const {open} = useAside();
   const initialValues = useMemo(
     () =>
@@ -191,6 +192,7 @@ export function ProductForm({
     string | null
   >(null);
   const helperText = 'Select engraving to add text or a logo.';
+  const isLoading = navigation.state !== 'idle';
 
   const isFieldAvailable = (field: LineItemField) => {
     if (!field.showWhenOptionName || !field.showWhenOptionValue) return true;
@@ -328,6 +330,7 @@ export function ProductForm({
           selectedOptions={selectedOptions}
           selectedFinishColorLabel={selectedFinishColorLabel}
           onChange={setSelectedFinishColorLabel}
+          isLoading={isLoading}
         />
       ) : null}
       {lineItemFieldSet?.fields?.length ? (
@@ -440,10 +443,15 @@ export function ProductForm({
           <ProductPrice
             price={selectedVariant?.price}
             compareAtPrice={selectedVariant?.compareAtPrice}
+            isLoading={isLoading}
           />
         </div>
         <AddToCartButton
-          disabled={!selectedVariant || !selectedVariant.availableForSale}
+          disabled={
+            isLoading ||
+            !selectedVariant ||
+            !selectedVariant.availableForSale
+          }
           onClick={() => {
             open('cart');
           }}
@@ -452,7 +460,11 @@ export function ProductForm({
           {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
         </AddToCartButton>
         <BuyNowButton
-          disabled={!selectedVariant || !selectedVariant.availableForSale}
+          disabled={
+            isLoading ||
+            !selectedVariant ||
+            !selectedVariant.availableForSale
+          }
           lines={lines}
         >
           Buy now

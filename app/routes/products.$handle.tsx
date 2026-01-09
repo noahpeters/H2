@@ -1,4 +1,5 @@
-import {useLoaderData, useLocation} from 'react-router';
+import {useMemo} from 'react';
+import {useLoaderData, useLocation, useNavigation} from 'react-router';
 import type {Route} from './+types/products.$handle';
 import type {ProductFragment} from 'storefrontapi.generated';
 import {
@@ -178,21 +179,45 @@ const styles = stylex.create({
 
 export default function Product() {
   const {product, lineItemFieldSetReference} = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+  const isLoading = navigation.state !== 'idle';
 
   // Optimistically selects a variant with given available variant information
-  const selectedVariant = useOptimisticVariant(
+  const optimisticVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
     getAdjacentAndFirstAvailableVariants(product),
   );
-
-  // Sets the search param to the selected variant without navigation
-  // only when no search params are set in the url
   const location = useLocation();
-  const hasSearchParams =
-    new URLSearchParams(location.search).size > 0;
-  useSelectedOptionInUrlParam(
-    hasSearchParams ? [] : selectedVariant.selectedOptions,
-  );
+  const selectedVariantFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.size === 0) return null;
+    const baseOptions =
+      product.selectedOrFirstAvailableVariant?.selectedOptions ??
+      optimisticVariant?.selectedOptions ??
+      [];
+    if (baseOptions.length === 0) return null;
+    const mergedOptions = baseOptions.map((option) => ({
+      name: option.name,
+      value: params.get(option.name) ?? option.value,
+    }));
+    return (
+      product.variants.nodes.find((variant) =>
+        (variant.selectedOptions ?? []).every(
+          (option) =>
+            mergedOptions.find((merged) => merged.name === option.name)
+              ?.value === option.value,
+        ),
+      ) ?? null
+    );
+  }, [
+    location.search,
+    optimisticVariant?.selectedOptions,
+    product.selectedOrFirstAvailableVariant?.selectedOptions,
+    product.variants.nodes,
+  ]);
+  const selectedVariant = selectedVariantFromUrl ?? optimisticVariant;
+
+  useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
 
   const productWithSelection = {
     ...product,
@@ -229,8 +254,15 @@ export default function Product() {
           <div className={stylex(styles.productMain)}>
             <h1 className={stylex(styles.productTitle)}>{title}</h1>
             <div className={stylex(styles.priceRange)}>
-              <ProductPrice price={product.priceRange.minVariantPrice} />-
-              <ProductPrice price={product.priceRange.maxVariantPrice} />
+              <ProductPrice
+                price={product.priceRange.minVariantPrice}
+                isLoading={isLoading}
+              />
+              -
+              <ProductPrice
+                price={product.priceRange.maxVariantPrice}
+                isLoading={isLoading}
+              />
             </div>
             <br />
             <br />

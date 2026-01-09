@@ -15,10 +15,22 @@ const styles = stylex.create({
 export function ProductPrice({
   price,
   compareAtPrice,
+  isLoading = false,
 }: {
   price?: MoneyV2;
   compareAtPrice?: MoneyV2 | null;
+  isLoading?: boolean;
 }) {
+  if (isLoading) {
+    return (
+      <span
+        className="skeleton skeleton-price"
+        role="status"
+        aria-label="Updating price"
+      />
+    );
+  }
+
   return (
     <div>
       {compareAtPrice ? (
