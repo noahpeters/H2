@@ -10,8 +10,19 @@ import {
   parseSizeValue,
   type SizeExtension,
 } from '~/lib/options/sizeOption';
+import {buildUrlWithParams, getUrlOrigin} from '~/lib/url';
 
 const SIZE_OPTION_NAME = 'seating capacity';
+
+function normalizeOptionUrl(to: string | null | undefined, origin: string) {
+  if (!to) return undefined;
+  const url = new URL(to, origin);
+  return buildUrlWithParams({
+    basePath: url.pathname,
+    origin,
+    params: url.searchParams,
+  });
+}
 
 type VariantOptionPickersProps = {
   product: ProductFragment;
@@ -22,6 +33,8 @@ export function VariantOptionPickers({
   product,
   presentationMap,
 }: VariantOptionPickersProps) {
+  const origin = getUrlOrigin();
+
   return (
     <VariantSelector
       handle={product.handle}
@@ -40,6 +53,7 @@ export function VariantOptionPickers({
               key={option.name}
               option={option}
               presentationMap={presentationMap}
+              origin={origin}
             />
           );
         }
@@ -49,7 +63,7 @@ export function VariantOptionPickers({
           selected: value.isActive,
           available: value.isAvailable,
           disabled: !value.isAvailable,
-          to: value.to,
+          to: normalizeOptionUrl(value.to, origin),
           exists: true,
           swatch: value.optionValue?.swatch as OptionPickerValue['swatch'],
         }));
@@ -79,9 +93,11 @@ type SizeOptionEntry = {
 function SizeOptionPicker({
   option,
   presentationMap,
+  origin,
 }: {
   option: VariantOption;
   presentationMap?: Record<string, OptionPresentation>;
+  origin: string;
 }) {
   const parsedEntries = option.values
     .map((value) => {
@@ -97,7 +113,7 @@ function SizeOptionPicker({
       selected: value.isActive,
       available: value.isAvailable,
       disabled: !value.isAvailable,
-      to: value.to,
+      to: normalizeOptionUrl(value.to, origin),
       exists: true,
       swatch: value.optionValue?.swatch as OptionPickerValue['swatch'],
     }));
@@ -175,7 +191,7 @@ function SizeOptionPicker({
       selected: selectedBase === base,
       available: hasAvailable,
       disabled: !hasAvailable,
-      to: targetValue?.to,
+      to: normalizeOptionUrl(targetValue?.to, origin),
       exists: hasAny,
       swatch: getBaseSwatch(base) as OptionPickerValue['swatch'],
     };
@@ -192,7 +208,7 @@ function SizeOptionPicker({
           selected: selectedExt ? selectedExt === ext : ext === 'none',
           available: targetValue?.isAvailable ?? false,
           disabled: !targetValue?.isAvailable,
-          to: targetValue?.to,
+          to: normalizeOptionUrl(targetValue?.to, origin),
           exists,
           swatch: targetValue?.optionValue?.swatch as OptionPickerValue['swatch'],
         };

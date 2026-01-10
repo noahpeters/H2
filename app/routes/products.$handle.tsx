@@ -29,12 +29,51 @@ import {
 } from '~/lib/options/woodColorPalettes';
 
 export const meta: Route.MetaFunction = ({data}) => {
+  const origin = data?.origin ?? 'https://from-trees.com';
+
+  const product = data?.product;
+  if (!product) return [{title: 'from trees'}];
+
+  const title = `from trees | ${product.seo?.title ?? product.title}`;
+
+  const description =
+    product.seo?.description ??
+    product.description?.replace(/\s+/g, ' ').trim().slice(0, 160) ??
+    'Handcrafted furniture from from trees.';
+
+  const url = `${origin}/products/${product.handle}`;
+
+  const imageURL = product.selectedOrFirstAvailableVariant?.image?.url;
+  const image = imageURL
+    ? `${imageURL}&width=1200&height=630&crop=center`
+    : `${origin}/app/assets/logo-wide.png`;
+
   return [
-    {title: `from trees | ${data?.product.title ?? ''}`},
-    {
-      rel: 'canonical',
-      href: `/products/${data?.product.handle}`,
-    },
+    {title},
+    {name: 'description', content: description},
+
+    // Canonical
+    {rel: 'canonical', href: url},
+
+    // Open Graph
+    {property: 'og:site_name', content: 'from trees'},
+    {property: 'og:type', content: 'product'},
+    {property: 'og:title', content: title},
+    {property: 'og:description', content: description},
+    {property: 'og:url', content: url},
+    ...(image
+      ? [
+          {property: 'og:image', content: image},
+          {property: 'og:image:width', content: '1200'},
+          {property: 'og:image:height', content: '630'},
+        ]
+      : []),
+
+    // Twitter
+    {name: 'twitter:card', content: 'summary_large_image'},
+    {name: 'twitter:title', content: title},
+    {name: 'twitter:description', content: description},
+    ...(image ? [{name: 'twitter:image', content: image}] : []),
   ];
 };
 
@@ -78,6 +117,7 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
   redirectIfHandleIsLocalized(request, {handle, data: product});
 
   return {
+    origin: new URL(request.url).origin,
     product,
     lineItemFieldSetReference:
       fieldSetProduct?.line_item_field_set?.reference ?? null,
@@ -514,9 +554,13 @@ function getWoodColorPalettes(product: ProductFragment) {
   const palettes = getWoodColorPalettesRaw(product);
   return (
     palettes
-      ?.map((node) => parseWoodColorPalette(node ?? {}))
-      .filter((palette): palette is NonNullable<typeof palette> => palette != null) ??
-    []
+      ?.filter((node): node is {fields?: PaletteMetaobjectField[] | null} =>
+        Boolean(node && 'fields' in node),
+      )
+      .map((node) => parseWoodColorPalette(node))
+      .filter(
+        (palette): palette is NonNullable<typeof palette> => palette != null,
+      ) ?? []
   );
 }
 
@@ -526,7 +570,9 @@ function getWoodColorPalettesRaw(product: ProductFragment) {
       product as ProductFragment & {
         wood_color_palettes?: {
           references?: {
-            nodes?: Array<{fields?: PaletteMetaobjectField[]} | null> | null;
+            nodes?: Array<{
+              fields?: PaletteMetaobjectField[] | null;
+            } | null> | null;
           } | null;
         } | null;
       }

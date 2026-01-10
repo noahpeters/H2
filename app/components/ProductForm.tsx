@@ -1,4 +1,4 @@
-import {Link, useNavigate, useNavigation} from 'react-router';
+import {Link, useLocation, useNavigate, useNavigation} from 'react-router';
 import {useEffect, useMemo, useState, type ChangeEvent} from 'react';
 import {type MappedProductOptions} from '@shopify/hydrogen';
 import type {
@@ -15,6 +15,7 @@ import type {LineItemFieldSet, LineItemField} from '~/lib/cart/lineItemFieldSet'
 import type {WoodColorPalette} from '~/lib/options/woodColorPalettes';
 import {buildPaletteMatch} from '~/lib/options/woodColorPalettes';
 import {FinishColorPicker} from '~/components/product/FinishColorPicker';
+import {buildUrlWithParams, getUrlOrigin} from '~/lib/url';
 
 const styles = stylex.create({
   buttonsContainer: {
@@ -154,7 +155,9 @@ export function ProductForm({
 }) {
   const navigate = useNavigate();
   const navigation = useNavigation();
+  const {pathname} = useLocation();
   const {open} = useAside();
+  const origin = getUrlOrigin();
   const initialValues = useMemo(
     () =>
       (lineItemFieldSet?.fields ?? []).reduce<Record<string, string>>(
@@ -284,6 +287,18 @@ export function ProductForm({
                   !available && styles.optionItemUnavailable,
                 ];
 
+                const variantParams = new URLSearchParams(variantUriQuery);
+                const localeMatch =
+                  /(\/[a-zA-Z]{2}-[a-zA-Z]{2}\/)/g.exec(pathname);
+                const productPath = localeMatch?.[0]
+                  ? `${localeMatch[0]}products/${handle}`
+                  : `/products/${handle}`;
+                const optionUrl = buildUrlWithParams({
+                  basePath: isDifferentProduct ? productPath : pathname,
+                  origin,
+                  params: variantParams,
+                });
+
                 if (isDifferentProduct) {
                   return (
                     <Link
@@ -291,7 +306,7 @@ export function ProductForm({
                       prefetch="intent"
                       preventScrollReset
                       replace
-                      to={`/products/${handle}?${variantUriQuery}`}
+                      to={optionUrl}
                       className={stylex(itemStyles)}
                     >
                       <ProductOptionSwatch swatch={swatch} name={name} />
@@ -300,14 +315,14 @@ export function ProductForm({
                 }
 
                 return (
-                    <button
-                      type="button"
-                      key={option.name + name}
-                      className={stylex(itemStyles, styles.optionItemLink)}
-                      disabled={!exists}
-                      onClick={() => {
+                  <button
+                    type="button"
+                    key={option.name + name}
+                    className={stylex(itemStyles, styles.optionItemLink)}
+                    disabled={!exists}
+                    onClick={() => {
                       if (!selected) {
-                        void navigate(`?${variantUriQuery}`, {
+                        void navigate(optionUrl, {
                           replace: true,
                           preventScrollReset: true,
                         });

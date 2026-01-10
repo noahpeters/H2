@@ -43,8 +43,39 @@ const styles = stylex.create({
   },
 });
 
-export const meta: Route.MetaFunction = () => {
-  return [{title: 'from trees'}];
+export const meta: Route.MetaFunction = ({data}) => {
+  const origin = 'https://from-trees.com';
+
+  const title = 'from trees';
+  const description =
+    'Bespoke, heirloom-quality furniture designed and built to last.';
+
+  const url = `${origin}/`;
+  const image = `${origin}/app/assets/logo-wide.png`;
+
+  return [
+    {title},
+    {name: 'description', content: description},
+
+    // Canonical
+    {rel: 'canonical', href: url},
+
+    // Open Graph
+    {property: 'og:site_name', content: 'from trees'},
+    {property: 'og:type', content: 'website'},
+    {property: 'og:title', content: title},
+    {property: 'og:description', content: description},
+    {property: 'og:url', content: url},
+    {property: 'og:image', content: image},
+    {property: 'og:image:width', content: '2000'},
+    {property: 'og:image:height', content: '1000'},
+
+    // Twitter
+    {name: 'twitter:card', content: 'summary_large_image'},
+    {name: 'twitter:title', content: title},
+    {name: 'twitter:description', content: description},
+    {name: 'twitter:image', content: image},
+  ];
 };
 
 export async function loader(args: Route.LoaderArgs) {

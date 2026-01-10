@@ -108,6 +108,7 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'img-src', "'self'");
   out = addCspSource(out, 'img-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'img-src', 'https://www.facebook.com');
+  out = addCspSource(out, 'img-src', 'https://connect.facebook.net');
   if (nonce) {
     out = addCspSource(out, 'script-src', `'nonce-${nonce}'`);
   }
