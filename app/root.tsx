@@ -23,8 +23,18 @@ import {useEffect} from 'react';
 declare global {
   interface Window {
     dataLayer: unknown[];
+    fbq?: FbqFn;
+    _fbq?: Window['fbq'];
+    __metaPixelInitialized?: boolean;
   }
 }
+
+type FbqFn = ((...args: unknown[]) => void) & {
+  callMethod?: (...args: unknown[]) => void;
+  queue?: unknown[][];
+  loaded?: boolean;
+  version?: string;
+};
 
 export type RootLoader = typeof loader;
 
@@ -205,6 +215,46 @@ export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
   return null;
 }
 
+export function MetaPixel({nonce}: {nonce?: string}) {
+  useEffect(() => {
+    const pixelId = '4235923316621088';
+
+    if (!window.fbq) {
+      const fbq: FbqFn = (...args: unknown[]) => {
+        if (fbq.callMethod) {
+          fbq.callMethod(...args);
+        } else {
+          fbq.queue?.push(args);
+        }
+      };
+      fbq.queue = [];
+      fbq.loaded = true;
+      fbq.version = '2.0';
+      window.fbq = fbq;
+      window._fbq = fbq;
+    }
+
+    const existing = document.querySelector(
+      `script[src="https://connect.facebook.net/en_US/fbevents.js"]`,
+    );
+    if (!existing) {
+      const s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      if (nonce) s.nonce = nonce;
+      document.head.appendChild(s);
+    }
+
+    if (!window.__metaPixelInitialized && window.fbq) {
+      window.fbq('init', pixelId);
+      window.fbq('track', 'PageView');
+      window.__metaPixelInitialized = true;
+    }
+  }, [nonce]);
+
+  return null;
+}
+
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
   const gtagId = 'GT-TXBKGK45';
@@ -239,6 +289,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <Scripts nonce={nonce} />
         <GoogleTag nonce={nonce} id={gtagId} />
         <TawkToTag nonce={nonce} />
+        <MetaPixel nonce={nonce} />
       </body>
     </html>
   );

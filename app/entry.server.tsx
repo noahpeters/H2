@@ -90,11 +90,13 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'script-src', 'https://embed.tawk.to');
+  out = addCspSource(out, 'script-src', 'https://connect.facebook.net');
   out = addCspSource(out, 'style-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'img-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'font-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'connect-src', 'https://www.google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'connect-src', 'https://connect.facebook.net');
   out = addCspSource(out, 'connect-src', 'https://www.google.com');
   out = addCspSource(out, 'connect-src', 'https://www.merchant-center-analytics.goog');
   out = addCspSource(out, 'connect-src', 'https://embed.tawk.to');
@@ -105,6 +107,7 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
   out = addCspSource(out, 'img-src', "'self'");
   out = addCspSource(out, 'img-src', 'https://cdn.shopify.com');
+  out = addCspSource(out, 'img-src', 'https://www.facebook.com');
   if (nonce) {
     out = addCspSource(out, 'script-src', `'nonce-${nonce}'`);
   }
