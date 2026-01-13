@@ -101,7 +101,18 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'connect-src', 'https://www.merchant-center-analytics.goog');
   out = addCspSource(out, 'connect-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'connect-src', 'https://va.tawk.to');
+  out = addCspSource(out, 'connect-src', 'wss://vsa1.tawk.to');
   out = addCspSource(out, 'connect-src', 'wss://vsa14.tawk.to');
+  out = addCspSource(
+    out,
+    'connect-src',
+    'https://mv-prod-1-1053047382554.us-central1.run.app',
+  );
+  out = addCspSource(
+    out,
+    'connect-src',
+    'https://demo-1.conversionsapigateway.com',
+  );
   out = addCspSource(out, 'frame-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
@@ -109,6 +120,7 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'img-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'img-src', 'https://www.facebook.com');
   out = addCspSource(out, 'img-src', 'https://connect.facebook.net');
+  out = addCspSource(out, 'script-src', 'https://cdn.jsdelivr.net');
   if (nonce) {
     out = addCspSource(out, 'script-src', `'nonce-${nonce}'`);
   }
