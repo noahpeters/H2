@@ -26,6 +26,15 @@ const styles = stylex.create({
     minWidth: 'fit-content',
     textDecoration: 'none',
   },
+  iconLink: {
+    alignItems: 'center',
+    display: 'inline-flex',
+    justifyContent: 'center',
+  },
+  icon: {
+    height: '1.25rem',
+    width: '1.25rem',
+  },
 });
 
 export function Footer({
@@ -89,15 +98,21 @@ function FooterMenu({
               ? new URL(item.url).pathname
               : item.url;
           const isExternal = !url.startsWith('/');
+          const label = renderFooterLabel(item.title);
+          const linkClassName = stylex(
+            styles.link,
+            label.type === 'icon' && styles.iconLink,
+          );
           return isExternal ? (
             <a
               href={url}
               key={item.id}
               rel="noopener noreferrer"
               target="_blank"
-              className={stylex(styles.link)}
+              className={linkClassName}
+              aria-label={label.ariaLabel}
             >
-              {item.title}
+              {label.node}
             </a>
           ) : (
             <NavLink
@@ -106,9 +121,10 @@ function FooterMenu({
               prefetch="intent"
               style={activeLinkStyle}
               to={url}
-              className={stylex(styles.link)}
+              className={linkClassName}
+              aria-label={label.ariaLabel}
             >
-              {item.title}
+              {label.node}
             </NavLink>
           );
         })}
@@ -169,4 +185,55 @@ function activeLinkStyle({
     fontWeight: isActive ? 'bold' : undefined,
     color: isPending ? 'grey' : 'white',
   };
+}
+
+function renderFooterLabel(title: string): {
+  type: 'text' | 'icon';
+  node: JSX.Element | string;
+  ariaLabel?: string;
+} {
+  const normalized = title.trim().toLowerCase();
+  if (normalized === 'facebook') {
+    return {
+      type: 'icon',
+      ariaLabel: 'Facebook',
+      node: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={stylex(styles.icon)}
+        >
+          <path
+            fill="currentColor"
+            d="M13.5 8.5V7.1c0-.7.5-1.1 1.1-1.1H16V3.1h-1.9c-2.5 0-3.6 1.7-3.6 3.8V8.5H8.9v2.8h1.6v7.6h3V11.3h2.2l.4-2.8H13.5z"
+          />
+        </svg>
+      ),
+    };
+  }
+
+  if (normalized === 'instagram') {
+    return {
+      type: 'icon',
+      ariaLabel: 'Instagram',
+      node: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={stylex(styles.icon)}
+        >
+          <path
+            fill="currentColor"
+            d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm10 2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"
+          />
+          <path
+            fill="currentColor"
+            d="M12 7.3a4.7 4.7 0 1 1 0 9.4 4.7 4.7 0 0 1 0-9.4zm0 2a2.7 2.7 0 1 0 0 5.4 2.7 2.7 0 0 0 0-5.4zM17.2 6.3a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"
+          />
+        </svg>
+      ),
+    };
+  }
+
+  return {type: 'text', node: title};
 }
