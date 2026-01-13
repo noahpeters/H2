@@ -126,6 +126,12 @@ export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
     <div>
+      <h1>from trees</h1>
+      <h2>Custom heirloom furniture built by hand in Riverside, California.</h2>
+      <p>
+        <em>from trees</em> is a veteran owned business that designs and builds
+        heirloom quality custom wood furniture.
+      </p>
       <FeaturedCollection collection={data.featuredCollection} />
       <RecommendedProducts products={data.recommendedProducts} />
     </div>

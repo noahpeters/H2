@@ -43,6 +43,13 @@ export function Footer({
                 menu={footer.menu}
                 primaryDomainUrl={header.shop.primaryDomain.url}
                 publicStoreDomain={publicStoreDomain}
+                additionalLinks={[
+                  {
+                    title: 'furniture@from-trees.com',
+                    url: 'maiilto:furniture@from-trees.com',
+                    id: 'email',
+                  },
+                ]}
               />
             )}
           </footer>
@@ -56,46 +63,55 @@ function FooterMenu({
   menu,
   primaryDomainUrl,
   publicStoreDomain,
+  additionalLinks = [],
 }: {
   menu: FooterQuery['menu'];
   primaryDomainUrl: FooterProps['header']['shop']['primaryDomain']['url'];
   publicStoreDomain: string;
+  additionalLinks: {title: string; url: string; id: string}[];
 }) {
   return (
     <nav className={stylex(styles.menu)} role="navigation">
-      {(menu || FALLBACK_FOOTER_MENU).items.map((item) => {
-        if (!item.url) return null;
-        // if the url is internal, we strip the domain
-        const url =
-          item.url.includes('myshopify.com') ||
-          item.url.includes(publicStoreDomain) ||
-          item.url.includes(primaryDomainUrl)
-            ? new URL(item.url).pathname
-            : item.url;
-        const isExternal = !url.startsWith('/');
-        return isExternal ? (
-          <a
-            href={url}
-            key={item.id}
-            rel="noopener noreferrer"
-            target="_blank"
-            className={stylex(styles.link)}
-          >
-            {item.title}
-          </a>
-        ) : (
-          <NavLink
-            end
-            key={item.id}
-            prefetch="intent"
-            style={activeLinkStyle}
-            to={url}
-            className={stylex(styles.link)}
-          >
-            {item.title}
-          </NavLink>
-        );
-      })}
+      {(menu || FALLBACK_FOOTER_MENU).items
+        .map(({title, url, id}): {title: string; url: string; id: string} => ({
+          title,
+          url: String(url),
+          id,
+        }))
+        .concat(additionalLinks)
+        .map((item: {title: string; url: string; id: string}) => {
+          if (!item.url) return null;
+          // if the url is internal, we strip the domain
+          const url =
+            item.url.includes('myshopify.com') ||
+            item.url.includes(publicStoreDomain) ||
+            item.url.includes(primaryDomainUrl)
+              ? new URL(item.url).pathname
+              : item.url;
+          const isExternal = !url.startsWith('/');
+          return isExternal ? (
+            <a
+              href={url}
+              key={item.id}
+              rel="noopener noreferrer"
+              target="_blank"
+              className={stylex(styles.link)}
+            >
+              {item.title}
+            </a>
+          ) : (
+            <NavLink
+              end
+              key={item.id}
+              prefetch="intent"
+              style={activeLinkStyle}
+              to={url}
+              className={stylex(styles.link)}
+            >
+              {item.title}
+            </NavLink>
+          );
+        })}
     </nav>
   );
 }
