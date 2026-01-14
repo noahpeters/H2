@@ -31,6 +31,18 @@ const styles = stylex.create({
   attributesItem: {
     marginTop: '0.25rem',
   },
+  actionButton: {
+    backgroundColor: 'var(--color-primary)',
+    borderWidth: 0,
+    borderStyle: 'none',
+    borderColor: 'transparent',
+    borderRadius: '999px',
+    color: 'var(--color-light)',
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    padding: '0.25rem 0.6rem',
+  },
 });
 
 /**
@@ -118,6 +130,7 @@ function CartLineQuantity({line}: {line: CartLine}) {
       <small>Quantity: {quantity} &nbsp;&nbsp;</small>
       <CartLineUpdateButton lines={[{id: lineId, quantity: prevQuantity}]}>
         <button
+          className={stylex(styles.actionButton)}
           aria-label="Decrease quantity"
           disabled={quantity <= 1 || !!isOptimistic}
           name="decrease-quantity"
@@ -129,6 +142,7 @@ function CartLineQuantity({line}: {line: CartLine}) {
       &nbsp;
       <CartLineUpdateButton lines={[{id: lineId, quantity: nextQuantity}]}>
         <button
+          className={stylex(styles.actionButton)}
           aria-label="Increase quantity"
           name="increase-quantity"
           value={nextQuantity}
@@ -162,7 +176,11 @@ function CartLineRemoveButton({
       action={CartForm.ACTIONS.LinesRemove}
       inputs={{lineIds}}
     >
-      <button disabled={disabled} type="submit">
+      <button
+        className={stylex(styles.actionButton)}
+        disabled={disabled}
+        type="submit"
+      >
         Remove
       </button>
     </CartForm>

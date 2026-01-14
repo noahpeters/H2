@@ -16,7 +16,7 @@ const styles = stylex.create({
     position: 'relative',
   },
   summaryAside: {
-    backgroundColor: 'white',
+    backgroundColor: 'var(--color-light)',
     borderTopWidth: 1,
     borderTopStyle: 'solid',
     borderTopColor: 'var(--color-dark)',
@@ -33,6 +33,28 @@ const styles = stylex.create({
     alignItems: 'center',
     display: 'flex',
     marginTop: '0.25rem',
+  },
+  actionButton: {
+    backgroundColor: 'var(--color-primary)',
+    borderWidth: 0,
+    borderStyle: 'none',
+    borderColor: 'transparent',
+    borderRadius: '999px',
+    color: 'var(--color-light)',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    padding: '0.35rem 0.9rem',
+  },
+  actionLink: {
+    backgroundColor: 'var(--color-primary)',
+    borderRadius: '999px',
+    color: 'var(--color-light)',
+    display: 'inline-flex',
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    padding: '0.5rem 1.1rem',
+    textDecoration: 'none',
   },
 });
 
@@ -65,7 +87,9 @@ function CartCheckoutActions({checkoutUrl}: {checkoutUrl?: string}) {
   return (
     <div>
       <a href={checkoutUrl} target="_self">
-        <p>Continue to Checkout &rarr;</p>
+        <span className={stylex(styles.actionLink)}>
+          Continue to Checkout &rarr;
+        </span>
       </a>
       <br />
     </div>
@@ -92,7 +116,7 @@ function CartDiscounts({
             <div className={stylex(styles.discount)}>
               <code>{codes?.join(', ')}</code>
               &nbsp;
-              <button>Remove</button>
+              <button className={stylex(styles.actionButton)}>Remove</button>
             </div>
           </UpdateDiscountForm>
         </div>
@@ -103,7 +127,9 @@ function CartDiscounts({
         <div>
           <input type="text" name="discountCode" placeholder="Discount code" />
           &nbsp;
-          <button type="submit">Apply</button>
+          <button className={stylex(styles.actionButton)} type="submit">
+            Apply
+          </button>
         </div>
       </UpdateDiscountForm>
     </div>
@@ -166,7 +192,9 @@ function CartGiftCard({
                 &nbsp;
                 <Money data={giftCard.amountUsed} />
                 &nbsp;
-                <button type="submit">Remove</button>
+                <button className={stylex(styles.actionButton)} type="submit">
+                  Remove
+                </button>
               </div>
             </RemoveGiftCardForm>
           ))}
@@ -187,7 +215,11 @@ function CartGiftCard({
             ref={giftCardCodeInput}
           />
           &nbsp;
-          <button type="submit" disabled={giftCardAddFetcher.state !== 'idle'}>
+          <button
+            className={stylex(styles.actionButton)}
+            type="submit"
+            disabled={giftCardAddFetcher.state !== 'idle'}
+          >
             Apply
           </button>
         </div>
