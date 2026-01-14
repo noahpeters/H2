@@ -129,7 +129,7 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
  */
 function loadDeferredData({context}: Route.LoaderArgs) {
   const featuredCollection = context.storefront
-    .query(FEATURED_COLLECTION_QUERY)
+    .query(FEATURED_COLLECTION_QUERY, {variables: {handle: 'featured'}})
     .catch((error: Error) => {
       console.error(error);
       return null;
@@ -161,8 +161,8 @@ export default function Homepage() {
       <Suspense fallback={null}>
         <Await resolve={data.featuredCollection}>
           {(response) =>
-            response?.collections.nodes[0] ? (
-              <FeaturedCollection collection={response.collections.nodes[0]} />
+            response?.collection ? (
+              <FeaturedCollection collection={response.collection} />
             ) : null
           }
         </Await>
@@ -178,19 +178,9 @@ function FeaturedCollection({
   collection: FeaturedCollectionFragment;
 }) {
   if (!collection) return null;
-  const image = collection?.image;
   return (
     <div className={stylex(styles.featuredCollection)}>
       <Link to={`/collections/${collection.handle}`}>
-        {image && (
-          <div className={stylex(styles.featuredCollectionImage)}>
-            <Image
-              data={image}
-              sizes="100vw"
-              className={stylex(styles.featuredCollectionImageMedia)}
-            />
-          </div>
-        )}
         <h1>{collection.title}</h1>
       </Link>
       <div className={stylex(styles.featuredCollectionProductsGrid)}>
@@ -268,12 +258,13 @@ const FEATURED_COLLECTION_QUERY = `#graphql
       }
     }
   }
-  query FeaturedCollection($country: CountryCode, $language: LanguageCode)
-    @inContext(country: $country, language: $language) {
-    collections(first: 1, sortKey: UPDATED_AT, reverse: true) {
-      nodes {
-        ...FeaturedCollection
-      }
+  query FeaturedCollection(
+    $handle: String!
+    $country: CountryCode
+    $language: LanguageCode
+  ) @inContext(country: $country, language: $language) {
+    collection(handle: $handle) {
+      ...FeaturedCollection
     }
   }
 ` as const;
