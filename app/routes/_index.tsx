@@ -8,6 +8,7 @@ import type {
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
 import Carousel from '~/components/Carousel';
+import SiteHero from '~/components/SiteHero';
 import stylex from '~/lib/stylex';
 
 const styles = stylex.create({
@@ -40,6 +41,21 @@ const styles = stylex.create({
     '@media (min-width: 45em)': {
       gridTemplateColumns: 'repeat(4, 1fr)',
     },
+  },
+  fromtreesH: {
+    marginBottom: 0,
+    lineHeight: 1,
+  },
+  lede: {
+    marginTop: '0.35rem',
+    lineHeight: '1.35',
+    maxWidth: '42rem',
+  },
+  meta: {
+    marginLeft: '0.5ch',
+    fontSize: '0.9em',
+    opacity: '0.75',
+    whiteSpace: 'nowrap',
   },
 });
 
@@ -93,13 +109,16 @@ export async function loader(args: Route.LoaderArgs) {
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
 async function loadCriticalData({context}: Route.LoaderArgs) {
-  const [{collections}] = await Promise.all([
-    context.storefront.query(FEATURED_COLLECTION_QUERY),
+  const [heroResult] = await Promise.all([
+    context.storefront.query(SITE_HERO_QUERY).catch((error: Error) => {
+      console.error('Failed to load site hero metaobjects.', error);
+      return null;
+    }),
     // Add other queries here, so that they are loaded in parallel
   ]);
 
   return {
-    featuredCollection: collections.nodes[0],
+    siteHeroes: heroResult?.metaobjects?.nodes ?? [],
   };
 }
 
@@ -109,6 +128,12 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
  * Make sure to not throw any errors here, as it will cause the page to 500.
  */
 function loadDeferredData({context}: Route.LoaderArgs) {
+  const featuredCollection = context.storefront
+    .query(FEATURED_COLLECTION_QUERY)
+    .catch((error: Error) => {
+      console.error(error);
+      return null;
+    });
   const recommendedProducts = context.storefront
     .query(RECOMMENDED_PRODUCTS_QUERY)
     .catch((error: Error) => {
@@ -118,6 +143,7 @@ function loadDeferredData({context}: Route.LoaderArgs) {
     });
 
   return {
+    featuredCollection,
     recommendedProducts,
   };
 }
@@ -126,13 +152,21 @@ export default function Homepage() {
   const data = useLoaderData<typeof loader>();
   return (
     <div>
-      <h1>from trees</h1>
-      <h2>Custom heirloom furniture built by hand in Riverside, California.</h2>
-      <p>
-        <em>from trees</em> is a veteran owned business that designs and builds
-        heirloom quality custom wood furniture.
+      <h1 className={stylex(styles.fromtreesH)}>from trees</h1>
+      <p className={stylex(styles.lede)}>
+        Custom heirloom furniture, built by hand in Riverside, CA.
+        <span className={stylex(styles.meta)}>Veteran-owned.</span>
       </p>
-      <FeaturedCollection collection={data.featuredCollection} />
+      <SiteHero items={data.siteHeroes ?? []} />
+      <Suspense fallback={null}>
+        <Await resolve={data.featuredCollection}>
+          {(response) =>
+            response?.collections.nodes[0] ? (
+              <FeaturedCollection collection={response.collections.nodes[0]} />
+            ) : null
+          }
+        </Await>
+      </Suspense>
       <RecommendedProducts products={data.recommendedProducts} />
     </div>
   );
@@ -161,10 +195,11 @@ function FeaturedCollection({
       </Link>
       <div className={stylex(styles.featuredCollectionProductsGrid)}>
         <Carousel>
-          {collection.products.nodes.length > 0 &&
-            collection.products.nodes.map((product) => (
-              <ProductItem key={product.id} product={product} />
-            ))}
+          {collection.products?.nodes?.length
+            ? collection.products.nodes.map((product) => (
+                <ProductItem key={product.id} product={product} />
+              ))
+            : null}
         </Carousel>
       </div>
     </div>
@@ -267,6 +302,37 @@ const RECOMMENDED_PRODUCTS_QUERY = `#graphql
     products(first: 4, sortKey: UPDATED_AT, reverse: true) {
       nodes {
         ...RecommendedProduct
+      }
+    }
+  }
+` as const;
+
+const SITE_HERO_QUERY = `#graphql
+  query SiteHeroMetaobjects($country: CountryCode, $language: LanguageCode)
+    @inContext(country: $country, language: $language) {
+    metaobjects(type: "site_hero", first: 10) {
+      nodes {
+        id
+        handle
+        fields {
+          key
+          value
+          reference {
+            __typename
+            ... on MediaImage {
+              image {
+                url
+                altText
+                width
+                height
+              }
+            }
+            ... on Product {
+              handle
+              title
+            }
+          }
+        }
       }
     }
   }
