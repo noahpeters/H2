@@ -96,6 +96,8 @@ const styles = stylex.create({
     transform: 'none',
     '@media (max-width: 45em)': {
       left: '8%',
+      right: '8%',
+      width: 'auto',
       maxWidth: '85%',
       padding: '1.5rem',
       textAlign: 'left',
