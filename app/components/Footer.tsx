@@ -11,7 +11,7 @@ interface FooterProps {
 
 const styles = stylex.create({
   footer: {
-    backgroundColor: 'var(--color-dark)',
+    backgroundColor: 'var(--color-secondary)',
     marginTop: 'auto',
   },
   menu: {
@@ -23,6 +23,7 @@ const styles = stylex.create({
   },
   link: {
     color: 'var(--color-light)',
+    fontSize: '0.875rem',
     minWidth: 'fit-content',
     textDecoration: 'none',
   },

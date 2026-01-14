@@ -121,38 +121,16 @@ const styles = stylex.create({
     padding: '0.55rem 1.4rem',
     width: 'fit-content',
   },
-  controls: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    left: 0,
-    padding: '0 1.5rem',
-    pointerEvents: 'none',
-    position: 'absolute',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '100%',
-  },
-  controlButton: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
-    borderWidth: 0,
-    borderStyle: 'none',
-    borderColor: 'transparent',
-    borderRadius: '999px',
-    color: '#111',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    fontSize: '1.1rem',
-    height: '3rem',
-    justifyContent: 'center',
-    pointerEvents: 'auto',
-    width: '3rem',
-  },
   dots: {
     display: 'flex',
     gap: '0.6rem',
     justifyContent: 'center',
-    padding: '1.25rem 0',
+    left: '50%',
+    padding: 0,
+    position: 'absolute',
+    bottom: '8%',
+    transform: 'translateX(-50%)',
+    zIndex: 2,
   },
   dot: {
     backgroundColor: 'rgba(255, 255, 255, 0.55)',
@@ -258,7 +236,9 @@ export default function SiteHero({items}: {items: SiteHeroMetaobject[]}) {
                 <div className={stylex(styles.overlay)}>
                   <div className={stylex(styles.overlayContent)}>
                     {renderHeroText(slide.text)}
-                    {link ? <span className={stylex(styles.cta)}>View</span> : null}
+                    {link ? (
+                      <span className={stylex(styles.cta)}>View</span>
+                    ) : null}
                   </div>
                 </div>
               </>
@@ -286,26 +266,6 @@ export default function SiteHero({items}: {items: SiteHeroMetaobject[]}) {
           })}
         </div>
 
-        {slides.length > 1 ? (
-          <div className={stylex(styles.controls)}>
-            <button
-              type="button"
-              className={stylex(styles.controlButton)}
-              aria-label="Previous slide"
-              onClick={() => goTo(index - 1)}
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              className={stylex(styles.controlButton)}
-              aria-label="Next slide"
-              onClick={() => goTo(index + 1)}
-            >
-              →
-            </button>
-          </div>
-        ) : null}
       </div>
 
       {slides.length > 1 ? (
