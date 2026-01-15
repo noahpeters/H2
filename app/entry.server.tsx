@@ -89,6 +89,7 @@ function patchTurnstileCsp(
   // Allow Oxygen CDN scripts in production
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'script-src', "'self'");
   out = addCspSource(out, 'script-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'script-src', 'https://*.tawk.to');
   out = addCspSource(out, 'script-src', 'https://connect.facebook.net');
@@ -107,6 +108,9 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'img-src', 'https://s3.amazonaws.com');
   out = addCspSource(out, 'connect-src', 'https://www.google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'connect-src', 'https://*.analytics.google.com');
+  out = addCspSource(out, 'connect-src', 'https://*.google-analytics.com');
+  out = addCspSource(out, 'connect-src', 'https://*.g.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://connect.facebook.net');
   out = addCspSource(out, 'connect-src', 'https://www.google.com');
   out = addCspSource(out, 'connect-src', 'https://www.merchant-center-analytics.goog');
@@ -130,6 +134,7 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'frame-src', 'https://*.tawk.to');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'img-src', 'https://*.google-analytics.com');
   out = addCspSource(out, 'img-src', "'self'");
   out = addCspSource(out, 'img-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'img-src', 'https://www.facebook.com');
