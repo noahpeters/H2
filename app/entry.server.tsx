@@ -108,12 +108,19 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'img-src', 'https://s3.amazonaws.com');
   out = addCspSource(out, 'connect-src', 'https://www.google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'connect-src', 'https://analytics.google.com');
   out = addCspSource(out, 'connect-src', 'https://*.analytics.google.com');
+  out = addCspSource(out, 'connect-src', 'https://google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://*.google-analytics.com');
+  out = addCspSource(out, 'connect-src', 'https://g.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://*.g.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://connect.facebook.net');
   out = addCspSource(out, 'connect-src', 'https://www.google.com');
-  out = addCspSource(out, 'connect-src', 'https://www.merchant-center-analytics.goog');
+  out = addCspSource(
+    out,
+    'connect-src',
+    'https://www.merchant-center-analytics.goog',
+  );
   out = addCspSource(out, 'connect-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'connect-src', 'https://*.tawk.to');
   out = addCspSource(out, 'connect-src', 'https://va.tawk.to');
@@ -134,6 +141,9 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'frame-src', 'https://*.tawk.to');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'img-src', 'https://analytics.google.com');
+  out = addCspSource(out, 'img-src', 'https://*.analytics.google.com');
+  out = addCspSource(out, 'img-src', 'https://google-analytics.com');
   out = addCspSource(out, 'img-src', 'https://*.google-analytics.com');
   out = addCspSource(out, 'img-src', "'self'");
   out = addCspSource(out, 'img-src', 'https://cdn.shopify.com');
