@@ -115,6 +115,7 @@ function patchTurnstileCsp(
   out = addCspSource(out, 'connect-src', 'https://g.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://*.g.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://connect.facebook.net');
+  out = addCspSource(out, 'connect-src', 'https://www.facebook.com');
   out = addCspSource(out, 'connect-src', 'https://www.google.com');
   out = addCspSource(
     out,
