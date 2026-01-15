@@ -285,6 +285,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
       </head>
       <body>
         {children}
+        <ClientErrorReporter />
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
         <GoogleTag nonce={nonce} id={gtagId} />
@@ -349,4 +350,51 @@ export function ErrorBoundary() {
       )}
     </div>
   );
+}
+
+function ClientErrorReporter() {
+  useEffect(() => {
+    const report = (payload: Record<string, unknown>) => {
+      if (window.location.pathname === '/log-client-error') return;
+      fetch('/log-client-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      report({
+        type: 'error',
+        message: event.message,
+        source: event.filename,
+        line: event.lineno,
+        column: event.colno,
+        stack: event.error?.stack,
+        url: window.location.href,
+        userAgent: navigator.userAgent,
+      });
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason as {message?: string; stack?: string};
+      report({
+        type: 'unhandledrejection',
+        message: reason?.message ?? String(event.reason),
+        stack: reason?.stack,
+        url: window.location.href,
+        userAgent: navigator.userAgent,
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
+  return null;
 }
