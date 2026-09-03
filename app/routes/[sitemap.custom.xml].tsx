@@ -4,7 +4,10 @@ const MENU_QUERY = `#graphql
   fragment MenuItemFields on MenuItem {
     url
     items {
-      ...MenuItemFields
+      url
+      items {
+        url
+      }
     }
   }
   query MenuLinks(
