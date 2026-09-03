@@ -9,7 +9,7 @@ type SiteHeroMetaobject = {
   fields: Array<{
     key: string;
     value?: string | null;
-    reference?: SiteHeroReference | null;
+    reference?: unknown;
   }>;
 };
 
@@ -173,11 +173,14 @@ export default function SiteHero({items}: {items: SiteHeroMetaobject[]}) {
   };
 
   return (
+    // The carousel region itself owns keyboard navigation and pause behavior.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-redundant-roles
     <section
       className={stylex(styles.hero)}
       role="region"
       aria-roledescription="carousel"
       aria-label="Site hero"
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === 'ArrowLeft') {
@@ -322,17 +325,34 @@ function getSlides(items: SiteHeroMetaobject[]): SiteHeroSlide[] {
 }
 
 function asMediaImage(
-  reference?: SiteHeroReference | null,
+  reference?: unknown,
 ): Extract<SiteHeroReference, {__typename: 'MediaImage'}> | null {
-  if (!reference || reference.__typename !== 'MediaImage') return null;
-  return reference;
+  if (
+    !reference ||
+    typeof reference !== 'object' ||
+    !('__typename' in reference) ||
+    reference.__typename !== 'MediaImage'
+  ) {
+    return null;
+  }
+  return reference as Extract<
+    SiteHeroReference,
+    {__typename: 'MediaImage'}
+  >;
 }
 
 function asProduct(
-  reference?: SiteHeroReference | null,
+  reference?: unknown,
 ): Extract<SiteHeroReference, {__typename: 'Product'}> | null {
-  if (!reference || reference.__typename !== 'Product') return null;
-  return reference;
+  if (
+    !reference ||
+    typeof reference !== 'object' ||
+    !('__typename' in reference) ||
+    reference.__typename !== 'Product'
+  ) {
+    return null;
+  }
+  return reference as Extract<SiteHeroReference, {__typename: 'Product'}>;
 }
 
 function usePrefersReducedMotion(): boolean {

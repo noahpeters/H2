@@ -1,0 +1,9 @@
+version: 1
+size_override: null
+max_cost_units: null
+requires_budget_approval: true
+verify: npm run lint && npm run typecheck && npm test && npm run build
+protected_paths:
+  - .github/workflows/
+deployment: forbidden
+notes: Follow AGENTS.md. Pull-request merges are human-only. Never deploy from a coding task; production deployment must run through the Storefront 1000078196 GitHub Actions workflow after a human merge.

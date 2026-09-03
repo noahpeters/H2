@@ -29,6 +29,7 @@
       "@shopify/oxygen-workers-types",
       "react-router",
       "@shopify/hydrogen/react-router-types",
+      "vitest/globals",
       "vite/client"
     ],
     "paths": {

@@ -76,7 +76,7 @@ function PaginationUrlCleaner<NodesType>({
     if (typeof window !== 'undefined' && window.history?.replaceState) {
       window.history.replaceState(window.history.state, '', cleanUrl);
     } else {
-      navigate(cleanUrl, {replace: true});
+      void navigate(cleanUrl, {replace: true});
     }
   }, [location.pathname, location.search, navigate, state]);
 
@@ -128,7 +128,7 @@ function AutoLoadMore<NodesType>({
         !pendingRef.current
       ) {
         pendingRef.current = true;
-        navigate(nextPageUrl, {
+        void navigate(nextPageUrl, {
           state,
           preventScrollReset: true,
         });
@@ -148,12 +148,12 @@ function AutoLoadMore<NodesType>({
       {!supportsObserver ? (
         <button
           type="button"
-          onClick={() =>
-            navigate(nextPageUrl, {
+          onClick={() => {
+            void navigate(nextPageUrl, {
               state,
               preventScrollReset: true,
-            })
-          }
+            });
+          }}
           disabled={isLoading}
         >
           {isLoading ? 'Loading...' : 'Load more'}
