@@ -10,6 +10,7 @@ const study = (wall: 'back' | 'left' | 'right') => ({
     walls: 'plaster' as const,
   },
   openings: [],
+  appliances: [],
   cabinets: [
     {
       id: 'cabinet',
@@ -61,5 +62,34 @@ describe('createDragUpdate', () => {
     });
 
     expect(update(study('back')).cabinets[0].offset).toBe(27);
+  });
+
+  it('keeps appliances draggable after merging the appliance feature', () => {
+    const applianceStudy = {
+      ...study('back'),
+      cabinets: [],
+      appliances: [
+        {
+          id: 'appliance',
+          kind: 'refrigerator' as const,
+          placement: 'floor' as const,
+          wall: 'back' as const,
+          offset: 12,
+          width: 36,
+          depth: 30,
+          height: 70,
+          elevation: 0,
+        },
+      ],
+      selected: 'appliance',
+    };
+
+    const update = createDragUpdate(
+      {id: 'appliance', start: 12, pointer: 20, wall: 'back'},
+      30,
+      2,
+    );
+
+    expect(update(applianceStudy).appliances[0].offset).toBe(18);
   });
 });
