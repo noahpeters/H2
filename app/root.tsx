@@ -9,6 +9,7 @@ import {
   Meta,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useRouteLoaderData,
 } from 'react-router';
 import type {Route} from './+types/root';
@@ -257,7 +258,9 @@ export function MetaPixel({nonce}: {nonce?: string}) {
 
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
+  const location = useLocation();
   const gtagId = 'GT-TXBKGK45';
+  const studioOwned = isStudioOwnedPath(location.pathname);
 
   return (
     <html lang="en">
@@ -289,7 +292,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
         <GoogleTag nonce={nonce} id={gtagId} />
-        <TawkToTag nonce={nonce} />
+        {!studioOwned ? <TawkToTag nonce={nonce} /> : null}
         <MetaPixel nonce={nonce} />
       </body>
     </html>
@@ -298,11 +301,28 @@ export function Layout({children}: {children?: React.ReactNode}) {
 
 export default function App() {
   const data = useRouteLoaderData<RootLoader>('root');
+  const location = useLocation();
   const isDev = import.meta.env.DEV;
   const hasCheckoutDomain = Boolean(data?.consent?.checkoutDomain);
+  const studioOwned = isStudioOwnedPath(location.pathname);
 
   if (!data) {
     return <Outlet />;
+  }
+
+  if (studioOwned) {
+    if (isDev || !hasCheckoutDomain) return <Outlet />;
+
+    return (
+      <Analytics.Provider
+        cart={data.cart}
+        shop={data.shop}
+        consent={data.consent}
+      >
+        <PageViewAnalytics />
+        <Outlet />
+      </Analytics.Provider>
+    );
   }
 
   if (isDev || !hasCheckoutDomain) {
@@ -324,6 +344,14 @@ export default function App() {
         <Outlet />
       </PageLayout>
     </Analytics.Provider>
+  );
+}
+
+function isStudioOwnedPath(pathname: string) {
+  return (
+    pathname === '/' ||
+    pathname === '/configurator' ||
+    pathname.startsWith('/configurator/')
   );
 }
 
