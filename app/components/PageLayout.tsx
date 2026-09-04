@@ -23,6 +23,7 @@ interface PageLayoutProps {
   isLoggedIn: Promise<boolean>;
   publicStoreDomain: string;
   children?: React.ReactNode;
+  hideChrome?: boolean;
 }
 
 const styles = stylex.create({
@@ -39,13 +40,14 @@ export function PageLayout({
   header,
   isLoggedIn,
   publicStoreDomain,
+  hideChrome = false,
 }: PageLayoutProps) {
   return (
     <Aside.Provider>
       <CartAside cart={cart} />
       <SearchAside />
       <MobileMenuAside header={header} publicStoreDomain={publicStoreDomain} />
-      {header && (
+      {!hideChrome && header && (
         <Header
           header={header}
           cart={cart}
@@ -53,12 +55,14 @@ export function PageLayout({
           publicStoreDomain={publicStoreDomain}
         />
       )}
-      <main>{children}</main>
-      <Footer
-        footer={footer}
-        header={header}
-        publicStoreDomain={publicStoreDomain}
-      />
+      {hideChrome ? children : <main>{children}</main>}
+      {!hideChrome ? (
+        <Footer
+          footer={footer}
+          header={header}
+          publicStoreDomain={publicStoreDomain}
+        />
+      ) : null}
     </Aside.Provider>
   );
 }
