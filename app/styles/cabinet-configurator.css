@@ -379,53 +379,51 @@
     font-size: 11px;
   }
 }
-.cc-appliance-buttons button {
-  font-size: 11px;
-  text-align: left;
+.cc-cab.cc-wall-cabinet rect {
+  fill: #d6b992;
+  fill-opacity: 0.75;
+  stroke-dasharray: 5 3;
 }
-.cc-readonly {
-  font:
-    11px DM Mono,
-    monospace;
-  text-transform: uppercase;
+.cc-cab.cc-appliance rect {
+  fill: #9ea7a5;
 }
-.cc-selection select {
-  max-width: 155px;
+.cc-island {
+  cursor: pointer;
 }
-.cc-appliance {
-  cursor: grab;
+.cc-island > rect {
+  fill: #d4b98b33;
+  stroke: #9c7448;
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
 }
-.cc-appliance rect {
-  fill: #c8c7c0;
-  stroke: #313735;
-  stroke-width: 1.5;
-}
-.cc-appliance text {
-  font: 8px DM Mono;
-  fill: #292f2c;
+.cc-island text {
+  font: 10px DM Mono;
+  fill: #785b3b;
   text-anchor: middle;
   pointer-events: none;
 }
-.cc-appliance.cc-refrigerator rect {
-  fill: #aeb5b2;
+.cc-island .cc-seating {
+  fill: #8aa1a233;
+  stroke: #668082;
+  stroke-dasharray: 3 3;
 }
-.cc-appliance.cc-range rect {
-  fill: #777f7c;
+.cc-island-fields {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
 }
-.cc-appliance.cc-coffee-maker rect {
-  fill: #655f58;
+.cc-island-select {
+  text-align: left;
 }
-.cc-appliance.selected rect {
-  stroke: var(--cc-accent);
-  stroke-width: 4;
+.cc-inline-warning {
+  margin: 0;
+  padding: 7px;
+  border-left: 3px solid #a34f3e;
+  background: #f2ddd6;
+  color: #813b30;
+  font: 10px DM Mono;
+  text-transform: uppercase;
 }
-.cc-appliance.problem rect {
-  fill: #ad6958;
-}
-.cc-appliance:focus {
-  outline: none;
-}
-.cc-appliance:focus rect {
-  stroke: #315f73;
-  stroke-width: 4;
+.cc-cab[transform] {
+  touch-action: none;
 }

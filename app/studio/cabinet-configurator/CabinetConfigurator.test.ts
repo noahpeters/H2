@@ -1,7 +1,8 @@
 import {describe, expect, it} from 'vitest';
-import {createDragUpdate} from './CabinetConfigurator';
+import {createFloorDragUpdate} from './CabinetConfigurator';
 
-const study = (wall: 'back' | 'left' | 'right') => ({
+const study = () => ({
+  version: 2 as const,
   room: {
     width: 144,
     depth: 120,
@@ -10,86 +11,59 @@ const study = (wall: 'back' | 'left' | 'right') => ({
     walls: 'plaster' as const,
   },
   openings: [],
-  appliances: [],
-  cabinets: [
+  elements: [
     {
-      id: 'cabinet',
-      type: 'base' as const,
-      wall,
-      offset: 12,
-      width: 30,
+      id: 'island-appliance',
+      kind: 'appliance' as const,
+      applianceKind: 'dishwasher' as const,
+      width: 24,
       depth: 24,
       height: 34.5,
-      face: 'shaker' as const,
+      face: 'slab' as const,
+      placement: {mode: 'floor' as const, x: 48, z: 42, rotation: 0},
     },
   ],
-  selected: 'cabinet',
+  islands: [],
+  selected: 'island-appliance',
   countertop: true,
   view: 'plan' as const,
 });
 
-describe('createDragUpdate', () => {
-  it.each([
-    ['back', 114],
-    ['left', 90],
-    ['right', 90],
-  ] as const)('snaps and clamps a cabinet on the %s wall', (wall, maximum) => {
-    const active = {id: 'cabinet', start: 12, pointer: 20, wall};
-
-    const snapped = createDragUpdate(active, 30, 2)(study(wall));
-    const clampedHigh = createDragUpdate(active, 1000, 2)(study(wall));
-    const clampedLow = createDragUpdate(active, -1000, 2)(study(wall));
-
-    expect(snapped.cabinets[0].offset).toBe(18);
-    expect(clampedHigh.cabinets[0].offset).toBe(maximum);
-    expect(clampedLow.cabinets[0].offset).toBe(0);
-    expect(snapped.selected).toBe('cabinet');
-  });
-
-  it('can execute after the pointer handler has released its event', () => {
-    const event = {clientX: 48};
-    const update = createDragUpdate(
-      {id: 'cabinet', start: 12, pointer: 20, wall: 'back'},
-      event.clientX,
+describe('createFloorDragUpdate', () => {
+  it('moves a floor-positioned appliance on both axes with 3-inch snapping', () => {
+    const update = createFloorDragUpdate(
+      {id: 'island-appliance', x: 48, z: 42, clientX: 20, clientY: 30},
+      32,
+      18,
       2,
     );
+    expect(update(study()).elements[0].placement).toMatchObject({
+      mode: 'floor',
+      x: 54,
+      z: 36,
+    });
+  });
 
-    // Model React running the updater after the synthetic event is released.
-    Object.defineProperty(event, 'clientX', {
-      get: () => {
-        throw new Error('released event was accessed');
+  it('does not access a released pointer event from a deferred update', () => {
+    const event = {clientX: 32, clientY: 18};
+    const update = createFloorDragUpdate(
+      {id: 'island-appliance', x: 48, z: 42, clientX: 20, clientY: 30},
+      event.clientX,
+      event.clientY,
+      2,
+    );
+    Object.defineProperties(event, {
+      clientX: {
+        get: () => {
+          throw new Error('released event was accessed');
+        },
+      },
+      clientY: {
+        get: () => {
+          throw new Error('released event was accessed');
+        },
       },
     });
-
-    expect(update(study('back')).cabinets[0].offset).toBe(27);
-  });
-
-  it('keeps appliances draggable after merging the appliance feature', () => {
-    const applianceStudy = {
-      ...study('back'),
-      cabinets: [],
-      appliances: [
-        {
-          id: 'appliance',
-          kind: 'refrigerator' as const,
-          placement: 'floor' as const,
-          wall: 'back' as const,
-          offset: 12,
-          width: 36,
-          depth: 30,
-          height: 70,
-          elevation: 0,
-        },
-      ],
-      selected: 'appliance',
-    };
-
-    const update = createDragUpdate(
-      {id: 'appliance', start: 12, pointer: 20, wall: 'back'},
-      30,
-      2,
-    );
-
-    expect(update(applianceStudy).appliances[0].offset).toBe(18);
+    expect(update(study()).elements[0].placement).toMatchObject({x: 54, z: 36});
   });
 });

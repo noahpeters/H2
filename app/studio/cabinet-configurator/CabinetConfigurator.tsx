@@ -3,67 +3,183 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   APPLIANCE_CATALOG,
-  APPLIANCE_LABELS,
-  createAppliance,
-  initialStudy,
-  normalizeStudy,
-  problemIds,
-  wallLength,
-  type Appliance,
+  aisleClearance,
+  bounds,
+  createKitchenAppliance,
+  elementCenter,
+  migrateElement,
+  moveIsland,
+  rotatedSize,
+  snapAngle,
+  validateLayout,
+  wallToFloor,
+  type Island,
   type ApplianceKind,
-  type Cabinet,
-  type CabinetType,
-  type Opening,
-  type Study,
-  type View,
+  type KitchenElement,
+  type PlacementMode,
+  type Room,
   type Wall,
 } from './model';
 
-type ActiveDrag = {
+type View = 'plan' | 'split' | 'three';
+type Opening = {
   id: string;
-  start: number;
-  pointer: number;
+  kind: 'door' | 'window';
   wall: Wall;
+  offset: number;
+  width: number;
+  height: number;
+  sill?: number;
 };
-
+type Study = {
+  version: 2;
+  room: Room;
+  openings: Opening[];
+  elements: KitchenElement[];
+  islands: Island[];
+  selected: string | null;
+  countertop: boolean;
+  view: View;
+};
 const INCH = 0.0254;
 const STORAGE_KEY = 'from-trees-cabinet-study-v1';
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
+function initialStudy(): Study {
+  return {
+    version: 2,
+    room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
+    openings: [
+      {
+        id: 'starter-door',
+        kind: 'door',
+        wall: 'back',
+        offset: 18,
+        width: 32,
+        height: 80,
+      },
+    ],
+    elements: [
+      {
+        id: 'starter-base',
+        kind: 'base',
+        width: 30,
+        depth: 24,
+        height: 34.5,
+        face: 'shaker',
+        placement: {mode: 'wall', wall: 'back', offset: 56, elevation: 0},
+      },
+      {
+        id: 'starter-wall',
+        kind: 'wall-cabinet',
+        width: 30,
+        depth: 12,
+        height: 30,
+        face: 'shaker',
+        placement: {mode: 'wall', wall: 'back', offset: 56, elevation: 54},
+      },
+    ],
+    islands: [],
+    selected: null,
+    countertop: true,
+    view: 'split',
+  };
+}
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
+function migrateStudy(raw: unknown): Study {
+  const fallback = initialStudy();
+  if (!raw || typeof raw !== 'object') return fallback;
+  const value = raw as Partial<Study> & {
+    cabinets?: Parameters<typeof migrateElement>[0][];
+    appliances?: Array<{
+      id: string;
+      kind: ApplianceKind;
+      wall: Wall;
+      offset: number;
+      width: number;
+      depth: number;
+      height: number;
+      elevation: number;
+      hostCabinetId?: string;
+    }>;
+  };
+  const elements = (value.elements ?? value.cabinets ?? []).map(migrateElement);
+  const migratedAppliances = (value.appliances ?? []).map((appliance) => ({
+    id: appliance.id,
+    kind: 'appliance' as const,
+    applianceKind: appliance.kind,
+    width: appliance.width,
+    depth: appliance.depth,
+    height: appliance.height,
+    face: 'slab' as const,
+    placement: appliance.hostCabinetId
+      ? ({
+          mode: 'hosted' as const,
+          hostId: appliance.hostCabinetId,
+          x: appliance.offset + appliance.width / 2,
+          z: appliance.depth / 2,
+          elevation: appliance.elevation,
+          rotation: 0,
+        } as const)
+      : ({
+          mode: 'wall' as const,
+          wall: appliance.wall,
+          offset: appliance.offset,
+          elevation: appliance.elevation,
+        } as const),
+  }));
+  return {
+    ...fallback,
+    ...value,
+    version: 2,
+    room: {...fallback.room, ...value.room},
+    elements: [...elements, ...migratedAppliances],
+    islands: value.islands ?? [],
+  };
+}
 
-/**
- * Build the state update for a pointer move from values captured while the
- * pointer event is still active. Keeping this separate makes it impossible for
- * a deferred React state update to dereference a released synthetic event.
- */
-export function createDragUpdate(
-  active: ActiveDrag,
-  pointer: number,
+type ActiveFloorDrag = {
+  id: string;
+  x: number;
+  z: number;
+  clientX: number;
+  clientY: number;
+};
+
+export function createFloorDragUpdate(
+  active: ActiveFloorDrag,
+  clientX: number,
+  clientY: number,
   screenScale: number,
 ) {
   return (current: Study): Study => {
     const next = clone(current);
-    const item = [...next.cabinets, ...next.appliances].find(
-      (entry) => entry.id === active.id,
-    );
-    if (!item) return current;
-
-    item.offset = Math.max(
-      0,
-      Math.min(
-        wallLength(next, item.wall) - item.width,
-        Math.round(
-          (active.start + (pointer - active.pointer) / screenScale) / 3,
-        ) * 3,
-      ),
-    );
+    const element = next.elements.find((item) => item.id === active.id);
+    if (element?.placement.mode === 'floor') {
+      element.placement.x =
+        Math.round((active.x + (clientX - active.clientX) / screenScale) / 3) *
+        3;
+      element.placement.z =
+        Math.round((active.z + (clientY - active.clientY) / screenScale) / 3) *
+        3;
+    }
     return next;
   };
 }
-
+function elementTransform(element: KitchenElement, room: Room) {
+  const center = elementCenter(element, room);
+  const rotation =
+    element.placement.mode === 'wall'
+      ? element.placement.wall === 'back'
+        ? 0
+        : element.placement.wall === 'left'
+          ? 90
+          : 270
+      : element.placement.rotation;
+  return {...center, rotation};
+}
 function ThreeStudy({
   study,
   onSelect,
@@ -147,13 +263,26 @@ function ThreeStudy({
     scene.add(left);
 
     const selectable: THREE.Object3D[] = [];
-    const warningIds = problemIds(study);
-    for (const cabinet of study.cabinets) {
+    const warningIds = validateLayout(study.elements, study.room);
+    for (const island of study.islands) {
+      const top = edgeBox(
+        (island.width + island.overhang * 2) * INCH,
+        1.5 * INCH,
+        (island.depth + island.overhang * 2) * INCH,
+        material(0xd8d1c4, 0.45),
+      );
+      top.position.set(
+        -roomWidth / 2 + island.x * INCH,
+        36 * INCH,
+        -roomDepth / 2 + island.z * INCH,
+      );
+      top.rotation.y = (-island.rotation * Math.PI) / 180;
+      scene.add(top);
+    }
+    for (const cabinet of study.elements) {
       const width = cabinet.width * INCH;
       const depth = cabinet.depth * INCH;
       const height = cabinet.height * INCH;
-      const elevation =
-        cabinet.type === 'wall' ? (cabinet.elevation ?? 54) * INCH : 0;
       const body = edgeBox(
         width,
         height,
@@ -161,28 +290,19 @@ function ThreeStudy({
         material(warningIds.has(cabinet.id) ? 0xb36855 : 0x9d7650),
       );
       body.userData.id = cabinet.id;
-      if (cabinet.wall === 'back')
-        body.position.set(
-          -roomWidth / 2 + (cabinet.offset + cabinet.width / 2) * INCH,
-          elevation + height / 2,
-          -roomDepth / 2 + depth / 2,
-        );
-      if (cabinet.wall === 'left') {
-        body.rotation.y = Math.PI / 2;
-        body.position.set(
-          -roomWidth / 2 + depth / 2,
-          elevation + height / 2,
-          -roomDepth / 2 + (cabinet.offset + cabinet.width / 2) * INCH,
-        );
-      }
-      if (cabinet.wall === 'right') {
-        body.rotation.y = Math.PI / 2;
-        body.position.set(
-          roomWidth / 2 - depth / 2,
-          elevation + height / 2,
-          -roomDepth / 2 + (cabinet.offset + cabinet.width / 2) * INCH,
-        );
-      }
+      const transform = elementTransform(cabinet, study.room);
+      const elevation =
+        cabinet.placement.mode === 'wall'
+          ? cabinet.placement.elevation
+          : cabinet.placement.mode === 'hosted'
+            ? cabinet.placement.elevation
+            : 0;
+      body.rotation.y = (-transform.rotation * Math.PI) / 180;
+      body.position.set(
+        -roomWidth / 2 + transform.x * INCH,
+        elevation * INCH + height / 2,
+        -roomDepth / 2 + transform.z * INCH,
+      );
       const front = edgeBox(
         width * 0.91,
         height * 0.89,
@@ -201,7 +321,7 @@ function ThreeStudy({
         inset.position.z = 0.025;
         front.add(inset);
       }
-      if (study.countertop && cabinet.type === 'base') {
+      if (study.countertop && cabinet.kind === 'base') {
         const top = edgeBox(
           width + 0.04,
           0.04,
@@ -214,73 +334,6 @@ function ThreeStudy({
       scene.add(body);
       selectable.push(body);
       if (cabinet.id === study.selected)
-        scene.add(new THREE.BoxHelper(body, 0xb57d45));
-    }
-
-    for (const appliance of study.appliances) {
-      const width = appliance.width * INCH;
-      const depth = appliance.depth * INCH;
-      const height = appliance.height * INCH;
-      const body = edgeBox(
-        width,
-        height,
-        depth,
-        material(warningIds.has(appliance.id) ? 0xb36855 : 0xc5c3ba, 0.42),
-      );
-      body.userData.id = appliance.id;
-      if (appliance.wall === 'back')
-        body.position.set(
-          -roomWidth / 2 + (appliance.offset + appliance.width / 2) * INCH,
-          appliance.elevation * INCH + height / 2,
-          -roomDepth / 2 + depth / 2,
-        );
-      else {
-        body.rotation.y = Math.PI / 2;
-        body.position.set(
-          appliance.wall === 'left'
-            ? -roomWidth / 2 + depth / 2
-            : roomWidth / 2 - depth / 2,
-          appliance.elevation * INCH + height / 2,
-          -roomDepth / 2 + (appliance.offset + appliance.width / 2) * INCH,
-        );
-      }
-      const dark = material(0x343938, 0.28);
-      const frontZ = depth / 2 + 0.014;
-      if (appliance.kind === 'refrigerator') {
-        const seam = edgeBox(width * 0.025, height * 0.94, 0.018, dark);
-        seam.position.z = frontZ;
-        body.add(seam);
-        const handle = edgeBox(width * 0.025, height * 0.42, 0.035, dark);
-        handle.position.set(width * 0.1, 0, frontZ + 0.015);
-        body.add(handle);
-      } else if (appliance.kind === 'range') {
-        const oven = edgeBox(width * 0.82, height * 0.48, 0.025, dark);
-        oven.position.set(0, -height * 0.12, frontZ);
-        body.add(oven);
-        for (const x of [-0.3, -0.1, 0.1, 0.3]) {
-          const knob = edgeBox(width * 0.06, width * 0.06, 0.035, dark);
-          knob.position.set(width * x, height * 0.32, frontZ);
-          body.add(knob);
-        }
-      } else if (appliance.kind === 'dishwasher') {
-        const handle = edgeBox(width * 0.72, 0.025, 0.035, dark);
-        handle.position.set(0, height * 0.35, frontZ);
-        body.add(handle);
-      } else if (appliance.kind === 'coffee-maker') {
-        const head = edgeBox(width * 0.74, height * 0.48, depth * 0.72, dark);
-        head.position.set(0, height * 0.18, depth * 0.08);
-        body.add(head);
-      } else {
-        const glass = edgeBox(width * 0.78, height * 0.62, 0.025, dark);
-        glass.position.z = frontZ;
-        body.add(glass);
-        const handle = edgeBox(width * 0.62, 0.025, 0.035, material(0x777a74));
-        handle.position.set(0, height * 0.38, frontZ + 0.015);
-        body.add(handle);
-      }
-      scene.add(body);
-      selectable.push(body);
-      if (appliance.id === study.selected)
         scene.add(new THREE.BoxHelper(body, 0xb57d45));
     }
 
@@ -387,186 +440,192 @@ function ThreeStudy({
 }
 
 export function CabinetConfigurator() {
-  const [study, setStudy] = useState<Study>(() => initialStudy());
+  const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const drag = useRef<ActiveDrag | null>(null);
-
+  const drag = useRef<ActiveFloorDrag | null>(null);
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setStudy(normalizeStudy(JSON.parse(saved) as Study));
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setStudy(migrateStudy(JSON.parse(saved)));
     } catch {
-      // A fresh study remains available when storage is blocked or invalid.
+      // Keep the fresh study when browser storage is unavailable or invalid.
     }
     setHydrated(true);
   }, []);
-
   useEffect(() => {
-    if (hydrated)
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(study));
+    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(study));
   }, [hydrated, study]);
-
-  const update = useCallback((change: (draft: Study) => void) => {
-    setStudy((current) => {
-      setHistory((items) => [...items.slice(-29), clone(current)]);
-      const next = clone(current);
-      change(next);
-      return next;
-    });
-  }, []);
-
-  const selected = [
-    ...study.cabinets,
-    ...study.openings,
-    ...study.appliances,
-  ].find((item) => item.id === study.selected);
-  const warnings = useMemo(() => problemIds(study), [study]);
-  const pad = 62;
-  const scale = Math.min(
-    (780 - pad * 2) / study.room.width,
-    (560 - pad * 2) / study.room.depth,
+  const update = useCallback(
+    (change: (draft: Study) => void) =>
+      setStudy((current) => {
+        setHistory((items) => [...items.slice(-29), clone(current)]);
+        const next = clone(current);
+        change(next);
+        return next;
+      }),
+    [],
   );
-
-  const planBox = (item: Cabinet | Opening | Appliance) => {
-    const depth = 'depth' in item ? item.depth : 5;
-    if (item.wall === 'back')
-      return {
-        x: pad + item.offset * scale,
-        y: pad,
-        width: item.width * scale,
-        height: depth * scale,
-      };
-    if (item.wall === 'left')
-      return {
-        x: pad,
-        y: pad + item.offset * scale,
-        width: depth * scale,
-        height: item.width * scale,
-      };
-    return {
-      x: pad + study.room.width * scale - depth * scale,
-      y: pad + item.offset * scale,
-      width: depth * scale,
-      height: item.width * scale,
-    };
-  };
-
-  const addCabinet = (type: CabinetType) =>
-    update((draft) => {
-      const cabinet: Cabinet = {
-        id: makeId(),
-        type,
-        wall: 'back',
-        offset: 42,
-        width: type === 'tall' ? 24 : 30,
-        depth: type === 'wall' ? 12 : 24,
-        height: type === 'base' ? 34.5 : type === 'wall' ? 30 : 84,
-        elevation: 54,
-        face: 'shaker',
-      };
-      draft.cabinets.push(cabinet);
-      draft.selected = cabinet.id;
-    });
-
-  const addOpening = (kind: Opening['kind']) =>
-    update((draft) => {
-      const opening: Opening = {
+  const selected = study.elements.find((item) => item.id === study.selected);
+  const warnings = useMemo(
+    () => validateLayout(study.elements, study.room),
+    [study],
+  );
+  const pad = 62,
+    scale = Math.min(
+      (780 - pad * 2) / study.room.width,
+      (560 - pad * 2) / study.room.depth,
+    );
+  const addElement = (
+    kind: KitchenElement['kind'],
+    applianceKind?: ApplianceKind,
+  ) =>
+    update((d) => {
+      if (kind === 'appliance' && applianceKind) {
+        const item = createKitchenAppliance(applianceKind, makeId());
+        d.elements.push(item);
+        d.selected = item.id;
+        return;
+      }
+      const item: KitchenElement = {
         id: makeId(),
         kind,
-        wall: 'back',
-        offset: 18,
-        width: kind === 'door' ? 32 : 42,
-        height: kind === 'door' ? 80 : 38,
-        sill: 42,
+        width: kind === 'appliance' ? 24 : 30,
+        depth: kind === 'wall-cabinet' ? 12 : 24,
+        height:
+          kind === 'wall-cabinet'
+            ? 30
+            : kind === 'tall'
+              ? 84
+              : kind === 'appliance'
+                ? 36
+                : 34.5,
+        face: 'shaker',
+        placement: {
+          mode: 'wall',
+          wall: 'back',
+          offset: 42,
+          elevation: kind === 'wall-cabinet' ? 54 : 0,
+        },
       };
-      draft.openings.push(opening);
-      draft.selected = opening.id;
+      d.elements.push(item);
+      d.selected = item.id;
     });
-
-  const addAppliance = (kind: ApplianceKind) =>
-    update((draft) => {
-      const appliance = createAppliance(kind, draft, makeId());
-      draft.appliances.push(appliance);
-      draft.selected = appliance.id;
+  const addIsland = () =>
+    update((d) => {
+      const island: Island = {
+        id: makeId(),
+        x: d.room.width / 2,
+        z: d.room.depth / 2,
+        width: 72,
+        depth: 42,
+        rotation: 0,
+        overhang: 12,
+        seatingSide: 'south',
+      };
+      d.islands.push(island);
+      d.selected = island.id;
     });
-
-  const updateSelected = (key: string, value: string | number) =>
-    update((draft) => {
-      const item = [
-        ...draft.cabinets,
-        ...draft.openings,
-        ...draft.appliances,
-      ].find((entry) => entry.id === draft.selected) as unknown as
-        | Record<string, string | number>
-        | undefined;
-      if (item) {
-        item[key] = value;
-        if (key === 'hostCabinetId' && 'placement' in item) {
-          const appliance = item as unknown as Appliance;
-          const host = draft.cabinets.find((cabinet) => cabinet.id === value);
-          if (host) {
-            appliance.wall = host.wall;
-            appliance.offset =
-              host.offset + Math.max(0, (host.width - appliance.width) / 2);
-            if (appliance.placement === 'countertop')
-              appliance.elevation = host.height + (draft.countertop ? 1.5 : 0);
-          }
-        }
+  const changeIsland = (
+    island: Island,
+    key: keyof Island,
+    value: string | number,
+  ) =>
+    update((d) => {
+      const target = d.islands.find((i) => i.id === island.id)!;
+      if (key === 'x' || key === 'z' || key === 'rotation') {
+        const next = {
+          x: target.x,
+          z: target.z,
+          rotation: target.rotation,
+          [key]: Number(value),
+        };
+        d.elements = moveIsland(target, d.elements, next);
+        Object.assign(target, next);
+      } else Object.assign(target, {[key]: value});
+    });
+  const changePlacement = (mode: PlacementMode) =>
+    update((d) => {
+      const e = d.elements.find((i) => i.id === d.selected);
+      if (!e) return;
+      if (mode === 'floor') e.placement = wallToFloor(e, d.room);
+      else if (mode === 'wall')
+        e.placement = {
+          mode: 'wall',
+          wall: 'back',
+          offset: Math.max(0, elementCenter(e, d.room).x - e.width / 2),
+          elevation: e.kind === 'wall-cabinet' ? 54 : 0,
+        };
+      else {
+        const host = d.elements.find((i) => i.id !== e.id);
+        if (host)
+          e.placement = {
+            mode: 'hosted',
+            hostId: host.id,
+            x: elementCenter(e, d.room).x,
+            z: elementCenter(e, d.room).z,
+            elevation: host.height,
+            rotation: 0,
+          };
       }
     });
-
-  const beginDrag = (
-    event: React.PointerEvent<SVGGElement>,
-    item: Cabinet | Appliance,
-  ) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setHistory((items) => [...items.slice(-29), clone(study)]);
-    setStudy((current) => ({...current, selected: item.id}));
-    drag.current = {
-      id: item.id,
-      pointer: item.wall === 'back' ? event.clientX : event.clientY,
-      start: item.offset,
-      wall: item.wall,
+  const plan = (e: KitchenElement) => {
+    const t = elementTransform(e, study.room);
+    return {
+      x: pad + t.x * scale,
+      y: pad + t.z * scale,
+      w: e.width * scale,
+      h: e.depth * scale,
+      r: t.rotation,
     };
   };
-
-  const moveDrag = (event: React.PointerEvent<SVGSVGElement>) => {
-    const active = drag.current;
-    if (!active) return;
-    const pointer = active.wall === 'back' ? event.clientX : event.clientY;
-    const boundsWidth = event.currentTarget.getBoundingClientRect().width;
-    const screenScale = scale * (boundsWidth / 780);
-    setStudy(createDragUpdate(active, pointer, screenScale));
+  const startDrag = (
+    ev: React.PointerEvent<SVGGElement>,
+    e: KitchenElement,
+  ) => {
+    if (e.placement.mode !== 'floor') return;
+    ev.currentTarget.setPointerCapture(ev.pointerId);
+    setHistory((h) => [...h.slice(-29), clone(study)]);
+    drag.current = {
+      id: e.id,
+      x: e.placement.x,
+      z: e.placement.z,
+      clientX: ev.clientX,
+      clientY: ev.clientY,
+    };
+    setStudy((c) => ({...c, selected: e.id}));
   };
-
+  const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
+    if (!drag.current) return;
+    const a = drag.current,
+      b = ev.currentTarget.getBoundingClientRect(),
+      ss = (scale * b.width) / 780;
+    const {clientX, clientY} = ev;
+    setStudy(createFloorDragUpdate(a, clientX, clientY, ss));
+  };
+  const selectedIsland = study.islands.find((i) => i.id === study.selected);
   return (
     <div className="cabinet-app">
       <header className="cc-topbar">
-        <a className="cc-brand" href="/" aria-label="From Trees home">
+        <a className="cc-brand" href="/">
           <span>from trees</span>
           <small>cabinet study / prototype</small>
         </a>
         <div className="cc-top-actions">
           <button
-            type="button"
+            disabled={!history.length}
             onClick={() =>
-              setHistory((items) => {
-                const previous = items.at(-1);
-                if (previous) setStudy(previous);
-                return items.slice(0, -1);
+              setHistory((h) => {
+                const p = h.at(-1);
+                if (p) setStudy(p);
+                return h.slice(0, -1);
               })
             }
-            disabled={!history.length}
           >
             Undo
           </button>
           <button
-            type="button"
-            onClick={() => {
-              setHistory((items) => [...items, clone(study)]);
-              setStudy(initialStudy());
-            }}
+            onClick={() => update((d) => Object.assign(d, initialStudy()))}
           >
             Reset room
           </button>
@@ -578,18 +637,16 @@ export function CabinetConfigurator() {
           <section>
             <p className="cc-eyebrow">01 / Room</p>
             <div className="cc-fields">
-              {(['width', 'depth', 'height'] as const).map((key) => (
-                <label key={key}>
-                  {key === 'height' ? 'Wall height' : `Room ${key}`}
+              {(['width', 'depth', 'height'] as const).map((k) => (
+                <label key={k}>
+                  Room {k}
                   <span>
                     <input
                       type="number"
-                      min="72"
-                      max="360"
-                      value={study.room[key]}
-                      onChange={(event) =>
-                        update((draft) => {
-                          draft.room[key] = Number(event.target.value);
+                      value={study.room[k]}
+                      onChange={(e) =>
+                        update((d) => {
+                          d.room[k] = Number(e.target.value);
                         })
                       }
                     />{' '}
@@ -600,46 +657,83 @@ export function CabinetConfigurator() {
             </div>
           </section>
           <section>
-            <p className="cc-eyebrow">02 / Add anatomy</p>
-            <div className="cc-button-grid">
-              <button type="button" onClick={() => addOpening('door')}>
-                + Door
-              </button>
-              <button type="button" onClick={() => addOpening('window')}>
-                + Window
-              </button>
-            </div>
-          </section>
-          <section>
-            <p className="cc-eyebrow">03 / Add cabinetry</p>
+            <p className="cc-eyebrow">02 / Add elements</p>
             <div className="cc-button-grid cc-three-buttons">
-              <button type="button" onClick={() => addCabinet('base')}>
-                + Base
-              </button>
-              <button type="button" onClick={() => addCabinet('wall')}>
-                + Wall
-              </button>
-              <button type="button" onClick={() => addCabinet('tall')}>
-                + Tall
-              </button>
-            </div>
-          </section>
-          <section>
-            <p className="cc-eyebrow">04 / Kitchen elements</p>
-            <div className="cc-button-grid cc-appliance-buttons">
+              <button onClick={() => addElement('base')}>+ Base</button>
+              <button onClick={() => addElement('wall-cabinet')}>+ Wall</button>
+              <button onClick={() => addElement('tall')}>+ Tall</button>
               {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[]).map(
                 (kind) => (
                   <button
-                    type="button"
                     key={kind}
-                    aria-label={`Add ${APPLIANCE_LABELS[kind]}`}
-                    onClick={() => addAppliance(kind)}
+                    onClick={() => addElement('appliance', kind)}
                   >
-                    + {APPLIANCE_LABELS[kind]}
+                    + {APPLIANCE_CATALOG[kind].label}
                   </button>
                 ),
               )}
             </div>
+          </section>
+          <section>
+            <p className="cc-eyebrow">03 / Island study</p>
+            <button onClick={addIsland}>+ Island zone</button>
+            {study.islands.map((i) => (
+              <div className="cc-island-fields" key={i.id}>
+                <button
+                  className="cc-island-select"
+                  onClick={() => setStudy((c) => ({...c, selected: i.id}))}
+                >
+                  Island {i.width} × {i.depth}
+                </button>
+                {selectedIsland?.id === i.id && (
+                  <div className="cc-fields">
+                    {(['x', 'z', 'width', 'depth', 'overhang'] as const).map(
+                      (k) => (
+                        <label key={k}>
+                          {k}
+                          <span>
+                            <input
+                              type="number"
+                              value={i[k]}
+                              onChange={(e) =>
+                                changeIsland(i, k, Number(e.target.value))
+                              }
+                            />{' '}
+                            in
+                          </span>
+                        </label>
+                      ),
+                    )}
+                    <label>
+                      Rotation
+                      <select
+                        value={i.rotation}
+                        onChange={(e) =>
+                          changeIsland(i, 'rotation', Number(e.target.value))
+                        }
+                      >
+                        {[0, 90, 180, 270].map((a) => (
+                          <option key={a}>{a}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Seating side
+                      <select
+                        value={i.seatingSide}
+                        onChange={(e) =>
+                          changeIsland(i, 'seatingSide', e.target.value)
+                        }
+                      >
+                        {['none', 'north', 'south', 'east', 'west'].map((x) => (
+                          <option key={x}>{x}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
+            ))}
           </section>
           <section className="cc-selection">
             <p className="cc-eyebrow">Selected element</p>
@@ -647,26 +741,17 @@ export function CabinetConfigurator() {
               <div className="cc-fields">
                 <div className="cc-selected-heading">
                   <strong>
-                    {'placement' in selected
-                      ? APPLIANCE_LABELS[selected.kind]
-                      : 'type' in selected
-                        ? `${selected.type} cabinet`
-                        : selected.kind}
+                    {selected.applianceKind
+                      ? APPLIANCE_CATALOG[selected.applianceKind].label
+                      : selected.kind}
                   </strong>
                   <button
-                    type="button"
                     onClick={() =>
-                      update((draft) => {
-                        draft.cabinets = draft.cabinets.filter(
-                          (item) => item.id !== draft.selected,
+                      update((d) => {
+                        d.elements = d.elements.filter(
+                          (x) => x.id !== selected.id,
                         );
-                        draft.openings = draft.openings.filter(
-                          (item) => item.id !== draft.selected,
-                        );
-                        draft.appliances = draft.appliances.filter(
-                          (item) => item.id !== draft.selected,
-                        );
-                        draft.selected = null;
+                        d.selected = null;
                       })
                     }
                   >
@@ -674,228 +759,137 @@ export function CabinetConfigurator() {
                   </button>
                 </div>
                 <label>
-                  Wall
+                  Placement
                   <select
-                    value={selected.wall}
-                    onChange={(event) =>
-                      updateSelected('wall', event.target.value)
+                    value={selected.placement.mode}
+                    onChange={(e) =>
+                      changePlacement(e.target.value as PlacementMode)
                     }
                   >
-                    <option>back</option>
-                    <option>left</option>
-                    <option>right</option>
+                    <option value="wall">Wall-mounted</option>
+                    <option value="floor">Floor-positioned</option>
+                    <option value="hosted">Hosted</option>
                   </select>
                 </label>
-                <label>
-                  Position
-                  <span>
-                    <input
-                      type="number"
-                      value={selected.offset}
-                      onChange={(event) =>
-                        updateSelected('offset', Number(event.target.value))
-                      }
-                    />{' '}
-                    in
-                  </span>
-                </label>
+                {selected.placement.mode === 'floor' && (
+                  <>
+                    <label>
+                      Room X
+                      <span>
+                        <input
+                          type="number"
+                          value={selected.placement.x}
+                          onChange={(e) =>
+                            update((d) => {
+                              const x = d.elements.find(
+                                (x) => x.id === selected.id,
+                              );
+                              if (x?.placement.mode === 'floor')
+                                x.placement.x = Number(e.target.value);
+                            })
+                          }
+                        />{' '}
+                        in
+                      </span>
+                    </label>
+                    <label>
+                      Room Z
+                      <span>
+                        <input
+                          type="number"
+                          value={selected.placement.z}
+                          onChange={(e) =>
+                            update((d) => {
+                              const x = d.elements.find(
+                                (x) => x.id === selected.id,
+                              );
+                              if (x?.placement.mode === 'floor')
+                                x.placement.z = Number(e.target.value);
+                            })
+                          }
+                        />{' '}
+                        in
+                      </span>
+                    </label>
+                    <label>
+                      Rotation
+                      <select
+                        value={snapAngle(selected.placement.rotation)}
+                        onChange={(e) =>
+                          update((d) => {
+                            const x = d.elements.find(
+                              (x) => x.id === selected.id,
+                            );
+                            if (x?.placement.mode === 'floor')
+                              x.placement.rotation = snapAngle(
+                                Number(e.target.value),
+                              );
+                          })
+                        }
+                      >
+                        {[0, 90, 180, 270].map((a) => (
+                          <option key={a}>{a}°</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="cc-check">
+                      <input
+                        type="checkbox"
+                        checked={!!selected.islandId}
+                        onChange={(e) =>
+                          update((d) => {
+                            const x = d.elements.find(
+                              (x) => x.id === selected.id,
+                            );
+                            if (x)
+                              x.islandId = e.target.checked
+                                ? d.islands[0]?.id
+                                : undefined;
+                          })
+                        }
+                      />{' '}
+                      Group with island
+                    </label>
+                  </>
+                )}
                 <label>
                   Width
                   <span>
                     <input
                       type="number"
                       value={selected.width}
-                      onChange={(event) =>
-                        updateSelected('width', Number(event.target.value))
+                      onChange={(e) =>
+                        update((d) => {
+                          const x = d.elements.find(
+                            (x) => x.id === selected.id,
+                          );
+                          if (x) x.width = Number(e.target.value);
+                        })
                       }
                     />{' '}
                     in
                   </span>
                 </label>
-                {'depth' in selected ? (
-                  <>
-                    <label>
-                      Depth
-                      <span>
-                        <input
-                          type="number"
-                          value={selected.depth}
-                          onChange={(event) =>
-                            updateSelected('depth', Number(event.target.value))
-                          }
-                        />{' '}
-                        in
-                      </span>
-                    </label>
-                    <label>
-                      Height
-                      <span>
-                        <input
-                          type="number"
-                          value={selected.height}
-                          onChange={(event) =>
-                            updateSelected('height', Number(event.target.value))
-                          }
-                        />{' '}
-                        in
-                      </span>
-                    </label>
-                  </>
-                ) : null}
-                {'type' in selected ? (
-                  <>
-                    {selected.type === 'wall' ? (
-                      <label>
-                        Bottom height
-                        <span>
-                          <input
-                            type="number"
-                            value={selected.elevation ?? 54}
-                            onChange={(event) =>
-                              updateSelected(
-                                'elevation',
-                                Number(event.target.value),
-                              )
-                            }
-                          />{' '}
-                          in
-                        </span>
-                      </label>
-                    ) : null}
-                    <label>
-                      Face style
-                      <select
-                        value={selected.face}
-                        onChange={(event) =>
-                          updateSelected('face', event.target.value)
-                        }
-                      >
-                        <option value="shaker">Shaker frame</option>
-                        <option value="slab">Quiet slab</option>
-                      </select>
-                    </label>
-                  </>
-                ) : null}
-                {'placement' in selected ? (
-                  <>
-                    <label>
-                      Elevation
-                      <span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={selected.elevation}
-                          onChange={(event) =>
-                            updateSelected(
-                              'elevation',
-                              Number(event.target.value),
-                            )
-                          }
-                        />{' '}
-                        in
-                      </span>
-                    </label>
-                    <label>
-                      Placement
-                      <span className="cc-readonly">{selected.placement}</span>
-                    </label>
-                    {selected.placement === 'countertop' ||
-                    selected.placement === 'built-in' ? (
-                      <label>
-                        Supporting cabinet
-                        <select
-                          value={selected.hostCabinetId ?? ''}
-                          onChange={(event) =>
-                            updateSelected('hostCabinetId', event.target.value)
-                          }
-                        >
-                          <option value="">Choose cabinet</option>
-                          {study.cabinets
-                            .filter((cabinet) =>
-                              selected.placement === 'countertop'
-                                ? cabinet.type === 'base'
-                                : cabinet.type !== 'wall',
-                            )
-                            .map((cabinet) => (
-                              <option key={cabinet.id} value={cabinet.id}>
-                                {cabinet.type} · {cabinet.width}″ ·{' '}
-                                {cabinet.wall}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                    ) : null}
-                  </>
-                ) : null}
+                {warnings.get(selected.id)?.map((w) => (
+                  <p className="cc-inline-warning" key={w}>
+                    {w}
+                  </p>
+                ))}
               </div>
             ) : (
               <p className="cc-muted">Select an element in plan or 3D.</p>
             )}
           </section>
-          <section>
-            <p className="cc-eyebrow">05 / Surfaces</p>
-            <div className="cc-fields">
-              <label>
-                Floor
-                <select
-                  value={study.room.floor}
-                  onChange={(event) =>
-                    update((draft) => {
-                      draft.room.floor = event.target
-                        .value as Study['room']['floor'];
-                    })
-                  }
-                >
-                  <option value="oak">Natural oak</option>
-                  <option value="walnut">Walnut</option>
-                  <option value="concrete">Honed concrete</option>
-                </select>
-              </label>
-              <label>
-                Walls
-                <select
-                  value={study.room.walls}
-                  onChange={(event) =>
-                    update((draft) => {
-                      draft.room.walls = event.target
-                        .value as Study['room']['walls'];
-                    })
-                  }
-                >
-                  <option value="plaster">Warm plaster</option>
-                  <option value="white">Gallery white</option>
-                  <option value="green">Forest wash</option>
-                </select>
-              </label>
-              <label className="cc-check">
-                <input
-                  type="checkbox"
-                  checked={study.countertop}
-                  onChange={(event) =>
-                    update((draft) => {
-                      draft.countertop = event.target.checked;
-                    })
-                  }
-                />{' '}
-                Continuous countertop study
-              </label>
-            </div>
-          </section>
         </aside>
         <section className="cc-workspace">
-          <div className="cc-tabs" role="tablist">
-            {(['plan', 'split', 'three'] as View[]).map((view) => (
+          <div className="cc-tabs">
+            {(['plan', 'split', 'three'] as View[]).map((v) => (
               <button
-                type="button"
-                className={study.view === view ? 'active' : ''}
-                onClick={() => setStudy((current) => ({...current, view}))}
-                key={view}
+                className={study.view === v ? 'active' : ''}
+                onClick={() => setStudy((c) => ({...c, view: v}))}
+                key={v}
               >
-                {view === 'split'
-                  ? 'Plan + 3D'
-                  : view === 'three'
-                    ? '3D'
-                    : 'Plan'}
+                {v}
               </button>
             ))}
           </div>
@@ -903,16 +897,13 @@ export function CabinetConfigurator() {
             <div className="cc-panel cc-plan-panel">
               <div className="cc-panel-label">
                 <span>Dimensioned plan</span>
-                <small>Drag kitchen elements along their wall</small>
+                <small>Drag floor-positioned elements on both axes</small>
               </div>
               <svg
                 viewBox="0 0 780 560"
-                role="img"
                 aria-label="Dimensioned room plan"
                 onPointerMove={moveDrag}
-                onPointerUp={() => {
-                  drag.current = null;
-                }}
+                onPointerUp={() => (drag.current = null)}
               >
                 <defs>
                   <pattern
@@ -935,135 +926,85 @@ export function CabinetConfigurator() {
                   className="cc-room-line"
                   d={`M${pad} ${pad + study.room.depth * scale}V${pad}H${pad + study.room.width * scale}V${pad + study.room.depth * scale}`}
                 />
-                <g className="cc-dimensions">
-                  <path
-                    d={`M${pad} 32H${pad + study.room.width * scale}M${pad} 25V39M${pad + study.room.width * scale} 25V39`}
-                  />
-                  <text x={pad + (study.room.width * scale) / 2} y="25">
-                    {study.room.width}″
-                  </text>
-                  <path
-                    d={`M32 ${pad}V${pad + study.room.depth * scale}M25 ${pad}H39M25 ${pad + study.room.depth * scale}H39`}
-                  />
-                  <text
-                    transform={`translate(22 ${pad + (study.room.depth * scale) / 2}) rotate(-90)`}
-                    textAnchor="middle"
-                  >
-                    {study.room.depth}″
-                  </text>
-                </g>
-                {study.openings.map((opening) => {
-                  const box = planBox(opening);
+                {study.islands.map((i) => {
+                  const c = aisleClearance(i, study.room);
                   return (
                     <g
-                      key={opening.id}
-                      className={`cc-opening ${study.selected === opening.id ? 'selected' : ''}`}
-                      onClick={() =>
-                        setStudy((current) => ({
-                          ...current,
-                          selected: opening.id,
-                        }))
-                      }
+                      className="cc-island"
+                      key={i.id}
+                      transform={`translate(${pad + i.x * scale} ${pad + i.z * scale}) rotate(${i.rotation})`}
+                      onClick={() => setStudy((x) => ({...x, selected: i.id}))}
                     >
-                      <rect {...box} />
-                      <text
-                        x={box.x + box.width / 2}
-                        y={
-                          box.y +
-                          (opening.wall === 'back' ? 20 : box.height / 2)
-                        }
-                      >
-                        {opening.kind}
+                      <rect
+                        x={-(i.width / 2 + i.overhang) * scale}
+                        y={-(i.depth / 2 + i.overhang) * scale}
+                        width={(i.width + i.overhang * 2) * scale}
+                        height={(i.depth + i.overhang * 2) * scale}
+                      />
+                      <text y="4">
+                        ISLAND · aisles{' '}
+                        {Math.round(Math.min(...Object.values(c)))}″
                       </text>
+                      {i.seatingSide !== 'none' && (
+                        <rect
+                          className="cc-seating"
+                          x={(-i.width / 2) * scale}
+                          y={(i.depth / 2) * scale}
+                          width={i.width * scale}
+                          height={18 * scale}
+                        />
+                      )}
                     </g>
                   );
                 })}
-                {study.cabinets.map((cabinet) => {
-                  const box = planBox(cabinet);
+                {study.elements.map((e) => {
+                  const b = plan(e);
                   return (
                     <g
-                      key={cabinet.id}
-                      className={`cc-cab cc-${cabinet.type} ${study.selected === cabinet.id ? 'selected' : ''} ${warnings.has(cabinet.id) ? 'problem' : ''}`}
-                      onPointerDown={(event) => beginDrag(event, cabinet)}
+                      key={e.id}
+                      className={`cc-cab cc-${e.kind} ${study.selected === e.id ? 'selected' : ''} ${warnings.has(e.id) ? 'problem' : ''}`}
+                      transform={`translate(${b.x} ${b.y}) rotate(${b.r})`}
+                      onPointerDown={(ev) => startDrag(ev, e)}
+                      onClick={() => setStudy((c) => ({...c, selected: e.id}))}
                     >
-                      <rect {...box} />
-                      <line
-                        x1={box.x}
-                        y1={box.y}
-                        x2={box.x + box.width}
-                        y2={box.y + box.height}
+                      <rect
+                        x={-b.w / 2}
+                        y={-b.h / 2}
+                        width={b.w}
+                        height={b.h}
                       />
                       <line
-                        x1={box.x + box.width}
-                        y1={box.y}
-                        x2={box.x}
-                        y2={box.y + box.height}
+                        x1={-b.w / 2}
+                        y1={-b.h / 2}
+                        x2={b.w / 2}
+                        y2={b.h / 2}
                       />
-                      <text
-                        x={box.x + box.width / 2}
-                        y={box.y + box.height / 2 + 4}
-                      >
-                        {cabinet.width}″
+                      <text y="4">
+                        {e.applianceKind
+                          ? APPLIANCE_CATALOG[e.applianceKind].label
+                          : `${e.width}″`}
                       </text>
                     </g>
                   );
                 })}
-                {study.appliances.map((appliance) => {
-                  const box = planBox(appliance);
-                  return (
-                    <g
-                      key={appliance.id}
-                      role="button"
-                      aria-label={`${APPLIANCE_LABELS[appliance.kind]}, ${appliance.width} inches wide`}
-                      tabIndex={0}
-                      className={`cc-appliance cc-${appliance.kind} ${study.selected === appliance.id ? 'selected' : ''} ${warnings.has(appliance.id) ? 'problem' : ''}`}
-                      onPointerDown={(event) => beginDrag(event, appliance)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ')
-                          setStudy((current) => ({
-                            ...current,
-                            selected: appliance.id,
-                          }));
-                      }}
-                    >
-                      <rect {...box} />
-                      <text
-                        x={box.x + box.width / 2}
-                        y={box.y + box.height / 2 + 4}
-                      >
-                        {APPLIANCE_LABELS[appliance.kind]}
-                      </text>
-                    </g>
-                  );
-                })}
-                <text
-                  className="cc-room-note"
-                  x={pad + study.room.width * scale - 8}
-                  y={pad + study.room.depth * scale - 12}
-                  textAnchor="end"
-                >
-                  {study.room.height}″ walls
-                </text>
               </svg>
             </div>
             <div className="cc-panel cc-three-panel">
               <div className="cc-panel-label">
                 <span>Spatial study</span>
-                <small>Drag to orbit · scroll to zoom</small>
+                <small>Plan and 3D share placement data</small>
               </div>
               <ThreeStudy
                 study={study}
-                onSelect={(id) =>
-                  setStudy((current) => ({...current, selected: id}))
-                }
+                onSelect={(id) => setStudy((c) => ({...c, selected: id}))}
               />
             </div>
           </div>
           <footer className="cc-status">
             <span className={warnings.size ? 'warning' : ''}>
               {warnings.size
-                ? `${warnings.size} element${warnings.size > 1 ? 's' : ''} need attention`
-                : `${study.cabinets.length} cabinets · ${study.appliances.length} appliances · clear fit`}
+                ? `${warnings.size} elements need attention`
+                : `${study.elements.length} elements · clear fit`}
             </span>
             <span>Concept only · dimensions require field verification</span>
           </footer>
