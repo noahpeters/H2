@@ -2,6 +2,7 @@
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:"Work Sans", Arial, Helvetica, sans-serif; }
+body>main.studio-page,body>main.config-page,body>main.geometry-page { margin:0; }
 a { color:inherit; text-decoration:none; }
 button,input { font:inherit; }
 img { width:100%; height:100%; object-fit:cover; display:block; }
@@ -15,6 +16,8 @@ nav a:hover, .header-cta:hover { opacity:1; }
 .header-cta { justify-self:end; font-size:12px; padding-bottom:5px; border-bottom:1px solid currentColor; }
 .header-cta span { color:var(--orange); margin-left:8px; }
 .hero { min-height:860px; background:var(--forest); color:var(--paper); display:grid; grid-template-columns:47% 53%; padding:145px 3vw 5vw; gap:3vw; }
+.hero .eyebrow,.process-section .eyebrow,footer .eyebrow { color:var(--paper); }
+.hero h1,.hero h1 em,.process-section h2,.process-section h2 em,footer h2,footer h2 em { color:var(--paper); }
 .hero-copy { display:flex; flex-direction:column; justify-content:space-between; padding-bottom:3vw; }
 .eyebrow { text-transform:uppercase; letter-spacing:.18em; font-size:10px; font-weight:700; margin:0; }
 h1,h2 { font-family:"Courier Prime","Courier New",monospace; font-weight:700; letter-spacing:-.065em; margin:0; line-height:.91; }
@@ -116,7 +119,8 @@ legend span { font-family:Arial,sans-serif; font-size:9px; letter-spacing:.12em;
 .config-page-intro h1 { color:var(--forest); font-size:clamp(70px,8vw,132px); white-space:normal; margin:0; }
 .config-page-intro h1 em { color:var(--sage); }
 .config-page-intro>p:last-child { max-width:490px; line-height:1.7; justify-self:end; margin:0 0 9px; }
-.sketch-config { margin:0 3vw 120px; display:grid; grid-template-columns:1.25fr .75fr; background:#fafafa; border:1px solid #d8d5cc; min-height:720px; }
+.sketch-config { margin:0 3vw 120px; padding:0; display:grid; grid-template-columns:1.25fr .75fr; background:#fafafa; border:1px solid #d8d5cc; min-height:720px; }
+.sketch-config>* { min-width:0; }
 .sketch-board { position:sticky; top:0; align-self:start; min-height:720px; padding:32px 38px 25px; display:flex; flex-direction:column; background:#fafafa; border-right:1px solid #d8d5cc; }
 .rendered-study { flex:1; min-height:500px; display:grid; place-items:center; overflow:hidden; }
 .rendered-stage { position:relative; width:min(100%,620px); aspect-ratio:1; overflow:hidden; }
@@ -130,7 +134,7 @@ legend span { font-family:Arial,sans-serif; font-size:9px; letter-spacing:.12em;
 .sketch-label,.sketch-caption { display:flex; justify-content:space-between; text-transform:uppercase; letter-spacing:.13em; font:10px "Courier New",monospace; color:#565751; }
 .sketch-label { padding-bottom:18px; border-bottom:1px solid #aaa9a3; }
 .sketch-caption { padding-top:17px; border-top:1px solid #aaa9a3; }
-.sketch-config .controls { background:var(--paper); }
+.sketch-config .controls { width:100%; max-width:none; min-width:0; background:var(--paper); }
 .sketch-config legend { font-size:18px; }
 .base-options button { flex:1 1 145px; }
 .option-note { margin:13px 0 0; color:#77786f; font-size:9px; line-height:1.5; }

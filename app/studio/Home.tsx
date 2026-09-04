@@ -27,7 +27,7 @@ const projects = [
 
 export default function Home() {
   return (
-    <main>
+    <main className="studio-page">
       <header className="site-header">
         <a className="brand" href="#top" aria-label="From Trees home">
           <img className="brand-tree" src="/from-trees-tree.png" alt="" />
