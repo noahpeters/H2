@@ -158,6 +158,17 @@ export default function Homepage() {
         <span className={stylex(styles.meta)}>Veteran-owned.</span>
       </p>
       <SiteHero items={data.siteHeroes ?? []} />
+      <section className="studio-statement">
+        <p className="eyebrow">From the tree to your home</p>
+        <h2>Furniture with a story already in the grain.</h2>
+        <p>
+          We design and build enduring pieces from thoughtfully selected timber,
+          balancing the character of the material with quiet, functional forms.
+        </p>
+        <Link className="text-link" to="/configurator">
+          Begin a custom table inquiry <span aria-hidden="true">→</span>
+        </Link>
+      </section>
       <Suspense fallback={null}>
         <Await resolve={data.featuredCollection}>
           {(response) =>
@@ -167,7 +178,10 @@ export default function Homepage() {
           }
         </Await>
       </Suspense>
-      <RecommendedProducts products={data.recommendedProducts} />
+      <section className="shop-edit">
+        <p className="eyebrow">Objects for everyday use</p>
+        <RecommendedProducts products={data.recommendedProducts} />
+      </section>
     </div>
   );
 }
