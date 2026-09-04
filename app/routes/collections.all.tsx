@@ -5,6 +5,13 @@ import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {ProductItem} from '~/components/ProductItem';
 import type {CollectionItemFragment} from 'storefrontapi.generated';
 import stylex from '~/lib/stylex';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioFooter} from '~/studio/StudioFooter';
+import {StudioHeader} from '~/studio/StudioHeader';
+
+export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
+];
 
 const styles = stylex.create({
   productsGrid: {
@@ -62,11 +69,28 @@ export default function Collection() {
   const {products} = useLoaderData<typeof loader>();
 
   return (
-    <div>
-      <h1>Products</h1>
+    <main className="studio-page studio-catalog-page">
+      <StudioHeader
+        links={[
+          {label: 'Back to the studio', to: '/'},
+          {label: 'Configure a table ↗', to: '/configurator'},
+        ]}
+      />
+      <section className="studio-catalog-intro">
+        <p className="eyebrow">Pre-configured examples</p>
+        <h1>
+          Made to inspire
+          <br />
+          <em>your own.</em>
+        </h1>
+        <p>
+          Explore finished configurations from the shop. Use one as a starting
+          point, or shape a table around your own space and ideas.
+        </p>
+      </section>
       <PaginatedResourceSection<CollectionItemFragment>
         connection={products}
-        resourcesClassName={stylex(styles.productsGrid)}
+        resourcesClassName={`${stylex(styles.productsGrid)} studio-catalog-grid`}
       >
         {({node: product, index}) => (
           <ProductItem
@@ -76,7 +100,8 @@ export default function Collection() {
           />
         )}
       </PaginatedResourceSection>
-    </div>
+      <StudioFooter />
+    </main>
   );
 }
 

@@ -18,6 +18,8 @@ import {
   type FeatureFlagName,
   type FeatureFlags,
 } from "./feature-flags";
+import {StudioFooter} from "../StudioFooter";
+import {StudioHeader} from "../StudioHeader";
 
 const timbers = [
   { name: "White oak", slug: "white-oak", color: "#c3a579" },
@@ -178,7 +180,7 @@ export default function Configurator() {
   const body = `I\u2019d like to discuss a ${dimension} ${shape} table in ${timber.name}, with a ${selectedEdge.name.toLowerCase()} edge, ${selectedBase.name.toLowerCase()} base, and ${chair === "none" ? "no chair study" : `${chairName.toLowerCase()} chairs`}.`;
 
   return <main className="config-page">
-    <header className="config-header"><Link className="brand" to="/"><img className="brand-tree" src="/from-trees-tree.png" alt=""/><span>from trees</span></Link><Link to="/">Back to the studio</Link></header>
+    <StudioHeader links={[{label:"Back to the studio",to:"/"},{label:"Pre-configured Examples",to:"/collections/all"}]}/>
     <section className="config-page-intro"><p className="eyebrow">Table configurator</p><h1>Begin with<br/><em>a line.</em></h1><p>Explore the broad strokes of your table through a working concept study. This is the beginning of a conversation, not a final design or quote.<br/><Link className="geometry-link" to="/configurator/geometry">View the dimensioned spatial study →</Link></p></section>
     <section className="sketch-config">
       <div className="sketch-board">
@@ -203,5 +205,6 @@ export default function Configurator() {
         <p className="fine-print">We’ll confirm proportion, joinery, timber availability, finish, timing, and all final details together. No prices or purchasing are shown here.</p>
       </form>
     </section>
+    <StudioFooter />
   </main>;
 }

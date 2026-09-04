@@ -1,3 +1,6 @@
+import {StudioFooter} from './StudioFooter';
+import {StudioHeader} from './StudioHeader';
+
 const projects = [
   {
     title: "White Oak Kitchen",
@@ -28,18 +31,7 @@ const projects = [
 export default function Home() {
   return (
     <main className="studio-page">
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="From Trees home">
-          <img className="brand-tree" src="/from-trees-tree.png" alt="" />
-          <span>from trees</span>
-        </a>
-        <nav aria-label="Primary navigation">
-          <a href="#work">Selected work</a>
-          <a href="#process">Process</a>
-          <a href="#studio">About</a>
-        </nav>
-        <a className="header-cta" href="/configurator">Shape your table <span>↗</span></a>
-      </header>
+      <StudioHeader home links={[{label:'Selected work',to:'/#work'},{label:'Process',to:'/#process'},{label:'About',to:'/#studio'},{label:'Shape your table ↗',to:'/configurator'}]} />
 
       <section className="hero" id="top">
         <div className="hero-copy">
@@ -104,10 +96,7 @@ export default function Home() {
         <div><p>Explore timber, proportions, edge profiles, and base designs through a line-drawing study inspired by our real concept process.</p><a href="/configurator">Open the table configurator <span>↗</span></a></div>
       </section>
 
-      <footer>
-        <div className="footer-main"><div><p className="eyebrow">Have something in mind?</p><h2>Let’s bring your<br /><em>vision to life.</em></h2><a href="mailto:noah@fromtrees.studio">noah@fromtrees.studio <span>↗</span></a></div><img className="footer-logo" src="/from-trees-logo.png" alt="from trees" /></div>
-        <div className="footer-bottom"><span>from trees / RIVERSIDE, CALIFORNIA</span><span>Family owned · Veteran owned</span><span>© 2026</span></div>
-      </footer>
+      <StudioFooter />
     </main>
   );
 }

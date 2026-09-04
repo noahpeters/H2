@@ -7,6 +7,8 @@ a { color:inherit; text-decoration:none; }
 button,input { font:inherit; }
 img { width:100%; height:100%; object-fit:cover; display:block; }
 .site-header { height:82px; padding:0 3vw; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; border-bottom:1px solid var(--line); position:absolute; z-index:5; width:100%; color:var(--forest); background:var(--brand-paper); }
+.studio-page-header .studio-header-links { grid-column:2/4; justify-self:end; align-items:center; }
+.config-page .studio-page-header,.studio-catalog-page .studio-page-header { position:relative; }
 .brand { display:flex; align-items:center; gap:13px; font-size:13px; letter-spacing:.18em; font-weight:700; }
 .brand-tree { width:42px; height:42px; object-fit:cover; }
 .brand span { font-family:"Courier Prime","Courier New",monospace; font-weight:700; font-size:16px; letter-spacing:-.04em; }
@@ -145,9 +147,27 @@ footer h2 { font-size:clamp(60px,7vw,110px); margin:30px 0 55px; }
 footer>div:first-child>a { border-bottom:1px solid #82877a; padding:0 0 9px; font-size:13px; }
 footer>div:first-child>a span { color:#e88756; margin-left:15px; }
 .footer-bottom { border-top:1px solid rgba(252,246,231,.3); margin-top:140px; padding-top:22px; display:grid; grid-template-columns:1fr 1fr auto; font-size:9px; letter-spacing:.14em; color:#d4d8cf; }
+.studio-policy-menu { margin-top:90px; padding-top:22px; border-top:1px solid rgba(252,246,231,.3); display:flex; flex-wrap:wrap; justify-content:flex-start; gap:18px 32px; }
+.studio-policy-menu a { color:var(--paper); font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
+.studio-policy-menu a:hover { text-decoration:none; opacity:.72; }
+.studio-policy-menu+.footer-bottom { margin-top:45px; }
+.studio-catalog-page { background:var(--paper); }
+.studio-catalog-intro { padding:110px 7vw 90px; display:grid; grid-template-columns:1.15fr .85fr; align-items:end; }
+.studio-catalog-intro .eyebrow { grid-column:1/-1; margin-bottom:30px; }
+.studio-catalog-intro h1 { color:var(--forest); font-size:clamp(70px,8vw,132px); white-space:normal; margin:0; }
+.studio-catalog-intro h1 em { color:var(--sage); }
+.studio-catalog-intro>p:last-child { max-width:480px; justify-self:end; margin:0 0 10px; line-height:1.7; }
+.studio-catalog-page>div { padding:0 3vw 130px; }
+.studio-catalog-grid { grid-template-columns:repeat(3,minmax(0,1fr))!important; gap:65px 24px!important; margin:0!important; }
+.studio-catalog-grid>a { display:block; border-top:1px solid var(--ink); padding-top:12px; }
+.studio-catalog-grid>a:hover { text-decoration:none; }
+.studio-catalog-grid img { aspect-ratio:1; object-fit:cover; border-radius:0; filter:saturate(.78); transition:transform .5s ease; }
+.studio-catalog-grid>a:hover img { transform:scale(.985); }
+.studio-catalog-grid h4 { color:var(--ink); font:700 22px "Courier Prime","Courier New",monospace; margin:18px 0 7px; }
+.studio-catalog-grid small { color:#6d6f67; font-size:11px; letter-spacing:.06em; }
 
 @media (max-width:900px) {
-  .site-header { grid-template-columns:1fr auto; }.site-header nav { display:none; }.header-cta { font-size:10px; }
+  .site-header { grid-template-columns:1fr auto; }.site-header nav { display:none; }.studio-page-header .studio-header-links { display:flex; grid-column:2; gap:18px; font-size:10px; }.header-cta { font-size:10px; }
   .hero { grid-template-columns:1fr; padding-top:130px; min-height:auto; }.hero-copy { min-height:500px; }.hero-image { min-height:560px; }
   h1 { font-size:clamp(64px,17vw,120px); white-space:normal; }
   .statement { grid-template-columns:1fr; gap:50px; padding:100px 6vw; }
@@ -157,6 +177,7 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
   .config-heading { grid-template-columns:1fr; }.config-heading>p:last-child { grid-column:1; grid-row:3; justify-self:start; margin-top:35px; }
   .table-preview { min-height:550px; }.controls { padding:45px 6vw; }
   .table-study-cta,.config-page-intro,.sketch-config { grid-template-columns:1fr; }
+  .studio-catalog-intro { grid-template-columns:1fr; }.studio-catalog-intro>p:last-child { justify-self:start; margin-top:45px; }.studio-catalog-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
   .geometry-intro,.geometry-workbench { grid-template-columns:1fr; }
   .geometry-intro>p { justify-self:start; margin-top:38px; }.geometry-board { border-right:0; border-bottom:1px solid #d8d5cc; }
   .table-study-cta>div:last-child,.config-page-intro>p:last-child { justify-self:start; margin-top:45px; }
@@ -164,6 +185,7 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
 }
 @media (max-width:600px) {
   .site-header { padding:0 20px; }.brand span:last-child { display:none; }
+  .studio-home-header .studio-header-links a:not(:last-child) { display:none; }.studio-page-header .studio-header-links { gap:13px; }
   .hero { padding:120px 20px 20px; }.hero-copy { min-height:440px; }.hero-bottom { gap:24px; }.hero-image { min-height:470px; }
   .statement-copy { font-size:38px; }
   .work-section,.configurator { padding-left:20px; padding-right:20px; }
@@ -173,6 +195,7 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
   .config-heading { display:block; }.config-heading h2 { margin-top:25px; }.table-preview { min-height:420px; padding:25px; }.table-model { height:220px; }.table-legs i { height:100px; }
   .footer-bottom { grid-template-columns:1fr; gap:12px; }.footer-bottom span:last-child { margin-top:20px; }
   .footer-main { display:block; }.footer-logo { width:180px; margin-top:70px; }
+  .studio-policy-menu { margin-top:65px; gap:16px 22px; }.studio-catalog-intro { padding:70px 20px 55px; }.studio-catalog-page>div { padding:0 20px 90px; }.studio-catalog-grid { grid-template-columns:1fr!important; }
   .table-study-cta { padding:95px 20px; }.config-page-intro { padding:70px 20px 55px; }.sketch-config { margin:0 0 80px; border-left:0; border-right:0; }.sketch-board { padding:24px 16px; min-height:470px; }.rendered-study { min-height:360px; }.sketch-caption { gap:20px; }.study-spec { align-items:flex-start; flex-direction:column; gap:6px; }
   .geometry-intro { padding:60px 20px 45px; }.geometry-workbench { margin:0 0 70px; border-left:0; border-right:0; }.geometry-board { padding:22px 14px; }.spatial-canvas { aspect-ratio:.92; }.geometry-controls { padding:38px 20px; }
 }
