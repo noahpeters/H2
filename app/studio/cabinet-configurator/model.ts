@@ -1,6 +1,13 @@
 export type Wall = 'back' | 'left' | 'right';
 export type PlacementMode = 'wall' | 'floor' | 'hosted';
 export type ElementKind = 'base' | 'wall-cabinet' | 'tall' | 'appliance';
+export type ApplianceKind =
+  | 'refrigerator'
+  | 'dishwasher'
+  | 'range'
+  | 'wall-oven'
+  | 'microwave'
+  | 'coffee-maker';
 export type SeatingSide = 'none' | 'north' | 'south' | 'east' | 'west';
 
 export type Placement =
@@ -22,9 +29,83 @@ export type KitchenElement = {
   depth: number;
   height: number;
   face: 'shaker' | 'slab';
+  applianceKind?: ApplianceKind;
   placement: Placement;
   islandId?: string;
 };
+
+export const APPLIANCE_CATALOG: Record<
+  ApplianceKind,
+  Pick<KitchenElement, 'width' | 'depth' | 'height'> & {
+    label: string;
+    elevation: number;
+  }
+> = {
+  refrigerator: {
+    label: 'Refrigerator',
+    width: 36,
+    depth: 30,
+    height: 70,
+    elevation: 0,
+  },
+  dishwasher: {
+    label: 'Dishwasher',
+    width: 24,
+    depth: 24,
+    height: 34.5,
+    elevation: 0,
+  },
+  range: {
+    label: 'Freestanding range',
+    width: 30,
+    depth: 27,
+    height: 36,
+    elevation: 0,
+  },
+  'wall-oven': {
+    label: 'Wall oven',
+    width: 30,
+    depth: 24,
+    height: 30,
+    elevation: 42,
+  },
+  microwave: {
+    label: 'Microwave',
+    width: 30,
+    depth: 16,
+    height: 17,
+    elevation: 54,
+  },
+  'coffee-maker': {
+    label: 'Coffee maker',
+    width: 10,
+    depth: 12,
+    height: 14,
+    elevation: 36,
+  },
+};
+
+export function createKitchenAppliance(
+  applianceKind: ApplianceKind,
+  id: string,
+): KitchenElement {
+  const appliance = APPLIANCE_CATALOG[applianceKind];
+  return {
+    id,
+    kind: 'appliance',
+    applianceKind,
+    width: appliance.width,
+    depth: appliance.depth,
+    height: appliance.height,
+    face: 'slab',
+    placement: {
+      mode: 'wall',
+      wall: 'back',
+      offset: 6,
+      elevation: appliance.elevation,
+    },
+  };
+}
 
 export type Island = {
   id: string;

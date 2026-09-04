@@ -2,8 +2,10 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
+  APPLIANCE_CATALOG,
   aisleClearance,
   bounds,
+  createKitchenAppliance,
   elementCenter,
   migrateElement,
   moveIsland,
@@ -12,6 +14,7 @@ import {
   validateLayout,
   wallToFloor,
   type Island,
+  type ApplianceKind,
   type KitchenElement,
   type PlacementMode,
   type Room,
@@ -90,14 +93,79 @@ function migrateStudy(raw: unknown): Study {
   if (!raw || typeof raw !== 'object') return fallback;
   const value = raw as Partial<Study> & {
     cabinets?: Parameters<typeof migrateElement>[0][];
+    appliances?: Array<{
+      id: string;
+      kind: ApplianceKind;
+      wall: Wall;
+      offset: number;
+      width: number;
+      depth: number;
+      height: number;
+      elevation: number;
+      hostCabinetId?: string;
+    }>;
   };
+  const elements = (value.elements ?? value.cabinets ?? []).map(migrateElement);
+  const migratedAppliances = (value.appliances ?? []).map((appliance) => ({
+    id: appliance.id,
+    kind: 'appliance' as const,
+    applianceKind: appliance.kind,
+    width: appliance.width,
+    depth: appliance.depth,
+    height: appliance.height,
+    face: 'slab' as const,
+    placement: appliance.hostCabinetId
+      ? ({
+          mode: 'hosted' as const,
+          hostId: appliance.hostCabinetId,
+          x: appliance.offset + appliance.width / 2,
+          z: appliance.depth / 2,
+          elevation: appliance.elevation,
+          rotation: 0,
+        } as const)
+      : ({
+          mode: 'wall' as const,
+          wall: appliance.wall,
+          offset: appliance.offset,
+          elevation: appliance.elevation,
+        } as const),
+  }));
   return {
     ...fallback,
     ...value,
     version: 2,
     room: {...fallback.room, ...value.room},
-    elements: (value.elements ?? value.cabinets ?? []).map(migrateElement),
+    elements: [...elements, ...migratedAppliances],
     islands: value.islands ?? [],
+  };
+}
+
+type ActiveFloorDrag = {
+  id: string;
+  x: number;
+  z: number;
+  clientX: number;
+  clientY: number;
+};
+
+export function createFloorDragUpdate(
+  active: ActiveFloorDrag,
+  clientX: number,
+  clientY: number,
+  screenScale: number,
+) {
+  return (current: Study): Study => {
+    const next = clone(current);
+    const element = next.elements.find((item) => item.id === active.id);
+    if (element?.placement.mode === 'floor') {
+      element.placement.x =
+        Math.round((active.x + (clientX - active.clientX) / screenScale) / 3) *
+        3;
+      element.placement.z =
+        Math.round((active.z + (clientY - active.clientY) / screenScale) / 3) *
+        3;
+    }
+    return next;
   };
 }
 function elementTransform(element: KitchenElement, room: Room) {
@@ -375,13 +443,7 @@ export function CabinetConfigurator() {
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const drag = useRef<{
-    id: string;
-    x: number;
-    z: number;
-    clientX: number;
-    clientY: number;
-  } | null>(null);
+  const drag = useRef<ActiveFloorDrag | null>(null);
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -414,8 +476,17 @@ export function CabinetConfigurator() {
       (780 - pad * 2) / study.room.width,
       (560 - pad * 2) / study.room.depth,
     );
-  const addElement = (kind: KitchenElement['kind']) =>
+  const addElement = (
+    kind: KitchenElement['kind'],
+    applianceKind?: ApplianceKind,
+  ) =>
     update((d) => {
+      if (kind === 'appliance' && applianceKind) {
+        const item = createKitchenAppliance(applianceKind, makeId());
+        d.elements.push(item);
+        d.selected = item.id;
+        return;
+      }
       const item: KitchenElement = {
         id: makeId(),
         kind,
@@ -529,17 +600,8 @@ export function CabinetConfigurator() {
     const a = drag.current,
       b = ev.currentTarget.getBoundingClientRect(),
       ss = (scale * b.width) / 780;
-    setStudy((c) => {
-      const n = clone(c),
-        e = n.elements.find((i) => i.id === a.id);
-      if (e?.placement.mode === 'floor') {
-        e.placement.x =
-          Math.round((a.x + (ev.clientX - a.clientX) / ss) / 3) * 3;
-        e.placement.z =
-          Math.round((a.z + (ev.clientY - a.clientY) / ss) / 3) * 3;
-      }
-      return n;
-    });
+    const {clientX, clientY} = ev;
+    setStudy(createFloorDragUpdate(a, clientX, clientY, ss));
   };
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
   return (
@@ -600,9 +662,16 @@ export function CabinetConfigurator() {
               <button onClick={() => addElement('base')}>+ Base</button>
               <button onClick={() => addElement('wall-cabinet')}>+ Wall</button>
               <button onClick={() => addElement('tall')}>+ Tall</button>
-              <button onClick={() => addElement('appliance')}>
-                + Appliance
-              </button>
+              {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[]).map(
+                (kind) => (
+                  <button
+                    key={kind}
+                    onClick={() => addElement('appliance', kind)}
+                  >
+                    + {APPLIANCE_CATALOG[kind].label}
+                  </button>
+                ),
+              )}
             </div>
           </section>
           <section>
@@ -671,7 +740,11 @@ export function CabinetConfigurator() {
             {selected ? (
               <div className="cc-fields">
                 <div className="cc-selected-heading">
-                  <strong>{selected.kind}</strong>
+                  <strong>
+                    {selected.applianceKind
+                      ? APPLIANCE_CATALOG[selected.applianceKind].label
+                      : selected.kind}
+                  </strong>
                   <button
                     onClick={() =>
                       update((d) => {
@@ -906,7 +979,11 @@ export function CabinetConfigurator() {
                         x2={b.w / 2}
                         y2={b.h / 2}
                       />
-                      <text y="4">{e.width}″</text>
+                      <text y="4">
+                        {e.applianceKind
+                          ? APPLIANCE_CATALOG[e.applianceKind].label
+                          : `${e.width}″`}
+                      </text>
                     </g>
                   );
                 })}
