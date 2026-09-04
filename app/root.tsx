@@ -351,7 +351,8 @@ function isStudioOwnedPath(pathname: string) {
   return (
     pathname === '/' ||
     pathname === '/configurator' ||
-    pathname.startsWith('/configurator/')
+    pathname.startsWith('/configurator/') ||
+    pathname === '/collections/all'
   );
 }
 
