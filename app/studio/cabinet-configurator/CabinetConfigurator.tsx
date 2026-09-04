@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
+import {applianceGeometry} from './applianceGeometry';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   APPLIANCE_CATALOG,
@@ -305,12 +306,20 @@ function ThreeStudy({
       const width = cabinet.width * INCH;
       const depth = cabinet.depth * INCH;
       const height = cabinet.height * INCH;
-      const body = edgeBox(
-        width,
-        height,
-        depth,
-        material(warningIds.has(cabinet.id) ? 0xb36855 : 0x9d7650),
-      );
+      const isAppliance = cabinet.kind === 'appliance';
+      const body = isAppliance
+        ? applianceGeometry(
+            cabinet.applianceKind ?? 'dishwasher',
+            width,
+            height,
+            depth,
+          )
+        : edgeBox(
+            width,
+            height,
+            depth,
+            material(warningIds.has(cabinet.id) ? 0xb36855 : 0x9d7650),
+          );
       body.userData.id = cabinet.id;
       const transform = elementTransform(cabinet, study.room);
       const elevation =
@@ -325,23 +334,25 @@ function ThreeStudy({
         elevation * INCH + height / 2,
         -roomDepth / 2 + transform.z * INCH,
       );
-      const front = edgeBox(
-        width * 0.91,
-        height * 0.89,
-        0.025,
-        material(cabinet.face === 'slab' ? 0x76543b : 0x9d7650),
-      );
-      front.position.set(0, 0, depth / 2 + 0.016);
-      body.add(front);
-      if (cabinet.face === 'shaker') {
-        const inset = edgeBox(
-          width * 0.7,
-          height * 0.68,
-          0.012,
-          material(0x8f6948),
+      if (!isAppliance) {
+        const front = edgeBox(
+          width * 0.91,
+          height * 0.89,
+          0.025,
+          material(cabinet.face === 'slab' ? 0x76543b : 0x9d7650),
         );
-        inset.position.z = 0.025;
-        front.add(inset);
+        front.position.set(0, 0, depth / 2 + 0.016);
+        body.add(front);
+        if (cabinet.face === 'shaker') {
+          const inset = edgeBox(
+            width * 0.7,
+            height * 0.68,
+            0.012,
+            material(0x8f6948),
+          );
+          inset.position.z = 0.025;
+          front.add(inset);
+        }
       }
       if (study.countertop && cabinet.kind === 'base') {
         const top = edgeBox(
