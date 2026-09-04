@@ -370,7 +370,13 @@ function isStudioOwnedPath(pathname: string) {
     pathname.startsWith('/configurator/') ||
     pathname === '/collections/all' ||
     pathname.startsWith('/products/') ||
-    pathname === '/cart'
+    pathname === '/cart' ||
+    pathname === '/policies' ||
+    pathname.startsWith('/policies/') ||
+    pathname === '/pages/data-sharing-opt-out' ||
+    pathname === '/pages/our-cosmetic-standards' ||
+    pathname === '/pages/returns-refunds' ||
+    pathname === '/pages/delivery-pickup'
   );
 }
 
