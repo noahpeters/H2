@@ -140,16 +140,25 @@ function migrateStudy(raw: unknown): Study {
   };
 }
 
-type ActiveFloorDrag = {
-  id: string;
-  x: number;
-  z: number;
-  clientX: number;
-  clientY: number;
-};
+type ActiveDrag =
+  | {
+      id: string;
+      mode: 'floor';
+      x: number;
+      z: number;
+      clientX: number;
+      clientY: number;
+    }
+  | {
+      id: string;
+      mode: 'wall';
+      wall: Wall;
+      offset: number;
+      pointer: number;
+    };
 
-export function createFloorDragUpdate(
-  active: ActiveFloorDrag,
+export function createDragUpdate(
+  active: ActiveDrag,
   clientX: number,
   clientY: number,
   screenScale: number,
@@ -157,13 +166,26 @@ export function createFloorDragUpdate(
   return (current: Study): Study => {
     const next = clone(current);
     const element = next.elements.find((item) => item.id === active.id);
-    if (element?.placement.mode === 'floor') {
+    if (active.mode === 'floor' && element?.placement.mode === 'floor') {
       element.placement.x =
         Math.round((active.x + (clientX - active.clientX) / screenScale) / 3) *
         3;
       element.placement.z =
         Math.round((active.z + (clientY - active.clientY) / screenScale) / 3) *
         3;
+    } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
+      const pointer = active.wall === 'back' ? clientX : clientY;
+      const wallLength =
+        active.wall === 'back' ? next.room.width : next.room.depth;
+      element.placement.offset = Math.max(
+        0,
+        Math.min(
+          wallLength - element.width,
+          Math.round(
+            (active.offset + (pointer - active.pointer) / screenScale) / 3,
+          ) * 3,
+        ),
+      );
     }
     return next;
   };
@@ -443,7 +465,7 @@ export function CabinetConfigurator() {
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const drag = useRef<ActiveFloorDrag | null>(null);
+  const drag = useRef<ActiveDrag | null>(null);
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -583,16 +605,26 @@ export function CabinetConfigurator() {
     ev: React.PointerEvent<SVGGElement>,
     e: KitchenElement,
   ) => {
-    if (e.placement.mode !== 'floor') return;
+    if (e.placement.mode === 'hosted') return;
     ev.currentTarget.setPointerCapture(ev.pointerId);
     setHistory((h) => [...h.slice(-29), clone(study)]);
-    drag.current = {
-      id: e.id,
-      x: e.placement.x,
-      z: e.placement.z,
-      clientX: ev.clientX,
-      clientY: ev.clientY,
-    };
+    drag.current =
+      e.placement.mode === 'floor'
+        ? {
+            id: e.id,
+            mode: 'floor',
+            x: e.placement.x,
+            z: e.placement.z,
+            clientX: ev.clientX,
+            clientY: ev.clientY,
+          }
+        : {
+            id: e.id,
+            mode: 'wall',
+            wall: e.placement.wall,
+            offset: e.placement.offset,
+            pointer: e.placement.wall === 'back' ? ev.clientX : ev.clientY,
+          };
     setStudy((c) => ({...c, selected: e.id}));
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
@@ -601,7 +633,7 @@ export function CabinetConfigurator() {
       b = ev.currentTarget.getBoundingClientRect(),
       ss = (scale * b.width) / 780;
     const {clientX, clientY} = ev;
-    setStudy(createFloorDragUpdate(a, clientX, clientY, ss));
+    setStudy(createDragUpdate(a, clientX, clientY, ss));
   };
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
   return (
