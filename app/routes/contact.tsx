@@ -7,6 +7,7 @@ import stylex from '~/lib/stylex';
 
 type LoaderData = {
   turnstileSiteKey: string;
+  project: string;
 };
 
 interface Env {
@@ -25,7 +26,10 @@ export const meta: Route.MetaFunction = () => {
   return [{title: 'Contact'}];
 };
 
-export async function loader({context}: Route.LoaderArgs): Promise<LoaderData> {
+export async function loader({
+  context,
+  request,
+}: Route.LoaderArgs): Promise<LoaderData> {
   // Public key is safe to expose to the browser
   const turnstileSiteKey = (context.env as Env).TURNSTILE_SITE_KEY;
 
@@ -34,7 +38,9 @@ export async function loader({context}: Route.LoaderArgs): Promise<LoaderData> {
     console.warn('TURNSTILE_SITE_KEY is not set');
   }
 
-  return {turnstileSiteKey: turnstileSiteKey ?? ''};
+  const project =
+    new URL(request.url).searchParams.get('project')?.slice(0, 2000) ?? '';
+  return {turnstileSiteKey: turnstileSiteKey ?? '', project};
 }
 
 function isValidEmail(email: string) {
@@ -195,7 +201,7 @@ const styles = stylex.create({
 });
 
 export default function ContactPage() {
-  const {turnstileSiteKey} = useLoaderData<typeof loader>();
+  const {turnstileSiteKey, project} = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const nav = useNavigation();
   const turnstileRef = useRef<HTMLDivElement | null>(null);
@@ -206,10 +212,7 @@ export default function ContactPage() {
     const turnstile = (
       window as Window & {
         turnstile?: {
-          render: (
-            element: HTMLElement,
-            options: {sitekey: string},
-          ) => string;
+          render: (element: HTMLElement, options: {sitekey: string}) => string;
         };
       }
     ).turnstile;
@@ -244,7 +247,9 @@ export default function ContactPage() {
 
   return (
     <div className={stylex(styles.formContainer)}>
-      <h1 className={stylex(styles.form)}>Contact</h1>
+      <h1 className={stylex(styles.form)}>
+        {project ? 'Table inquiry' : 'Contact'}
+      </h1>
 
       {formError && <p style={{color: 'red'}}>{formError}</p>}
       <br />
@@ -287,7 +292,12 @@ export default function ContactPage() {
         <label>
           Message
           <br />
-          <textarea name="message" rows={15} className={stylex(styles.field)} />
+          <textarea
+            name="message"
+            rows={15}
+            defaultValue={project}
+            className={stylex(styles.field)}
+          />
         </label>
         <br />
         {fieldErrors?.message && (

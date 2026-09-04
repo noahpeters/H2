@@ -176,6 +176,16 @@ export function HeaderMenu({
         onClick={close}
         prefetch="intent"
         style={activeLinkStyle}
+        to="/configurator"
+        className={stylex(styles.link, styles.menuItem)}
+      >
+        Design a table
+      </NavLink>
+      <NavLink
+        end
+        onClick={close}
+        prefetch="intent"
+        style={activeLinkStyle}
         to="/contact"
         className={stylex(styles.link, styles.menuItem)}
       >
