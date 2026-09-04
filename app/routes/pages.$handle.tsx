@@ -1,6 +1,19 @@
 import {useLoaderData} from 'react-router';
 import type {Route} from './+types/pages.$handle';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioPolicyPage} from '~/studio/StudioPolicyPage';
+
+export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
+];
+
+const STUDIO_POLICY_HANDLES = new Set([
+  'data-sharing-opt-out',
+  'our-cosmetic-standards',
+  'returns-refunds',
+  'delivery-pickup',
+]);
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [{title: `from trees | ${data?.page.title ?? ''}`}];
@@ -56,6 +69,10 @@ function loadDeferredData({context}: Route.LoaderArgs) {
 
 export default function Page() {
   const {page} = useLoaderData<typeof loader>();
+
+  if (STUDIO_POLICY_HANDLES.has(page.handle)) {
+    return <StudioPolicyPage title={page.title} body={page.body} />;
+  }
 
   return (
     <div className="page">

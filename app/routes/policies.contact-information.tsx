@@ -1,5 +1,11 @@
-import {useLoaderData, Link} from 'react-router';
+import {useLoaderData} from 'react-router';
 import type {Route} from './+types/policies._index';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioPolicyPage} from '~/studio/StudioPolicyPage';
+
+export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
+];
 
 type AugmentedEnv = Env & {
   SHOPIFY_ADMIN_API_TOKEN?: string;
@@ -99,19 +105,9 @@ export default function ContactInformation() {
   const {contactPolicy} = useLoaderData<typeof loader>();
 
   return (
-    <div className="policy">
-      <br />
-      <br />
-      <div>
-        <Link to="/policies">← Back to Policies</Link>
-      </div>
-      <br />
-      <h1>{contactPolicy?.title}</h1>
-      <p>
-        {contactPolicy?.body ? (
-          <div dangerouslySetInnerHTML={{__html: contactPolicy.body}} />
-        ) : null}
-      </p>
-    </div>
+    <StudioPolicyPage
+      title={contactPolicy?.title ?? 'Contact'}
+      body={contactPolicy?.body}
+    />
   );
 }

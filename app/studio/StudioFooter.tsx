@@ -4,18 +4,23 @@ import type {FooterQuery} from 'storefrontapi.generated';
 import type {RootLoader} from '~/root';
 
 const fallbackPolicies = [
-  {id: 'privacy', title: 'Privacy policy', url: '/policies/privacy-policy'},
-  {id: 'refund', title: 'Refund policy', url: '/policies/refund-policy'},
-  {id: 'shipping', title: 'Shipping policy', url: '/policies/shipping-policy'},
   {id: 'terms', title: 'Terms of service', url: '/policies/terms-of-service'},
+  {id: 'privacy-choices', title: 'Your Privacy Choices', url: '/pages/data-sharing-opt-out'},
+  {id: 'privacy', title: 'Privacy', url: '/policies/privacy-policy'},
+  {id: 'cosmetic', title: 'Cosmetic Standards', url: '/pages/our-cosmetic-standards'},
+  {id: 'cancellation', title: 'Cancellation', url: '/pages/returns-refunds'},
+  {id: 'shipping', title: 'Shipping', url: '/pages/delivery-pickup'},
+  {id: 'contact', title: 'Contact', url: '/policies/contact-information'},
 ];
+
+const policyPaths = new Set(fallbackPolicies.map((item) => item.url));
 
 function policyLinks(footer: FooterQuery | null) {
   const policies = (footer?.menu?.items ?? []).flatMap((item) => {
     if (!item.url) return [];
     try {
       const url = new URL(item.url, 'https://from-trees.com').pathname;
-      return url.startsWith('/policies/')
+      return policyPaths.has(url)
         ? [{id: item.id, title: item.title, url}]
         : [];
     } catch {
