@@ -368,6 +368,7 @@ function isStudioOwnedPath(pathname: string) {
     pathname === '/' ||
     pathname === '/configurator' ||
     pathname.startsWith('/configurator/') ||
+    pathname === '/cabinet-configurator' ||
     pathname === '/collections/all' ||
     pathname.startsWith('/products/') ||
     pathname === '/cart' ||
