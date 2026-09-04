@@ -44,6 +44,13 @@ type Study = {
   view: View;
 };
 
+type ActiveDrag = {
+  id: string;
+  start: number;
+  pointer: number;
+  wall: Wall;
+};
+
 const INCH = 0.0254;
 const STORAGE_KEY = 'from-trees-cabinet-study-v1';
 const makeId = () => Math.random().toString(36).slice(2, 9);
@@ -69,6 +76,34 @@ function initialStudy(): Study {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/**
+ * Build the state update for a pointer move from values captured while the
+ * pointer event is still active. Keeping this separate makes it impossible for
+ * a deferred React state update to dereference a released synthetic event.
+ */
+export function createDragUpdate(
+  active: ActiveDrag,
+  pointer: number,
+  screenScale: number,
+) {
+  return (current: Study): Study => {
+    const next = clone(current);
+    const cabinet = next.cabinets.find((item) => item.id === active.id);
+    if (!cabinet) return current;
+
+    cabinet.offset = Math.max(
+      0,
+      Math.min(
+        wallLength(next, cabinet.wall) - cabinet.width,
+        Math.round(
+          (active.start + (pointer - active.pointer) / screenScale) / 3,
+        ) * 3,
+      ),
+    );
+    return next;
+  };
 }
 
 function wallLength(study: Study, wall: Wall) {
@@ -259,7 +294,7 @@ export function CabinetConfigurator() {
   const [study, setStudy] = useState<Study>(() => initialStudy());
   const [history, setHistory] = useState<Study[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const drag = useRef<{id: string; start: number; pointer: number} | null>(null);
+  const drag = useRef<ActiveDrag | null>(null);
 
   useEffect(() => {
     try {
@@ -317,22 +352,16 @@ export function CabinetConfigurator() {
     event.currentTarget.setPointerCapture(event.pointerId);
     setHistory((items) => [...items.slice(-29), clone(study)]);
     setStudy((current) => ({...current, selected: cabinet.id}));
-    drag.current = {id: cabinet.id, pointer: cabinet.wall === 'back' ? event.clientX : event.clientY, start: cabinet.offset};
+    drag.current = {id: cabinet.id, pointer: cabinet.wall === 'back' ? event.clientX : event.clientY, start: cabinet.offset, wall: cabinet.wall};
   };
 
   const moveDrag = (event: React.PointerEvent<SVGSVGElement>) => {
     const active = drag.current;
     if (!active) return;
-    setStudy((current) => {
-      const next = clone(current);
-      const cabinet = next.cabinets.find((item) => item.id === active.id);
-      if (!cabinet) return current;
-      const pointer = cabinet.wall === 'back' ? event.clientX : event.clientY;
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const screenScale = scale * (bounds.width / 780);
-      cabinet.offset = Math.max(0, Math.min(wallLength(next, cabinet.wall) - cabinet.width, Math.round((active.start + (pointer - active.pointer) / screenScale) / 3) * 3));
-      return next;
-    });
+    const pointer = active.wall === 'back' ? event.clientX : event.clientY;
+    const boundsWidth = event.currentTarget.getBoundingClientRect().width;
+    const screenScale = scale * (boundsWidth / 780);
+    setStudy(createDragUpdate(active, pointer, screenScale));
   };
 
   return (
