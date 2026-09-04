@@ -8,7 +8,7 @@ button,input { font:inherit; }
 img { width:100%; height:100%; object-fit:cover; display:block; }
 .site-header { height:82px; padding:0 3vw; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; border-bottom:1px solid var(--line); position:absolute; z-index:5; width:100%; color:var(--forest); background:var(--brand-paper); }
 .studio-page-header .studio-header-links { grid-column:2/4; justify-self:end; align-items:center; }
-.config-page .studio-page-header,.studio-catalog-page .studio-page-header { position:relative; }
+.config-page .studio-page-header,.studio-catalog-page .studio-page-header,.studio-product-page .studio-page-header { position:relative; }
 .brand { display:flex; align-items:center; gap:13px; font-size:13px; letter-spacing:.18em; font-weight:700; }
 .brand-tree { width:42px; height:42px; object-fit:cover; }
 .brand span { font-family:"Courier Prime","Courier New",monospace; font-weight:700; font-size:16px; letter-spacing:-.04em; }
@@ -165,6 +165,15 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
 .studio-catalog-grid>a:hover img { transform:scale(.985); }
 .studio-catalog-grid h4 { color:var(--ink); font:700 22px "Courier Prime","Courier New",monospace; margin:18px 0 7px; }
 .studio-catalog-grid small { color:#6d6f67; font-size:11px; letter-spacing:.06em; }
+.studio-product-page { background:var(--paper); }
+.studio-product-content { padding:65px 3vw 120px; }
+.studio-product-content>section { max-width:1500px; margin:0 auto; padding:75px 0; border-bottom:1px solid var(--line); }
+.studio-product-content>section:first-child { padding-top:0; }
+.studio-product-content>section:last-child { border-bottom:0; padding-bottom:0; }
+.studio-product-content h1 { color:var(--forest); font-size:clamp(54px,6vw,96px); line-height:.95; white-space:normal; }
+.studio-product-content h3,.studio-product-content h4,.studio-product-content h5 { font-family:"Courier Prime","Courier New",monospace; }
+.studio-product-content img { border-radius:0; filter:saturate(.82); }
+.studio-product-content button { border-radius:0; }
 
 @media (max-width:900px) {
   .site-header { grid-template-columns:1fr auto; }.site-header nav { display:none; }.studio-page-header .studio-header-links { display:flex; grid-column:2; gap:18px; font-size:10px; }.header-cta { font-size:10px; }
@@ -196,6 +205,7 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
   .footer-bottom { grid-template-columns:1fr; gap:12px; }.footer-bottom span:last-child { margin-top:20px; }
   .footer-main { display:block; }.footer-logo { width:180px; margin-top:70px; }
   .studio-policy-menu { margin-top:65px; gap:16px 22px; }.studio-catalog-intro { padding:70px 20px 55px; }.studio-catalog-page>div { padding:0 20px 90px; }.studio-catalog-grid { grid-template-columns:1fr!important; }
+  .studio-product-content { padding:35px 20px 80px; }.studio-product-content>section { padding:55px 0; }
   .table-study-cta { padding:95px 20px; }.config-page-intro { padding:70px 20px 55px; }.sketch-config { margin:0 0 80px; border-left:0; border-right:0; }.sketch-board { padding:24px 16px; min-height:470px; }.rendered-study { min-height:360px; }.sketch-caption { gap:20px; }.study-spec { align-items:flex-start; flex-direction:column; gap:6px; }
   .geometry-intro { padding:60px 20px 45px; }.geometry-workbench { margin:0 0 70px; border-left:0; border-right:0; }.geometry-board { padding:22px 14px; }.spatial-canvas { aspect-ratio:.92; }.geometry-controls { padding:38px 20px; }
 }

@@ -305,13 +305,22 @@ export default function App() {
   const isDev = import.meta.env.DEV;
   const hasCheckoutDomain = Boolean(data?.consent?.checkoutDomain);
   const studioOwned = isStudioOwnedPath(location.pathname);
+  const studioProduct = location.pathname.startsWith('/products/');
 
   if (!data) {
     return <Outlet />;
   }
 
   if (studioOwned) {
-    if (isDev || !hasCheckoutDomain) return <Outlet />;
+    if (isDev || !hasCheckoutDomain) {
+      return studioProduct ? (
+        <PageLayout {...data} hideChrome>
+          <Outlet />
+        </PageLayout>
+      ) : (
+        <Outlet />
+      );
+    }
 
     return (
       <Analytics.Provider
@@ -320,7 +329,13 @@ export default function App() {
         consent={data.consent}
       >
         <PageViewAnalytics />
-        <Outlet />
+        {studioProduct ? (
+          <PageLayout {...data} hideChrome>
+            <Outlet />
+          </PageLayout>
+        ) : (
+          <Outlet />
+        )}
       </Analytics.Provider>
     );
   }
@@ -352,7 +367,8 @@ function isStudioOwnedPath(pathname: string) {
     pathname === '/' ||
     pathname === '/configurator' ||
     pathname.startsWith('/configurator/') ||
-    pathname === '/collections/all'
+    pathname === '/collections/all' ||
+    pathname.startsWith('/products/')
   );
 }
 

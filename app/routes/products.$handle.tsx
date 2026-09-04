@@ -19,6 +19,9 @@ import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import Carousel from '~/components/Carousel';
 import stylex from '~/lib/stylex';
 import {buildPresentationMap} from '~/lib/options/buildPresentationMap';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioFooter} from '~/studio/StudioFooter';
+import {StudioHeader} from '~/studio/StudioHeader';
 import {
   parseLineItemFieldSet,
   type MetaobjectField,
@@ -27,6 +30,10 @@ import {
   parseWoodColorPalette,
   type MetaobjectField as PaletteMetaobjectField,
 } from '~/lib/options/woodColorPalettes';
+
+export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
+];
 
 export const meta: Route.MetaFunction = ({data}) => {
   const origin = data?.origin ?? 'https://from-trees.com';
@@ -282,8 +289,15 @@ export default function Product() {
   const {title, descriptionHtml} = product;
 
   return (
-    <>
-      <section>
+    <main className="studio-page studio-product-page">
+      <StudioHeader
+        links={[
+          {label: 'Back to examples', to: '/collections/all'},
+          {label: 'Configure a table ↗', to: '/configurator'},
+        ]}
+      />
+      <div className="studio-product-content">
+        <section>
         <div role="presentation" />
         <div className={stylex(styles.product)}>
           {selectedVariant.product.media && (
@@ -341,8 +355,8 @@ export default function Product() {
             }}
           />
         </div>
-      </section>
-      <section>
+        </section>
+        <section>
         <div className={stylex(styles.valuesContainer)}>
           <div className={stylex(styles.valuesBox)}>
             <h3 className={stylex(styles.valuesHeader)}>Materials</h3>
@@ -379,8 +393,8 @@ export default function Product() {
             </p>
           </div>
         </div>
-      </section>
-      <section>
+        </section>
+        <section>
         <div className={stylex(styles.product)}>
           <div>
             {selectedVariant.product.media.nodes.length > 1 ? (
@@ -425,8 +439,8 @@ export default function Product() {
             </div>
           </div>
         </div>
-      </section>
-      <section>
+        </section>
+        <section>
         <div className={stylex(styles.valuesContainer)}>
           <div className={stylex(styles.valuesBox)}>
             <h3 className={stylex(styles.valuesHeader)}>Made To Order</h3>
@@ -464,8 +478,10 @@ export default function Product() {
             </p>
           </div>
         </div>
-      </section>
-    </>
+        </section>
+      </div>
+      <StudioFooter />
+    </main>
   );
 }
 
