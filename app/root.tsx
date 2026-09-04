@@ -305,7 +305,8 @@ export default function App() {
   const isDev = import.meta.env.DEV;
   const hasCheckoutDomain = Boolean(data?.consent?.checkoutDomain);
   const studioOwned = isStudioOwnedPath(location.pathname);
-  const studioProduct = location.pathname.startsWith('/products/');
+  const needsStudioPageLayout =
+    location.pathname.startsWith('/products/') || location.pathname === '/cart';
 
   if (!data) {
     return <Outlet />;
@@ -313,7 +314,7 @@ export default function App() {
 
   if (studioOwned) {
     if (isDev || !hasCheckoutDomain) {
-      return studioProduct ? (
+      return needsStudioPageLayout ? (
         <PageLayout {...data} hideChrome>
           <Outlet />
         </PageLayout>
@@ -329,7 +330,7 @@ export default function App() {
         consent={data.consent}
       >
         <PageViewAnalytics />
-        {studioProduct ? (
+        {needsStudioPageLayout ? (
           <PageLayout {...data} hideChrome>
             <Outlet />
           </PageLayout>
@@ -368,7 +369,8 @@ function isStudioOwnedPath(pathname: string) {
     pathname === '/configurator' ||
     pathname.startsWith('/configurator/') ||
     pathname === '/collections/all' ||
-    pathname.startsWith('/products/')
+    pathname.startsWith('/products/') ||
+    pathname === '/cart'
   );
 }
 

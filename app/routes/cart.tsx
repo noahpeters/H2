@@ -8,6 +8,13 @@ import type {Route} from './+types/cart';
 import type {CartQueryDataReturn} from '@shopify/hydrogen';
 import {CartForm} from '@shopify/hydrogen';
 import {CartMain} from '~/components/CartMain';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioFooter} from '~/studio/StudioFooter';
+import {StudioHeader} from '~/studio/StudioHeader';
+
+export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
+];
 
 export const meta: Route.MetaFunction = () => {
   return [{title: `from trees | Cart`}];
@@ -121,9 +128,20 @@ export default function Cart() {
   const cart = useLoaderData<typeof loader>();
 
   return (
-    <div className="cart">
-      <h1>Cart</h1>
-      <CartMain layout="page" cart={cart} />
-    </div>
+    <main className="studio-page studio-cart-page">
+      <StudioHeader
+        links={[
+          {label: 'Back to the studio', to: '/'},
+          {label: 'Pre-configured examples', to: '/collections/all'},
+          {label: 'Configure a table ↗', to: '/configurator'},
+        ]}
+      />
+      <section className="studio-cart-content">
+        <p className="eyebrow">Your selections</p>
+        <h1>Cart</h1>
+        <CartMain layout="page" cart={cart} />
+      </section>
+      <StudioFooter />
+    </main>
   );
 }
