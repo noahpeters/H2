@@ -19,6 +19,23 @@ const base: KitchenElement = {
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
 describe('four wall kitchen geometry', () => {
+  it('leaves the corner cabinet front-right notch open', () => {
+    const corner = cabinetGeometry(
+      {...base, configuration: 'corner', width: 36, depth: 36},
+      true,
+    );
+    corner.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster(
+      new THREE.Vector3(15 * 0.0254, 2, 15 * 0.0254),
+      new THREE.Vector3(0, -1, 0),
+    );
+    expect(ray.intersectObject(corner, true)).toHaveLength(0);
+    ray.set(
+      new THREE.Vector3(-12 * 0.0254, 2, 12 * 0.0254),
+      new THREE.Vector3(0, -1, 0),
+    );
+    expect(ray.intersectObject(corner, true).length).toBeGreaterThan(0);
+  });
   it.each(['single-door', 'sink'] as const)(
     'uses only the shared island slab for %s cabinets',
     (configuration) => {

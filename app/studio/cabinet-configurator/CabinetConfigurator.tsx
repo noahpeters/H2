@@ -506,6 +506,7 @@ export function CabinetConfigurator() {
   const addElement = (
     kind: KitchenElement['kind'],
     applianceKind?: ApplianceKind,
+    configuration?: BaseConfiguration,
   ) =>
     update((d) => {
       if (kind === 'appliance' && applianceKind) {
@@ -515,10 +516,12 @@ export function CabinetConfigurator() {
         return;
       }
       const item: KitchenElement = {
+        configuration,
         id: makeId(),
         kind,
-        width: kind === 'appliance' ? 24 : 30,
-        depth: kind === 'wall-cabinet' ? 12 : 24,
+        width: configuration === 'corner' ? 36 : kind === 'appliance' ? 24 : 30,
+        depth:
+          configuration === 'corner' ? 36 : kind === 'wall-cabinet' ? 12 : 24,
         height:
           kind === 'wall-cabinet'
             ? 30
@@ -677,6 +680,16 @@ export function CabinetConfigurator() {
             <details className="cc-add-menu">
               <summary>+ Add cabinet</summary>
               <div>
+                <button
+                  onClick={(event) => {
+                    addElement('base', undefined, 'corner');
+                    event.currentTarget
+                      .closest('details')
+                      ?.removeAttribute('open');
+                  }}
+                >
+                  Corner base cabinet
+                </button>
                 {(
                   [
                     ['base', 'Base cabinet'],
@@ -995,6 +1008,7 @@ export function CabinetConfigurator() {
                       }}
                     >
                       <option value="single-door">Single door</option>
+                      <option value="corner">Corner (L-shaped)</option>
                       <option value="pullout">Full-height pullout</option>
                       <option value="door-drawer">Door + upper drawer</option>
                       <option value="three-drawer">Three drawers</option>
@@ -1393,12 +1407,26 @@ export function CabinetConfigurator() {
                           setStudy((c) => ({...c, selected: e.id}))
                         }
                       >
-                        <rect
-                          x={-b.w / 2}
-                          y={-b.h / 2}
-                          width={b.w}
-                          height={b.h}
-                        />
+                        {e.configuration === 'corner' ? (
+                          <path
+                            d={(() => {
+                              const a =
+                                Math.min(
+                                  24,
+                                  (e.width * 2) / 3,
+                                  (e.depth * 2) / 3,
+                                ) * scale;
+                              return `M ${-b.w / 2} ${-b.h / 2} H ${b.w / 2} V ${-b.h / 2 + a} H ${-b.w / 2 + a} V ${b.h / 2} H ${-b.w / 2} Z`;
+                            })()}
+                          />
+                        ) : (
+                          <rect
+                            x={-b.w / 2}
+                            y={-b.h / 2}
+                            width={b.w}
+                            height={b.h}
+                          />
+                        )}
                         <line
                           x1={-b.w / 2}
                           y1={-b.h / 2}

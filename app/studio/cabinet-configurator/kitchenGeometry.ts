@@ -86,6 +86,51 @@ export function cabinetGeometry(
   countertop: boolean,
   sharedCountertop = false,
 ) {
+  if (item.kind === 'base' && item.configuration === 'corner') {
+    const group = new THREE.Group();
+    const w = item.width,
+      d = item.depth,
+      arm = Math.min(24, (w * 2) / 3, (d * 2) / 3);
+    const back = cabinetGeometry(
+      {...item, configuration: 'single-door', depth: arm},
+      false,
+    );
+    back.position.z = (-d / 2 + arm / 2) * inch;
+    group.add(back);
+    const leg = cabinetGeometry(
+      {...item, configuration: 'single-door', width: d - arm, depth: arm},
+      false,
+    );
+    leg.rotation.y = Math.PI / 2;
+    leg.position.set((-w / 2 + arm / 2) * inch, 0, (arm / 2) * inch);
+    group.add(leg);
+    if (countertop && !sharedCountertop) {
+      const shape = new THREE.Shape();
+      const points = [
+        [-w / 2 - 1, -d / 2 - 1],
+        [w / 2 + 1, -d / 2 - 1],
+        [w / 2 + 1, -d / 2 + arm + 1],
+        [-w / 2 + arm + 1, -d / 2 + arm + 1],
+        [-w / 2 + arm + 1, d / 2 + 1],
+        [-w / 2 - 1, d / 2 + 1],
+      ];
+      points.forEach(([x, z], i) =>
+        i ? shape.lineTo(x * inch, z * inch) : shape.moveTo(x * inch, z * inch),
+      );
+      shape.closePath();
+      const top = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(shape, {
+          depth: 1.5 * inch,
+          bevelEnabled: false,
+        }),
+        new THREE.MeshStandardMaterial({color: 0xe0d9cc, roughness: 0.35}),
+      );
+      top.rotation.x = Math.PI / 2;
+      top.position.y = (item.height / 2 + 1.5) * inch;
+      group.add(top);
+    }
+    return group;
+  }
   const group = new THREE.Group();
   const {width: w, height: h, depth: d} = item;
   const wood = new THREE.MeshStandardMaterial({
