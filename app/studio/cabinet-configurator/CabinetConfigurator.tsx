@@ -34,7 +34,7 @@ import {
 type View = 'plan' | 'split' | 'three';
 type Opening = {
   id: string;
-  kind: 'door' | 'window';
+  kind: 'door' | 'window' | 'opening';
   wall: Wall;
   offset: number;
   width: number;
@@ -60,6 +60,14 @@ function initialStudy(): Study {
     version: 2,
     room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
     openings: [
+      {
+        id: 'starter-front-opening',
+        kind: 'opening',
+        wall: 'front',
+        offset: 24,
+        width: 96,
+        height: 80,
+      },
       {
         id: 'starter-door',
         kind: 'door',
@@ -654,9 +662,9 @@ export function CabinetConfigurator() {
             </div>
           </section>
           <section>
-            <p className="cc-eyebrow">Doors & windows</p>
+            <p className="cc-eyebrow">Doors, windows & openings</p>
             <div className="cc-button-grid">
-              {(['door', 'window'] as const).map((kind) => (
+              {(['door', 'window', 'opening'] as const).map((kind) => (
                 <button
                   key={kind}
                   onClick={() =>
@@ -667,8 +675,9 @@ export function CabinetConfigurator() {
                         kind,
                         wall: 'back',
                         offset: 12,
-                        width: kind === 'door' ? 32 : 42,
-                        height: kind === 'door' ? 80 : 38,
+                        width:
+                          kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
+                        height: kind === 'window' ? 38 : 80,
                         sill: 42,
                       });
                       d.selected = id;
@@ -865,6 +874,33 @@ export function CabinetConfigurator() {
                     <option value="hosted">Hosted</option>
                   </select>
                 </label>
+                {selected.kind === 'appliance' &&
+                  selected.placement.mode !== 'floor' && (
+                    <label>
+                      Rotation
+                      <select
+                        value={snapAngle(
+                          elementTransform(selected, study.room).rotation,
+                        )}
+                        onChange={(event) => {
+                          const angle = Number(event.currentTarget.value);
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item)
+                              item.placement.rotation = snapAngle(angle);
+                          });
+                        }}
+                      >
+                        {[0, 90, 180, 270].map((angle) => (
+                          <option key={angle} value={angle}>
+                            {angle}°
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                 {selected.kind === 'base' && (
                   <label>
                     Base configuration
@@ -923,6 +959,7 @@ export function CabinetConfigurator() {
                           );
                           if (item?.placement.mode !== 'wall') return;
                           item.placement.wall = wall;
+                          delete item.placement.rotation;
                           const length = horizontalWall(wall)
                             ? draft.room.width
                             : draft.room.depth;
@@ -1188,36 +1225,44 @@ export function CabinetConfigurator() {
                     </g>
                   );
                 })}
-                {study.elements.map((e) => {
-                  const b = plan(e);
-                  return (
-                    <g
-                      key={e.id}
-                      className={`cc-cab cc-${e.kind} ${study.selected === e.id ? 'selected' : ''} ${warnings.has(e.id) ? 'problem' : ''}`}
-                      transform={`translate(${b.x} ${b.y}) rotate(${b.r})`}
-                      onPointerDown={(ev) => startDrag(ev, e)}
-                      onClick={() => setStudy((c) => ({...c, selected: e.id}))}
-                    >
-                      <rect
-                        x={-b.w / 2}
-                        y={-b.h / 2}
-                        width={b.w}
-                        height={b.h}
-                      />
-                      <line
-                        x1={-b.w / 2}
-                        y1={-b.h / 2}
-                        x2={b.w / 2}
-                        y2={b.h / 2}
-                      />
-                      <text y="4">
-                        {e.applianceKind
-                          ? APPLIANCE_CATALOG[e.applianceKind].label
-                          : `${e.width}″`}
-                      </text>
-                    </g>
-                  );
-                })}
+                {[...study.elements]
+                  .sort(
+                    (a, b) =>
+                      Number(a.kind === 'wall-cabinet') -
+                      Number(b.kind === 'wall-cabinet'),
+                  )
+                  .map((e) => {
+                    const b = plan(e);
+                    return (
+                      <g
+                        key={e.id}
+                        className={`cc-cab cc-${e.kind} ${study.selected === e.id ? 'selected' : ''} ${warnings.has(e.id) ? 'problem' : ''}`}
+                        transform={`translate(${b.x} ${b.y}) rotate(${b.r})`}
+                        onPointerDown={(ev) => startDrag(ev, e)}
+                        onClick={() =>
+                          setStudy((c) => ({...c, selected: e.id}))
+                        }
+                      >
+                        <rect
+                          x={-b.w / 2}
+                          y={-b.h / 2}
+                          width={b.w}
+                          height={b.h}
+                        />
+                        <line
+                          x1={-b.w / 2}
+                          y1={-b.h / 2}
+                          x2={b.w / 2}
+                          y2={b.h / 2}
+                        />
+                        <text y="4">
+                          {e.applianceKind
+                            ? APPLIANCE_CATALOG[e.applianceKind].label
+                            : `${e.width}″`}
+                        </text>
+                      </g>
+                    );
+                  })}
               </svg>
             </div>
             <div className="cc-panel cc-three-panel">

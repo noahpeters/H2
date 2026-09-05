@@ -108,7 +108,7 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
   const toe = item.kind === 'wall-cabinet' ? 0 : Math.min(4, h / 3);
   const bottom = -h / 2 + toe;
   // Open carcass keeps the sink cavity visible; recessed plinth is four inches tall.
-  if (toe) box(group, w - 0.5, toe, d - 3, 0, -h / 2 + toe / 2, -1.5, dark);
+  if (toe) box(group, w - 0.5, toe, d - 3, 0, -h / 2 + toe / 2, -1.5, wood);
   for (const side of [-1, 1])
     box(group, 0.75, h - toe, d, side * (w / 2 - 0.375), toe / 2, 0, wood);
   box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood);
@@ -155,7 +155,7 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
         4,
         1,
         x + width * 0.33,
-        y + height * 0.22,
+        item.kind === 'wall-cabinet' ? y - height / 2 + 4 : y + height * 0.22,
         d / 2 + 0.7,
         steel,
       );
@@ -345,13 +345,23 @@ export function openingGeometry(opening: Opening, room: Room) {
   });
   for (const side of [-1, 1]) {
     box(group, 1.5, h, 1.5, side * (w / 2 - 0.75), sill + h / 2, 0, trim);
-    box(group, w, 1.5, 1.5, 0, sill + (side === 1 ? h - 0.75 : 0.75), 0, trim);
+    if (opening.kind !== 'opening' || side === 1)
+      box(
+        group,
+        w,
+        1.5,
+        1.5,
+        0,
+        sill + (side === 1 ? h - 0.75 : 0.75),
+        0,
+        trim,
+      );
   }
   if (opening.kind === 'window') {
     box(group, w - 3, h - 3, 0.25, 0, sill + h / 2, 0, glass);
     box(group, 1, h - 3, 1, 0, sill + h / 2, 0, trim);
     box(group, w - 3, 1, 1, 0, sill + h / 2, 0, trim);
-  } else {
+  } else if (opening.kind === 'door') {
     box(group, w - 3, h - 3, 0.8, 0, sill + h / 2, 0, leaf);
     for (const side of [-1, 1])
       for (const face of [-1, 1])
