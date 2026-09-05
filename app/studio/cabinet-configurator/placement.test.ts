@@ -5,6 +5,7 @@ import {
   positionElement,
   snapWall,
   snapIslandEdges,
+  snapRoomCorner,
 } from './placement';
 import {createDragUpdate} from './CabinetConfigurator';
 import {type KitchenElement, type Island, type Room} from './model';
@@ -35,6 +36,36 @@ const island: Island = {
   seatingSide: 'none',
 };
 describe('placement tools', () => {
+  it.each([
+    [0, 18, 21],
+    [90, 219, 18],
+    [180, 222, 179],
+    [270, 21, 182],
+  ])(
+    'snaps a non-square corner flush to two walls at %s degrees',
+    (rotation, x, z) => {
+      const cabinet = {
+        ...item('corner', x),
+        configuration: 'corner' as const,
+        width: 36,
+        depth: 42,
+      };
+      cabinet.placement = {mode: 'floor', x: x + 1, z: z - 1, rotation: 0};
+      expect(snapRoomCorner(cabinet, room)).toBe(true);
+      expect(cabinet.placement).toMatchObject({x, z, rotation});
+      // The local +X/+Z opening must point toward the room center.
+      const angle = (rotation * Math.PI) / 180;
+      expect(
+        (Math.cos(angle) - Math.sin(angle)) * (room.width / 2 - x),
+      ).toBeGreaterThan(0);
+      expect(
+        (Math.sin(angle) + Math.cos(angle)) * (room.depth / 2 - z),
+      ).toBeGreaterThan(0);
+      cabinet.placement.x = room.width / 2;
+      cabinet.placement.z = room.depth / 2;
+      expect(snapRoomCorner(cabinet, room)).toBe(false);
+    },
+  );
   it.each([0, 90, 45])(
     'snaps inside rotated island edges at %s degrees and releases',
     (rotation) => {

@@ -161,6 +161,9 @@ export function cabinetGeometry(
   for (const side of [-1, 1])
     box(group, 0.75, h - toe, d, side * (w / 2 - 0.375), toe / 2, 0, wood);
   box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood);
+  if (item.kind === 'tall' || item.kind === 'wall-cabinet')
+    box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, wood).name =
+      'cabinet-top';
   box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
   const front = (
     width: number,
