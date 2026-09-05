@@ -7,6 +7,7 @@ export function applianceGeometry(
   w: number,
   h: number,
   d: number,
+  frontStyle: 'stainless' | 'shaker' | 'slab' = 'stainless',
 ) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
@@ -48,6 +49,61 @@ export function applianceGeometry(
     return mesh;
   };
   const z = d / 2;
+  if (
+    frontStyle !== 'stainless' &&
+    (kind === 'refrigerator' || kind === 'dishwasher')
+  ) {
+    const wood = new THREE.MeshStandardMaterial({
+      color: 0xa68159,
+      roughness: 0.6,
+    });
+    const panel = new THREE.MeshStandardMaterial({
+      color: frontStyle === 'shaker' ? 0x99754f : 0xa68159,
+      roughness: 0.65,
+    });
+    box(w, h, d, 0, 0, 0, wood);
+    const count = kind === 'refrigerator' ? 2 : 1;
+    const pw = w / count - 0.006,
+      ph = h - 0.012;
+    for (let i = 0; i < count; i++) {
+      const x = ((i - (count - 1) / 2) * w) / count;
+      box(pw, ph, 0.012, x, 0, z + 0.006, panel).name = 'appliance-panel';
+      if (frontStyle === 'shaker') {
+        const rail = Math.min(0.0508, pw / 5);
+        for (const side of [-1, 1]) {
+          box(
+            rail,
+            ph,
+            0.019,
+            x + (side * (pw - rail)) / 2,
+            0,
+            z + 0.014,
+            wood,
+          );
+          box(
+            pw - 2 * rail,
+            rail,
+            0.019,
+            x,
+            (side * (ph - rail)) / 2,
+            z + 0.014,
+            wood,
+          );
+        }
+      }
+      if (count === 2)
+        box(
+          0.012,
+          0.25,
+          0.035,
+          x + (i === 0 ? 1 : -1) * pw * 0.36,
+          h * 0.08,
+          z + 0.04,
+        );
+      else box(Math.min(0.16, pw * 0.5), 0.012, 0.035, x, h * 0.38, z + 0.04);
+    }
+    return group;
+  }
   box(w, h, d, 0, 0, 0, rubber);
   box(w * 0.99, h * 0.98, 0.012, 0, 0, z);
   const handle = (x: number, y: number, width: number, height = 0.018) => {

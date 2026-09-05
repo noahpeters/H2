@@ -120,8 +120,27 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
     y: number,
     drawer: boolean,
   ) => {
-    box(group, width, height, 0.5, x, y, d / 2 - 0.1, panel);
-    if (item.face === 'shaker') {
+    const glass = item.face === 'shaker-glass' && item.kind === 'wall-cabinet';
+    const frontPanel = box(
+      group,
+      width,
+      height,
+      0.5,
+      x,
+      y,
+      d / 2 - 0.1,
+      glass
+        ? new THREE.MeshStandardMaterial({
+            color: 0xb6d2d7,
+            transparent: true,
+            opacity: 0.3,
+            roughness: 0.12,
+            depthWrite: false,
+          })
+        : panel,
+    );
+    frontPanel.name = 'cabinet-front';
+    if (item.face === 'shaker' || glass) {
       const rail = Math.min(2, width / 5, height / 4);
       for (const side of [-1, 1]) {
         box(
@@ -154,7 +173,10 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
         0.35,
         4,
         1,
-        x + width * 0.33,
+        x +
+          width *
+            0.33 *
+            (x > 0 ? -1 : x < 0 ? 1 : item.hinge === 'right' ? -1 : 1),
         item.kind === 'wall-cabinet' ? y - height / 2 + 4 : y + height * 0.22,
         d / 2 + 0.7,
         steel,
@@ -182,7 +204,7 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
       true,
     );
     const doorHeight = usable - drawerHeight - 0.125;
-    if (config === 'sink')
+    if (w > 30)
       for (const side of [-1, 1])
         front(
           w / 2 - 0.1875,
@@ -192,6 +214,9 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
           false,
         );
     else front(w - 0.25, doorHeight, 0, bottom + doorHeight / 2 + 0.125, false);
+  } else if (w > 30 && !(item.kind === 'base' && config === 'pullout')) {
+    for (const side of [-1, 1])
+      front(w / 2 - 0.1875, usable, (side * w) / 4, toe / 2, false);
   } else
     front(
       w - 0.25,

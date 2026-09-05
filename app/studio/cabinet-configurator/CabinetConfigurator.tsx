@@ -339,6 +339,7 @@ function ThreeStudy({
             width,
             height,
             depth,
+            cabinet.applianceFront,
           )
         : cabinetGeometry(cabinet, study.countertop);
       body.userData.id = cabinet.id;
@@ -978,9 +979,8 @@ export function CabinetConfigurator() {
                     <select
                       value={selected.face}
                       onChange={(event) => {
-                        const face = event.currentTarget.value as
-                          | 'shaker'
-                          | 'slab';
+                        const face = event.currentTarget
+                          .value as KitchenElement['face'];
                         update((d) => {
                           const item = d.elements.find(
                             (e) => e.id === selected.id,
@@ -991,7 +991,92 @@ export function CabinetConfigurator() {
                     >
                       <option value="shaker">Shaker</option>
                       <option value="slab">Slab</option>
+                      {selected.kind === 'wall-cabinet' && (
+                        <option value="shaker-glass">Shaker + glass</option>
+                      )}
                     </select>
+                  </label>
+                )}
+                {selected.kind !== 'appliance' &&
+                  selected.width <= 30 &&
+                  !(
+                    selected.kind === 'base' &&
+                    ['pullout', 'three-drawer'].includes(
+                      selected.configuration ?? '',
+                    )
+                  ) && (
+                    <label>
+                      Hinge side
+                      <select
+                        value={selected.hinge ?? 'left'}
+                        onChange={(event) => {
+                          const hinge = event.currentTarget.value as
+                            | 'left'
+                            | 'right';
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item) item.hinge = hinge;
+                          });
+                        }}
+                      >
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </label>
+                  )}
+                {selected.kind === 'appliance' &&
+                  ['refrigerator', 'dishwasher'].includes(
+                    selected.applianceKind ?? '',
+                  ) && (
+                    <label>
+                      Front style
+                      <select
+                        value={selected.applianceFront ?? 'stainless'}
+                        onChange={(event) => {
+                          const front = event.currentTarget
+                            .value as KitchenElement['applianceFront'];
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item) item.applianceFront = front;
+                          });
+                        }}
+                      >
+                        <option value="stainless">Stainless</option>
+                        <option value="shaker">Shaker</option>
+                        <option value="slab">Slab</option>
+                      </select>
+                    </label>
+                  )}
+                {(selected.kind === 'tall' ||
+                  selected.kind === 'wall-cabinet') && (
+                  <label>
+                    Height (in)
+                    <input
+                      type="number"
+                      min="12"
+                      max={study.room.height}
+                      step="1"
+                      value={selected.height}
+                      onChange={(event) => {
+                        const height = Number(event.currentTarget.value);
+                        if (
+                          !Number.isFinite(height) ||
+                          height < 12 ||
+                          height > study.room.height
+                        )
+                          return;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.height = height;
+                        });
+                      }}
+                    />
                   </label>
                 )}
                 {selected.placement.mode !== 'hosted' && (
@@ -1066,9 +1151,10 @@ export function CabinetConfigurator() {
                     in
                   </span>
                 </label>
-                {selected.kind === 'base' && (
+                {(selected.kind === 'base' ||
+                  selected.applianceKind === 'refrigerator') && (
                   <label>
-                    Depth
+                    Depth (in)
                     <input
                       type="number"
                       min="4"
