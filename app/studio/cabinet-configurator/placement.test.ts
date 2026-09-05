@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {islandAt, snapAdjacent, positionElement} from './placement';
+import {islandAt, snapAdjacent, positionElement, snapWall} from './placement';
 import {createDragUpdate} from './CabinetConfigurator';
 import {type KitchenElement, type Island, type Room} from './model';
 const room: Room = {
@@ -29,6 +29,58 @@ const island: Island = {
   seatingSide: 'none',
 };
 describe('placement tools', () => {
+  it.each([
+    ['back', 60, 14],
+    ['front', 60, 186],
+    ['left', 14, 60],
+    ['right', 226, 60],
+  ] as const)('snaps to the %s wall and preserves elevation', (wall, x, z) => {
+    const a = item('a', x);
+    a.placement = {mode: 'floor', x, z, rotation: 0, elevation: 54};
+    snapWall(a, room);
+    expect(a.placement).toMatchObject({
+      mode: 'wall',
+      wall,
+      offset: 48,
+      elevation: 54,
+    });
+  });
+  it('snaps, releases and reattaches during a single drag', () => {
+    const original = {
+      version: 2 as const,
+      room,
+      openings: [],
+      elements: [item('a', 60)],
+      islands: [],
+      selected: 'a',
+      countertop: true,
+      view: 'plan' as const,
+    };
+    const drag = {
+      id: 'a',
+      mode: 'floor' as const,
+      x: 60,
+      z: 60,
+      clientX: 0,
+      clientY: 0,
+    };
+    const attached = createDragUpdate(drag, 0, -46, 1)(original);
+    expect(attached.elements[0].placement).toMatchObject({
+      mode: 'wall',
+      wall: 'back',
+    });
+    const released = createDragUpdate(drag, 1, -40, 1)(attached);
+    expect(released.elements[0].placement).toMatchObject({
+      mode: 'floor',
+      x: 61,
+      z: 20,
+    });
+    const reattached = createDragUpdate(drag, -46, 0, 1)(released);
+    expect(reattached.elements[0].placement).toMatchObject({
+      mode: 'wall',
+      wall: 'left',
+    });
+  });
   it('snaps to adjacency and releases once outside the tolerance', () => {
     const a = item('a', 35),
       b = item('b', 60);

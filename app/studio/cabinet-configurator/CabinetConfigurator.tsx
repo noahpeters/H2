@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
-import {islandAt, positionElement, snapAdjacent} from './placement';
+import {islandAt, positionElement, snapAdjacent, snapWall} from './placement';
 import {
   cabinetGeometry,
   roomGeometry,
@@ -27,7 +27,6 @@ import {
   type Island,
   type ApplianceKind,
   type KitchenElement,
-  type PlacementMode,
   type Room,
   type Wall,
 } from './model';
@@ -202,43 +201,27 @@ export function createDragUpdate(
     }
     const element = next.elements.find((item) => item.id === active.id);
     if (
-      active.mode === 'wall' &&
       element &&
-      active.clientX !== undefined &&
-      active.clientY !== undefined &&
       active.x !== undefined &&
-      active.z !== undefined
+      active.z !== undefined &&
+      active.clientX !== undefined &&
+      active.clientY !== undefined
     ) {
-      const dx = (clientX - active.clientX) / screenScale,
-        dz = (clientY - active.clientY) / screenScale;
-      if (
-        element.placement.mode === 'floor' ||
-        Math.abs(horizontalWall(active.wall) ? dz : dx) > 6
-      ) {
-        positionElement(element, active.x + dx, active.z + dz, next.room);
-        snapAdjacent(element, next.elements, next.room);
-        return next;
-      }
-    }
-    if (active.mode === 'floor' && element?.placement.mode === 'floor') {
-      element.placement.x =
-        Math.round((active.x + (clientX - active.clientX) / screenScale) / 3) *
-        3;
-      element.placement.z =
-        Math.round((active.z + (clientY - active.clientY) / screenScale) / 3) *
-        3;
+      positionElement(
+        element,
+        Math.round(active.x + (clientX - active.clientX) / screenScale),
+        Math.round(active.z + (clientY - active.clientY) / screenScale),
+        next.room,
+      );
+      snapWall(element, next.room);
     } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
       const pointer = horizontalWall(active.wall) ? clientX : clientY;
-      const wallLength = horizontalWall(active.wall)
-        ? next.room.width
-        : next.room.depth;
       element.placement.offset = Math.max(
         0,
         Math.min(
-          wallLength - element.width,
-          Math.round(
-            (active.offset + (pointer - active.pointer) / screenScale) / 3,
-          ) * 3,
+          (horizontalWall(active.wall) ? next.room.width : next.room.depth) -
+            element.width,
+          Math.round(active.offset + (pointer - active.pointer) / screenScale),
         ),
       );
     }
@@ -557,31 +540,6 @@ export function CabinetConfigurator() {
         d.elements = moveIsland(target, d.elements, next);
         Object.assign(target, next);
       } else Object.assign(target, {[key]: value});
-    });
-  const changePlacement = (mode: PlacementMode) =>
-    update((d) => {
-      const e = d.elements.find((i) => i.id === d.selected);
-      if (!e) return;
-      if (mode === 'floor') e.placement = wallToFloor(e, d.room);
-      else if (mode === 'wall')
-        e.placement = {
-          mode: 'wall',
-          wall: 'back',
-          offset: Math.max(0, elementCenter(e, d.room).x - e.width / 2),
-          elevation: e.kind === 'wall-cabinet' ? 54 : 0,
-        };
-      else {
-        const host = d.elements.find((i) => i.id !== e.id);
-        if (host)
-          e.placement = {
-            mode: 'hosted',
-            hostId: host.id,
-            x: elementCenter(e, d.room).x,
-            z: elementCenter(e, d.room).z,
-            elevation: host.height,
-            rotation: 0,
-          };
-      }
     });
   const plan = (e: KitchenElement) => {
     const t = elementTransform(e, study.room);
@@ -963,19 +921,6 @@ export function CabinetConfigurator() {
                     Remove
                   </button>
                 </div>
-                <label>
-                  Placement
-                  <select
-                    value={selected.placement.mode}
-                    onChange={(e) =>
-                      changePlacement(e.target.value as PlacementMode)
-                    }
-                  >
-                    <option value="wall">Wall-mounted</option>
-                    <option value="floor">Floor-positioned</option>
-                    <option value="hosted">Hosted</option>
-                  </select>
-                </label>
                 {selected.kind === 'appliance' &&
                   selected.placement.mode !== 'floor' && (
                     <label>
@@ -1049,68 +994,8 @@ export function CabinetConfigurator() {
                     </select>
                   </label>
                 )}
-                {selected.placement.mode === 'wall' && (
-                  <label>
-                    Wall
-                    <select
-                      value={selected.placement.wall}
-                      onChange={(event) => {
-                        const wall = event.currentTarget.value as Wall;
-                        update((draft) => {
-                          const item = draft.elements.find(
-                            (entry) => entry.id === selected.id,
-                          );
-                          if (item?.placement.mode !== 'wall') return;
-                          item.placement.wall = wall;
-                          delete item.placement.rotation;
-                          const length = horizontalWall(wall)
-                            ? draft.room.width
-                            : draft.room.depth;
-                          item.placement.offset = Math.max(
-                            0,
-                            Math.min(
-                              item.placement.offset,
-                              length - item.width,
-                            ),
-                          );
-                        });
-                      }}
-                    >
-                      <option value="back">Back wall</option>
-                      <option value="left">Left wall</option>
-                      <option value="right">Right wall</option>
-                      <option value="front">Front wall</option>
-                    </select>
-                  </label>
-                )}
                 {selected.placement.mode !== 'hosted' && (
                   <div className="cc-fields">
-                    {(['x', 'z'] as const).map((axis) => (
-                      <label key={axis}>
-                        Room {axis.toUpperCase()}
-                        <input
-                          type="number"
-                          value={elementCenter(selected, study.room)[axis]}
-                          onChange={(event) => {
-                            const value = Number(event.currentTarget.value);
-                            if (!Number.isFinite(value)) return;
-                            update((d) => {
-                              const item = d.elements.find(
-                                (e) => e.id === selected.id,
-                              )!;
-                              const center = elementCenter(item, d.room);
-                              positionElement(
-                                item,
-                                axis === 'x' ? value : center.x,
-                                axis === 'z' ? value : center.z,
-                                d.room,
-                              );
-                              item.islandId = islandAt(item, d.islands, d.room);
-                            });
-                          }}
-                        />
-                      </label>
-                    ))}
                     <label>
                       Island
                       <select

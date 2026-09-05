@@ -5,7 +5,62 @@ import {
   type KitchenElement,
   type Island,
   type Room,
+  type Wall,
 } from './model';
+export function snapWall(item: KitchenElement, room: Room, threshold = 3) {
+  if (item.placement.mode !== 'floor') return;
+  const {x, z, elevation = 0} = item.placement;
+  const candidates: {
+    wall: Wall;
+    distance: number;
+    offset: number;
+    length: number;
+  }[] = [
+    {
+      wall: 'back',
+      distance: Math.abs(z - item.depth / 2),
+      offset: x - item.width / 2,
+      length: room.width,
+    },
+    {
+      wall: 'front',
+      distance: Math.abs(z - (room.depth - item.depth / 2)),
+      offset: x - item.width / 2,
+      length: room.width,
+    },
+    {
+      wall: 'left',
+      distance: Math.abs(x - item.depth / 2),
+      offset: z - item.width / 2,
+      length: room.depth,
+    },
+    {
+      wall: 'right',
+      distance: Math.abs(x - (room.width - item.depth / 2)),
+      offset: z - item.width / 2,
+      length: room.depth,
+    },
+  ];
+  const target = candidates
+    .filter(
+      (c) =>
+        c.distance <= threshold &&
+        c.offset >= -threshold &&
+        c.offset + item.width <= c.length + threshold,
+    )
+    .sort((a, b) => a.distance - b.distance)[0];
+  if (!target) return;
+  item.placement = {
+    mode: 'wall',
+    wall: target.wall,
+    offset: Math.max(
+      0,
+      Math.min(target.length - item.width, Math.round(target.offset)),
+    ),
+    elevation,
+  };
+  delete item.islandId;
+}
 export function islandAt(item: KitchenElement, islands: Island[], room: Room) {
   const p = elementCenter(item, room);
   return islands
