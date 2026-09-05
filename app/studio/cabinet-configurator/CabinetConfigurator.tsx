@@ -34,7 +34,7 @@ import {
 type View = 'plan' | 'split' | 'three';
 type Opening = {
   id: string;
-  kind: 'door' | 'window';
+  kind: 'door' | 'window' | 'opening';
   wall: Wall;
   offset: number;
   width: number;
@@ -60,6 +60,14 @@ function initialStudy(): Study {
     version: 2,
     room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
     openings: [
+      {
+        id: 'starter-front-opening',
+        kind: 'opening',
+        wall: 'front',
+        offset: 24,
+        width: 96,
+        height: 80,
+      },
       {
         id: 'starter-door',
         kind: 'door',
@@ -654,9 +662,9 @@ export function CabinetConfigurator() {
             </div>
           </section>
           <section>
-            <p className="cc-eyebrow">Doors & windows</p>
+            <p className="cc-eyebrow">Doors, windows & openings</p>
             <div className="cc-button-grid">
-              {(['door', 'window'] as const).map((kind) => (
+              {(['door', 'window', 'opening'] as const).map((kind) => (
                 <button
                   key={kind}
                   onClick={() =>
@@ -667,8 +675,9 @@ export function CabinetConfigurator() {
                         kind,
                         wall: 'back',
                         offset: 12,
-                        width: kind === 'door' ? 32 : 42,
-                        height: kind === 'door' ? 80 : 38,
+                        width:
+                          kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
+                        height: kind === 'window' ? 38 : 80,
                         sill: 42,
                       });
                       d.selected = id;

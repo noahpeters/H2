@@ -9,7 +9,7 @@ export type BaseConfiguration =
   | 'sink';
 export type Opening = {
   id: string;
-  kind: 'door' | 'window';
+  kind: 'door' | 'window' | 'opening';
   wall: Wall;
   offset: number;
   width: number;

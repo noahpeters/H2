@@ -345,13 +345,23 @@ export function openingGeometry(opening: Opening, room: Room) {
   });
   for (const side of [-1, 1]) {
     box(group, 1.5, h, 1.5, side * (w / 2 - 0.75), sill + h / 2, 0, trim);
-    box(group, w, 1.5, 1.5, 0, sill + (side === 1 ? h - 0.75 : 0.75), 0, trim);
+    if (opening.kind !== 'opening' || side === 1)
+      box(
+        group,
+        w,
+        1.5,
+        1.5,
+        0,
+        sill + (side === 1 ? h - 0.75 : 0.75),
+        0,
+        trim,
+      );
   }
   if (opening.kind === 'window') {
     box(group, w - 3, h - 3, 0.25, 0, sill + h / 2, 0, glass);
     box(group, 1, h - 3, 1, 0, sill + h / 2, 0, trim);
     box(group, w - 3, 1, 1, 0, sill + h / 2, 0, trim);
-  } else {
+  } else if (opening.kind === 'door') {
     box(group, w - 3, h - 3, 0.8, 0, sill + h / 2, 0, leaf);
     for (const side of [-1, 1])
       for (const face of [-1, 1])
