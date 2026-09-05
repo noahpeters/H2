@@ -662,8 +662,8 @@ export function CabinetConfigurator() {
       </header>
       <main className="cc-main">
         <aside className="cc-tools" aria-label="Design controls">
-          <section>
-            <p className="cc-eyebrow">01 / Room</p>
+          <details className="cc-accordion">
+            <summary>Room</summary>
             <div className="cc-fields">
               {(['width', 'depth', 'height'] as const).map((k) => (
                 <label key={k}>
@@ -683,52 +683,101 @@ export function CabinetConfigurator() {
                 </label>
               ))}
             </div>
-          </section>
-          <section>
-            <p className="cc-eyebrow">02 / Add elements</p>
-            <div className="cc-button-grid cc-three-buttons">
-              <button onClick={() => addElement('base')}>+ Base</button>
-              <button onClick={() => addElement('wall-cabinet')}>+ Wall</button>
-              <button onClick={() => addElement('tall')}>+ Tall</button>
-              {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[]).map(
-                (kind) => (
+          </details>
+          <details className="cc-accordion" open>
+            <summary>Add to room</summary>
+            <details className="cc-add-menu">
+              <summary>+ Add cabinet</summary>
+              <div>
+                {(
+                  [
+                    ['base', 'Base cabinet'],
+                    ['wall-cabinet', 'Wall cabinet'],
+                    ['tall', 'Tall cabinet'],
+                  ] as const
+                ).map(([kind, label]) => (
                   <button
                     key={kind}
-                    onClick={() => addElement('appliance', kind)}
+                    onClick={(event) => {
+                      addElement(kind);
+                      event.currentTarget
+                        .closest('details')
+                        ?.removeAttribute('open');
+                    }}
                   >
-                    + {APPLIANCE_CATALOG[kind].label}
+                    {label}
                   </button>
-                ),
-              )}
-            </div>
-          </section>
-          <section>
-            <p className="cc-eyebrow">Doors, windows & openings</p>
-            <div className="cc-button-grid">
-              {(['door', 'window', 'opening'] as const).map((kind) => (
-                <button
-                  key={kind}
-                  onClick={() =>
-                    update((d) => {
-                      const id = makeId();
-                      d.openings.push({
-                        id,
-                        kind,
-                        wall: 'back',
-                        offset: 12,
-                        width:
-                          kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
-                        height: kind === 'window' ? 38 : 80,
-                        sill: 42,
+                ))}
+              </div>
+            </details>
+            <details className="cc-add-menu">
+              <summary>+ Add appliance</summary>
+              <div>
+                {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[]).map(
+                  (kind) => (
+                    <button
+                      key={kind}
+                      onClick={(event) => {
+                        addElement('appliance', kind);
+                        event.currentTarget
+                          .closest('details')
+                          ?.removeAttribute('open');
+                      }}
+                    >
+                      {APPLIANCE_CATALOG[kind].label}
+                    </button>
+                  ),
+                )}
+              </div>
+            </details>
+            <details className="cc-add-menu">
+              <summary>+ Add opening</summary>
+              <div>
+                {(['door', 'window', 'opening'] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    onClick={(event) => {
+                      update((d) => {
+                        const id = makeId();
+                        d.openings.push({
+                          id,
+                          kind,
+                          wall: 'back',
+                          offset: 12,
+                          width:
+                            kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
+                          height: kind === 'window' ? 38 : 80,
+                          sill: 42,
+                        });
+                        d.selected = id;
                       });
-                      d.selected = id;
-                    })
-                  }
-                >
-                  + {kind}
-                </button>
-              ))}
-            </div>
+                      event.currentTarget
+                        .closest('details')
+                        ?.removeAttribute('open');
+                    }}
+                  >
+                    {kind === 'opening'
+                      ? 'Doorless opening'
+                      : kind === 'door'
+                        ? 'Door'
+                        : 'Window'}
+                  </button>
+                ))}
+              </div>
+            </details>
+          </details>
+          <details
+            className="cc-accordion"
+            key={
+              study.openings.some((o) => o.id === study.selected)
+                ? study.selected
+                : 'openings'
+            }
+            open={study.openings.some((o) => o.id === study.selected)}
+          >
+            <summary>
+              Openings <span>{study.openings.length}</span>
+            </summary>
             {study.openings.map((opening) => (
               <div key={opening.id} className="cc-fields">
                 <button
@@ -817,9 +866,15 @@ export function CabinetConfigurator() {
                 )}
               </div>
             ))}
-          </section>
-          <section>
-            <p className="cc-eyebrow">03 / Island study</p>
+          </details>
+          <details
+            className="cc-accordion"
+            key={selectedIsland?.id ?? 'islands'}
+            open={!!selectedIsland}
+          >
+            <summary>
+              Islands <span>{study.islands.length}</span>
+            </summary>
             <button onClick={addIsland}>+ Island zone</button>
             {study.islands.map((i) => (
               <div className="cc-island-fields" key={i.id}>
@@ -880,9 +935,13 @@ export function CabinetConfigurator() {
                 )}
               </div>
             ))}
-          </section>
-          <section className="cc-selection">
-            <p className="cc-eyebrow">Selected element</p>
+          </details>
+          <details
+            className="cc-accordion cc-selection"
+            key={selected?.id ?? 'selection'}
+            open={!!selected}
+          >
+            <summary>Selected object</summary>
             {selected ? (
               <div className="cc-fields">
                 <div className="cc-selected-heading">
@@ -1153,7 +1212,7 @@ export function CabinetConfigurator() {
             ) : (
               <p className="cc-muted">Select an element in plan or 3D.</p>
             )}
-          </section>
+          </details>
         </aside>
         <section className="cc-workspace">
           <div className="cc-tabs">

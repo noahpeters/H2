@@ -427,3 +427,57 @@
 .cc-cab[transform] {
   touch-action: none;
 }
+.cc-accordion {
+  border-bottom: 1px solid #bdb8ab;
+  padding: 14px 16px;
+}
+.cc-accordion > summary {
+  cursor: pointer;
+  font:
+    12px 'DM Mono',
+    monospace;
+  text-transform: uppercase;
+  padding: 6px 0;
+}
+.cc-accordion > summary span {
+  float: right;
+  opacity: 0.65;
+}
+.cc-accordion[open] > summary {
+  margin-bottom: 12px;
+}
+.cc-add-menu {
+  margin: 8px 0;
+}
+.cc-add-menu > summary {
+  cursor: pointer;
+  border: 1px solid #aaa79c;
+  padding: 12px;
+  font-size: 14px;
+  list-style: none;
+}
+.cc-add-menu > summary::after {
+  content: '⌄';
+  float: right;
+}
+.cc-add-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.cc-add-menu > div {
+  display: grid;
+  border: 1px solid #aaa79c;
+  border-top: 0;
+  padding: 4px;
+  gap: 3px;
+}
+.cc-add-menu button {
+  text-align: left;
+  width: 100%;
+}
+.cc-accordion summary:focus-visible {
+  outline: 2px solid #315f73;
+  outline-offset: 3px;
+}
+.cc-accordion .cc-fields {
+  margin-top: 8px;
+}
