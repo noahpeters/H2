@@ -19,6 +19,22 @@ const base: KitchenElement = {
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
 describe('four wall kitchen geometry', () => {
+  it.each(['tall', 'wall-cabinet'] as const)(
+    'closes %s with a wood top at its configured height',
+    (kind) => {
+      for (const height of [30, 84]) {
+        const cabinet = cabinetGeometry({...base, kind, height}, false);
+        cabinet.updateMatrixWorld(true);
+        const ray = new THREE.Raycaster(
+          new THREE.Vector3(0, 3, 0),
+          new THREE.Vector3(0, -1, 0),
+        );
+        const hit = ray.intersectObject(cabinet, true)[0];
+        expect(hit.object.name).toBe('cabinet-top');
+        expect(hit.point.y).toBeCloseTo((height / 2) * 0.0254);
+      }
+    },
+  );
   it('leaves the corner cabinet front-right notch open', () => {
     const corner = cabinetGeometry(
       {...base, configuration: 'corner', width: 36, depth: 36},
