@@ -1,5 +1,11 @@
 import {describe, it, expect} from 'vitest';
-import {islandAt, snapAdjacent, positionElement, snapWall} from './placement';
+import {
+  islandAt,
+  snapAdjacent,
+  positionElement,
+  snapWall,
+  snapIslandEdges,
+} from './placement';
 import {createDragUpdate} from './CabinetConfigurator';
 import {type KitchenElement, type Island, type Room} from './model';
 const room: Room = {
@@ -29,6 +35,32 @@ const island: Island = {
   seatingSide: 'none',
 };
 describe('placement tools', () => {
+  it.each([0, 90, 45])(
+    'snaps inside rotated island edges at %s degrees and releases',
+    (rotation) => {
+      const zone = {...island, rotation, width: 72, depth: 48};
+      const a = (rotation * Math.PI) / 180;
+      const object = item('edge', 60);
+      object.placement = {
+        mode: 'floor',
+        x: 60 + 22 * Math.cos(a),
+        z: 60 + 22 * Math.sin(a),
+        rotation,
+      };
+      snapIslandEdges(object, [zone], room);
+      expect(object.placement.x).toBeCloseTo(60 + 24 * Math.cos(a));
+      expect(object.placement.z).toBeCloseTo(60 + 24 * Math.sin(a));
+      object.placement = {
+        mode: 'floor',
+        x: 60 + 19 * Math.cos(a),
+        z: 60 + 19 * Math.sin(a),
+        rotation,
+      };
+      snapIslandEdges(object, [zone], room);
+      expect(object.placement.x).toBeCloseTo(60 + 19 * Math.cos(a));
+      expect(object.placement.z).toBeCloseTo(60 + 19 * Math.sin(a));
+    },
+  );
   it.each([
     ['back', 60, 14],
     ['front', 60, 186],
