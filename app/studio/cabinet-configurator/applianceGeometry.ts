@@ -8,6 +8,7 @@ export function applianceGeometry(
   h: number,
   d: number,
   frontStyle: 'stainless' | 'shaker' | 'slab' = 'stainless',
+  rangeHood = false,
 ) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
@@ -49,6 +50,33 @@ export function applianceGeometry(
     return mesh;
   };
   const z = d / 2;
+  if (kind === 'range' && rangeHood) {
+    // Concept hood: underside 30 inches above the cooking surface.
+    const bottom = h / 2 + 30 * 0.0254;
+    const hoodDepth = Math.min(d, 22 * 0.0254);
+    const hoodZ = -d / 2 + hoodDepth / 2;
+    const hood = box(w, 4 * 0.0254, hoodDepth, 0, bottom + 2 * 0.0254, hoodZ);
+    hood.name = 'range-hood';
+    box(w * 0.8, 0.008, hoodDepth * 0.75, 0, bottom - 0.004, hoodZ, dark);
+    box(
+      w * 0.38,
+      18 * 0.0254,
+      hoodDepth * 0.42,
+      0,
+      bottom + 13 * 0.0254,
+      -d / 2 + hoodDepth * 0.21,
+    );
+    for (const side of [-1, 1])
+      box(
+        0.045,
+        0.009,
+        0.045,
+        side * w * 0.32,
+        bottom - 0.008,
+        hoodZ + hoodDepth * 0.25,
+        display,
+      );
+  }
   if (
     frontStyle !== 'stainless' &&
     (kind === 'refrigerator' || kind === 'dishwasher')

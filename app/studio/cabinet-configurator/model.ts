@@ -56,6 +56,7 @@ export type KitchenElement = {
   face: 'shaker' | 'slab' | 'shaker-glass';
   hinge?: 'left' | 'right';
   applianceFront?: 'stainless' | 'shaker' | 'slab';
+  rangeHood?: boolean;
   applianceKind?: ApplianceKind;
   configuration?: BaseConfiguration;
   placement: Placement;

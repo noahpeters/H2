@@ -12,6 +12,33 @@ const cabinet = (width: number): KitchenElement => ({
   placement: {mode: 'wall', wall: 'back', offset: 0, elevation: 0},
 });
 describe('front options', () => {
+  it('adds an optional hood only to freestanding ranges', () => {
+    expect(
+      applianceGeometry('range', 0.76, 0.91, 0.68).getObjectByName(
+        'range-hood',
+      ),
+    ).toBeUndefined();
+    const hood = applianceGeometry(
+      'range',
+      0.76,
+      0.91,
+      0.68,
+      'stainless',
+      true,
+    ).getObjectByName('range-hood');
+    expect(hood).toBeDefined();
+    expect(hood!.position.y).toBeCloseTo(0.91 / 2 + 32 * 0.0254);
+    expect(
+      applianceGeometry(
+        'dishwasher',
+        0.6,
+        0.87,
+        0.6,
+        'stainless',
+        true,
+      ).getObjectByName('range-hood'),
+    ).toBeUndefined();
+  });
   it.each(['base', 'tall', 'wall-cabinet'] as const)(
     'splits %s doors only above 30 inches',
     (kind) => {
