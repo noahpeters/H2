@@ -1227,24 +1227,31 @@ export function CabinetConfigurator() {
                   selected.kind === 'wall-cabinet' ||
                   selected.applianceKind === 'refrigerator') && (
                   <label>
-                    Depth (in)
-                    <input
-                      type="number"
-                      min="4"
-                      max="60"
-                      value={selected.depth}
-                      onChange={(event) => {
-                        const depth = Number(event.currentTarget.value);
-                        if (!Number.isFinite(depth) || depth < 4 || depth > 60)
-                          return;
-                        update((d) => {
-                          const item = d.elements.find(
-                            (e) => e.id === selected.id,
-                          );
-                          if (item) item.depth = depth;
-                        });
-                      }}
-                    />
+                    Depth
+                    <span>
+                      <input
+                        type="number"
+                        min="4"
+                        max="60"
+                        value={selected.depth}
+                        onChange={(event) => {
+                          const depth = Number(event.currentTarget.value);
+                          if (
+                            !Number.isFinite(depth) ||
+                            depth < 4 ||
+                            depth > 60
+                          )
+                            return;
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item) item.depth = depth;
+                          });
+                        }}
+                      />{' '}
+                      in
+                    </span>
                   </label>
                 )}
                 {warnings.get(selected.id)?.map((w) => (

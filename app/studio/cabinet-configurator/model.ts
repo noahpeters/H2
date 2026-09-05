@@ -233,6 +233,13 @@ export function rotatedSize(element: KitchenElement) {
         (horizontalWall(element.placement.wall) ? 0 : 90))
       : element.placement.rotation;
   const radians = (rotation * Math.PI) / 180;
+  // Quarter turns have exact footprints; trig roundoff otherwise makes a
+  // flush cabinet extend a few quadrillionths of an inch through a wall.
+  const quarter = ((rotation % 360) + 360) % 360;
+  if (quarter === 0 || quarter === 180)
+    return {width: element.width, depth: element.depth};
+  if (quarter === 90 || quarter === 270)
+    return {width: element.depth, depth: element.width};
   return {
     width:
       Math.abs(element.width * Math.cos(radians)) +

@@ -8,7 +8,13 @@ import {
   snapRoomCorner,
 } from './placement';
 import {createDragUpdate} from './CabinetConfigurator';
-import {type KitchenElement, type Island, type Room} from './model';
+import {
+  bounds,
+  validateLayout,
+  type KitchenElement,
+  type Island,
+  type Room,
+} from './model';
 const room: Room = {
   width: 240,
   depth: 200,
@@ -53,6 +59,12 @@ describe('placement tools', () => {
       cabinet.placement = {mode: 'floor', x: x + 1, z: z - 1, rotation: 0};
       expect(snapRoomCorner(cabinet, room)).toBe(true);
       expect(cabinet.placement).toMatchObject({x, z, rotation});
+      const footprint = bounds(cabinet, room);
+      expect(footprint.left).toBeGreaterThanOrEqual(0);
+      expect(footprint.top).toBeGreaterThanOrEqual(0);
+      expect(footprint.right).toBeLessThanOrEqual(room.width);
+      expect(footprint.bottom).toBeLessThanOrEqual(room.depth);
+      expect(validateLayout([cabinet], room).size).toBe(0);
       // The local +X/+Z opening must point toward the room center.
       const angle = (rotation * Math.PI) / 180;
       expect(
