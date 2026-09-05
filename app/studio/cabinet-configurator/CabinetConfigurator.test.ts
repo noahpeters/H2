@@ -31,7 +31,7 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
-  it('moves a floor-positioned appliance on both axes with 3-inch snapping', () => {
+  it('moves a floor-positioned appliance on both axes with 1-inch precision', () => {
     const update = createDragUpdate(
       {
         id: 'island-appliance',
@@ -41,14 +41,14 @@ describe('createDragUpdate', () => {
         clientX: 20,
         clientY: 30,
       },
-      32,
-      18,
+      30,
+      20,
       2,
     );
     expect(update(study()).elements[0].placement).toMatchObject({
       mode: 'floor',
-      x: 54,
-      z: 36,
+      x: 53,
+      z: 37,
     });
   });
 
