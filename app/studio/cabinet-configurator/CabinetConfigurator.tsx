@@ -355,7 +355,11 @@ function ThreeStudy({
             depth,
             cabinet.applianceFront,
           )
-        : cabinetGeometry(cabinet, study.countertop);
+        : cabinetGeometry(
+            cabinet,
+            study.countertop,
+            study.islands.some((i) => i.id === cabinet.islandId),
+          );
       body.userData.id = cabinet.id;
       const transform = elementTransform(cabinet, study.room);
       const elevation =

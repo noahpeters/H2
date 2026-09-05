@@ -19,6 +19,26 @@ const base: KitchenElement = {
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
 describe('four wall kitchen geometry', () => {
+  it.each(['single-door', 'sink'] as const)(
+    'uses only the shared island slab for %s cabinets',
+    (configuration) => {
+      const item = {...base, configuration};
+      const standalone = cabinetGeometry(item, true);
+      const shared = cabinetGeometry(item, true, true);
+      const stoneCount = (group: THREE.Group) =>
+        group.children.filter(
+          (child) =>
+            child instanceof THREE.Mesh &&
+            (child.material as THREE.MeshStandardMaterial).color.getHex() ===
+              0xe0d9cc,
+        ).length;
+      expect(stoneCount(standalone)).toBeGreaterThan(0);
+      expect(stoneCount(shared)).toBe(0);
+      const nonStoneCount = (group: THREE.Group) =>
+        group.children.length - stoneCount(group);
+      expect(nonStoneCount(shared)).toBe(nonStoneCount(standalone));
+    },
+  );
   it('places front-wall objects facing inward with the correct center and bounds', () => {
     expect(wallToFloor(base, room)).toEqual({
       mode: 'floor',
