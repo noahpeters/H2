@@ -6,6 +6,7 @@ import {
   snapAdjacent,
   snapWall,
   snapIslandEdges,
+  snapRoomCorner,
 } from './placement';
 import {
   cabinetGeometry,
@@ -219,6 +220,7 @@ export function createDragUpdate(
         Math.round(active.z + (clientY - active.clientY) / screenScale),
         next.room,
       );
+      if (snapRoomCorner(element, next.room)) return next;
       snapWall(element, next.room);
     } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
       const pointer = horizontalWall(active.wall) ? clientX : clientY;

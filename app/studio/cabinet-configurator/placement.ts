@@ -7,6 +7,48 @@ import {
   type Room,
   type Wall,
 } from './model';
+/** Corner footprints sit flush against both walls; the notch points inward. */
+export function snapRoomCorner(
+  item: KitchenElement,
+  room: Room,
+  threshold = 3,
+) {
+  if (
+    item.kind !== 'base' ||
+    item.configuration !== 'corner' ||
+    item.placement.mode !== 'floor'
+  )
+    return false;
+  const p = item.placement;
+  const candidates = [0, 90, 180, 270].map((rotation) => {
+    const width = rotation % 180 ? item.depth : item.width;
+    const depth = rotation % 180 ? item.width : item.depth;
+    return {
+      rotation,
+      width,
+      depth,
+      x:
+        rotation === 0 || rotation === 270 ? width / 2 : room.width - width / 2,
+      z: rotation === 0 || rotation === 90 ? depth / 2 : room.depth - depth / 2,
+    };
+  });
+  const target = candidates
+    .filter(
+      (c) =>
+        c.width <= room.width &&
+        c.depth <= room.depth &&
+        Math.abs(p.x - c.x) <= threshold &&
+        Math.abs(p.z - c.z) <= threshold,
+    )
+    .sort(
+      (a, b) =>
+        Math.hypot(p.x - a.x, p.z - a.z) - Math.hypot(p.x - b.x, p.z - b.z),
+    )[0];
+  if (!target) return false;
+  Object.assign(p, {x: target.x, z: target.z, rotation: target.rotation});
+  delete item.islandId;
+  return true;
+}
 export function snapWall(item: KitchenElement, room: Room, threshold = 3) {
   if (item.placement.mode !== 'floor') return;
   const {x, z, elevation = 0} = item.placement;
