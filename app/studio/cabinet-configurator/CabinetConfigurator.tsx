@@ -1124,6 +1124,33 @@ export function CabinetConfigurator() {
                     />
                   </label>
                 )}
+                {selected.kind === 'wall-cabinet' && (
+                  <label>
+                    Bottom height above floor (in)
+                    <input
+                      type="number"
+                      min="0"
+                      max={study.room.height - selected.height}
+                      step="1"
+                      value={selected.placement.elevation ?? 0}
+                      onChange={(event) => {
+                        const elevation = Number(event.currentTarget.value);
+                        if (
+                          !Number.isFinite(elevation) ||
+                          elevation < 0 ||
+                          elevation + selected.height > study.room.height
+                        )
+                          return;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.placement.elevation = elevation;
+                        });
+                      }}
+                    />
+                  </label>
+                )}
                 {selected.placement.mode !== 'hosted' && (
                   <div className="cc-fields">
                     <label>
@@ -1197,6 +1224,7 @@ export function CabinetConfigurator() {
                   </span>
                 </label>
                 {(selected.kind === 'base' ||
+                  selected.kind === 'wall-cabinet' ||
                   selected.applianceKind === 'refrigerator') && (
                   <label>
                     Depth (in)
