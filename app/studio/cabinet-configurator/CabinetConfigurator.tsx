@@ -1,6 +1,12 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
-import {islandAt, positionElement, snapAdjacent, snapWall} from './placement';
+import {
+  islandAt,
+  positionElement,
+  snapAdjacent,
+  snapWall,
+  snapIslandEdges,
+} from './placement';
 import {
   cabinetGeometry,
   roomGeometry,
@@ -225,7 +231,10 @@ export function createDragUpdate(
         ),
       );
     }
-    if (element) snapAdjacent(element, next.elements, next.room);
+    if (element) {
+      snapAdjacent(element, next.elements, next.room);
+      snapIslandEdges(element, next.islands, next.room);
+    }
     return next;
   };
 }
@@ -245,6 +254,11 @@ function ThreeStudy({
   onSelect: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<{
+    position: THREE.Vector3;
+    target: THREE.Vector3;
+    zoom: number;
+  } | null>(null);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
 
@@ -371,6 +385,12 @@ function ThreeStudy({
     const largest = Math.max(roomWidth, roomDepth);
     controls.target.set(0, roomHeight * 0.34, 0);
     camera.position.set(largest * 0.82, roomHeight * 0.82, largest * 0.95);
+    if (viewRef.current) {
+      camera.position.copy(viewRef.current.position);
+      controls.target.copy(viewRef.current.target);
+      camera.zoom = viewRef.current.zoom;
+      camera.updateProjectionMatrix();
+    }
     controls.update();
 
     const resize = () => {
@@ -410,6 +430,11 @@ function ThreeStudy({
     };
     animate();
     return () => {
+      viewRef.current = {
+        position: camera.position.clone(),
+        target: controls.target.clone(),
+        zoom: camera.zoom,
+      };
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.domElement.removeEventListener('pointerdown', handlePick);
