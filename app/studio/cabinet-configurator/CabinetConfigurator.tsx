@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useSavedRooms} from './useSavedRooms';
 import * as THREE from 'three';
 import {
   islandAt,
@@ -48,7 +49,7 @@ type Opening = {
   height: number;
   sill?: number;
 };
-type Study = {
+export type Study = {
   version: 2;
   room: Room;
   openings: Opening[];
@@ -59,7 +60,6 @@ type Study = {
   view: View;
 };
 const INCH = 0.0254;
-const STORAGE_KEY = 'from-trees-cabinet-study-v1';
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
 function initialStudy(): Study {
@@ -472,20 +472,10 @@ function ThreeStudy({
 export function CabinetConfigurator() {
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
-  const [hydrated, setHydrated] = useState(false);
   const drag = useRef<ActiveDrag | null>(null);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setStudy(migrateStudy(JSON.parse(saved)));
-    } catch {
-      // Keep the fresh study when browser storage is unavailable or invalid.
-    }
-    setHydrated(true);
-  }, []);
-  useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(study));
-  }, [hydrated, study]);
+  const rooms = useSavedRooms(study, setStudy, initialStudy, migrateStudy, () =>
+    setHistory([]),
+  );
   const update = useCallback(
     (change: (draft: Study) => void) =>
       setStudy((current) => {
@@ -635,7 +625,7 @@ export function CabinetConfigurator() {
         </a>
         <div className="cc-top-actions">
           <button
-            disabled={!history.length}
+            disabled={!history.length || rooms.busy || !rooms.ready}
             onClick={() =>
               setHistory((h) => {
                 const p = h.at(-1);
@@ -647,14 +637,65 @@ export function CabinetConfigurator() {
             Undo
           </button>
           <button
-            onClick={() => update((d) => Object.assign(d, initialStudy()))}
+            disabled={rooms.busy}
+            onClick={() => {
+              void rooms.switchRoom('new');
+            }}
           >
-            Reset room
+            New room
           </button>
-          <span>Saved locally</span>
+          <button
+            disabled={rooms.busy}
+            onClick={() => {
+              void rooms.switchRoom('copy');
+            }}
+          >
+            Copy to new
+          </button>
+          <button
+            disabled={rooms.busy || !rooms.ready}
+            onClick={() => {
+              void rooms.share();
+            }}
+          >
+            Share
+          </button>
+          <details>
+            <summary>History</summary>
+            <div className="cc-room-history-menu">
+              {rooms.recent.length === 0 && <p>No saved rooms yet.</p>}
+              {rooms.recent.map((room) => (
+                <button
+                  key={room.slug}
+                  disabled={rooms.busy}
+                  onClick={(event) => {
+                    event.currentTarget
+                      .closest('details')
+                      ?.removeAttribute('open');
+                    void rooms.switchRoom(room);
+                  }}
+                >
+                  {room.slug.slice(0, 8)} ·{' '}
+                  {new Date(room.updatedAt).toLocaleString()}
+                  {room.draft ? ' · unsaved draft' : ''}
+                </button>
+              ))}
+            </div>
+          </details>
+          <span role="status">{rooms.status}</span>
+          {rooms.error && (
+            <button onClick={rooms.retry} disabled={rooms.busy}>
+              Retry
+            </button>
+          )}
         </div>
       </header>
-      <main className="cc-main">
+      <main
+        className="cc-main"
+        ref={(node) => {
+          if (node) node.toggleAttribute('inert', rooms.busy || !rooms.ready);
+        }}
+      >
         <aside className="cc-tools" aria-label="Design controls">
           <details className="cc-accordion">
             <summary>Room</summary>

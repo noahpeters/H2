@@ -1,0 +1,8 @@
+{
+  "name": "h2-cabinet-rooms-local",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-04",
+  "vars": {"SERVICE_TOKEN":"local-preview-only"},
+  "d1_databases": [{"binding":"DB","database_name":"h2-cabinet-rooms-local","database_id":"00000000-0000-0000-0000-000000000001","migrations_dir":"migrations"}],
+  "ratelimits": [{"name":"WRITES","namespace_id":"1001","simple":{"limit":60,"period":60}}]
+}
