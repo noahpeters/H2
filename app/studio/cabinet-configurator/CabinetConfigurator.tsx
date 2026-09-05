@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
+import {islandAt, positionElement, snapAdjacent} from './placement';
 import {
   cabinetGeometry,
   roomGeometry,
@@ -161,7 +162,7 @@ function migrateStudy(raw: unknown): Study {
 type ActiveDrag =
   | {
       id: string;
-      mode: 'floor';
+      mode: 'floor' | 'island';
       x: number;
       z: number;
       clientX: number;
@@ -173,6 +174,10 @@ type ActiveDrag =
       wall: Wall;
       offset: number;
       pointer: number;
+      clientX?: number;
+      clientY?: number;
+      x?: number;
+      z?: number;
     };
 
 export function createDragUpdate(
@@ -183,7 +188,38 @@ export function createDragUpdate(
 ) {
   return (current: Study): Study => {
     const next = clone(current);
+    if (active.mode === 'island') {
+      const island = next.islands.find((i) => i.id === active.id);
+      if (!island) return current;
+      const target = {
+        x: active.x + (clientX - active.clientX) / screenScale,
+        z: active.z + (clientY - active.clientY) / screenScale,
+        rotation: island.rotation,
+      };
+      next.elements = moveIsland(island, next.elements, target);
+      Object.assign(island, target);
+      return next;
+    }
     const element = next.elements.find((item) => item.id === active.id);
+    if (
+      active.mode === 'wall' &&
+      element &&
+      active.clientX !== undefined &&
+      active.clientY !== undefined &&
+      active.x !== undefined &&
+      active.z !== undefined
+    ) {
+      const dx = (clientX - active.clientX) / screenScale,
+        dz = (clientY - active.clientY) / screenScale;
+      if (
+        element.placement.mode === 'floor' ||
+        Math.abs(horizontalWall(active.wall) ? dz : dx) > 6
+      ) {
+        positionElement(element, active.x + dx, active.z + dz, next.room);
+        snapAdjacent(element, next.elements, next.room);
+        return next;
+      }
+    }
     if (active.mode === 'floor' && element?.placement.mode === 'floor') {
       element.placement.x =
         Math.round((active.x + (clientX - active.clientX) / screenScale) / 3) *
@@ -206,6 +242,7 @@ export function createDragUpdate(
         ),
       );
     }
+    if (element) snapAdjacent(element, next.elements, next.room);
     return next;
   };
 }
@@ -328,7 +365,7 @@ function ThreeStudy({
           ? cabinet.placement.elevation
           : cabinet.placement.mode === 'hosted'
             ? cabinet.placement.elevation
-            : 0;
+            : (cabinet.placement.elevation ?? 0);
       body.rotation.y = (-transform.rotation * Math.PI) / 180;
       body.position.set(
         -roomWidth / 2 + transform.x * INCH,
@@ -578,6 +615,10 @@ export function CabinetConfigurator() {
             mode: 'wall',
             wall: e.placement.wall,
             offset: e.placement.offset,
+            clientX: ev.clientX,
+            clientY: ev.clientY,
+            x: elementCenter(e, study.room).x,
+            z: elementCenter(e, study.room).z,
             pointer: horizontalWall(e.placement.wall) ? ev.clientX : ev.clientY,
           };
     setStudy((c) => ({...c, selected: e.id}));
@@ -786,7 +827,9 @@ export function CabinetConfigurator() {
                   className="cc-island-select"
                   onClick={() => setStudy((c) => ({...c, selected: i.id}))}
                 >
-                  Island {i.width} × {i.depth}
+                  Island{' '}
+                  {study.islands.findIndex((entry) => entry.id === i.id) + 1} ·{' '}
+                  {i.width} × {i.depth}
                 </button>
                 {selectedIsland?.id === i.id && (
                   <div className="cc-fields">
@@ -918,6 +961,7 @@ export function CabinetConfigurator() {
                       }}
                     >
                       <option value="single-door">Single door</option>
+                      <option value="pullout">Full-height pullout</option>
                       <option value="door-drawer">Door + upper drawer</option>
                       <option value="three-drawer">Three drawers</option>
                       <option value="sink">Sink base</option>
@@ -980,46 +1024,62 @@ export function CabinetConfigurator() {
                     </select>
                   </label>
                 )}
+                {selected.placement.mode !== 'hosted' && (
+                  <div className="cc-fields">
+                    {(['x', 'z'] as const).map((axis) => (
+                      <label key={axis}>
+                        Room {axis.toUpperCase()}
+                        <input
+                          type="number"
+                          value={elementCenter(selected, study.room)[axis]}
+                          onChange={(event) => {
+                            const value = Number(event.currentTarget.value);
+                            if (!Number.isFinite(value)) return;
+                            update((d) => {
+                              const item = d.elements.find(
+                                (e) => e.id === selected.id,
+                              )!;
+                              const center = elementCenter(item, d.room);
+                              positionElement(
+                                item,
+                                axis === 'x' ? value : center.x,
+                                axis === 'z' ? value : center.z,
+                                d.room,
+                              );
+                              item.islandId = islandAt(item, d.islands, d.room);
+                            });
+                          }}
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      Island
+                      <select
+                        value={selected.islandId ?? ''}
+                        onChange={(event) => {
+                          const id = event.currentTarget.value;
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            )!;
+                            const center = elementCenter(item, d.room);
+                            positionElement(item, center.x, center.z, d.room);
+                            item.islandId = id || undefined;
+                          });
+                        }}
+                      >
+                        <option value="">No island</option>
+                        {study.islands.map((i, index) => (
+                          <option key={i.id} value={i.id}>
+                            Island {index + 1}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
                 {selected.placement.mode === 'floor' && (
                   <>
-                    <label>
-                      Room X
-                      <span>
-                        <input
-                          type="number"
-                          value={selected.placement.x}
-                          onChange={(e) =>
-                            update((d) => {
-                              const x = d.elements.find(
-                                (x) => x.id === selected.id,
-                              );
-                              if (x?.placement.mode === 'floor')
-                                x.placement.x = Number(e.target.value);
-                            })
-                          }
-                        />{' '}
-                        in
-                      </span>
-                    </label>
-                    <label>
-                      Room Z
-                      <span>
-                        <input
-                          type="number"
-                          value={selected.placement.z}
-                          onChange={(e) =>
-                            update((d) => {
-                              const x = d.elements.find(
-                                (x) => x.id === selected.id,
-                              );
-                              if (x?.placement.mode === 'floor')
-                                x.placement.z = Number(e.target.value);
-                            })
-                          }
-                        />{' '}
-                        in
-                      </span>
-                    </label>
                     <label>
                       Rotation
                       <select
@@ -1042,24 +1102,6 @@ export function CabinetConfigurator() {
                         ))}
                       </select>
                     </label>
-                    <label className="cc-check">
-                      <input
-                        type="checkbox"
-                        checked={!!selected.islandId}
-                        onChange={(e) =>
-                          update((d) => {
-                            const x = d.elements.find(
-                              (x) => x.id === selected.id,
-                            );
-                            if (x)
-                              x.islandId = e.target.checked
-                                ? d.islands[0]?.id
-                                : undefined;
-                          })
-                        }
-                      />{' '}
-                      Group with island
-                    </label>
                   </>
                 )}
                 <label>
@@ -1080,6 +1122,28 @@ export function CabinetConfigurator() {
                     in
                   </span>
                 </label>
+                {selected.kind === 'base' && (
+                  <label>
+                    Depth
+                    <input
+                      type="number"
+                      min="4"
+                      max="60"
+                      value={selected.depth}
+                      onChange={(event) => {
+                        const depth = Number(event.currentTarget.value);
+                        if (!Number.isFinite(depth) || depth < 4 || depth > 60)
+                          return;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.depth = depth;
+                        });
+                      }}
+                    />
+                  </label>
+                )}
                 {warnings.get(selected.id)?.map((w) => (
                   <p className="cc-inline-warning" key={w}>
                     {w}
@@ -1113,7 +1177,21 @@ export function CabinetConfigurator() {
                 viewBox="0 0 780 560"
                 aria-label="Dimensioned room plan"
                 onPointerMove={moveDrag}
-                onPointerUp={() => (drag.current = null)}
+                onPointerUp={() => {
+                  const active = drag.current;
+                  drag.current = null;
+                  if (!active || active.mode === 'island') return;
+                  setStudy((current) => {
+                    const next = clone(current);
+                    const item = next.elements.find((e) => e.id === active.id);
+                    if (item?.placement.mode === 'floor')
+                      item.islandId = islandAt(item, next.islands, next.room);
+                    return next;
+                  });
+                }}
+                onPointerCancel={() => {
+                  drag.current = null;
+                }}
               >
                 <defs>
                   <pattern
@@ -1199,6 +1277,19 @@ export function CabinetConfigurator() {
                   return (
                     <g
                       className="cc-island"
+                      onPointerDown={(event) => {
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        setHistory((h) => [...h.slice(-29), clone(study)]);
+                        drag.current = {
+                          id: i.id,
+                          mode: 'island',
+                          x: i.x,
+                          z: i.z,
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                        };
+                        setStudy((c) => ({...c, selected: i.id}));
+                      }}
                       key={i.id}
                       transform={`translate(${pad + i.x * scale} ${pad + i.z * scale}) rotate(${i.rotation})`}
                       onClick={() => setStudy((x) => ({...x, selected: i.id}))}

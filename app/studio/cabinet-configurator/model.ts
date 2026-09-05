@@ -4,6 +4,7 @@ export const horizontalWall = (wall: Wall) =>
   wall === 'back' || wall === 'front';
 export type BaseConfiguration =
   | 'single-door'
+  | 'pullout'
   | 'door-drawer'
   | 'three-drawer'
   | 'sink';
@@ -35,7 +36,7 @@ export type Placement =
       elevation: number;
       rotation?: number;
     }
-  | {mode: 'floor'; x: number; z: number; rotation: number}
+  | {mode: 'floor'; x: number; z: number; rotation: number; elevation?: number}
   | {
       mode: 'hosted';
       hostId: string;
@@ -305,6 +306,7 @@ export function moveIsland(
     return {
       ...element,
       placement: {
+        ...element.placement,
         mode: 'floor' as const,
         x: next.x + dx * Math.cos(delta) - dz * Math.sin(delta),
         z: next.z + dx * Math.sin(delta) + dz * Math.cos(delta),

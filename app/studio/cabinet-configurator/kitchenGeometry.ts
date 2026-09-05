@@ -192,7 +192,14 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
           false,
         );
     else front(w - 0.25, doorHeight, 0, bottom + doorHeight / 2 + 0.125, false);
-  } else front(w - 0.25, usable, 0, toe / 2, false);
+  } else
+    front(
+      w - 0.25,
+      usable,
+      0,
+      toe / 2,
+      item.kind === 'base' && config === 'pullout',
+    );
   if (countertop && item.kind === 'base') {
     const topY = h / 2 + 0.75;
     if (config === 'sink') {
