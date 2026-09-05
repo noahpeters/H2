@@ -247,7 +247,8 @@
   font: 12px DM Mono;
   fill: #555c56;
 }
-.cc-cab rect {
+.cc-cab rect,
+.cc-cab path {
   fill: #b38b63;
   stroke: #292c29;
   stroke-width: 1.2;
@@ -270,12 +271,14 @@
   text-anchor: middle;
   pointer-events: none;
 }
+.cc-cab.selected path,
 .cc-cab.selected rect,
 .cc-opening.selected rect {
   stroke: var(--cc-accent);
   stroke-width: 4;
 }
-.cc-cab.problem rect {
+.cc-cab.problem rect,
+.cc-cab.problem path {
   fill: #ad6958;
 }
 .cc-opening rect {

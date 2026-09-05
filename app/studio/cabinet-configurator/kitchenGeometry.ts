@@ -81,7 +81,56 @@ function box(
   group.add(mesh);
   return mesh;
 }
-export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
+export function cabinetGeometry(
+  item: KitchenElement,
+  countertop: boolean,
+  sharedCountertop = false,
+) {
+  if (item.kind === 'base' && item.configuration === 'corner') {
+    const group = new THREE.Group();
+    const w = item.width,
+      d = item.depth,
+      arm = Math.min(24, (w * 2) / 3, (d * 2) / 3);
+    const back = cabinetGeometry(
+      {...item, configuration: 'single-door', depth: arm},
+      false,
+    );
+    back.position.z = (-d / 2 + arm / 2) * inch;
+    group.add(back);
+    const leg = cabinetGeometry(
+      {...item, configuration: 'single-door', width: d - arm, depth: arm},
+      false,
+    );
+    leg.rotation.y = Math.PI / 2;
+    leg.position.set((-w / 2 + arm / 2) * inch, 0, (arm / 2) * inch);
+    group.add(leg);
+    if (countertop && !sharedCountertop) {
+      const shape = new THREE.Shape();
+      const points = [
+        [-w / 2 - 1, -d / 2 - 1],
+        [w / 2 + 1, -d / 2 - 1],
+        [w / 2 + 1, -d / 2 + arm + 1],
+        [-w / 2 + arm + 1, -d / 2 + arm + 1],
+        [-w / 2 + arm + 1, d / 2 + 1],
+        [-w / 2 - 1, d / 2 + 1],
+      ];
+      points.forEach(([x, z], i) =>
+        i ? shape.lineTo(x * inch, z * inch) : shape.moveTo(x * inch, z * inch),
+      );
+      shape.closePath();
+      const top = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(shape, {
+          depth: 1.5 * inch,
+          bevelEnabled: false,
+        }),
+        new THREE.MeshStandardMaterial({color: 0xe0d9cc, roughness: 0.35}),
+      );
+      top.rotation.x = Math.PI / 2;
+      top.position.y = (item.height / 2 + 1.5) * inch;
+      group.add(top);
+    }
+    return group;
+  }
   const group = new THREE.Group();
   const {width: w, height: h, depth: d} = item;
   const wood = new THREE.MeshStandardMaterial({
@@ -232,26 +281,28 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
         sd = Math.min(16, d * 0.65);
       // Four countertop strips surround a true opening, with an open basin below.
       for (const side of [-1, 1]) {
-        box(
-          group,
-          (w + 2 - sw) / 2,
-          1.5,
-          d + 2,
-          side * (sw / 2 + (w + 2 - sw) / 4),
-          topY,
-          0,
-          stone,
-        );
-        box(
-          group,
-          sw,
-          1.5,
-          (d + 2 - sd) / 2,
-          0,
-          topY,
-          side * (sd / 2 + (d + 2 - sd) / 4),
-          stone,
-        );
+        if (!sharedCountertop) {
+          box(
+            group,
+            (w + 2 - sw) / 2,
+            1.5,
+            d + 2,
+            side * (sw / 2 + (w + 2 - sw) / 4),
+            topY,
+            0,
+            stone,
+          );
+          box(
+            group,
+            sw,
+            1.5,
+            (d + 2 - sd) / 2,
+            0,
+            topY,
+            side * (sd / 2 + (d + 2 - sd) / 4),
+            stone,
+          );
+        }
         box(group, 0.3, 7, sd, side * (sw / 2 - 0.15), h / 2 - 2, 0, steel);
         box(group, sw, 7, 0.3, 0, h / 2 - 2, side * (sd / 2 - 0.15), steel);
         box(group, 0.7, 0.18, sd + 0.7, (side * sw) / 2, h / 2 + 1.6, 0, steel);
@@ -261,7 +312,8 @@ export function cabinetGeometry(item: KitchenElement, countertop: boolean) {
       box(group, 1, 8, 1, 0, h / 2 + 5.5, -sd / 2 - 1, steel);
       box(group, 1, 1, 6, 0, h / 2 + 9, -sd / 2 + 1.5, steel);
       box(group, 1, 2, 1, 0, h / 2 + 8, -sd / 2 + 4, steel);
-    } else box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
+    } else if (!sharedCountertop)
+      box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
   }
   return group;
 }

@@ -3,6 +3,7 @@ export const WALLS: Wall[] = ['back', 'left', 'right', 'front'];
 export const horizontalWall = (wall: Wall) =>
   wall === 'back' || wall === 'front';
 export type BaseConfiguration =
+  | 'corner'
   | 'single-door'
   | 'pullout'
   | 'door-drawer'
