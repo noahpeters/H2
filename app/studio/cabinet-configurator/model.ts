@@ -1,4 +1,21 @@
-export type Wall = 'back' | 'left' | 'right';
+export type Wall = 'back' | 'left' | 'right' | 'front';
+export const WALLS: Wall[] = ['back', 'left', 'right', 'front'];
+export const horizontalWall = (wall: Wall) =>
+  wall === 'back' || wall === 'front';
+export type BaseConfiguration =
+  | 'single-door'
+  | 'door-drawer'
+  | 'three-drawer'
+  | 'sink';
+export type Opening = {
+  id: string;
+  kind: 'door' | 'window';
+  wall: Wall;
+  offset: number;
+  width: number;
+  height: number;
+  sill?: number;
+};
 export type PlacementMode = 'wall' | 'floor' | 'hosted';
 export type ElementKind = 'base' | 'wall-cabinet' | 'tall' | 'appliance';
 export type ApplianceKind =
@@ -30,6 +47,7 @@ export type KitchenElement = {
   height: number;
   face: 'shaker' | 'slab';
   applianceKind?: ApplianceKind;
+  configuration?: BaseConfiguration;
   placement: Placement;
   islandId?: string;
 };
@@ -169,6 +187,13 @@ export function wallToFloor(
           rotation: element.placement.rotation,
         };
   const {wall, offset} = element.placement;
+  if (wall === 'front')
+    return {
+      mode: 'floor',
+      x: offset + element.width / 2,
+      z: room.depth - element.depth / 2,
+      rotation: 180,
+    };
   if (wall === 'back')
     return {
       mode: 'floor',
@@ -194,7 +219,7 @@ export function wallToFloor(
 export function rotatedSize(element: KitchenElement) {
   const rotation =
     element.placement.mode === 'wall'
-      ? element.placement.wall === 'back'
+      ? horizontalWall(element.placement.wall)
         ? 0
         : 90
       : element.placement.rotation;

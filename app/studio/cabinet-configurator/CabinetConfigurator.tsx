@@ -1,9 +1,18 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
+import {
+  cabinetGeometry,
+  roomGeometry,
+  openingGeometry,
+  islandCountertop,
+} from './kitchenGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   APPLIANCE_CATALOG,
+  WALLS,
+  horizontalWall,
+  type BaseConfiguration,
   aisleClearance,
   bounds,
   createKitchenAppliance,
@@ -175,9 +184,10 @@ export function createDragUpdate(
         Math.round((active.z + (clientY - active.clientY) / screenScale) / 3) *
         3;
     } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
-      const pointer = active.wall === 'back' ? clientX : clientY;
-      const wallLength =
-        active.wall === 'back' ? next.room.width : next.room.depth;
+      const pointer = horizontalWall(active.wall) ? clientX : clientY;
+      const wallLength = horizontalWall(active.wall)
+        ? next.room.width
+        : next.room.depth;
       element.placement.offset = Math.max(
         0,
         Math.min(
@@ -195,11 +205,7 @@ function elementTransform(element: KitchenElement, room: Room) {
   const center = elementCenter(element, room);
   const rotation =
     element.placement.mode === 'wall'
-      ? element.placement.wall === 'back'
-        ? 0
-        : element.placement.wall === 'left'
-          ? 90
-          : 270
+      ? wallToFloor(element, room).rotation
       : element.placement.rotation;
   return {...center, rotation};
 }
@@ -277,23 +283,15 @@ function ThreeStudy({
     );
     floor.position.set(0, -0.02, 0);
     scene.add(floor);
-    const wallMaterial = material(wallColors[study.room.walls]);
-    const back = edgeBox(roomWidth, roomHeight, 0.035, wallMaterial);
-    back.position.set(0, roomHeight / 2, -roomDepth / 2);
-    scene.add(back);
-    const left = edgeBox(0.035, roomHeight, roomDepth, wallMaterial);
-    left.position.set(-roomWidth / 2, roomHeight / 2, 0);
-    scene.add(left);
+    scene.add(
+      ...roomGeometry(study.room, study.openings, wallColors[study.room.walls]),
+    );
 
     const selectable: THREE.Object3D[] = [];
     const warningIds = validateLayout(study.elements, study.room);
     for (const island of study.islands) {
-      const top = edgeBox(
-        (island.width + island.overhang * 2) * INCH,
-        1.5 * INCH,
-        (island.depth + island.overhang * 2) * INCH,
-        material(0xd8d1c4, 0.45),
-      );
+      if (!study.countertop) continue;
+      const top = islandCountertop(island, study.elements);
       top.position.set(
         -roomWidth / 2 + island.x * INCH,
         36 * INCH,
@@ -314,12 +312,7 @@ function ThreeStudy({
             height,
             depth,
           )
-        : edgeBox(
-            width,
-            height,
-            depth,
-            material(warningIds.has(cabinet.id) ? 0xb36855 : 0x9d7650),
-          );
+        : cabinetGeometry(cabinet, study.countertop);
       body.userData.id = cabinet.id;
       const transform = elementTransform(cabinet, study.room);
       const elevation =
@@ -334,36 +327,6 @@ function ThreeStudy({
         elevation * INCH + height / 2,
         -roomDepth / 2 + transform.z * INCH,
       );
-      if (!isAppliance) {
-        const front = edgeBox(
-          width * 0.91,
-          height * 0.89,
-          0.025,
-          material(cabinet.face === 'slab' ? 0x76543b : 0x9d7650),
-        );
-        front.position.set(0, 0, depth / 2 + 0.016);
-        body.add(front);
-        if (cabinet.face === 'shaker') {
-          const inset = edgeBox(
-            width * 0.7,
-            height * 0.68,
-            0.012,
-            material(0x8f6948),
-          );
-          inset.position.z = 0.025;
-          front.add(inset);
-        }
-      }
-      if (study.countertop && cabinet.kind === 'base') {
-        const top = edgeBox(
-          width + 0.04,
-          0.04,
-          depth + 0.04,
-          material(0xd8d1c4, 0.45),
-        );
-        top.position.y = height / 2 + 0.02;
-        body.add(top);
-      }
       scene.add(body);
       selectable.push(body);
       if (cabinet.id === study.selected)
@@ -371,34 +334,7 @@ function ThreeStudy({
     }
 
     for (const opening of study.openings) {
-      const width = opening.width * INCH;
-      const height = opening.height * INCH;
-      const y =
-        (opening.kind === 'window' ? (opening.sill ?? 42) * INCH : 0) +
-        height / 2;
-      const object = edgeBox(
-        width,
-        height,
-        0.055,
-        material(opening.kind === 'window' ? 0xa9c5c9 : 0x55483b, 0.35),
-      );
-      object.userData.id = opening.id;
-      if (opening.wall === 'back')
-        object.position.set(
-          -roomWidth / 2 + (opening.offset + opening.width / 2) * INCH,
-          y,
-          -roomDepth / 2 + 0.04,
-        );
-      else {
-        object.rotation.y = Math.PI / 2;
-        object.position.set(
-          opening.wall === 'left'
-            ? -roomWidth / 2 + 0.04
-            : roomWidth / 2 - 0.04,
-          y,
-          -roomDepth / 2 + (opening.offset + opening.width / 2) * INCH,
-        );
-      }
+      const object = openingGeometry(opening, study.room);
       scene.add(object);
       selectable.push(object);
     }
@@ -634,7 +570,7 @@ export function CabinetConfigurator() {
             mode: 'wall',
             wall: e.placement.wall,
             offset: e.placement.offset,
-            pointer: e.placement.wall === 'back' ? ev.clientX : ev.clientY,
+            pointer: horizontalWall(e.placement.wall) ? ev.clientX : ev.clientY,
           };
     setStudy((c) => ({...c, selected: e.id}));
   };
@@ -716,6 +652,121 @@ export function CabinetConfigurator() {
                 ),
               )}
             </div>
+          </section>
+          <section>
+            <p className="cc-eyebrow">Doors & windows</p>
+            <div className="cc-button-grid">
+              {(['door', 'window'] as const).map((kind) => (
+                <button
+                  key={kind}
+                  onClick={() =>
+                    update((d) => {
+                      const id = makeId();
+                      d.openings.push({
+                        id,
+                        kind,
+                        wall: 'back',
+                        offset: 12,
+                        width: kind === 'door' ? 32 : 42,
+                        height: kind === 'door' ? 80 : 38,
+                        sill: 42,
+                      });
+                      d.selected = id;
+                    })
+                  }
+                >
+                  + {kind}
+                </button>
+              ))}
+            </div>
+            {study.openings.map((opening) => (
+              <div key={opening.id} className="cc-fields">
+                <button
+                  onClick={() =>
+                    setStudy((c) => ({...c, selected: opening.id}))
+                  }
+                >
+                  {opening.kind} · {opening.wall} wall
+                </button>
+                {study.selected === opening.id && (
+                  <>
+                    <label>
+                      Wall
+                      <select
+                        value={opening.wall}
+                        onChange={(event) => {
+                          const wall = event.currentTarget.value as Wall;
+                          update((d) => {
+                            const o = d.openings.find(
+                              (o) => o.id === opening.id,
+                            )!;
+                            o.wall = wall;
+                            o.offset = Math.max(
+                              0,
+                              Math.min(
+                                o.offset,
+                                (horizontalWall(wall)
+                                  ? d.room.width
+                                  : d.room.depth) - o.width,
+                              ),
+                            );
+                          });
+                        }}
+                      >
+                        {WALLS.map((w) => (
+                          <option key={w} value={w}>
+                            {w}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {(
+                      [
+                        'offset',
+                        'width',
+                        'height',
+                        ...(opening.kind === 'window' ? ['sill'] : []),
+                      ] as Array<'offset' | 'width' | 'height' | 'sill'>
+                    ).map((key) => (
+                      <label key={key}>
+                        {key}
+                        <input
+                          type="number"
+                          min={key === 'offset' || key === 'sill' ? 0 : 1}
+                          value={opening[key] ?? 0}
+                          onChange={(event) => {
+                            const value = Number(event.currentTarget.value);
+                            if (
+                              !Number.isFinite(value) ||
+                              value <
+                                (key === 'offset' || key === 'sill' ? 0 : 1)
+                            )
+                              return;
+                            update((d) => {
+                              d.openings.find((o) => o.id === opening.id)![
+                                key
+                              ] = value;
+                            });
+                          }}
+                        />
+                      </label>
+                    ))}
+                    <button
+                      onClick={() =>
+                        update((d) => {
+                          d.openings = d.openings.filter(
+                            (o) => o.id !== opening.id,
+                          );
+                          d.selected = null;
+                        })
+                      }
+                    >
+                      Remove {opening.kind}
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
           </section>
           <section>
             <p className="cc-eyebrow">03 / Island study</p>
@@ -814,6 +865,51 @@ export function CabinetConfigurator() {
                     <option value="hosted">Hosted</option>
                   </select>
                 </label>
+                {selected.kind === 'base' && (
+                  <label>
+                    Base configuration
+                    <select
+                      value={selected.configuration ?? 'single-door'}
+                      onChange={(event) => {
+                        const configuration = event.currentTarget
+                          .value as BaseConfiguration;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.configuration = configuration;
+                        });
+                      }}
+                    >
+                      <option value="single-door">Single door</option>
+                      <option value="door-drawer">Door + upper drawer</option>
+                      <option value="three-drawer">Three drawers</option>
+                      <option value="sink">Sink base</option>
+                    </select>
+                  </label>
+                )}
+                {selected.kind !== 'appliance' && (
+                  <label>
+                    Front style
+                    <select
+                      value={selected.face}
+                      onChange={(event) => {
+                        const face = event.currentTarget.value as
+                          | 'shaker'
+                          | 'slab';
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.face = face;
+                        });
+                      }}
+                    >
+                      <option value="shaker">Shaker</option>
+                      <option value="slab">Slab</option>
+                    </select>
+                  </label>
+                )}
                 {selected.placement.mode === 'wall' && (
                   <label>
                     Wall
@@ -827,10 +923,9 @@ export function CabinetConfigurator() {
                           );
                           if (item?.placement.mode !== 'wall') return;
                           item.placement.wall = wall;
-                          const length =
-                            wall === 'back'
-                              ? draft.room.width
-                              : draft.room.depth;
+                          const length = horizontalWall(wall)
+                            ? draft.room.width
+                            : draft.room.depth;
                           item.placement.offset = Math.max(
                             0,
                             Math.min(
@@ -844,6 +939,7 @@ export function CabinetConfigurator() {
                       <option value="back">Back wall</option>
                       <option value="left">Left wall</option>
                       <option value="right">Right wall</option>
+                      <option value="front">Front wall</option>
                     </select>
                   </label>
                 )}
@@ -1001,8 +1097,66 @@ export function CabinetConfigurator() {
                 />
                 <path
                   className="cc-room-line"
-                  d={`M${pad} ${pad + study.room.depth * scale}V${pad}H${pad + study.room.width * scale}V${pad + study.room.depth * scale}`}
+                  d={`M${pad} ${pad + study.room.depth * scale}V${pad}H${pad + study.room.width * scale}V${pad + study.room.depth * scale}Z`}
                 />
+                {study.openings.map((o) => {
+                  const horizontal = horizontalWall(o.wall);
+                  const x =
+                    pad +
+                    (horizontal
+                      ? o.offset
+                      : o.wall === 'left'
+                        ? 0
+                        : study.room.width) *
+                      scale;
+                  const y =
+                    pad +
+                    (horizontal
+                      ? o.wall === 'back'
+                        ? 0
+                        : study.room.depth
+                      : o.offset) *
+                      scale;
+                  return (
+                    <g
+                      key={o.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={o.kind + ' on ' + o.wall + ' wall'}
+                      onClick={() => setStudy((c) => ({...c, selected: o.id}))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter')
+                          setStudy((c) => ({...c, selected: o.id}));
+                      }}
+                      transform={`translate(${x} ${y}) rotate(${horizontal ? 0 : 90})`}
+                    >
+                      <rect
+                        x="0"
+                        y="-4"
+                        width={o.width * scale}
+                        height="8"
+                        fill={o.kind === 'window' ? '#a9c5d3' : '#f4f2ec'}
+                        stroke={study.selected === o.id ? '#b57d45' : '#55483b'}
+                        strokeWidth="2"
+                      />
+                      {o.kind === 'door' ? (
+                        <path
+                          d={`M0 0V${o.width * scale}M0 ${o.width * scale}A${o.width * scale} ${o.width * scale} 0 0 0 ${o.width * scale} 0`}
+                          fill="none"
+                          stroke="#55483b"
+                        />
+                      ) : (
+                        <line
+                          x1="0"
+                          x2={o.width * scale}
+                          y1="0"
+                          y2="0"
+                          stroke="#fff"
+                        />
+                      )}
+                    </g>
+                  );
+                })}
                 {study.islands.map((i) => {
                   const c = aisleClearance(i, study.room);
                   return (
