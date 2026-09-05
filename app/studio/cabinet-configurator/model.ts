@@ -28,7 +28,13 @@ export type ApplianceKind =
 export type SeatingSide = 'none' | 'north' | 'south' | 'east' | 'west';
 
 export type Placement =
-  | {mode: 'wall'; wall: Wall; offset: number; elevation: number}
+  | {
+      mode: 'wall';
+      wall: Wall;
+      offset: number;
+      elevation: number;
+      rotation?: number;
+    }
   | {mode: 'floor'; x: number; z: number; rotation: number}
   | {
       mode: 'hosted';
@@ -192,36 +198,35 @@ export function wallToFloor(
       mode: 'floor',
       x: offset + element.width / 2,
       z: room.depth - element.depth / 2,
-      rotation: 180,
+      rotation: element.placement.rotation ?? 180,
     };
   if (wall === 'back')
     return {
       mode: 'floor',
       x: offset + element.width / 2,
       z: element.depth / 2,
-      rotation: 0,
+      rotation: element.placement.rotation ?? 0,
     };
   if (wall === 'left')
     return {
       mode: 'floor',
       x: element.depth / 2,
       z: offset + element.width / 2,
-      rotation: 90,
+      rotation: element.placement.rotation ?? 90,
     };
   return {
     mode: 'floor',
     x: room.width - element.depth / 2,
     z: offset + element.width / 2,
-    rotation: 270,
+    rotation: element.placement.rotation ?? 270,
   };
 }
 
 export function rotatedSize(element: KitchenElement) {
   const rotation =
     element.placement.mode === 'wall'
-      ? horizontalWall(element.placement.wall)
-        ? 0
-        : 90
+      ? (element.placement.rotation ??
+        (horizontalWall(element.placement.wall) ? 0 : 90))
       : element.placement.rotation;
   const radians = (rotation * Math.PI) / 180;
   return {
