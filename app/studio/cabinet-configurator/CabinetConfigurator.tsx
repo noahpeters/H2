@@ -356,6 +356,7 @@ function ThreeStudy({
             height,
             depth,
             cabinet.applianceFront,
+            cabinet.rangeHood,
           )
         : cabinetGeometry(
             cabinet,
@@ -966,6 +967,24 @@ export function CabinetConfigurator() {
                     Remove
                   </button>
                 </div>
+                {selected.applianceKind === 'range' && (
+                  <label>
+                    Range hood
+                    <input
+                      type="checkbox"
+                      checked={selected.rangeHood ?? false}
+                      onChange={(event) => {
+                        const enabled = event.currentTarget.checked;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.rangeHood = enabled;
+                        });
+                      }}
+                    />
+                  </label>
+                )}
                 {selected.kind === 'appliance' &&
                   selected.placement.mode !== 'floor' && (
                     <label>
