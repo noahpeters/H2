@@ -814,6 +814,39 @@ export function CabinetConfigurator() {
                     <option value="hosted">Hosted</option>
                   </select>
                 </label>
+                {selected.placement.mode === 'wall' && (
+                  <label>
+                    Wall
+                    <select
+                      value={selected.placement.wall}
+                      onChange={(event) => {
+                        const wall = event.currentTarget.value as Wall;
+                        update((draft) => {
+                          const item = draft.elements.find(
+                            (entry) => entry.id === selected.id,
+                          );
+                          if (item?.placement.mode !== 'wall') return;
+                          item.placement.wall = wall;
+                          const length =
+                            wall === 'back'
+                              ? draft.room.width
+                              : draft.room.depth;
+                          item.placement.offset = Math.max(
+                            0,
+                            Math.min(
+                              item.placement.offset,
+                              length - item.width,
+                            ),
+                          );
+                        });
+                      }}
+                    >
+                      <option value="back">Back wall</option>
+                      <option value="left">Left wall</option>
+                      <option value="right">Right wall</option>
+                    </select>
+                  </label>
+                )}
                 {selected.placement.mode === 'floor' && (
                   <>
                     <label>
@@ -858,20 +891,21 @@ export function CabinetConfigurator() {
                       Rotation
                       <select
                         value={snapAngle(selected.placement.rotation)}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const angle = Number(e.currentTarget.value);
                           update((d) => {
                             const x = d.elements.find(
                               (x) => x.id === selected.id,
                             );
                             if (x?.placement.mode === 'floor')
-                              x.placement.rotation = snapAngle(
-                                Number(e.target.value),
-                              );
-                          })
-                        }
+                              x.placement.rotation = snapAngle(angle);
+                          });
+                        }}
                       >
                         {[0, 90, 180, 270].map((a) => (
-                          <option key={a}>{a}°</option>
+                          <option key={a} value={a}>
+                            {a}°
+                          </option>
                         ))}
                       </select>
                     </label>

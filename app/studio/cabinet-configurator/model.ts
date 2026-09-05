@@ -133,6 +133,7 @@ export type LegacyCabinet = Omit<KitchenElement, 'kind' | 'placement'> & {
 };
 
 export function snapAngle(value: number) {
+  if (!Number.isFinite(value)) return 0;
   return (((Math.round(value / 90) * 90) % 360) + 360) % 360;
 }
 
