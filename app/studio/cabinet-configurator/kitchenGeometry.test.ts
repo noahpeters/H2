@@ -19,6 +19,38 @@ const base: KitchenElement = {
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
 describe('four wall kitchen geometry', () => {
+  it.each(['one-oven', 'two-oven', 'coffee-maker'] as const)(
+    'places upper door handles near the bottom for %s cabinets',
+    (tallConfiguration) => {
+      for (const width of [30, 36])
+        for (const face of ['shaker', 'slab', 'inset-shaker'] as const) {
+          const group = cabinetGeometry(
+            {...base, kind: 'tall', height: 84, width, face, tallConfiguration},
+            false,
+          );
+          const doors = group.children.filter(
+            (child) => child.name === 'cabinet-front' && child.position.y > 0,
+          ) as THREE.Mesh<THREE.BoxGeometry>[];
+          const handles = group.children.filter(
+            (child) =>
+              child instanceof THREE.Mesh &&
+              Math.abs(child.geometry.parameters.width - 0.35 * 0.0254) <
+                1e-6 &&
+              Math.abs(child.geometry.parameters.height - 4 * 0.0254) < 1e-6,
+          ) as THREE.Mesh[];
+          expect(handles).toHaveLength(width > 30 ? 2 : 1);
+          expect(doors).toHaveLength(handles.length);
+          for (let i = 0; i < handles.length; i++) {
+            const height = doors[i].geometry.parameters.height;
+            expect(handles[i].position.y).toBeCloseTo(
+              doors[i].position.y -
+                height / 2 +
+                Math.min(4 * 0.0254, height / 2),
+            );
+          }
+        }
+    },
+  );
   it.each(['base', 'tall', 'wall-cabinet'] as const)(
     'renders inset shaker %s fronts inside a flush face frame',
     (kind) => {
