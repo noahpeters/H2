@@ -2,6 +2,17 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ShareRoomForm} from './ShareRoomForm';
 import {
+  roomPoints,
+  roomSegments,
+  roomWall,
+  wallPoint,
+  validOutline,
+  moveRoomWall,
+  addRoomRecess,
+  presetOutline,
+  type RoomPoint,
+} from './roomOutline';
+import {
   CABINET_MATERIALS,
   CABINET_PAINTS,
   cabinetColor,
@@ -20,6 +31,7 @@ import {
 import {
   cabinetGeometry,
   roomGeometry,
+  roomFloorGeometry,
   openingGeometry,
   islandCountertop,
 } from './kitchenGeometry';
@@ -28,8 +40,6 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   APPLIANCE_CATALOG,
   minimumTallHeight,
-  WALLS,
-  horizontalWall,
   type BaseConfiguration,
   aisleClearance,
   bounds,
@@ -37,7 +47,6 @@ import {
   elementCenter,
   migrateElement,
   moveIsland,
-  rotatedSize,
   snapAngle,
   validateLayout,
   wallToFloor,
@@ -68,6 +77,51 @@ export type Study = {
   countertop: boolean;
   view: View;
 };
+export function reshapeStudy(study: Study, points: RoomPoint[]): Study {
+  if (!validOutline(points)) return study;
+  const x = Math.min(...points.map((p) => p.x)),
+    z = Math.min(...points.map((p) => p.z));
+  const width = Math.max(...points.map((p) => p.x)) - x,
+    depth = Math.max(...points.map((p) => p.z)) - z;
+  if (width < 12 || depth < 12 || width > 10000 || depth > 10000) return study;
+  const next = clone(study);
+  next.room = {
+    ...study.room,
+    width,
+    depth,
+    outline: points.map((p) => ({...p, x: p.x - x, z: p.z - z})),
+  };
+  const walls = roomSegments(next.room);
+  for (const e of next.elements) {
+    if (e.placement.mode === 'wall') {
+      const wall = e.placement.wall;
+      const s = walls.find((s) => s.id === wall);
+      if (s) {
+        e.placement.offset = Math.max(
+          0,
+          Math.min(e.placement.offset, s.length - e.width),
+        );
+        continue;
+      }
+      e.placement = {
+        ...wallToFloor(e, study.room),
+        elevation: e.placement.elevation,
+      };
+    }
+    e.placement.x -= x;
+    e.placement.z -= z;
+  }
+  next.islands.forEach((i) => {
+    i.x -= x;
+    i.z -= z;
+  });
+  next.openings.forEach((o) => {
+    const s = walls.find((s) => s.id === o.wall) ?? walls[0];
+    o.wall = s.id;
+    o.offset = Math.max(0, Math.min(o.offset, s.length - o.width));
+  });
+  return next;
+}
 const INCH = 0.0254;
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
@@ -232,12 +286,13 @@ export function createDragUpdate(
       if (snapRoomCorner(element, next.room)) return next;
       snapWall(element, next.room);
     } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
-      const pointer = horizontalWall(active.wall) ? clientX : clientY;
+      const pointer = roomWall(next.room, active.wall).horizontal
+        ? clientX
+        : clientY;
       element.placement.offset = Math.max(
         0,
         Math.min(
-          (horizontalWall(active.wall) ? next.room.width : next.room.depth) -
-            element.width,
+          roomWall(next.room, active.wall).length - element.width,
           Math.round(active.offset + (pointer - active.pointer) / screenScale),
         ),
       );
@@ -294,47 +349,12 @@ function ThreeStudy({
     sun.castShadow = true;
     scene.add(sun);
 
-    const material = (color: number, roughness = 0.8) =>
-      new THREE.MeshStandardMaterial({color, roughness});
-    const edgeBox = (
-      width: number,
-      height: number,
-      depth: number,
-      boxMaterial: THREE.Material,
-    ) => {
-      const group = new THREE.Group();
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, depth),
-        boxMaterial,
-      );
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-      group.add(
-        new THREE.LineSegments(
-          new THREE.EdgesGeometry(mesh.geometry),
-          new THREE.LineBasicMaterial({
-            color: 0x252b26,
-            transparent: true,
-            opacity: 0.55,
-          }),
-        ),
-      );
-      return group;
-    };
-
     const roomWidth = study.room.width * INCH;
     const roomDepth = study.room.depth * INCH;
     const roomHeight = study.room.height * INCH;
     const floorColors = {oak: 0xbca679, walnut: 0x75604c, concrete: 0xbab9b4};
     const wallColors = {plaster: 0xe9e3d7, white: 0xf5f4ef, green: 0x849184};
-    const floor = edgeBox(
-      roomWidth,
-      0.035,
-      roomDepth,
-      material(floorColors[study.room.floor]),
-    );
-    floor.position.set(0, -0.02, 0);
+    const floor = roomFloorGeometry(study.room, floorColors[study.room.floor]);
     scene.add(floor);
     scene.add(
       ...roomGeometry(study.room, study.openings, wallColors[study.room.walls]),
@@ -482,6 +502,17 @@ export function CabinetConfigurator({
   turnstileSiteKey = '',
 }: {turnstileSiteKey?: string} = {}) {
   const [sharing, setSharing] = useState(false);
+  const [editingRoom, setEditingRoom] = useState(false);
+  const [selectedWall, setSelectedWall] = useState<Wall>('back');
+  const [outlineError, setOutlineError] = useState('');
+  const roomDrag = useRef<{
+    study: Study;
+    id: Wall;
+    pointer: number;
+    position: number;
+    scale: number;
+    horizontal: boolean;
+  } | null>(null);
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
   const drag = useRef<ActiveDrag | null>(null);
@@ -499,10 +530,20 @@ export function CabinetConfigurator({
     [],
   );
   const selected = study.elements.find((item) => item.id === study.selected);
-  const warnings = useMemo(
-    () => validateLayout(study.elements, study.room),
-    [study],
-  );
+  const warnings = useMemo(() => {
+    const result = validateLayout(study.elements, study.room);
+    for (const o of study.openings)
+      if (
+        o.offset < 0 ||
+        o.offset + o.width > roomWall(study.room, o.wall).length ||
+        (o.sill && o.kind === 'window' ? o.sill : 0) + o.height >
+          study.room.height
+      )
+        result.set(o.id, [
+          'Opening exceeds its wall. Resize or reposition it.',
+        ]);
+    return result;
+  }, [study]);
   const pad = 62,
     scale = Math.min(
       (780 - pad * 2) / study.room.width,
@@ -615,11 +656,28 @@ export function CabinetConfigurator({
             clientY: ev.clientY,
             x: elementCenter(e, study.room).x,
             z: elementCenter(e, study.room).z,
-            pointer: horizontalWall(e.placement.wall) ? ev.clientX : ev.clientY,
+            pointer: roomWall(study.room, e.placement.wall).horizontal
+              ? ev.clientX
+              : ev.clientY,
           };
     setStudy((c) => ({...c, selected: e.id}));
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
+    if (roomDrag.current) {
+      const a = roomDrag.current;
+      const position =
+        a.position +
+        ((a.horizontal ? ev.clientY : ev.clientX) - a.pointer) / a.scale;
+      const points = moveRoomWall(a.study.room, a.id, position);
+      if (points) {
+        setStudy(reshapeStudy(a.study, points));
+        setOutlineError('');
+      } else
+        setOutlineError(
+          'Walls cannot cross, overlap, or be shorter than 6 inches.',
+        );
+      return;
+    }
     if (!drag.current) return;
     const a = drag.current,
       b = ev.currentTarget.getBoundingClientRect(),
@@ -718,16 +776,159 @@ export function CabinetConfigurator({
           <details className="cc-accordion">
             <summary>Room</summary>
             <div className="cc-fields">
+              <label>
+                Room outline
+                <select
+                  aria-label="Room outline preset"
+                  value=""
+                  onChange={(e) => {
+                    const points = presetOutline(
+                      study.room,
+                      e.currentTarget.value as
+                        | 'rectangle'
+                        | 'l-shape'
+                        | 'alcove',
+                    );
+                    update((d) => Object.assign(d, reshapeStudy(d, points)));
+                    setSelectedWall('back');
+                    setEditingRoom(true);
+                    setOutlineError('');
+                  }}
+                >
+                  <option value="" disabled>
+                    Choose a shape…
+                  </option>
+                  <option value="rectangle">Rectangle</option>
+                  <option value="l-shape">L-shape</option>
+                  <option value="alcove">Alcove</option>
+                </select>
+              </label>
+              <button
+                aria-pressed={editingRoom}
+                onClick={() => setEditingRoom((v) => !v)}
+              >
+                {editingRoom ? 'Done editing outline' : 'Edit room outline'}
+              </button>
+              {editingRoom && (
+                <>
+                  <p className="cc-muted">
+                    Select a wall and drag it perpendicular to itself. Right
+                    angles and one-inch steps are preserved. Layout changes may
+                    leave existing objects outside the room; review warnings or
+                    Undo.
+                  </p>
+                  <label>
+                    Wall
+                    <select
+                      value={roomWall(study.room, selectedWall).id}
+                      onChange={(e) =>
+                        setSelectedWall(e.currentTarget.value as Wall)
+                      }
+                    >
+                      {roomSegments(study.room).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label} · {Math.round(s.length)}″
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Wall position
+                    <span>
+                      <input
+                        aria-label="Wall position"
+                        type="number"
+                        step="1"
+                        value={
+                          roomWall(study.room, selectedWall).horizontal
+                            ? roomWall(study.room, selectedWall).z
+                            : roomWall(study.room, selectedWall).x
+                        }
+                        onChange={(e) => {
+                          const points = moveRoomWall(
+                            study.room,
+                            selectedWall,
+                            Number(e.currentTarget.value),
+                          );
+                          if (points) {
+                            update((d) =>
+                              Object.assign(d, reshapeStudy(d, points)),
+                            );
+                            setOutlineError('');
+                          } else
+                            setOutlineError(
+                              'That position would cross or collapse walls.',
+                            );
+                        }}
+                      />{' '}
+                      in
+                    </span>
+                  </label>
+                  <div className="cc-button-grid">
+                    {[false, true].map((outward) => (
+                      <button
+                        key={String(outward)}
+                        onClick={() => {
+                          const points = addRoomRecess(
+                            study.room,
+                            selectedWall,
+                            makeId(),
+                            outward,
+                          );
+                          if (points) {
+                            update((d) =>
+                              Object.assign(d, reshapeStudy(d, points)),
+                            );
+                            setOutlineError('');
+                          } else
+                            setOutlineError(
+                              'There is not enough space here for a recess. Choose a longer wall.',
+                            );
+                        }}
+                      >
+                        {outward ? 'Add alcove' : 'Add inward recess'}
+                      </button>
+                    ))}
+                  </div>
+                  {outlineError && (
+                    <p role="alert" className="cc-inline-warning">
+                      {outlineError}
+                    </p>
+                  )}
+                </>
+              )}
               {(['width', 'depth', 'height'] as const).map((k) => (
                 <label key={k}>
                   Room {k}
                   <span>
                     <input
                       type="number"
+                      min="12"
                       value={study.room[k]}
                       onChange={(e) =>
                         update((d) => {
-                          d.room[k] = Number(e.target.value);
+                          const value = Number(e.target.value);
+                          if (
+                            !Number.isFinite(value) ||
+                            value < 12 ||
+                            value > 10000
+                          )
+                            return;
+                          if (k === 'height') d.room.height = value;
+                          else {
+                            const axis = k === 'width' ? 'x' : 'z',
+                              factor = value / d.room[k];
+                            Object.assign(
+                              d,
+                              reshapeStudy(
+                                d,
+                                roomPoints(d.room).map((p) => ({
+                                  ...p,
+                                  [axis]: p[axis] * factor,
+                                })),
+                              ),
+                            );
+                          }
                         })
                       }
                     />{' '}
@@ -807,7 +1008,7 @@ export function CabinetConfigurator({
                         d.openings.push({
                           id,
                           kind,
-                          wall: 'back',
+                          wall: roomSegments(d.room)[0].id,
                           offset: 12,
                           width:
                             kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
@@ -850,10 +1051,16 @@ export function CabinetConfigurator({
                     setStudy((c) => ({...c, selected: opening.id}))
                   }
                 >
-                  {opening.kind} · {opening.wall} wall
+                  {opening.kind} · {roomWall(study.room, opening.wall).label}{' '}
+                  wall
                 </button>
                 {study.selected === opening.id && (
                   <>
+                    {warnings.get(opening.id)?.map((w) => (
+                      <p className="cc-inline-warning" key={w}>
+                        {w}
+                      </p>
+                    ))}
                     <label>
                       Wall
                       <select
@@ -869,17 +1076,15 @@ export function CabinetConfigurator({
                               0,
                               Math.min(
                                 o.offset,
-                                (horizontalWall(wall)
-                                  ? d.room.width
-                                  : d.room.depth) - o.width,
+                                roomWall(d.room, wall).length - o.width,
                               ),
                             );
                           });
                         }}
                       >
-                        {WALLS.map((w) => (
-                          <option key={w} value={w}>
-                            {w}
+                        {roomSegments(study.room).map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.label}
                           </option>
                         ))}
                       </select>
@@ -1484,6 +1689,7 @@ export function CabinetConfigurator({
                 aria-label="Dimensioned room plan"
                 onPointerMove={moveDrag}
                 onPointerUp={() => {
+                  roomDrag.current = null;
                   const active = drag.current;
                   drag.current = null;
                   if (!active || active.mode === 'island') return;
@@ -1496,6 +1702,7 @@ export function CabinetConfigurator({
                   });
                 }}
                 onPointerCancel={() => {
+                  roomDrag.current = null;
                   drag.current = null;
                 }}
               >
@@ -1509,35 +1716,82 @@ export function CabinetConfigurator({
                     <path d="M0 8L8 0" stroke="#d8d4ca" strokeWidth=".35" />
                   </pattern>
                 </defs>
-                <rect
-                  className="cc-paper"
-                  x={pad}
-                  y={pad}
-                  width={study.room.width * scale}
-                  height={study.room.depth * scale}
-                />
                 <path
-                  className="cc-room-line"
-                  d={`M${pad} ${pad + study.room.depth * scale}V${pad}H${pad + study.room.width * scale}V${pad + study.room.depth * scale}Z`}
+                  className="cc-paper"
+                  d={
+                    roomPoints(study.room)
+                      .map(
+                        (p, i) =>
+                          `${i ? 'L' : 'M'}${pad + p.x * scale} ${pad + p.z * scale}`,
+                      )
+                      .join(' ') + 'Z'
+                  }
                 />
+                {roomSegments(study.room).map((s) => (
+                  <g key={s.id}>
+                    <line
+                      className="cc-room-line"
+                      x1={pad + s.a.x * scale}
+                      y1={pad + s.a.z * scale}
+                      x2={pad + s.b.x * scale}
+                      y2={pad + s.b.z * scale}
+                    />
+                    {editingRoom && (
+                      <>
+                        <line
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Edit ${s.label}, ${Math.round(s.length)} inches`}
+                          x1={pad + s.a.x * scale}
+                          y1={pad + s.a.z * scale}
+                          x2={pad + s.b.x * scale}
+                          y2={pad + s.b.z * scale}
+                          stroke={
+                            selectedWall === s.id ? '#b57d45' : 'transparent'
+                          }
+                          strokeWidth="14"
+                          strokeOpacity="0.5"
+                          style={{
+                            cursor: s.horizontal ? 'ns-resize' : 'ew-resize',
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') setSelectedWall(s.id);
+                          }}
+                          onPointerDown={(e) => {
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                            setSelectedWall(s.id);
+                            setHistory((h) => [...h.slice(-29), clone(study)]);
+                            const rect =
+                              e.currentTarget.ownerSVGElement!.getBoundingClientRect();
+                            roomDrag.current = {
+                              study: clone(study),
+                              id: s.id,
+                              pointer: s.horizontal ? e.clientY : e.clientX,
+                              position: s.horizontal ? s.z : s.x,
+                              scale: (scale * rect.width) / 780,
+                              horizontal: s.horizontal,
+                            };
+                          }}
+                        />
+                        <text
+                          pointerEvents="none"
+                          x={pad + ((s.a.x + s.b.x) / 2) * scale + s.nx * 14}
+                          y={pad + ((s.a.z + s.b.z) / 2) * scale + s.nz * 14}
+                          fontSize="10"
+                          textAnchor="middle"
+                        >
+                          {Math.round(s.length)}″
+                        </text>
+                      </>
+                    )}
+                  </g>
+                ))}
                 {study.openings.map((o) => {
-                  const horizontal = horizontalWall(o.wall);
-                  const x =
-                    pad +
-                    (horizontal
-                      ? o.offset
-                      : o.wall === 'left'
-                        ? 0
-                        : study.room.width) *
-                      scale;
-                  const y =
-                    pad +
-                    (horizontal
-                      ? o.wall === 'back'
-                        ? 0
-                        : study.room.depth
-                      : o.offset) *
-                      scale;
+                  const segment = roomWall(study.room, o.wall),
+                    horizontal = segment.horizontal;
+                  const p = wallPoint(study.room, o.wall, o.offset);
+                  const x = pad + p.x * scale,
+                    y = pad + p.z * scale;
                   return (
                     <g
                       key={o.id}
@@ -1549,7 +1803,7 @@ export function CabinetConfigurator({
                         if (e.key === 'Enter')
                           setStudy((c) => ({...c, selected: o.id}));
                       }}
-                      transform={`translate(${x} ${y}) rotate(${horizontal ? 0 : 90})`}
+                      transform={`translate(${x} ${y}) rotate(${horizontal ? 0 : 90}) scale(1 ${horizontal ? segment.nz : -segment.nx})`}
                     >
                       <rect
                         x="0"
@@ -1557,7 +1811,13 @@ export function CabinetConfigurator({
                         width={o.width * scale}
                         height="8"
                         fill={o.kind === 'window' ? '#a9c5d3' : '#f4f2ec'}
-                        stroke={study.selected === o.id ? '#b57d45' : '#55483b'}
+                        stroke={
+                          warnings.has(o.id)
+                            ? '#a84030'
+                            : study.selected === o.id
+                              ? '#b57d45'
+                              : '#55483b'
+                        }
                         strokeWidth="2"
                       />
                       {o.kind === 'door' ? (

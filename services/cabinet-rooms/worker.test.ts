@@ -3,6 +3,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {describe, it, expect} from 'vitest';
 import worker from './worker';
+import {presetOutline} from '../../app/studio/cabinet-configurator/roomOutline';
+import type {Room} from '../../app/studio/cabinet-configurator/model';
 const study = {
   version: 2,
   room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
@@ -63,6 +65,46 @@ function setup() {
   return {db, call, env};
 }
 describe('D1 room API with SQLite migration', () => {
+  it('round-trips irregular outlines and custom wall references, rejecting invalid polygons', async () => {
+    const {db, call} = setup();
+    try {
+      const room = {
+        ...study.room,
+        outline: presetOutline(study.room as Room, 'l-shape'),
+      };
+      const data = {
+        ...study,
+        room,
+        openings: [
+          {
+            id: 'custom-door',
+            kind: 'door',
+            wall: 'segment-l-1',
+            offset: 6,
+            width: 24,
+            height: 80,
+          },
+        ],
+      };
+      const saved = await call('POST', undefined, {study: data});
+      expect(saved.status).toBe(201);
+      const record: any = await saved.json();
+      const loaded: any = await (await call('GET', record.slug)).json();
+      expect(loaded.study).toEqual(data);
+      expect(
+        (
+          await call('POST', undefined, {
+            study: {
+              ...data,
+              room: {...room, outline: [...room.outline].reverse()},
+            },
+          })
+        ).status,
+      ).toBe(400);
+    } finally {
+      db.close();
+    }
+  });
   it('stores consenting senders only, creates private-edit snapshots, and retries idempotently', async () => {
     const {db, call, env} = setup();
     db.exec(

@@ -1,4 +1,5 @@
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
+import {validOutline, roomSegments} from './roomOutline';
 export const ROOM_LIMIT = 200_000;
 export const SLUG = /^[a-f0-9]{32}$/;
 export const jsonResponse = (body: unknown, status = 200) =>
@@ -35,7 +36,6 @@ export function validStudy(value: any): boolean {
   const dimension = (v: unknown) => num(v) && Number(v) > 0;
   const id = (v: unknown) =>
     typeof v === 'string' && v.length > 0 && v.length < 100;
-  const walls = ['back', 'front', 'left', 'right'];
   if (
     !value ||
     value.version !== 2 ||
@@ -43,6 +43,19 @@ export function validStudy(value: any): boolean {
     !['width', 'depth', 'height'].every((k) => dimension(value.room[k]))
   )
     return false;
+  if (
+    value.room.outline !== undefined &&
+    (!validOutline(value.room.outline) ||
+      value.room.outline.some(
+        (p: any) =>
+          p.x < 0 ||
+          p.z < 0 ||
+          p.x > value.room.width ||
+          p.z > value.room.depth,
+      ))
+  )
+    return false;
+  const walls = roomSegments(value.room).map((s) => s.id);
   if (
     !['oak', 'walnut', 'concrete'].includes(value.room.floor) ||
     !['plaster', 'white', 'green'].includes(value.room.walls)

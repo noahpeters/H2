@@ -1,5 +1,12 @@
 import type {CabinetMaterial, CabinetPaint} from './materials';
-export type Wall = 'back' | 'left' | 'right' | 'front';
+import {
+  roomWall,
+  roomSegments,
+  wallPoint,
+  boxInRoom,
+  type RoomPoint,
+} from './roomOutline';
+export type Wall = 'back' | 'left' | 'right' | 'front' | `segment-${string}`;
 export const WALLS: Wall[] = ['back', 'left', 'right', 'front'];
 export const horizontalWall = (wall: Wall) =>
   wall === 'back' || wall === 'front';
@@ -164,6 +171,7 @@ export type Island = {
   seatingSide: SeatingSide;
 };
 export type Room = {
+  outline?: RoomPoint[];
   width: number;
   depth: number;
   height: number;
@@ -215,6 +223,16 @@ export function wallToFloor(
           rotation: element.placement.rotation,
         };
   const {wall, offset} = element.placement;
+  if (room.outline) {
+    const s = roomWall(room, wall),
+      p = wallPoint(room, wall, offset + element.width / 2);
+    return {
+      mode: 'floor',
+      x: p.x + (s.nx * element.depth) / 2,
+      z: p.z + (s.nz * element.depth) / 2,
+      rotation: element.placement.rotation ?? s.rotation,
+    };
+  }
   if (wall === 'front')
     return {
       mode: 'floor',
@@ -244,11 +262,15 @@ export function wallToFloor(
   };
 }
 
-export function rotatedSize(element: KitchenElement) {
+export function rotatedSize(element: KitchenElement, room?: Room) {
   const rotation =
     element.placement.mode === 'wall'
       ? (element.placement.rotation ??
-        (horizontalWall(element.placement.wall) ? 0 : 90))
+        (room
+          ? roomWall(room, element.placement.wall).rotation
+          : horizontalWall(element.placement.wall)
+            ? 0
+            : 90))
       : element.placement.rotation;
   const radians = (rotation * Math.PI) / 180;
   // Quarter turns have exact footprints; trig roundoff otherwise makes a
@@ -276,7 +298,7 @@ export function elementCenter(element: KitchenElement, room: Room) {
 
 export function bounds(element: KitchenElement, room: Room) {
   const center = elementCenter(element, room);
-  const size = rotatedSize(element);
+  const size = rotatedSize(element, room);
   return {
     left: center.x - size.width / 2,
     right: center.x + size.width / 2,
@@ -291,13 +313,7 @@ export function validateLayout(elements: KitchenElement[], room: Room) {
     warnings.set(id, [...(warnings.get(id) ?? []), message]);
   elements.forEach((element, index) => {
     const box = bounds(element, room);
-    if (
-      box.left < 0 ||
-      box.top < 0 ||
-      box.right > room.width ||
-      box.bottom > room.depth
-    )
-      add(element.id, 'Outside room bounds');
+    if (!boxInRoom(room, box)) add(element.id, 'Outside room bounds');
     elements.slice(index + 1).forEach((other) => {
       if (
         element.placement.mode === 'wall' &&
@@ -355,10 +371,35 @@ export function aisleClearance(island: Island, room: Room) {
     (Math.abs(island.width * Math.sin((island.rotation * Math.PI) / 180)) +
       Math.abs(island.depth * Math.cos((island.rotation * Math.PI) / 180))) /
     2;
-  return {
+  const distances = {
     left: island.x - halfWidth,
     right: room.width - island.x - halfWidth,
     top: island.z - halfDepth,
     bottom: room.depth - island.z - halfDepth,
   };
+  for (const s of roomSegments(room)) {
+    if (
+      s.horizontal &&
+      s.x < island.x + halfWidth &&
+      s.x + s.length > island.x - halfWidth
+    ) {
+      if (s.z <= island.z)
+        distances.top = Math.min(distances.top, island.z - halfDepth - s.z);
+      else
+        distances.bottom = Math.min(
+          distances.bottom,
+          s.z - island.z - halfDepth,
+        );
+    } else if (
+      !s.horizontal &&
+      s.z < island.z + halfDepth &&
+      s.z + s.length > island.z - halfDepth
+    ) {
+      if (s.x <= island.x)
+        distances.left = Math.min(distances.left, island.x - halfWidth - s.x);
+      else
+        distances.right = Math.min(distances.right, s.x - island.x - halfWidth);
+    }
+  }
+  return distances;
 }

@@ -7,6 +7,7 @@ import {
   type Room,
   type Wall,
 } from './model';
+import {roomSegments, roomPoints, boxInRoom} from './roomOutline';
 /** Corner footprints sit flush against both walls; the notch points inward. */
 export function snapRoomCorner(
   item: KitchenElement,
@@ -20,23 +21,37 @@ export function snapRoomCorner(
   )
     return false;
   const p = item.placement;
-  const candidates = [0, 90, 180, 270].map((rotation) => {
+  const corners = roomPoints(room);
+  const segments = roomSegments(room);
+  const candidates = corners.flatMap((corner, index) => {
+    const prev = segments[(index + segments.length - 1) % segments.length],
+      next = segments[index];
+    const nx = prev.nx + next.nx,
+      nz = prev.nz + next.nz;
+    const rotation = nx > 0 ? (nz > 0 ? 0 : 270) : nz > 0 ? 90 : 180;
     const width = rotation % 180 ? item.depth : item.width;
     const depth = rotation % 180 ? item.width : item.depth;
-    return {
-      rotation,
-      width,
-      depth,
-      x:
-        rotation === 0 || rotation === 270 ? width / 2 : room.width - width / 2,
-      z: rotation === 0 || rotation === 90 ? depth / 2 : room.depth - depth / 2,
-    };
+    return [
+      {
+        rotation,
+        width,
+        depth,
+        x: corner.x + (nx * width) / 2,
+        z: corner.z + (nz * depth) / 2,
+      },
+    ];
   });
   const target = candidates
     .filter(
       (c) =>
         c.width <= room.width &&
         c.depth <= room.depth &&
+        boxInRoom(room, {
+          left: c.x - c.width / 2,
+          right: c.x + c.width / 2,
+          top: c.z - c.depth / 2,
+          bottom: c.z + c.depth / 2,
+        }) &&
         Math.abs(p.x - c.x) <= threshold &&
         Math.abs(p.z - c.z) <= threshold,
     )
@@ -57,38 +72,40 @@ export function snapWall(item: KitchenElement, room: Room, threshold = 3) {
     distance: number;
     offset: number;
     length: number;
-  }[] = [
-    {
-      wall: 'back',
-      distance: Math.abs(z - item.depth / 2),
-      offset: x - item.width / 2,
-      length: room.width,
-    },
-    {
-      wall: 'front',
-      distance: Math.abs(z - (room.depth - item.depth / 2)),
-      offset: x - item.width / 2,
-      length: room.width,
-    },
-    {
-      wall: 'left',
-      distance: Math.abs(x - item.depth / 2),
-      offset: z - item.width / 2,
-      length: room.depth,
-    },
-    {
-      wall: 'right',
-      distance: Math.abs(x - (room.width - item.depth / 2)),
-      offset: z - item.width / 2,
-      length: room.depth,
-    },
-  ];
+  }[] = roomSegments(room).map((s) => ({
+    wall: s.id,
+    distance: Math.abs(
+      s.horizontal
+        ? z - (s.z + (s.nz * item.depth) / 2)
+        : x - (s.x + (s.nx * item.depth) / 2),
+    ),
+    offset: (s.horizontal ? x - s.x : z - s.z) - item.width / 2,
+    length: s.length,
+  }));
   const target = candidates
     .filter(
       (c) =>
         c.distance <= threshold &&
         c.offset >= -threshold &&
-        c.offset + item.width <= c.length + threshold,
+        c.offset + item.width <= c.length + threshold &&
+        boxInRoom(
+          room,
+          bounds(
+            {
+              ...item,
+              placement: {
+                mode: 'wall',
+                wall: c.wall,
+                offset: Math.max(
+                  0,
+                  Math.min(c.length - item.width, Math.round(c.offset)),
+                ),
+                elevation,
+              },
+            },
+            room,
+          ),
+        ),
     )
     .sort((a, b) => a.distance - b.distance)[0];
   if (!target) return;
