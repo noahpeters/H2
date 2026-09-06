@@ -15,6 +15,17 @@ export const CABINET_PAINTS = {
 } as const;
 export type CabinetMaterial = keyof typeof CABINET_MATERIALS;
 export type CabinetPaint = keyof typeof CABINET_PAINTS;
+export function hasMaterialFinish(item: {
+  kind: string;
+  applianceKind?: string;
+  applianceFront?: string;
+}) {
+  return (
+    item.kind !== 'appliance' ||
+    (['refrigerator', 'dishwasher'].includes(item.applianceKind ?? '') &&
+      ['shaker', 'slab'].includes(item.applianceFront ?? ''))
+  );
+}
 export function cabinetColor(item: {
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
