@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {Script, useNonce} from '@shopify/hydrogen';
+import {useNonce} from '@shopify/hydrogen';
 import {CONTACT_CONSENT} from './shareProtocol';
 type Turnstile = {
   render: (el: HTMLElement, options: Record<string, unknown>) => string;
@@ -16,7 +16,8 @@ export function ShareRoomForm({
   close: () => void;
 }) {
   const nonce = useNonce();
-  const [loaded, setLoaded] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [verificationError, setVerificationError] = useState('');
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -30,22 +31,70 @@ export function ShareRoomForm({
     dialog.current?.showModal();
   }, []);
   useEffect(() => {
-    const service = api();
-    if (!service || !mount.current || !siteKey) return;
-    widget.current = service.render(mount.current, {
-      sitekey: siteKey,
-      action: 'cabinet-share',
-      callback: setToken,
-      // Turnstile requires these hyphenated callback names.
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'expired-callback': () => setToken(''),
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'error-callback': () => setToken(''),
-    });
-    return () => {
-      if (widget.current) service.remove(widget.current);
+    if (!mount.current || !siteKey || sent) return;
+    setToken('');
+    setVerificationError('');
+    let disposed = false;
+    let rendered = false;
+    let script: HTMLScriptElement | undefined;
+    const fail = () => {
+      if (disposed) return;
+      setToken('');
+      setVerificationError(
+        'Verification could not complete. Please retry. If it keeps failing, check your connection or content blocker.',
+      );
     };
-  }, [loaded, siteKey]);
+    const timeout = window.setTimeout(fail, 30000);
+    const initialize = () => {
+      const service = api();
+      if (disposed || rendered || !service || !mount.current) return;
+      rendered = true;
+      try {
+        widget.current = service.render(mount.current, {
+          sitekey: siteKey,
+          action: 'cabinet-share',
+          callback: (value: string) => {
+            if (disposed) return;
+            window.clearTimeout(timeout);
+            setVerificationError('');
+            setToken(value);
+          },
+          // Turnstile requires these hyphenated callback names.
+          'expired-callback': fail,
+          'error-callback': fail,
+        });
+      } catch {
+        fail();
+      }
+    };
+    // A script rendered by React after opening a dialog may be inert. Append a
+    // real script element, and also handle a library already loading elsewhere.
+    if (
+      !api() &&
+      !document.querySelector(
+        'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]',
+      )
+    ) {
+      script = document.createElement('script');
+      script.src =
+        'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      if (nonce) script.nonce = nonce;
+      script.addEventListener('error', fail);
+      document.head.appendChild(script);
+    }
+    initialize();
+    const poll = window.setInterval(initialize, 100);
+    return () => {
+      disposed = true;
+      window.clearInterval(poll);
+      window.clearTimeout(timeout);
+      script?.removeEventListener('error', fail);
+      script?.remove();
+      if (widget.current) api()?.remove(widget.current);
+      widget.current = undefined;
+    };
+  }, [attempt, siteKey, nonce, sent]);
   return (
     <dialog
       ref={dialog}
@@ -66,6 +115,7 @@ export function ShareRoomForm({
         <form
           onSubmit={(event) => {
             event.preventDefault();
+            if (busy || !token) return;
             const form = new FormData(event.currentTarget);
             setBusy(true);
             setError('');
@@ -86,7 +136,7 @@ export function ShareRoomForm({
                     : 'Unable to send. Please retry.',
                 );
                 setToken('');
-                if (widget.current) api()?.reset(widget.current);
+                setAttempt((value) => value + 1);
               })
               .finally(() => setBusy(false));
           }}
@@ -150,6 +200,21 @@ export function ShareRoomForm({
           </fieldset>
           <div ref={mount} />
           {!siteKey && <p role="alert">Email sharing is not configured yet.</p>}
+          {siteKey && !token && !verificationError && (
+            <p role="status">Waiting for security verification…</p>
+          )}
+          {verificationError && (
+            <>
+              <p role="alert">{verificationError}</p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setAttempt((value) => value + 1)}
+              >
+                Retry verification
+              </button>
+            </>
+          )}
           {error && <p role="alert">{error}</p>}
           <button type="button" disabled={busy} onClick={close}>
             Cancel
@@ -158,13 +223,6 @@ export function ShareRoomForm({
             {busy ? 'Sending…' : 'Send design'}
           </button>
         </form>
-      )}
-      {siteKey && (
-        <Script
-          nonce={nonce}
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-          onLoad={() => setLoaded(true)}
-        />
       )}
     </dialog>
   );
