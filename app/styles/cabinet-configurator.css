@@ -557,7 +557,26 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
-.cc-share-dialog button {
+.cabinet-app .cc-share-dialog button {
   margin: 0.4rem;
   padding: 0.65rem 1rem;
+  color: #252b26;
+  background: #f7f4eb;
+  border: 1px solid #80776a;
+}
+.cabinet-app .cc-share-dialog button:enabled:hover {
+  color: #fff;
+  background: #252b26;
+  border-color: #252b26;
+}
+.cabinet-app .cc-share-dialog button:focus-visible {
+  outline: 2px solid #252b26;
+  outline-offset: 3px;
+}
+.cabinet-app .cc-share-dialog button:disabled {
+  color: #62675f;
+  background: #e6e3da;
+  border-color: #9c9b93;
+  opacity: 1;
+  cursor: not-allowed;
 }

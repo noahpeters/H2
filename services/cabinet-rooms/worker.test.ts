@@ -72,6 +72,12 @@ describe('D1 room API with SQLite migration', () => {
       ),
     );
     const room: any = await (await call('POST', undefined, {study})).json();
+    db.exec(
+      readFileSync(
+        new URL('./migrations/0003_lead_phone.sql', import.meta.url),
+        'utf8',
+      ),
+    );
     const details = {
       ...room,
       requestId: crypto.randomUUID(),
@@ -80,6 +86,7 @@ describe('D1 room API with SQLite migration', () => {
       recipientName: 'Recipient',
       recipientEmail: 'recipient@example.com',
       consent: false,
+      senderPhone: '+1 (555) 123-4567',
     };
     const share = (body: unknown) =>
       worker.fetch(
@@ -103,6 +110,7 @@ describe('D1 room API with SQLite migration', () => {
       expect(leads).toHaveLength(1);
       expect(leads[0]).toMatchObject({
         sender_email: 'sender@example.com',
+        sender_phone: '+1 (555) 123-4567',
         consent_text: 'From Trees may contact me about my cabinet project',
       });
       expect(JSON.stringify(leads)).not.toContain('recipient@example.com');
@@ -111,6 +119,7 @@ describe('D1 room API with SQLite migration', () => {
       ).json();
       expect(publicRoom.study).toEqual(study);
       expect(JSON.stringify(publicRoom)).not.toContain('sender@example.com');
+      expect(JSON.stringify(publicRoom)).not.toContain(details.senderPhone);
       expect((await share({...details, consent: true})).status).toBe(409);
       env.SHARES.limit = async () => ({success: false});
       expect((await share(details)).status).toBe(429);

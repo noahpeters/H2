@@ -13,6 +13,7 @@ const details = {
   recipientName: 'Recipient',
   recipientEmail: 'recipient@example.com',
   consent: false,
+  senderPhone: '+1 555 123 4567',
   requestId: '12345678-1234-1234-1234-123456789012',
   slug: 'a'.repeat(32),
   editKey: 'private-key',
@@ -63,6 +64,10 @@ describe('cabinet share email endpoint', () => {
     expect(message.to).toBe(details.recipientEmail);
     expect(message.html).toContain('A &lt;B&gt;');
     expect(message.html).toContain('Open design');
+    expect(JSON.stringify(message)).not.toContain(details.senderPhone);
+    expect(
+      JSON.parse(vi.mocked(fetch).mock.calls[1][1]!.body as string),
+    ).not.toHaveProperty('senderPhone');
     expect(JSON.stringify(message)).not.toContain(details.editKey);
     expect(options.idempotencyKey).toBe(`cabinet-share-${details.requestId}`);
   });
