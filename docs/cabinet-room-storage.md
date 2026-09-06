@@ -12,8 +12,10 @@ H2 uses a same-origin `/api/cabinet-rooms` proxy on Oxygen. A dedicated Worker o
 
 ## Production setup (not performed by this PR)
 
+The **Cabinet rooms API** workflow runs on every push to `main`, including every merged PR, with no path filter. Manual dispatch remains available for retries. Merging is the production authorization: `cabinet-rooms-production` has no required reviewer or wait timer, while its main-only branch policy remains in place. Tests must pass before migrations and deployment; failed runs need remediation, not a separate approval.
+
 1. Create a dedicated D1 database named `h2-cabinet-rooms` in the intended Cloudflare account. Do not reuse Metis or customer-management databases. Record its database ID.
-2. Configure GitHub environment `cabinet-rooms-production` with a required human reviewer. Set variables `CLOUDFLARE_ACCOUNT_ID` and `CABINET_ROOMS_DATABASE_ID`; secrets `CLOUDFLARE_API_TOKEN` (Worker deployment and D1 permissions) and `CABINET_ROOMS_TOKEN` (a strong random service token).
+2. Configure GitHub environment `cabinet-rooms-production` for main only, without required reviewers or a wait timer. Set variables `CLOUDFLARE_ACCOUNT_ID` and `CABINET_ROOMS_DATABASE_ID`; secrets `CLOUDFLARE_API_TOKEN` (Worker deployment and D1 permissions) and `CABINET_ROOMS_TOKEN` (a strong random service token).
 3. Coordinate rollout: the configurator will show a cloud-configuration error until the API and Oxygen variables are available. Merge this PR, then dispatch **Cabinet rooms API** from main. The workflow applies the migration and deploys the Worker with its service token. No local production deployment is required. Do not advertise the saved-room feature before the following verification passes.
 4. In Oxygen, configure server-only `CABINET_ROOMS_URL` (deployed Worker HTTPS URL) and `CABINET_ROOMS_TOKEN` (same token). Redeploy H2 through its existing GitHub Action. Configure these separately for preview if desired; do not point experimental previews at production storage.
 5. Verify New room → edit → Saved online → History resume. Open its URL in another browser: the URL must change to a new slug and edits must not affect the source. Check Copy to new, failed requests, and concurrent-tab conflicts.
