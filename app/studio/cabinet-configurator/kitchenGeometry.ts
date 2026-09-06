@@ -267,7 +267,15 @@ export function cabinetGeometry(
               item.tallConfiguration ?? '',
             ))
           ? y - height / 2 + Math.min(4, height / 2)
-          : y + height * 0.22,
+          : item.kind === 'tall'
+            ? Math.max(
+                y - height / 2 + Math.min(2.5, height / 2),
+                Math.min(
+                  y + height / 2 - Math.min(2.5, height / 2),
+                  36 - (item.placement.elevation ?? 0) - h / 2,
+                ),
+              )
+            : y + height * 0.22,
         faceZ + 0.7,
         steel,
       );
