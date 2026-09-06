@@ -153,6 +153,47 @@ export function moveRoomWall(room: Room, id: Wall, position: number) {
   points[i][axis] = points[next][axis] = Math.round(position);
   return validOutline(points) ? points : null;
 }
+/** Replace a three-wall detour and its collinear shoulders with one wall. */
+export function removeRoomRecess(
+  room: Room,
+  selected: Wall,
+): RoomPoint[] | null {
+  const points = roomPoints(room),
+    n = points.length;
+  if (n < 8) return null;
+  const selectedIndex = points.findIndex((p) => p.id === selected);
+  if (selectedIndex < 0) return null;
+  // Accept the middle wall or either short return, including across index zero.
+  for (const shift of [0, 1, -1]) {
+    const center = (selectedIndex + shift + n) % n;
+    const start = (center - 2 + n) % n;
+    const ordered = Array.from({length: n}, (_, i) => ({
+      ...points[(start + i) % n],
+    }));
+    const [a, b, c, d, e, f] = ordered;
+    const horizontal = a.z === b.z;
+    if (
+      horizontal
+        ? !(e.z === f.z && a.z === e.z && c.z === d.z)
+        : !(e.x === f.x && a.x === e.x && c.x === d.x)
+    )
+      continue;
+    // Only remove a detour, never a reversed or overlapping wall run.
+    const axis = horizontal ? 'x' : 'z';
+    const direction = Math.sign(f[axis] - a[axis]);
+    if (
+      !direction ||
+      [b[axis] - a[axis], d[axis] - c[axis], f[axis] - e[axis]].some(
+        (v) => Math.sign(v) !== direction,
+      )
+    )
+      continue;
+    const simplified = [a, ...ordered.slice(5)];
+    if (validOutline(simplified)) return simplified;
+  }
+  return null;
+}
+
 export function addRoomRecess(
   room: Room,
   id: Wall,
