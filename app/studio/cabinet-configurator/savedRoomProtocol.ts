@@ -1,3 +1,4 @@
+import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 export const ROOM_LIMIT = 200_000;
 export const SLUG = /^[a-f0-9]{32}$/;
 export const jsonResponse = (body: unknown, status = 200) =>
@@ -62,6 +63,10 @@ export function validStudy(value: any): boolean {
       (e: any) =>
         e &&
         ['base', 'wall-cabinet', 'tall', 'appliance'].includes(e.kind) &&
+        (e.material === undefined ||
+          Object.hasOwn(CABINET_MATERIALS, e.material)) &&
+        (e.paintColor === undefined ||
+          Object.hasOwn(CABINET_PAINTS, e.paintColor)) &&
         ['width', 'depth', 'height'].every((k) => dimension(e[k])) &&
         ['shaker', 'slab', 'shaker-glass', 'inset-shaker'].includes(e.face) &&
         (e.kind !== 'appliance' ||

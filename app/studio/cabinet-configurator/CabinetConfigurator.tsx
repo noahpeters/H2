@@ -1,5 +1,12 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
+import {
+  CABINET_MATERIALS,
+  CABINET_PAINTS,
+  cabinetColor,
+  type CabinetMaterial,
+  type CabinetPaint,
+} from './materials';
 import * as THREE from 'three';
 import {
   islandAt,
@@ -1083,6 +1090,64 @@ export function CabinetConfigurator() {
                   </label>
                 )}
                 {selected.kind !== 'appliance' && (
+                  <>
+                    <label>
+                      Material
+                      <select
+                        value={selected.material ?? 'rift-white-oak'}
+                        onChange={(event) => {
+                          const material = event.currentTarget
+                            .value as CabinetMaterial;
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item) item.material = material;
+                          });
+                        }}
+                      >
+                        {Object.entries(CABINET_MATERIALS).map(
+                          ([key, value]) => (
+                            <option key={key} value={key}>
+                              {value.label}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                    {selected.material === 'paint-grade' && (
+                      <label>
+                        Paint color
+                        <select
+                          value={selected.paintColor ?? 'white'}
+                          onChange={(event) => {
+                            const paintColor = event.currentTarget
+                              .value as CabinetPaint;
+                            update((d) => {
+                              const item = d.elements.find(
+                                (e) => e.id === selected.id,
+                              );
+                              if (item) item.paintColor = paintColor;
+                            });
+                          }}
+                        >
+                          {Object.entries(CABINET_PAINTS).map(
+                            ([key, value]) => (
+                              <option key={key} value={key}>
+                                {value.label}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      </label>
+                    )}
+                    <small>
+                      Screen colors are approximate; approve a physical finish
+                      sample.
+                    </small>
+                  </>
+                )}
+                {selected.kind !== 'appliance' && (
                   <label>
                     Front style
                     <select
@@ -1567,6 +1632,11 @@ export function CabinetConfigurator() {
                       >
                         {e.configuration === 'corner' ? (
                           <path
+                            style={
+                              e.kind !== 'appliance' && !warnings.has(e.id)
+                                ? {fill: cabinetColor(e)}
+                                : undefined
+                            }
                             d={(() => {
                               const a =
                                 Math.min(
@@ -1579,6 +1649,11 @@ export function CabinetConfigurator() {
                           />
                         ) : (
                           <rect
+                            style={
+                              e.kind !== 'appliance' && !warnings.has(e.id)
+                                ? {fill: cabinetColor(e)}
+                                : undefined
+                            }
                             x={-b.w / 2}
                             y={-b.h / 2}
                             width={b.w}
