@@ -8,6 +8,7 @@ export type BaseConfiguration =
   | 'pullout'
   | 'door-drawer'
   | 'three-drawer'
+  | 'microwave-drawer'
   | 'sink';
 export type Opening = {
   id: string;
@@ -59,9 +60,22 @@ export type KitchenElement = {
   rangeHood?: boolean;
   applianceKind?: ApplianceKind;
   configuration?: BaseConfiguration;
+  tallConfiguration?: 'standard' | 'one-oven' | 'two-oven' | 'coffee-maker';
   placement: Placement;
   islandId?: string;
 };
+
+export function minimumTallHeight(
+  configuration: KitchenElement['tallConfiguration'],
+) {
+  return configuration === 'two-oven'
+    ? 84
+    : configuration === 'one-oven'
+      ? 72
+      : configuration === 'coffee-maker'
+        ? 66
+        : 12;
+}
 
 export const APPLIANCE_CATALOG: Record<
   ApplianceKind,
