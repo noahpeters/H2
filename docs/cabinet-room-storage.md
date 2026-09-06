@@ -12,6 +12,8 @@ H2 uses a same-origin `/api/cabinet-rooms` proxy on Oxygen. A dedicated Worker o
 
 ## Production setup (not performed by this PR)
 
+The **Cabinet rooms API** workflow runs on every push to `main`, including every merged PR, with no path filter. Manual dispatch remains available for retries. Each run still requires approval in `cabinet-rooms-production` before migrations and deployment. Approve API deployments promptly alongside storefront releases: until approval and successful completion, the API can still be running an older schema validator than Oxygen.
+
 1. Create a dedicated D1 database named `h2-cabinet-rooms` in the intended Cloudflare account. Do not reuse Metis or customer-management databases. Record its database ID.
 2. Configure GitHub environment `cabinet-rooms-production` with a required human reviewer. Set variables `CLOUDFLARE_ACCOUNT_ID` and `CABINET_ROOMS_DATABASE_ID`; secrets `CLOUDFLARE_API_TOKEN` (Worker deployment and D1 permissions) and `CABINET_ROOMS_TOKEN` (a strong random service token).
 3. Coordinate rollout: the configurator will show a cloud-configuration error until the API and Oxygen variables are available. Merge this PR, then dispatch **Cabinet rooms API** from main. The workflow applies the migration and deploys the Worker with its service token. No local production deployment is required. Do not advertise the saved-room feature before the following verification passes.
