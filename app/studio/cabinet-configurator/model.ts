@@ -231,13 +231,13 @@ export function wallToFloor(
       mode: 'floor',
       x: element.depth / 2,
       z: offset + element.width / 2,
-      rotation: element.placement.rotation ?? 90,
+      rotation: element.placement.rotation ?? 270,
     };
   return {
     mode: 'floor',
     x: room.width - element.depth / 2,
     z: offset + element.width / 2,
-    rotation: element.placement.rotation ?? 270,
+    rotation: element.placement.rotation ?? 90,
   };
 }
 
