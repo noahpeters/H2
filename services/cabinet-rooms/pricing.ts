@@ -1,5 +1,6 @@
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import {minimumTallHeight} from '../../app/studio/cabinet-configurator/model';
+import {storageLayout} from '../../app/studio/cabinet-configurator/openStorage';
 export type Rates = Record<string, number | null>;
 export class PricingError extends Error {
   constructor(
@@ -39,12 +40,15 @@ export type ScheduleLine = {
   endPanels: number;
   finishedBack: number;
   visibleBox: boolean;
+  extraCarcass?: number;
+  backSheetFactor?: number;
+  rodFeet?: number;
 };
 export function projectSchedule(study: Study) {
   const lines: ScheduleLine[] = [];
   const assumptions = new Set<string>([
     'Budget estimate, not a final quote; dimensions and construction require shop review.',
-    'No interior shelves are priced until specified. Standard box/drawer/finishing labor is used for all front styles; shaker and inset joinery need review.',
+    'Unspecified interior shelves are excluded. Standard box/drawer/finishing labor is used for all front styles; shaker and inset joinery need review.',
     'Visible fronts use sheet-area allowances, not a detailed rail-and-stile cut list.',
     'Four Axilo feet per base/tall cabinet; their default cost is covered by project miscellaneous materials.',
   ]);
@@ -105,7 +109,7 @@ export function projectSchedule(study: Study) {
           'Sink bases have a false front and no drawer box; sink, plumbing and countertop are excluded.',
         );
     }
-    if (e.kind === 'tall') {
+    if (e.kind === 'tall' && !e.storage) {
       const config = e.tallConfiguration ?? 'standard';
       if (
         !['standard', 'one-oven', 'two-oven', 'coffee-maker'].includes(
@@ -128,8 +132,9 @@ export function projectSchedule(study: Study) {
         );
       }
     }
-    const visibleBox = e.kind === 'wall-cabinet' && e.face === 'shaker-glass';
-    if (visibleBox)
+    const visibleBox =
+      !!e.storage || (e.kind === 'wall-cabinet' && e.face === 'shaker-glass');
+    if (visibleBox && !e.storage)
       assumptions.add(
         'Glass-front uppers use visible-material carcasses and a conservative full face-stock allowance; glass itself is excluded.',
       );
@@ -141,6 +146,20 @@ export function projectSchedule(study: Study) {
       assumptions.add(
         'Two finished ends per cabinet are assumed conservatively; full finished backs are included for island-assigned cabinets. Verify actual exposure.',
       );
+    const storage = e.storage ? storageLayout(e) : undefined;
+    if (storage) {
+      drawers = storage.drawers;
+      doors =
+        e.storage!.doors && storage.high - storage.low - storage.drawerZone > 1
+          ? e.width > 30
+            ? 2
+            : 1
+          : 0;
+      frontCoverage = e.storage!.doors ? 1 : storage.drawerZone / h;
+      assumptions.add(
+        'Open storage includes visible-material shelves, dividers, top and optional finished back. Shelf supports and hanging-rod hardware use the project miscellaneous allowance unless separately configured; interior assembly uses the standard box labor allowance and requires shop review.',
+      );
+    }
     lines.push({
       id: e.id,
       width: e.width,
@@ -161,8 +180,25 @@ export function projectSchedule(study: Study) {
             : 2),
       frontCoverage,
       endPanels: panel ? 0 : 2,
-      finishedBack: !panel && e.islandId ? 1 : 0,
+      finishedBack: !panel && !storage && e.islandId ? 1 : 0,
       visibleBox,
+      ...(storage
+        ? {
+            extraCarcass:
+              (storage.shelfYs.length * storage.shelfWidth * (e.depth - 0.75) +
+                (storage.divider
+                  ? (storage.high - storage.low) * (e.depth - 0.75)
+                  : 0) +
+                storage.inner * e.depth +
+                (e.storage!.back ? storage.inner * h : 0) +
+                (e.storage!.type === 'shoes' && e.storage!.angled
+                  ? storage.shelfYs.length * storage.shelfWidth * 1.25
+                  : 0)) /
+              144,
+            backSheetFactor: 0,
+            rodFeet: (storage.rods.length * storage.rodWidth) / 12,
+          }
+        : {}),
     });
   }
   return {lines, assumptions: [...assumptions]};
@@ -194,7 +230,9 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       d = c.depth,
       h = c.height - (c.feet ? 4 : 0),
       iw = w - 1.5;
-    const carcass = (c.boxUnits * (2 * d * h + iw * d + 4 * iw * 3)) / 144;
+    const carcass =
+      (c.boxUnits * (2 * d * h + iw * d + 4 * iw * 3)) / 144 +
+      (c.extraCarcass ?? 0);
     const face =
       (c.finishUnits * w * h * c.frontCoverage +
         c.endPanels * d * h +
@@ -207,7 +245,11 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       face + (c.visibleBox ? carcass : 0),
       'face_waste',
     );
-    add('back_sheet', (c.boxUnits * iw * h) / 144, 'back_waste');
+    add(
+      'back_sheet',
+      (c.boxUnits * iw * h * (c.backSheetFactor ?? 1)) / 144,
+      'back_waste',
+    );
     add(
       'drawer_stock',
       (c.drawers * 2 * (d - 3 + (w - 1.25))) / 12,
@@ -227,6 +269,7 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       c.drawers * rate('slide_pair') +
       (c.hinges / 2) * rate('hinge_pair') +
       c.feet * rate('axilo_foot');
+    if (c.rodFeet) hardware += c.rodFeet * rate('hanging_rod_lf');
     finish += c.finishUnits * rate('finish_consumables');
   }
   const purchases: Record<string, number> = {};

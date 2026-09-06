@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ShareRoomForm} from './ShareRoomForm';
+import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
+import {OpenStorageControls} from './OpenStorageControls';
 import {placeOpening} from './openingPlacement';
 import {
   roomPoints,
@@ -1228,6 +1230,31 @@ export function CabinetConfigurator({
           <details className="cc-accordion" open>
             <summary>Add to room</summary>
             <details className="cc-add-menu">
+              <summary>+ Add open storage</summary>
+              <div>
+                {Object.entries(OPEN_STORAGE).map(([type, label]) => (
+                  <button
+                    key={type}
+                    onClick={(event) => {
+                      update((d) => {
+                        const item = createOpenStorage(
+                          type as StorageKind,
+                          makeId(),
+                        );
+                        d.elements.push(item);
+                        d.selected = item.id;
+                      });
+                      event.currentTarget
+                        .closest('details')
+                        ?.removeAttribute('open');
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </details>
+            <details className="cc-add-menu">
               <summary>+ Add cabinet</summary>
               <div>
                 <button
@@ -1294,9 +1321,11 @@ export function CabinetConfigurator({
               <div className="cc-fields">
                 <div className="cc-selected-heading">
                   <strong>
-                    {selected.applianceKind
-                      ? APPLIANCE_CATALOG[selected.applianceKind].label
-                      : selected.kind}
+                    {selected.storage
+                      ? OPEN_STORAGE[selected.storage.type]
+                      : selected.applianceKind
+                        ? APPLIANCE_CATALOG[selected.applianceKind].label
+                        : selected.kind}
                   </strong>
                   <button
                     onClick={() =>
@@ -1440,34 +1469,38 @@ export function CabinetConfigurator({
                     </small>
                   </>
                 )}
-                {selected.kind !== 'appliance' && (
-                  <label>
-                    Front style
-                    <select
-                      value={selected.face}
-                      onChange={(event) => {
-                        const face = event.currentTarget
-                          .value as KitchenElement['face'];
-                        update((d) => {
-                          const item = d.elements.find(
-                            (e) => e.id === selected.id,
-                          );
-                          if (item) item.face = face;
-                        });
-                      }}
-                    >
-                      <option value="shaker">Shaker</option>
-                      <option value="inset-shaker">
-                        Inset shaker with face frame
-                      </option>
-                      <option value="slab">Slab</option>
-                      {selected.kind === 'wall-cabinet' && (
-                        <option value="shaker-glass">Shaker + glass</option>
-                      )}
-                    </select>
-                  </label>
-                )}
                 {selected.kind !== 'appliance' &&
+                  (!selected.storage ||
+                    selected.storage.doors ||
+                    selected.storage.type === 'drawers') && (
+                    <label>
+                      Front style
+                      <select
+                        value={selected.face}
+                        onChange={(event) => {
+                          const face = event.currentTarget
+                            .value as KitchenElement['face'];
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item) item.face = face;
+                          });
+                        }}
+                      >
+                        <option value="shaker">Shaker</option>
+                        <option value="inset-shaker">
+                          Inset shaker with face frame
+                        </option>
+                        <option value="slab">Slab</option>
+                        {selected.kind === 'wall-cabinet' && (
+                          <option value="shaker-glass">Shaker + glass</option>
+                        )}
+                      </select>
+                    </label>
+                  )}
+                {selected.kind !== 'appliance' &&
+                  (!selected.storage || selected.storage.doors) &&
                   selected.width <= 30 &&
                   !(
                     selected.kind === 'base' &&
@@ -1521,7 +1554,20 @@ export function CabinetConfigurator({
                       </select>
                     </label>
                   )}
-                {selected.kind === 'tall' && (
+                {selected.storage && (
+                  <OpenStorageControls
+                    item={selected}
+                    change={(patch) =>
+                      update((d) => {
+                        const item = d.elements.find(
+                          (e) => e.id === selected.id,
+                        );
+                        if (item) Object.assign(item, patch);
+                      })
+                    }
+                  />
+                )}
+                {selected.kind === 'tall' && !selected.storage && (
                   <label>
                     Tall configuration
                     <select
@@ -1568,41 +1614,42 @@ export function CabinetConfigurator({
                     </select>
                   </label>
                 )}
-                {(selected.kind === 'tall' ||
-                  selected.kind === 'wall-cabinet') && (
-                  <label>
-                    Height (in)
-                    <input
-                      type="number"
-                      min={
-                        selected.kind === 'tall'
-                          ? minimumTallHeight(selected.tallConfiguration)
-                          : 12
-                      }
-                      max={study.room.height}
-                      step="1"
-                      value={selected.height}
-                      onChange={(event) => {
-                        const height = Number(event.currentTarget.value);
-                        if (
-                          !Number.isFinite(height) ||
-                          height <
-                            (selected.kind === 'tall'
-                              ? minimumTallHeight(selected.tallConfiguration)
-                              : 12) ||
-                          height > study.room.height
-                        )
-                          return;
-                        update((d) => {
-                          const item = d.elements.find(
-                            (e) => e.id === selected.id,
-                          );
-                          if (item) item.height = height;
-                        });
-                      }}
-                    />
-                  </label>
-                )}
+                {!selected.storage &&
+                  (selected.kind === 'tall' ||
+                    selected.kind === 'wall-cabinet') && (
+                    <label>
+                      Height (in)
+                      <input
+                        type="number"
+                        min={
+                          selected.kind === 'tall'
+                            ? minimumTallHeight(selected.tallConfiguration)
+                            : 12
+                        }
+                        max={study.room.height}
+                        step="1"
+                        value={selected.height}
+                        onChange={(event) => {
+                          const height = Number(event.currentTarget.value);
+                          if (
+                            !Number.isFinite(height) ||
+                            height <
+                              (selected.kind === 'tall'
+                                ? minimumTallHeight(selected.tallConfiguration)
+                                : 12) ||
+                            height > study.room.height
+                          )
+                            return;
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            );
+                            if (item) item.height = height;
+                          });
+                        }}
+                      />
+                    </label>
+                  )}
                 {selected.kind === 'wall-cabinet' && (
                   <label>
                     Bottom height above floor (in)
@@ -1695,44 +1742,51 @@ export function CabinetConfigurator({
                           const x = d.elements.find(
                             (x) => x.id === selected.id,
                           );
-                          if (x) x.width = Number(e.target.value);
+                          const value = Number(e.target.value);
+                          if (
+                            x &&
+                            Number.isFinite(value) &&
+                            (!x.storage || (value >= 12 && value <= 96))
+                          )
+                            x.width = value;
                         })
                       }
                     />{' '}
                     in
                   </span>
                 </label>
-                {(selected.kind === 'base' ||
-                  selected.kind === 'wall-cabinet' ||
-                  selected.applianceKind === 'refrigerator') && (
-                  <label>
-                    Depth
-                    <span>
-                      <input
-                        type="number"
-                        min="4"
-                        max="60"
-                        value={selected.depth}
-                        onChange={(event) => {
-                          const depth = Number(event.currentTarget.value);
-                          if (
-                            !Number.isFinite(depth) ||
-                            depth < 4 ||
-                            depth > 60
-                          )
-                            return;
-                          update((d) => {
-                            const item = d.elements.find(
-                              (e) => e.id === selected.id,
-                            );
-                            if (item) item.depth = depth;
-                          });
-                        }}
-                      />{' '}
-                      in
-                    </span>
-                  </label>
-                )}
+                {!selected.storage &&
+                  (selected.kind === 'base' ||
+                    selected.kind === 'wall-cabinet' ||
+                    selected.applianceKind === 'refrigerator') && (
+                    <label>
+                      Depth
+                      <span>
+                        <input
+                          type="number"
+                          min="4"
+                          max="60"
+                          value={selected.depth}
+                          onChange={(event) => {
+                            const depth = Number(event.currentTarget.value);
+                            if (
+                              !Number.isFinite(depth) ||
+                              depth < 4 ||
+                              depth > 60
+                            )
+                              return;
+                            update((d) => {
+                              const item = d.elements.find(
+                                (e) => e.id === selected.id,
+                              );
+                              if (item) item.depth = depth;
+                            });
+                          }}
+                        />{' '}
+                        in
+                      </span>
+                    </label>
+                  )}
                 {warnings.get(selected.id)?.map((w) => (
                   <p className="cc-inline-warning" key={w}>
                     {w}
@@ -2075,9 +2129,11 @@ export function CabinetConfigurator({
                           y2={b.h / 2}
                         />
                         <text y="4">
-                          {e.applianceKind
-                            ? APPLIANCE_CATALOG[e.applianceKind].label
-                            : `${e.width}″`}
+                          {e.storage
+                            ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
+                            : e.applianceKind
+                              ? APPLIANCE_CATALOG[e.applianceKind].label
+                              : `${e.width}″`}
                         </text>
                       </g>
                     );

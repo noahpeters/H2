@@ -10,6 +10,7 @@ import {
   type Rates,
 } from './pricing';
 import worker from './worker';
+import {createOpenStorage} from '../../app/studio/cabinet-configurator/openStorage';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import type {
   BaseConfiguration,
@@ -28,6 +29,7 @@ function setup() {
     '0003_lead_phone.sql',
     '0004_pricing.sql',
     '0005_price_requests.sql',
+    '0006_open_storage.sql',
   ])
     db.exec(
       readFileSync(new URL(`./migrations/${name}`, import.meta.url), 'utf8'),
@@ -99,6 +101,43 @@ function study(elements: KitchenElement[] = [cabinet]): Study {
   };
 }
 describe('bottom-up cabinet pricing', () => {
+  it('accepts and prices a saved open-storage room through the Worker', async () => {
+    const {call} = setup();
+    const saved = await call('/', 'POST', 'test', {
+      study: study([createOpenStorage('double-hang', 'storage')]),
+    });
+    expect(saved.status).toBe(201);
+    const body = (await saved.json()) as {slug: string};
+    const response = await call(`/price?slug=${body.slug}`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      pricedItemCount: 1,
+      currency: 'USD',
+    });
+  });
+  it('prices storage interiors and optional fronts/back without pricing an empty closed cabinet', () => {
+    const {rates} = setup();
+    const item = createOpenStorage('shelving', 'storage');
+    const line = projectSchedule(study([item])).lines[0];
+    expect(line.frontCoverage).toBe(0);
+    expect(line.hinges).toBe(0);
+    expect(line.extraCarcass).toBeGreaterThan(0);
+    const baseline = calculatePrice([line], rates);
+    expect(baseline.cost).toBe(1456.25);
+    item.storage!.shelves = 0;
+    item.storage!.back = false;
+    expect(projectSchedule(study([item])).lines[0].extraCarcass).toBeLessThan(
+      line.extraCarcass!,
+    );
+    item.storage!.doors = true;
+    expect(projectSchedule(study([item])).lines[0].hinges).toBeGreaterThan(0);
+    const hanging = createOpenStorage('double-hang', 'hang');
+    const hangLines = projectSchedule(study([hanging])).lines;
+    expect(hangLines[0].rodFeet).toBeGreaterThan(0);
+    expect(
+      calculatePrice(hangLines, {...rates, hanging_rod_lf: 25}).price,
+    ).toBeGreaterThan(calculatePrice(hangLines, rates).price);
+  });
   it('gates quotes on contact details, snapshots the priced revision and saves leads only with consent', async () => {
     const {db, call} = setup();
     const room: any = await (

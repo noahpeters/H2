@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {cabinetColor} from './materials';
+import {storageLayout} from './openStorage';
 import {applianceGeometry} from './applianceGeometry';
 import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
 import {
@@ -165,7 +166,8 @@ export function cabinetGeometry(
   if (item.kind === 'tall' || item.kind === 'wall-cabinet')
     box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, wood).name =
       'cabinet-top';
-  box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
+  if (!item.storage || item.storage.back)
+    box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
   const front = (
     width: number,
     height: number,
@@ -281,7 +283,111 @@ export function cabinetGeometry(
   };
   const usable = h - toe - 0.25;
   const config = item.configuration ?? 'single-door';
-  if (item.kind === 'base' && config === 'microwave-drawer') {
+  if (item.storage) {
+    const layout = storageLayout(item);
+    const {
+      shelfWidth,
+      shelfX,
+      shelfYs,
+      rods,
+      rodWidth,
+      rodX,
+      divider,
+      inner,
+      low,
+      high,
+      drawers,
+      drawerZone,
+    } = layout;
+    if (divider)
+      box(
+        group,
+        0.75,
+        high - low,
+        d - 0.75,
+        -inner / 2 + divider,
+        (low + high) / 2 - h / 2,
+        0,
+        wood,
+      ).name = 'storage-divider';
+    for (const height of shelfYs) {
+      const shelf = box(
+        group,
+        shelfWidth,
+        0.75,
+        d - 0.75,
+        shelfX,
+        height - h / 2,
+        0,
+        wood,
+      );
+      shelf.name = 'storage-shelf';
+      if (item.storage.type === 'shoes' && item.storage.angled) {
+        shelf.rotation.x = (12 * Math.PI) / 180;
+        const lip = box(
+          group,
+          shelfWidth,
+          1.25,
+          0.75,
+          shelfX,
+          height -
+            h / 2 -
+            ((d - 0.75) / 2) * Math.sin((12 * Math.PI) / 180) +
+            0.5,
+          ((d - 0.75) / 2) * Math.cos((12 * Math.PI) / 180),
+          wood,
+        );
+        lip.name = 'shoe-retaining-lip';
+      }
+    }
+    for (const height of rods) {
+      const rod = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          0.625 * inch,
+          0.625 * inch,
+          (rodWidth - 0.5) * inch,
+          16,
+        ),
+        steel,
+      );
+      rod.rotation.z = Math.PI / 2;
+      rod.position.set(rodX * inch, (height - h / 2) * inch, 0);
+      rod.name = 'storage-hanging-rod';
+      group.add(rod);
+    }
+    for (let i = 0; i < drawers; i++) {
+      const height = drawerZone / drawers;
+      front(
+        w - 0.25,
+        height - 0.125,
+        0,
+        low - h / 2 + (i + 0.5) * height,
+        true,
+      );
+      box(
+        group,
+        inner - 1,
+        Math.max(2, height - 1),
+        d - 3,
+        0,
+        low - h / 2 + (i + 0.5) * height,
+        -0.5,
+        wood,
+      ).name = 'storage-drawer-box';
+    }
+    if (item.storage.doors && high - low - drawerZone > 1) {
+      const count = w > 30 ? 2 : 1;
+      const doorLow = low + drawerZone;
+      for (let i = 0; i < count; i++)
+        front(
+          w / count - 0.25,
+          high - doorLow - 0.125,
+          count === 1 ? 0 : i === 0 ? -w / 4 : w / 4,
+          (doorLow + high) / 2 - h / 2,
+          false,
+        );
+    }
+  } else if (item.kind === 'base' && config === 'microwave-drawer') {
     const microwaveHeight = Math.min(16, usable * 0.6);
     const drawerHeight = usable - microwaveHeight - 0.25;
     front(w - 0.25, drawerHeight - 0.125, 0, bottom + drawerHeight / 2, true);
