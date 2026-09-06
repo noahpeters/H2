@@ -28,6 +28,28 @@ function useHarness() {
   };
 }
 describe('saved room lifecycle', () => {
+  it('restores the most recent owned room on a clean-URL reload without creating a copy', async () => {
+    const first = renderHook(useHarness);
+    await waitFor(() => expect(first.result.current.ready).toBe(true));
+    const original = first.result.current.recent[0].slug;
+    act(() =>
+      first.result.current.setStudy({
+        ...sample(),
+        room: {...sample().room, width: 200},
+      }),
+    );
+    await act(async () => {
+      await first.result.current.switchRoom(first.result.current.recent[0]);
+    });
+    first.unmount();
+    const before = count;
+    const second = renderHook(useHarness);
+    await waitFor(() => expect(second.result.current.ready).toBe(true));
+    expect(second.result.current.recent[0].slug).toBe(original);
+    expect(second.result.current.study.room.width).toBe(200);
+    expect(count).toBe(before);
+    expect(window.location.search).toBe('');
+  });
   let records: Map<string, any>, count: number;
   beforeEach(() => {
     localStorage.clear();
@@ -143,6 +165,6 @@ describe('saved room lifecycle', () => {
     await waitFor(() => expect(result.current.error).toBe(true));
     expect(result.current.ready).toBe(false);
     expect(count).toBe(0);
-    expect(window.location.search).toBe('?design=missing');
+    expect(window.location.search).toBe('');
   });
 });

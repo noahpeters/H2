@@ -46,6 +46,7 @@ export function useSavedRooms(
   const rows = useRef<SavedRoom[]>([]);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const started = useRef(false);
+  const incomingSlug = useRef<string | null>();
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const callbacks = useRef({setStudy, sample, migrate, clearUndo});
   callbacks.current = {setStudy, sample, migrate, clearUndo};
@@ -94,7 +95,7 @@ export function useSavedRooms(
       callbacks.current.clearUndo();
       remember(record);
       const url = new URL(window.location.href);
-      url.searchParams.set('design', record.slug);
+      url.searchParams.delete('design');
       window.history.replaceState(null, '', url);
       setError(false);
       setStatus('Saved online');
@@ -148,10 +149,28 @@ export function useSavedRooms(
     setBusy(true);
     setError(false);
     try {
-      const slug = new URL(window.location.href).searchParams.get('design');
+      if (incomingSlug.current === undefined) {
+        const url = new URL(window.location.href);
+        incomingSlug.current = url.searchParams.get('design');
+        url.searchParams.delete('design');
+        window.history.replaceState(null, '', url);
+      }
+      const slug = incomingSlug.current;
       if (slug) {
         const source = await roomRequest('GET', slug);
         await create(callbacks.current.migrate(source.study));
+      } else if (rows.current[0]) {
+        const record = rows.current[0];
+        const source = await roomRequest('GET', record.slug);
+        install(
+          {...record, revision: source.revision, updatedAt: source.updatedAt},
+          callbacks.current.migrate(source.study),
+        );
+        if (record.draft) {
+          active.current!.revision = record.revision;
+          latest.current = callbacks.current.migrate(record.draft);
+          callbacks.current.setStudy(latest.current);
+        }
       } else {
         let data = callbacks.current.sample();
         try {
@@ -167,7 +186,7 @@ export function useSavedRooms(
     } finally {
       setBusy(false);
     }
-  }, [create, fail]);
+  }, [create, fail, install]);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
@@ -250,14 +269,23 @@ export function useSavedRooms(
     if (active.current) void flush().catch(fail);
     else void initialize();
   };
-  const share = async () => {
-    try {
-      await flush();
-      await navigator.clipboard.writeText(window.location.href);
-      setStatus('Link copied — opens as a new copy');
-    } catch (e) {
-      fail(e);
-    }
+  const share = async (details: Record<string, unknown>) => {
+    await flush();
+    const record = active.current!;
+    const response = await fetch('/api/cabinet-share', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ...details,
+        slug: record.slug,
+        editKey: record.editKey,
+        revision: record.revision,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = (await response.json()) as {error?: string};
+    if (!response.ok)
+      throw new Error(data.error || 'Unable to send the email. Please retry.');
   };
   return {
     recent,

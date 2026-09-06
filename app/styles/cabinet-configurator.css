@@ -519,3 +519,45 @@
   border: 1px solid #aaa79c;
   z-index: 30;
 }
+.cc-share-dialog {
+  max-width: 34rem;
+  width: calc(100% - 2rem);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.5rem;
+  background: #f7f4eb;
+  color: #252b26;
+  border: 1px solid #80776a;
+}
+.cc-share-dialog::backdrop {
+  background: #0008;
+}
+.cc-share-dialog fieldset {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #c3bdae;
+}
+.cc-share-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+}
+.cc-share-dialog input {
+  padding: 0.6rem;
+  border: 1px solid #80776a;
+  background: white;
+  color: #252b26;
+}
+.cc-share-dialog .cc-share-consent {
+  flex-direction: row;
+  align-items: start;
+}
+.cc-share-dialog p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.cc-share-dialog button {
+  margin: 0.4rem;
+  padding: 0.65rem 1rem;
+}

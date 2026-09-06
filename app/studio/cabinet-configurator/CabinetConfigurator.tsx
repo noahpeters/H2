@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
+import {ShareRoomForm} from './ShareRoomForm';
 import {
   CABINET_MATERIALS,
   CABINET_PAINTS,
@@ -477,7 +478,10 @@ function ThreeStudy({
   );
 }
 
-export function CabinetConfigurator() {
+export function CabinetConfigurator({
+  turnstileSiteKey = '',
+}: {turnstileSiteKey?: string} = {}) {
+  const [sharing, setSharing] = useState(false);
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
   const drag = useRef<ActiveDrag | null>(null);
@@ -663,11 +667,18 @@ export function CabinetConfigurator() {
           <button
             disabled={rooms.busy || !rooms.ready}
             onClick={() => {
-              void rooms.share();
+              setSharing(true);
             }}
           >
             Share
           </button>
+          {sharing && (
+            <ShareRoomForm
+              siteKey={turnstileSiteKey}
+              send={rooms.share}
+              close={() => setSharing(false)}
+            />
+          )}
           <details>
             <summary>History</summary>
             <div className="cc-room-history-menu">
@@ -683,8 +694,7 @@ export function CabinetConfigurator() {
                     void rooms.switchRoom(room);
                   }}
                 >
-                  {room.slug.slice(0, 8)} ·{' '}
-                  {new Date(room.updatedAt).toLocaleString()}
+                  Room · {new Date(room.updatedAt).toLocaleString()}
                   {room.draft ? ' · unsaved draft' : ''}
                 </button>
               ))}
