@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {cabinetColor} from './materials';
 import {applianceGeometry} from './applianceGeometry';
 import {
   WALLS,
@@ -135,11 +136,11 @@ export function cabinetGeometry(
   const group = new THREE.Group();
   const {width: w, height: h, depth: d} = item;
   const wood = new THREE.MeshStandardMaterial({
-    color: 0xa68159,
+    color: cabinetColor(item),
     roughness: 0.6,
   });
   const panel = new THREE.MeshStandardMaterial({
-    color: 0x99754f,
+    color: cabinetColor(item),
     roughness: 0.65,
   });
   const dark = new THREE.MeshStandardMaterial({

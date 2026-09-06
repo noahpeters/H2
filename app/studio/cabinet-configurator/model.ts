@@ -1,3 +1,4 @@
+import type {CabinetMaterial, CabinetPaint} from './materials';
 export type Wall = 'back' | 'left' | 'right' | 'front';
 export const WALLS: Wall[] = ['back', 'left', 'right', 'front'];
 export const horizontalWall = (wall: Wall) =>
@@ -49,6 +50,8 @@ export type Placement =
     };
 
 export type KitchenElement = {
+  material?: CabinetMaterial;
+  paintColor?: CabinetPaint;
   id: string;
   kind: ElementKind;
   width: number;
