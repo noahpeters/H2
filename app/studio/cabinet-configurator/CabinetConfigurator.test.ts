@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {createDragUpdate} from './CabinetConfigurator';
+import {createDragUpdate, type Study} from './CabinetConfigurator';
 import type {KitchenElement} from './model';
 
 const study = () => ({
@@ -31,6 +31,38 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
+  it('moves an island and only its grouped objects together', () => {
+    const current: Study = study();
+    current.islands = [
+      {
+        id: 'zone',
+        x: 60,
+        z: 60,
+        width: 72,
+        depth: 42,
+        rotation: 0,
+        overhang: 12,
+        seatingSide: 'none',
+      },
+    ];
+    current.elements[0].islandId = 'zone';
+    current.elements.push({
+      ...current.elements[0],
+      id: 'ungrouped',
+      islandId: undefined,
+    });
+    const update = createDragUpdate(
+      {id: 'zone', mode: 'island', x: 60, z: 60, clientX: 10, clientY: 10},
+      30,
+      20,
+      2,
+    );
+    const moved = update(current);
+    expect(moved.islands[0]).toMatchObject({x: 70, z: 65});
+    expect(moved.elements[0].placement).toMatchObject({x: 58, z: 47});
+    expect(moved.elements[1].placement).toEqual(current.elements[1].placement);
+    expect(current.islands[0].x).toBe(60);
+  });
   it('moves a floor-positioned appliance on both axes with 1-inch precision', () => {
     const update = createDragUpdate(
       {
