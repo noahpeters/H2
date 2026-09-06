@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ShareRoomForm} from './ShareRoomForm';
+import {placeOpening} from './openingPlacement';
 import {
   roomPoints,
   roomSegments,
@@ -518,6 +519,16 @@ export function CabinetConfigurator({
   const [editingRoom, setEditingRoom] = useState(false);
   const [selectedWall, setSelectedWall] = useState<Wall>('back');
   const [outlineError, setOutlineError] = useState('');
+  const roomControls = useRef<HTMLDetailsElement>(null);
+  const openingDrag = useRef<{
+    id: string;
+    x: number;
+    z: number;
+    clientX: number;
+    clientY: number;
+    scale: number;
+    pointerId: number;
+  } | null>(null);
   const roomDrag = useRef<{
     study: Study;
     id: Wall;
@@ -676,6 +687,20 @@ export function CabinetConfigurator({
     setStudy((c) => ({...c, selected: e.id}));
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
+    if (openingDrag.current) {
+      const a = openingDrag.current;
+      if (ev.pointerId !== a.pointerId) return;
+      const x = a.x + (ev.clientX - a.clientX) / a.scale;
+      const z = a.z + (ev.clientY - a.clientY) / a.scale;
+      setStudy((current) => {
+        const next = clone(current);
+        const opening = next.openings.find((o) => o.id === a.id);
+        if (opening)
+          Object.assign(opening, placeOpening(next.room, opening, x, z));
+        return next;
+      });
+      return;
+    }
     if (roomDrag.current) {
       const a = roomDrag.current;
       const position =
@@ -800,7 +825,7 @@ export function CabinetConfigurator({
         }}
       >
         <aside className="cc-tools" aria-label="Design controls">
-          <details className="cc-accordion">
+          <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
               <label>
@@ -832,17 +857,23 @@ export function CabinetConfigurator({
               </label>
               <button
                 aria-pressed={editingRoom}
-                onClick={() => setEditingRoom((v) => !v)}
+                onClick={() => {
+                  setEditingRoom((v) => !v);
+                  if (!editingRoom && study.view === 'three')
+                    setStudy((c) => ({...c, view: 'split'}));
+                }}
               >
                 {editingRoom ? 'Done editing outline' : 'Edit room outline'}
               </button>
               {editingRoom && (
                 <>
                   <p className="cc-muted">
-                    Select a wall and drag it perpendicular to itself. Right
-                    angles and one-inch steps are preserved. Layout changes may
-                    leave existing objects outside the room; review warnings or
-                    Undo.
+                    Drag islands freely; their grouped objects move with them.
+                    Drag doors, windows and openings along walls or onto another
+                    wall. Select a wall and drag it perpendicular to itself.
+                    Right angles and one-inch steps are preserved. Layout
+                    changes may leave existing objects outside the room; review
+                    warnings or Undo.
                   </p>
                   <label>
                     Wall
@@ -982,6 +1013,217 @@ export function CabinetConfigurator({
                 </label>
               ))}
             </div>
+            <details className="cc-add-menu">
+              <summary>+ Add opening</summary>
+              <div>
+                {(['door', 'window', 'opening'] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    onClick={(event) => {
+                      update((d) => {
+                        const id = makeId();
+                        d.openings.push({
+                          id,
+                          kind,
+                          wall: roomSegments(d.room)[0].id,
+                          offset: 12,
+                          width:
+                            kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
+                          height: kind === 'window' ? 38 : 80,
+                          sill: 42,
+                        });
+                        d.selected = id;
+                      });
+                      event.currentTarget
+                        .closest('details')
+                        ?.removeAttribute('open');
+                    }}
+                  >
+                    {kind === 'opening'
+                      ? 'Doorless opening'
+                      : kind === 'door'
+                        ? 'Door'
+                        : 'Window'}
+                  </button>
+                ))}
+              </div>
+            </details>
+            <details
+              className="cc-accordion"
+              key={
+                study.openings.some((o) => o.id === study.selected)
+                  ? study.selected
+                  : 'openings'
+              }
+              open={study.openings.some((o) => o.id === study.selected)}
+            >
+              <summary>
+                Openings <span>{study.openings.length}</span>
+              </summary>
+              {study.openings.map((opening) => (
+                <div key={opening.id} className="cc-fields">
+                  <button
+                    onClick={() =>
+                      setStudy((c) => ({...c, selected: opening.id}))
+                    }
+                  >
+                    {opening.kind} · {roomWall(study.room, opening.wall).label}{' '}
+                    wall
+                  </button>
+                  {study.selected === opening.id && (
+                    <>
+                      {warnings.get(opening.id)?.map((w) => (
+                        <p className="cc-inline-warning" key={w}>
+                          {w}
+                        </p>
+                      ))}
+                      <label>
+                        Wall
+                        <select
+                          value={opening.wall}
+                          onChange={(event) => {
+                            const wall = event.currentTarget.value as Wall;
+                            update((d) => {
+                              const o = d.openings.find(
+                                (o) => o.id === opening.id,
+                              )!;
+                              o.wall = wall;
+                              o.offset = Math.max(
+                                0,
+                                Math.min(
+                                  o.offset,
+                                  roomWall(d.room, wall).length - o.width,
+                                ),
+                              );
+                            });
+                          }}
+                        >
+                          {roomSegments(study.room).map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {(
+                        [
+                          'offset',
+                          'width',
+                          'height',
+                          ...(opening.kind === 'window' ? ['sill'] : []),
+                        ] as Array<'offset' | 'width' | 'height' | 'sill'>
+                      ).map((key) => (
+                        <label key={key}>
+                          {key}
+                          <input
+                            type="number"
+                            min={key === 'offset' || key === 'sill' ? 0 : 1}
+                            value={opening[key] ?? 0}
+                            onChange={(event) => {
+                              const value = Number(event.currentTarget.value);
+                              if (
+                                !Number.isFinite(value) ||
+                                value <
+                                  (key === 'offset' || key === 'sill' ? 0 : 1)
+                              )
+                                return;
+                              update((d) => {
+                                d.openings.find((o) => o.id === opening.id)![
+                                  key
+                                ] = value;
+                              });
+                            }}
+                          />
+                        </label>
+                      ))}
+                      <button
+                        onClick={() =>
+                          update((d) => {
+                            d.openings = d.openings.filter(
+                              (o) => o.id !== opening.id,
+                            );
+                            d.selected = null;
+                          })
+                        }
+                      >
+                        Remove {opening.kind}
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </details>
+            <details
+              className="cc-accordion"
+              key={selectedIsland?.id ?? 'islands'}
+              open={!!selectedIsland}
+            >
+              <summary>
+                Islands <span>{study.islands.length}</span>
+              </summary>
+              <button onClick={addIsland}>+ Island zone</button>
+              {study.islands.map((i) => (
+                <div className="cc-island-fields" key={i.id}>
+                  <button
+                    className="cc-island-select"
+                    onClick={() => setStudy((c) => ({...c, selected: i.id}))}
+                  >
+                    Island{' '}
+                    {study.islands.findIndex((entry) => entry.id === i.id) + 1}{' '}
+                    · {i.width} × {i.depth}
+                  </button>
+                  {selectedIsland?.id === i.id && (
+                    <div className="cc-fields">
+                      {(['x', 'z', 'width', 'depth', 'overhang'] as const).map(
+                        (k) => (
+                          <label key={k}>
+                            {k}
+                            <span>
+                              <input
+                                type="number"
+                                value={i[k]}
+                                onChange={(e) =>
+                                  changeIsland(i, k, Number(e.target.value))
+                                }
+                              />{' '}
+                              in
+                            </span>
+                          </label>
+                        ),
+                      )}
+                      <label>
+                        Rotation
+                        <select
+                          value={i.rotation}
+                          onChange={(e) =>
+                            changeIsland(i, 'rotation', Number(e.target.value))
+                          }
+                        >
+                          {[0, 90, 180, 270].map((a) => (
+                            <option key={a}>{a}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Seating side
+                        <select
+                          value={i.seatingSide}
+                          onChange={(e) =>
+                            changeIsland(i, 'seatingSide', e.target.value)
+                          }
+                        >
+                          {['none', 'north', 'south', 'east', 'west'].map(
+                            (x) => (
+                              <option key={x}>{x}</option>
+                            ),
+                          )}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </details>
           </details>
           <details className="cc-accordion" open>
             <summary>Add to room</summary>
@@ -1041,215 +1283,6 @@ export function CabinetConfigurator({
                   ))}
               </div>
             </details>
-            <details className="cc-add-menu">
-              <summary>+ Add opening</summary>
-              <div>
-                {(['door', 'window', 'opening'] as const).map((kind) => (
-                  <button
-                    key={kind}
-                    onClick={(event) => {
-                      update((d) => {
-                        const id = makeId();
-                        d.openings.push({
-                          id,
-                          kind,
-                          wall: roomSegments(d.room)[0].id,
-                          offset: 12,
-                          width:
-                            kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
-                          height: kind === 'window' ? 38 : 80,
-                          sill: 42,
-                        });
-                        d.selected = id;
-                      });
-                      event.currentTarget
-                        .closest('details')
-                        ?.removeAttribute('open');
-                    }}
-                  >
-                    {kind === 'opening'
-                      ? 'Doorless opening'
-                      : kind === 'door'
-                        ? 'Door'
-                        : 'Window'}
-                  </button>
-                ))}
-              </div>
-            </details>
-          </details>
-          <details
-            className="cc-accordion"
-            key={
-              study.openings.some((o) => o.id === study.selected)
-                ? study.selected
-                : 'openings'
-            }
-            open={study.openings.some((o) => o.id === study.selected)}
-          >
-            <summary>
-              Openings <span>{study.openings.length}</span>
-            </summary>
-            {study.openings.map((opening) => (
-              <div key={opening.id} className="cc-fields">
-                <button
-                  onClick={() =>
-                    setStudy((c) => ({...c, selected: opening.id}))
-                  }
-                >
-                  {opening.kind} · {roomWall(study.room, opening.wall).label}{' '}
-                  wall
-                </button>
-                {study.selected === opening.id && (
-                  <>
-                    {warnings.get(opening.id)?.map((w) => (
-                      <p className="cc-inline-warning" key={w}>
-                        {w}
-                      </p>
-                    ))}
-                    <label>
-                      Wall
-                      <select
-                        value={opening.wall}
-                        onChange={(event) => {
-                          const wall = event.currentTarget.value as Wall;
-                          update((d) => {
-                            const o = d.openings.find(
-                              (o) => o.id === opening.id,
-                            )!;
-                            o.wall = wall;
-                            o.offset = Math.max(
-                              0,
-                              Math.min(
-                                o.offset,
-                                roomWall(d.room, wall).length - o.width,
-                              ),
-                            );
-                          });
-                        }}
-                      >
-                        {roomSegments(study.room).map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {(
-                      [
-                        'offset',
-                        'width',
-                        'height',
-                        ...(opening.kind === 'window' ? ['sill'] : []),
-                      ] as Array<'offset' | 'width' | 'height' | 'sill'>
-                    ).map((key) => (
-                      <label key={key}>
-                        {key}
-                        <input
-                          type="number"
-                          min={key === 'offset' || key === 'sill' ? 0 : 1}
-                          value={opening[key] ?? 0}
-                          onChange={(event) => {
-                            const value = Number(event.currentTarget.value);
-                            if (
-                              !Number.isFinite(value) ||
-                              value <
-                                (key === 'offset' || key === 'sill' ? 0 : 1)
-                            )
-                              return;
-                            update((d) => {
-                              d.openings.find((o) => o.id === opening.id)![
-                                key
-                              ] = value;
-                            });
-                          }}
-                        />
-                      </label>
-                    ))}
-                    <button
-                      onClick={() =>
-                        update((d) => {
-                          d.openings = d.openings.filter(
-                            (o) => o.id !== opening.id,
-                          );
-                          d.selected = null;
-                        })
-                      }
-                    >
-                      Remove {opening.kind}
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </details>
-          <details
-            className="cc-accordion"
-            key={selectedIsland?.id ?? 'islands'}
-            open={!!selectedIsland}
-          >
-            <summary>
-              Islands <span>{study.islands.length}</span>
-            </summary>
-            <button onClick={addIsland}>+ Island zone</button>
-            {study.islands.map((i) => (
-              <div className="cc-island-fields" key={i.id}>
-                <button
-                  className="cc-island-select"
-                  onClick={() => setStudy((c) => ({...c, selected: i.id}))}
-                >
-                  Island{' '}
-                  {study.islands.findIndex((entry) => entry.id === i.id) + 1} ·{' '}
-                  {i.width} × {i.depth}
-                </button>
-                {selectedIsland?.id === i.id && (
-                  <div className="cc-fields">
-                    {(['x', 'z', 'width', 'depth', 'overhang'] as const).map(
-                      (k) => (
-                        <label key={k}>
-                          {k}
-                          <span>
-                            <input
-                              type="number"
-                              value={i[k]}
-                              onChange={(e) =>
-                                changeIsland(i, k, Number(e.target.value))
-                              }
-                            />{' '}
-                            in
-                          </span>
-                        </label>
-                      ),
-                    )}
-                    <label>
-                      Rotation
-                      <select
-                        value={i.rotation}
-                        onChange={(e) =>
-                          changeIsland(i, 'rotation', Number(e.target.value))
-                        }
-                      >
-                        {[0, 90, 180, 270].map((a) => (
-                          <option key={a}>{a}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Seating side
-                      <select
-                        value={i.seatingSide}
-                        onChange={(e) =>
-                          changeIsland(i, 'seatingSide', e.target.value)
-                        }
-                      >
-                        {['none', 'north', 'south', 'east', 'west'].map((x) => (
-                          <option key={x}>{x}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
           </details>
           <details
             className="cc-accordion cc-selection"
@@ -1734,6 +1767,7 @@ export function CabinetConfigurator({
                 aria-label="Dimensioned room plan"
                 onPointerMove={moveDrag}
                 onPointerUp={() => {
+                  openingDrag.current = null;
                   roomDrag.current = null;
                   const active = drag.current;
                   drag.current = null;
@@ -1747,6 +1781,12 @@ export function CabinetConfigurator({
                   });
                 }}
                 onPointerCancel={() => {
+                  openingDrag.current = null;
+                  roomDrag.current = null;
+                  drag.current = null;
+                }}
+                onLostPointerCapture={() => {
+                  openingDrag.current = null;
                   roomDrag.current = null;
                   drag.current = null;
                 }}
@@ -1843,13 +1883,62 @@ export function CabinetConfigurator({
                       role="button"
                       tabIndex={0}
                       aria-label={o.kind + ' on ' + o.wall + ' wall'}
-                      onClick={() => setStudy((c) => ({...c, selected: o.id}))}
+                      style={{
+                        cursor: editingRoom ? 'grab' : 'pointer',
+                        touchAction: 'none',
+                      }}
+                      onClick={() => {
+                        setStudy((c) => ({...c, selected: o.id}));
+                        if (roomControls.current)
+                          roomControls.current.open = true;
+                      }}
+                      onPointerDown={(event) => {
+                        if (
+                          !editingRoom ||
+                          event.button !== 0 ||
+                          openingDrag.current
+                        )
+                          return;
+                        event.stopPropagation();
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        const rect =
+                          event.currentTarget.ownerSVGElement!.getBoundingClientRect();
+                        const center = wallPoint(
+                          study.room,
+                          o.wall,
+                          o.offset + o.width / 2,
+                        );
+                        openingDrag.current = {
+                          id: o.id,
+                          ...center,
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                          scale: (scale * rect.width) / 780,
+                          pointerId: event.pointerId,
+                        };
+                        setHistory((h) => [...h.slice(-29), clone(study)]);
+                        setStudy((c) => ({...c, selected: o.id}));
+                        if (roomControls.current)
+                          roomControls.current.open = true;
+                      }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter')
+                        if (e.key === 'Enter') {
                           setStudy((c) => ({...c, selected: o.id}));
+                          if (roomControls.current)
+                            roomControls.current.open = true;
+                        }
                       }}
                       transform={`translate(${x} ${y}) rotate(${horizontal ? 0 : 90}) scale(1 ${horizontal ? segment.nz : -segment.nx})`}
                     >
+                      {editingRoom && (
+                        <rect
+                          x="0"
+                          y="-10"
+                          width={o.width * scale}
+                          height="20"
+                          fill="transparent"
+                        />
+                      )}
                       <rect
                         x="0"
                         y="-4"
@@ -1889,6 +1978,9 @@ export function CabinetConfigurator({
                     <g
                       className="cc-island"
                       onPointerDown={(event) => {
+                        if (event.button !== 0) return;
+                        if (roomControls.current)
+                          roomControls.current.open = true;
                         event.currentTarget.setPointerCapture(event.pointerId);
                         setHistory((h) => [...h.slice(-29), clone(study)]);
                         drag.current = {
@@ -1938,6 +2030,7 @@ export function CabinetConfigurator({
                     return (
                       <g
                         key={e.id}
+                        pointerEvents={editingRoom ? 'none' : undefined}
                         className={`cc-cab cc-${e.kind} ${study.selected === e.id ? 'selected' : ''} ${warnings.has(e.id) ? 'problem' : ''}`}
                         transform={`translate(${b.x} ${b.y}) rotate(${b.r})`}
                         onPointerDown={(ev) => startDrag(ev, e)}
