@@ -1099,6 +1099,9 @@ export function CabinetConfigurator() {
                       }}
                     >
                       <option value="shaker">Shaker</option>
+                      <option value="inset-shaker">
+                        Inset shaker with face frame
+                      </option>
                       <option value="slab">Slab</option>
                       {selected.kind === 'wall-cabinet' && (
                         <option value="shaker-glass">Shaker + glass</option>
