@@ -19,6 +19,48 @@ const base: KitchenElement = {
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
 describe('four wall kitchen geometry', () => {
+  it('renders a microwave drawer above one storage drawer under a countertop', () => {
+    const group = cabinetGeometry(
+      {...base, configuration: 'microwave-drawer'},
+      true,
+    );
+    const microwave = group.getObjectByName('base-microwave-drawer');
+    expect(microwave).toBeDefined();
+    const fronts = group.children.filter(
+      (child) => child.name === 'cabinet-front',
+    );
+    expect(fronts).toHaveLength(1);
+    group.updateMatrixWorld(true);
+    const applianceBounds = new THREE.Box3().setFromObject(microwave!);
+    const drawerBounds = new THREE.Box3().setFromObject(fronts[0]);
+    expect(applianceBounds.min.y).toBeGreaterThan(drawerBounds.max.y);
+    expect(applianceBounds.max.y).toBeLessThan((base.height / 2) * 0.0254);
+  });
+  it.each(['one-oven', 'two-oven', 'coffee-maker'] as const)(
+    'renders integrated %s with drawers and width-dependent upper doors',
+    (tallConfiguration) => {
+      for (const width of [30, 36]) {
+        const group = cabinetGeometry(
+          {...base, kind: 'tall', height: 84, width, tallConfiguration},
+          false,
+        );
+        const appliances = group.children.filter((child) =>
+          child.name.startsWith('tall-cabinet-'),
+        );
+        expect(appliances).toHaveLength(
+          tallConfiguration === 'two-oven' ? 2 : 1,
+        );
+        const fronts = group.children.filter(
+          (child) => child.name === 'cabinet-front',
+        );
+        expect(fronts).toHaveLength(2 + (width > 30 ? 2 : 1));
+        if (tallConfiguration === 'coffee-maker') {
+          // Appliance center is 45 inches above the floor: 36-inch sill plus half its 18-inch height.
+          expect(appliances[0].position.y / 0.0254 + 42).toBeCloseTo(45);
+        }
+      }
+    },
+  );
   it.each(['tall', 'wall-cabinet'] as const)(
     'closes %s with a wood top at its configured height',
     (kind) => {

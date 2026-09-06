@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {applianceGeometry} from './applianceGeometry';
 import {
   WALLS,
   horizontalWall,
@@ -236,7 +237,88 @@ export function cabinetGeometry(
   };
   const usable = h - toe - 0.25;
   const config = item.configuration ?? 'single-door';
-  if (item.kind === 'base' && config === 'three-drawer') {
+  if (item.kind === 'base' && config === 'microwave-drawer') {
+    const microwaveHeight = Math.min(16, usable * 0.6);
+    const drawerHeight = usable - microwaveHeight - 0.25;
+    front(w - 0.25, drawerHeight - 0.125, 0, bottom + drawerHeight / 2, true);
+    const y = h / 2 - microwaveHeight / 2 - 0.125;
+    const unit = new THREE.Group();
+    unit.name = 'base-microwave-drawer';
+    group.add(unit);
+    box(unit, w - 1.5, microwaveHeight, d - 1, 0, y, 0, steel);
+    box(unit, w - 3, microwaveHeight - 3, 0.25, 0, y - 0.5, d / 2 - 0.25, dark);
+    // A wide horizontal pull distinguishes this from a side-hinged microwave.
+    box(
+      unit,
+      w * 0.65,
+      0.5,
+      1.25,
+      0,
+      y + microwaveHeight / 2 - 3,
+      d / 2 + 0.5,
+      steel,
+    );
+    box(
+      unit,
+      Math.min(5, w / 4),
+      0.8,
+      0.3,
+      w / 4,
+      y + microwaveHeight / 2 - 1,
+      d / 2 - 0.1,
+      dark,
+    );
+  } else if (
+    item.kind === 'tall' &&
+    ['one-oven', 'two-oven', 'coffee-maker'].includes(
+      item.tallConfiguration ?? '',
+    )
+  ) {
+    const coffee = item.tallConfiguration === 'coffee-maker';
+    const count = item.tallConfiguration === 'two-oven' ? 2 : 1;
+    // Scale short concept cabinets proportionally; normal tall cabinets use 28-inch ovens.
+    const ovenHeight = Math.min(coffee ? 18 : 28, (usable * 0.64) / count);
+    const drawerHeight = coffee
+      ? 36 - toe
+      : Math.min(count === 2 ? 12 : 24, usable * 0.28);
+    const ovenBottom = bottom + drawerHeight;
+    for (let i = 0; i < 2; i++) {
+      front(
+        w - 0.25,
+        drawerHeight / 2 - 0.125,
+        0,
+        bottom + ((i + 0.5) * drawerHeight) / 2,
+        true,
+      );
+    }
+    for (let i = 0; i < count; i++) {
+      const oven = applianceGeometry(
+        coffee ? 'coffee-maker' : 'wall-oven',
+        (w - 1.5) * inch,
+        (ovenHeight - 0.25) * inch,
+        (d - 1) * inch,
+      );
+      oven.name = coffee ? 'tall-cabinet-coffee-maker' : 'tall-cabinet-oven';
+      oven.position.set(
+        0,
+        (ovenBottom + (i + 0.5) * ovenHeight) * inch,
+        0.5 * inch,
+      );
+      group.add(oven);
+    }
+    const doorBottom = ovenBottom + count * ovenHeight;
+    const doorHeight = h / 2 - doorBottom - 0.25;
+    const doorCount = w > 30 ? 2 : 1;
+    for (let i = 0; i < doorCount; i++) {
+      front(
+        w / doorCount - 0.25,
+        doorHeight,
+        doorCount === 1 ? 0 : ((i === 0 ? -1 : 1) * w) / 4,
+        doorBottom + doorHeight / 2,
+        false,
+      );
+    }
+  } else if (item.kind === 'base' && config === 'three-drawer') {
     const heights = [usable * 0.4, usable * 0.4, usable * 0.2];
     let y = bottom + 0.125;
     for (const height of heights) {

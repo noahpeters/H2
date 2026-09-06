@@ -19,6 +19,7 @@ import {applianceGeometry} from './applianceGeometry';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   APPLIANCE_CATALOG,
+  minimumTallHeight,
   WALLS,
   horizontalWall,
   type BaseConfiguration,
@@ -758,8 +759,11 @@ export function CabinetConfigurator() {
             <details className="cc-add-menu">
               <summary>+ Add appliance</summary>
               <div>
-                {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[]).map(
-                  (kind) => (
+                {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[])
+                  .filter(
+                    (kind) => !['wall-oven', 'coffee-maker'].includes(kind),
+                  )
+                  .map((kind) => (
                     <button
                       key={kind}
                       onClick={(event) => {
@@ -771,8 +775,7 @@ export function CabinetConfigurator() {
                     >
                       {APPLIANCE_CATALOG[kind].label}
                     </button>
-                  ),
-                )}
+                  ))}
               </div>
             </details>
             <details className="cc-add-menu">
@@ -1074,6 +1077,7 @@ export function CabinetConfigurator() {
                       <option value="pullout">Full-height pullout</option>
                       <option value="door-drawer">Door + upper drawer</option>
                       <option value="three-drawer">Three drawers</option>
+                      <option value="microwave-drawer">Microwave drawer</option>
                       <option value="sink">Sink base</option>
                     </select>
                   </label>
@@ -1106,7 +1110,7 @@ export function CabinetConfigurator() {
                   selected.width <= 30 &&
                   !(
                     selected.kind === 'base' &&
-                    ['pullout', 'three-drawer'].includes(
+                    ['pullout', 'three-drawer', 'microwave-drawer'].includes(
                       selected.configuration ?? '',
                     )
                   ) && (
@@ -1156,13 +1160,64 @@ export function CabinetConfigurator() {
                       </select>
                     </label>
                   )}
+                {selected.kind === 'tall' && (
+                  <label>
+                    Tall configuration
+                    <select
+                      value={selected.tallConfiguration ?? 'standard'}
+                      onChange={(event) => {
+                        const configuration = event.currentTarget
+                          .value as KitchenElement['tallConfiguration'];
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (
+                            item &&
+                            minimumTallHeight(configuration) <= d.room.height
+                          ) {
+                            item.tallConfiguration = configuration;
+                            item.height = Math.max(
+                              item.height,
+                              minimumTallHeight(configuration),
+                            );
+                          }
+                        });
+                      }}
+                    >
+                      <option value="standard">Standard cabinet</option>
+                      <option
+                        value="one-oven"
+                        disabled={study.room.height < 72}
+                      >
+                        1 oven · drawers below
+                      </option>
+                      <option
+                        value="two-oven"
+                        disabled={study.room.height < 84}
+                      >
+                        2 ovens · drawers below
+                      </option>
+                      <option
+                        value="coffee-maker"
+                        disabled={study.room.height < 66}
+                      >
+                        Coffee maker · counter height
+                      </option>
+                    </select>
+                  </label>
+                )}
                 {(selected.kind === 'tall' ||
                   selected.kind === 'wall-cabinet') && (
                   <label>
                     Height (in)
                     <input
                       type="number"
-                      min="12"
+                      min={
+                        selected.kind === 'tall'
+                          ? minimumTallHeight(selected.tallConfiguration)
+                          : 12
+                      }
                       max={study.room.height}
                       step="1"
                       value={selected.height}
@@ -1170,7 +1225,10 @@ export function CabinetConfigurator() {
                         const height = Number(event.currentTarget.value);
                         if (
                           !Number.isFinite(height) ||
-                          height < 12 ||
+                          height <
+                            (selected.kind === 'tall'
+                              ? minimumTallHeight(selected.tallConfiguration)
+                              : 12) ||
                           height > study.room.height
                         )
                           return;
