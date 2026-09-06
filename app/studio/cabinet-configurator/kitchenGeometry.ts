@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import {cabinetColor} from './materials';
 import {applianceGeometry} from './applianceGeometry';
+import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
 import {
-  WALLS,
-  horizontalWall,
   type KitchenElement,
   type Opening,
   type Room,
@@ -454,32 +453,45 @@ export function placeOnWall(
   center: number,
   room: Room,
 ) {
-  if (horizontalWall(wall))
-    group.position.set(
-      (center - room.width / 2) * inch,
-      0,
-      (wall === 'back' ? -room.depth / 2 : room.depth / 2) * inch,
-    );
-  else {
-    group.rotation.y = -Math.PI / 2;
-    group.position.set(
-      (wall === 'left' ? -room.width / 2 : room.width / 2) * inch,
-      0,
-      (center - room.depth / 2) * inch,
-    );
-  }
+  const s = roomWall(room, wall),
+    p = wallPoint(room, wall, center);
+  group.rotation.y = s.horizontal ? 0 : -Math.PI / 2;
+  group.position.set(
+    (p.x - room.width / 2) * inch,
+    0,
+    (p.z - room.depth / 2) * inch,
+  );
+}
+export function roomFloorGeometry(room: Room, color: number) {
+  const shape = new THREE.Shape();
+  roomPoints(room).forEach((p, i) => {
+    const x = (p.x - room.width / 2) * inch,
+      y = -(p.z - room.depth / 2) * inch;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  });
+  shape.closePath();
+  const mesh = new THREE.Mesh(
+    new THREE.ShapeGeometry(shape),
+    new THREE.MeshStandardMaterial({color, side: THREE.DoubleSide}),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = -0.02;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 export function roomGeometry(room: Room, openings: Opening[], color: number) {
   const groups: THREE.Group[] = [];
-  for (const wall of WALLS) {
-    const length = horizontalWall(wall) ? room.width : room.depth;
+  for (const segment of roomSegments(room)) {
+    const wall = segment.id,
+      length = segment.length;
     const wallGroup = new THREE.Group();
     // Near walls remain translucent so all four walls can be edited from outside.
     const mat = new THREE.MeshStandardMaterial({
       color,
-      transparent: wall === 'front' || wall === 'right',
-      opacity: wall === 'front' || wall === 'right' ? 0.18 : 1,
-      depthWrite: wall !== 'front' && wall !== 'right',
+      transparent: segment.nx < 0 || segment.nz < 0,
+      opacity: segment.nx < 0 || segment.nz < 0 ? 0.18 : 1,
+      depthWrite: !(segment.nx < 0 || segment.nz < 0),
     });
     const holes = openings.filter((o) => o.wall === wall);
     const xs = [
