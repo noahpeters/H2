@@ -22,6 +22,7 @@ function setup() {
     ),
   );
   const env = {
+    SHARES: {limit: async () => ({success: true})},
     SERVICE_TOKEN: 'test-service',
     WRITES: {limit: async () => ({success: true})},
     DB: {
@@ -62,6 +63,61 @@ function setup() {
   return {db, call, env};
 }
 describe('D1 room API with SQLite migration', () => {
+  it('stores consenting senders only, creates private-edit snapshots, and retries idempotently', async () => {
+    const {db, call, env} = setup();
+    db.exec(
+      readFileSync(
+        new URL('./migrations/0002_sharing.sql', import.meta.url),
+        'utf8',
+      ),
+    );
+    const room: any = await (await call('POST', undefined, {study})).json();
+    const details = {
+      ...room,
+      requestId: crypto.randomUUID(),
+      senderName: 'Sender',
+      senderEmail: 'sender@example.com',
+      recipientName: 'Recipient',
+      recipientEmail: 'recipient@example.com',
+      consent: false,
+    };
+    const share = (body: unknown) =>
+      worker.fetch(
+        new Request('https://rooms.test/share', {
+          method: 'POST',
+          headers: {Authorization: 'Bearer test-service'},
+          body: JSON.stringify(body),
+        }),
+        env as unknown as Parameters<typeof worker.fetch>[1],
+      );
+    try {
+      expect((await share({...details, editKey: 'wrong'})).status).toBe(409);
+      const first: any = await (await share(details)).json();
+      expect(first.shareSlug).toMatch(/^[a-f0-9]{32}$/);
+      expect(await (await share(details)).json()).toEqual(first);
+      expect(db.prepare('SELECT * FROM cabinet_leads').all()).toHaveLength(0);
+      const consented: any = await (
+        await share({...details, requestId: crypto.randomUUID(), consent: true})
+      ).json();
+      const leads = db.prepare('SELECT * FROM cabinet_leads').all();
+      expect(leads).toHaveLength(1);
+      expect(leads[0]).toMatchObject({
+        sender_email: 'sender@example.com',
+        consent_text: 'From Trees may contact me about my cabinet project',
+      });
+      expect(JSON.stringify(leads)).not.toContain('recipient@example.com');
+      const publicRoom: any = await (
+        await call('GET', consented.shareSlug)
+      ).json();
+      expect(publicRoom.study).toEqual(study);
+      expect(JSON.stringify(publicRoom)).not.toContain('sender@example.com');
+      expect((await share({...details, consent: true})).status).toBe(409);
+      env.SHARES.limit = async () => ({success: false});
+      expect((await share(details)).status).toBe(429);
+    } finally {
+      db.close();
+    }
+  });
   it('creates, recalls, updates, forks and protects originals with edit keys and revisions', async () => {
     const {db, call} = setup();
     try {
