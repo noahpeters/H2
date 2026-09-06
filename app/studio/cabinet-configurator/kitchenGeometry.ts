@@ -261,7 +261,21 @@ export function cabinetGeometry(
           width *
             0.33 *
             (x > 0 ? -1 : x < 0 ? 1 : item.hinge === 'right' ? -1 : 1),
-        item.kind === 'wall-cabinet' ? y - height / 2 + 4 : y + height * 0.22,
+        item.kind === 'wall-cabinet' ||
+          (item.kind === 'tall' &&
+            ['one-oven', 'two-oven', 'coffee-maker'].includes(
+              item.tallConfiguration ?? '',
+            ))
+          ? y - height / 2 + Math.min(4, height / 2)
+          : item.kind === 'tall'
+            ? Math.max(
+                y - height / 2 + Math.min(2.5, height / 2),
+                Math.min(
+                  y + height / 2 - Math.min(2.5, height / 2),
+                  36 - (item.placement.elevation ?? 0) - h / 2,
+                ),
+              )
+            : y + height * 0.22,
         faceZ + 0.7,
         steel,
       );
