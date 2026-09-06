@@ -13,6 +13,57 @@ afterEach(() => {
   delete (window as any).turnstile;
   vi.useRealTimers();
 });
+it('requires the price form but not contact consent and only shows the range after submission', async () => {
+  let options: any;
+  (window as any).turnstile = {
+    render: (_el: unknown, config: unknown) => {
+      options = config;
+      return 'widget';
+    },
+    remove: vi.fn(),
+  };
+  const send = vi.fn(async (_details: Record<string, unknown>) => ({
+    currency: 'USD' as const,
+    range: {low: 5500, high: 6500},
+    scope: 'Cabinetry',
+    assumptions: [],
+    exclusions: ['installation', 'delivery', 'tax'],
+    estimateOnly: true,
+  }));
+  const {container} = render(
+    <ShareRoomForm
+      purpose="price"
+      siteKey="test"
+      send={send}
+      close={vi.fn()}
+    />,
+  );
+  expect(options.action).toBe('cabinet-price');
+  expect(screen.queryByText(/\$5,500/)).toBeNull();
+  expect(screen.queryByLabelText('Recipient name')).toBeNull();
+  expect(screen.getByLabelText('Your name')).toBeRequired();
+  expect(screen.getByLabelText('Your email')).toBeRequired();
+  fireEvent.change(screen.getByLabelText('Your name'), {
+    target: {value: 'Example'},
+  });
+  fireEvent.change(screen.getByLabelText('Your email'), {
+    target: {value: 'example@example.com'},
+  });
+  fireEvent.click(screen.getByRole('checkbox'));
+  act(() => {
+    options.callback('verified');
+  });
+  await act(async () => {
+    fireEvent.submit(container.querySelector('form')!);
+  });
+  expect(send.mock.calls[0][0]).toMatchObject({
+    senderName: 'Example',
+    consent: false,
+  });
+  expect(send.mock.calls[0][0]).not.toHaveProperty('recipientEmail');
+  expect(send.mock.calls[0][0]).not.toHaveProperty('senderPhone');
+  expect(screen.getByRole('status')).toHaveTextContent('$5,500 – $6,500');
+});
 it('loads an executable script after opening and enables sending only after verification', () => {
   render(<ShareRoomForm siteKey="test" send={vi.fn()} close={vi.fn()} />);
   const script = document.head.querySelector(

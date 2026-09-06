@@ -1,0 +1,6 @@
+{
+  "project_name":"Pricing engine parity fixture - internal only",
+  "cabinets":[
+    {"id":"B01","qty":2,"type":"Base","width":30,"depth":24,"height":34.5,"box_material":"prefinished","box_units":1,"finish_units":1,"shelves":0,"doors":0,"drawers":3,"front_coverage":1,"end_panels":2,"finished_back_factor":0,"hinges":0,"axilo_feet":4}
+  ]
+}
