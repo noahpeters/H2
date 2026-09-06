@@ -9,6 +9,7 @@ import {
   validOutline,
   moveRoomWall,
   addRoomRecess,
+  removeRoomRecess,
   presetOutline,
   type RoomPoint,
 } from './roomOutline';
@@ -116,7 +117,18 @@ export function reshapeStudy(study: Study, points: RoomPoint[]): Study {
     i.z -= z;
   });
   next.openings.forEach((o) => {
-    const s = walls.find((s) => s.id === o.wall) ?? walls[0];
+    const existing = walls.find((s) => s.id === o.wall);
+    const old = wallPoint(study.room, o.wall, o.offset + o.width / 2);
+    const target = {x: old.x - x, z: old.z - z};
+    const distance = (s: (typeof walls)[number]) => {
+      const along = s.horizontal ? target.x - s.x : target.z - s.z;
+      const across = s.horizontal ? target.z - s.z : target.x - s.x;
+      return Math.hypot(across, Math.max(0, -along, along - s.length));
+    };
+    const s =
+      existing ?? [...walls].sort((a, b) => distance(a) - distance(b))[0];
+    if (!existing)
+      o.offset = (s.horizontal ? target.x - s.x : target.z - s.z) - o.width / 2;
     o.wall = s.id;
     o.offset = Math.max(0, Math.min(o.offset, s.length - o.width));
   });
@@ -890,6 +902,24 @@ export function CabinetConfigurator({
                       </button>
                     ))}
                   </div>
+                  <button
+                    disabled={!removeRoomRecess(study.room, selectedWall)}
+                    onClick={() => {
+                      const points = removeRoomRecess(study.room, selectedWall);
+                      if (!points) return;
+                      update((d) => Object.assign(d, reshapeStudy(d, points)));
+                      setSelectedWall(points[0].id);
+                      setOutlineError('');
+                    }}
+                  >
+                    Remove recess / alcove
+                  </button>
+                  <p className="cc-muted">
+                    Select the middle wall or either return of a recess or
+                    alcove to straighten it. Cabinets on removed walls stay in
+                    place; openings move to the nearest remaining wall. Review
+                    the layout afterward, or Undo.
+                  </p>
                   {outlineError && (
                     <p role="alert" className="cc-inline-warning">
                       {outlineError}

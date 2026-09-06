@@ -1,5 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import {
+  removeRoomRecess,
   roomPoints,
   roomSegments,
   roomWall,
@@ -51,6 +52,68 @@ const sample: Study = {
   view: 'split',
 };
 describe('editable orthogonal room outlines', () => {
+  it('removes inward and outward detours on any wall, including wrapped indices', () => {
+    for (const wall of ['back', 'right', 'front', 'left'] as const)
+      for (const outward of [false, true]) {
+        const added = reshapeStudy(
+          sample,
+          addRoomRecess(room, wall, 'remove', outward)!,
+        );
+        for (const part of [0, 1, 2]) {
+          const points = removeRoomRecess(
+            added.room,
+            `segment-remove-${part}`,
+          )!;
+          expect(points).not.toBeNull();
+          const result = reshapeStudy(added, points);
+          expect(roomSegments(result.room)).toHaveLength(4);
+          expect(result.room.width).toBe(room.width);
+          expect(result.room.depth).toBe(room.depth);
+          expect(validStudy(result)).toBe(true);
+        }
+      }
+    expect(removeRoomRecess(room, 'back')).toBeNull();
+    expect(
+      removeRoomRecess(
+        reshapeStudy(sample, presetOutline(room, 'l-shape')).room,
+        'segment-l-1',
+      ),
+    ).toBeNull();
+  });
+  it('preserves objects from removed walls and reattaches openings to the closest wall', () => {
+    const added = reshapeStudy(
+      sample,
+      addRoomRecess(room, 'right', 'objects', false)!,
+    );
+    const wall = 'segment-objects-1' as const;
+    added.elements = [
+      {...base, placement: {mode: 'wall', wall, offset: 0, elevation: 12}},
+    ];
+    added.openings = [
+      {
+        id: 'window',
+        kind: 'window',
+        wall,
+        offset: 6,
+        width: 18,
+        height: 24,
+        sill: 42,
+      },
+    ];
+    const before = wallToFloor(added.elements[0], added.room);
+    const result = reshapeStudy(added, removeRoomRecess(added.room, wall)!);
+    expect(result.elements[0].placement).toMatchObject({
+      mode: 'floor',
+      x: before.x,
+      z: before.z,
+      elevation: 12,
+    });
+    expect(result.openings[0].wall).toBe('right');
+    expect(result.elements).toHaveLength(1);
+    expect(result.openings).toHaveLength(1);
+    expect(validStudy(result)).toBe(true);
+    expect(added.elements[0].placement.mode).toBe('wall');
+  });
   it('keeps legacy rectangular positions and validates all presets', () => {
     expect(validStudy(sample)).toBe(true);
     for (const kind of ['rectangle', 'l-shape', 'alcove'] as const) {
