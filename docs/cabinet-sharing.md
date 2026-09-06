@@ -8,6 +8,8 @@ Sharing creates an immutable room snapshot and sends its link through Resend. Re
 
 ## Deployment and verification
 
+Contact-consenting senders can optionally provide a phone number. It is stored only in `cabinet_leads.sender_phone`, never in invitation emails or public room snapshots. Unchecking consent removes the input; the server strips any phone supplied without consent. Migration `0003_lead_phone.sql` adds the nullable column without changing existing leads. Share snapshots and timestamps continue to be recorded regardless of consent.
+
 Use the existing main-merge GitHub Actions deployment; do not deploy locally. The cabinet API workflow must apply `0002_sharing.sql` and deploy the `SHARES` rate-limit binding. Oxygen needs the existing `CABINET_ROOMS_URL`, `CABINET_ROOMS_TOKEN`, `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `TURNSTILE_SECRET_KEY`, and public `TURNSTILE_SITE_KEY`. The Turnstile widget must authorize the storefront hostname. No new secrets are introduced.
 
 After both deployments complete, verify with an explicitly authorized recipient: actual Turnstile completion, provider delivery, opening an independent copy, clean URL/reload restoration, and consenting versus non-consenting D1 lead records. Local tests mock email delivery and do not send real invitations. Restrict team database access and establish lead retention/deletion procedures before broad promotion.

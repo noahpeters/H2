@@ -31,6 +31,8 @@ export async function action({request, context}: ActionFunctionArgs) {
         {error: 'Please enter valid names and email addresses.'},
         400,
       );
+    // Never forward a phone number without contact consent, even from a crafted request.
+    if (!body.consent) delete body.senderPhone;
     const token = (body as any).turnstileToken;
     if (typeof token !== 'string' || token.length > 2048)
       return jsonResponse({error: 'Please complete verification.'}, 400);

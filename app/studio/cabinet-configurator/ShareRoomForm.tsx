@@ -20,6 +20,7 @@ export function ShareRoomForm({
   const [verificationError, setVerificationError] = useState('');
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
+  const [consent, setConsent] = useState(true);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const requestId = useRef(crypto.randomUUID());
@@ -125,6 +126,9 @@ export function ShareRoomForm({
               recipientName: String(form.get('recipientName')).trim(),
               recipientEmail: String(form.get('recipientEmail')).trim(),
               consent: form.get('consent') === 'on',
+              ...(form.get('consent') === 'on' && form.get('senderPhone')
+                ? {senderPhone: String(form.get('senderPhone')).trim()}
+                : {}),
               requestId: requestId.current,
               turnstileToken: token,
             })
@@ -163,9 +167,25 @@ export function ShareRoomForm({
               />
             </label>
             <label className="cc-share-consent">
-              <input name="consent" type="checkbox" defaultChecked />
+              <input
+                name="consent"
+                type="checkbox"
+                checked={consent}
+                onChange={(event) => setConsent(event.currentTarget.checked)}
+              />
               {CONTACT_CONSENT}
             </label>
+            {consent && (
+              <label>
+                Phone number (optional)
+                <input
+                  name="senderPhone"
+                  type="tel"
+                  autoComplete="tel"
+                  maxLength={40}
+                />
+              </label>
+            )}
             <p>
               Your details are saved as a lead only if this is checked. Sharing
               works either way.

@@ -67,3 +67,30 @@ it('shows failure and retries blocked script loading without losing form details
     'Verification could not complete',
   );
 });
+it('only submits a phone number while contact consent is checked', () => {
+  let options: any;
+  (window as any).turnstile = {
+    render: (_el: unknown, config: unknown) => {
+      options = config;
+      return 'widget';
+    },
+    remove: vi.fn(),
+  };
+  const send = vi.fn(
+    (_details: Record<string, unknown>) => new Promise<void>(() => {}),
+  );
+  const {container} = render(
+    <ShareRoomForm siteKey="test" send={send} close={vi.fn()} />,
+  );
+  act(() => {
+    options.callback('verified');
+  });
+  fireEvent.change(screen.getByLabelText('Phone number (optional)'), {
+    target: {value: '+1 555 123 4567'},
+  });
+  fireEvent.click(screen.getByRole('checkbox'));
+  expect(screen.queryByLabelText('Phone number (optional)')).toBeNull();
+  fireEvent.submit(container.querySelector('form')!);
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({consent: false}));
+  expect(send.mock.calls[0][0]).not.toHaveProperty('senderPhone');
+});

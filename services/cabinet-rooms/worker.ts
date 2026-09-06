@@ -76,6 +76,9 @@ export default {
             body.recipientName,
             body.recipientEmail,
             body.consent,
+            ...(body.consent && body.senderPhone?.trim()
+              ? [body.senderPhone.trim()]
+              : []),
           ]),
         );
         let shareSlug = (
@@ -109,7 +112,7 @@ export default {
           .run();
         if (body.consent)
           await env.DB.prepare(
-            'INSERT OR IGNORE INTO cabinet_leads (request_id, sender_name, sender_email, room_slug, consent_text, consent_version, consent_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT OR IGNORE INTO cabinet_leads (request_id, sender_name, sender_email, room_slug, consent_text, consent_version, consent_at, sender_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           )
             .bind(
               body.requestId,
@@ -119,6 +122,7 @@ export default {
               CONTACT_CONSENT,
               '2026-09-06-v1',
               now,
+              body.senderPhone?.trim() || null,
             )
             .run();
         return jsonResponse({shareSlug});

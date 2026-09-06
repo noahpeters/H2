@@ -3,6 +3,7 @@ export const CONTACT_CONSENT =
 export type ShareDetails = {
   senderName: string;
   senderEmail: string;
+  senderPhone?: string;
   recipientName: string;
   recipientEmail: string;
   consent: boolean;
@@ -28,6 +29,12 @@ export function validShare(value: any): value is ShareDetails {
     email(value.senderEmail) &&
     email(value.recipientEmail) &&
     typeof value.consent === 'boolean' &&
+    (!value.consent ||
+      value.senderPhone === undefined ||
+      (typeof value.senderPhone === 'string' &&
+        value.senderPhone.length <= 40 &&
+        /^[0-9+().\-\s xext]*$/i.test(value.senderPhone) &&
+        !/[\r\n]/.test(value.senderPhone))) &&
     typeof value.requestId === 'string' &&
     /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
       value.requestId,
