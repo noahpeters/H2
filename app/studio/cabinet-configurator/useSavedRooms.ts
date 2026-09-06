@@ -287,6 +287,30 @@ export function useSavedRooms(
     if (!response.ok)
       throw new Error(data.error || 'Unable to send the email. Please retry.');
   };
+  const getPrice = async (details: Record<string, unknown>) => {
+    await flush();
+    const record = active.current!;
+    const response = await fetch('/api/cabinet-price', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ...details,
+        slug: record.slug,
+        editKey: record.editKey,
+        revision: record.revision,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const data =
+      (await response.json()) as import('./priceProtocol').PriceEstimate & {
+        error?: string;
+      };
+    if (!response.ok)
+      throw new Error(
+        data.error || 'Unable to calculate a price. Please retry.',
+      );
+    return data;
+  };
   return {
     recent,
     status,
@@ -296,5 +320,6 @@ export function useSavedRooms(
     switchRoom,
     retry,
     share,
+    getPrice,
   };
 }

@@ -514,6 +514,7 @@ export function CabinetConfigurator({
   turnstileSiteKey = '',
 }: {turnstileSiteKey?: string} = {}) {
   const [sharing, setSharing] = useState(false);
+  const [pricing, setPricing] = useState(false);
   const [editingRoom, setEditingRoom] = useState(false);
   const [selectedWall, setSelectedWall] = useState<Wall>('back');
   const [outlineError, setOutlineError] = useState('');
@@ -742,6 +743,20 @@ export function CabinetConfigurator({
           >
             Share
           </button>
+          <button
+            disabled={rooms.busy || !rooms.ready}
+            onClick={() => setPricing(true)}
+          >
+            Get price range
+          </button>
+          {pricing && (
+            <ShareRoomForm
+              purpose="price"
+              siteKey={turnstileSiteKey}
+              send={rooms.getPrice}
+              close={() => setPricing(false)}
+            />
+          )}
           {sharing && (
             <ShareRoomForm
               siteKey={turnstileSiteKey}
