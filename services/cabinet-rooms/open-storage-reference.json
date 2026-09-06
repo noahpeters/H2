@@ -1,0 +1,4 @@
+{
+  "project_name": "Open shelving parity fixture - internal only",
+  "cabinets": [{"id":"S01","qty":1,"width":30,"depth":16,"height":84,"box_material":"rift","box_units":1,"finish_units":1,"shelves":5,"drawers":0,"doors":0,"front_coverage":0,"end_panels":2,"hinges":0,"axilo_feet":4,"rift_3_4_sf_override":76.02170138888889,"back_1_4_sf_override":0}]
+}

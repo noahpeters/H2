@@ -1,4 +1,5 @@
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
+import {validStorage} from './openStorage';
 import {validOutline, roomSegments} from './roomOutline';
 export const ROOM_LIMIT = 200_000;
 export const SLUG = /^[a-f0-9]{32}$/;
@@ -76,6 +77,16 @@ export function validStudy(value: any): boolean {
       (e: any) =>
         e &&
         ['base', 'wall-cabinet', 'tall', 'appliance'].includes(e.kind) &&
+        (e.storage === undefined ||
+          (validStorage(e.storage) &&
+            e.kind ===
+              (e.storage.type === 'overhead' ? 'wall-cabinet' : 'tall') &&
+            e.width >= 12 &&
+            e.width <= 96 &&
+            e.depth >= 8 &&
+            e.depth <= 36 &&
+            e.height >= 12 &&
+            e.height <= 120)) &&
         (e.material === undefined ||
           Object.hasOwn(CABINET_MATERIALS, e.material)) &&
         (e.paintColor === undefined ||

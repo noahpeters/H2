@@ -57,6 +57,7 @@ export type Placement =
     };
 
 export type KitchenElement = {
+  storage?: import('./openStorage').OpenStorage;
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
   id: string;
