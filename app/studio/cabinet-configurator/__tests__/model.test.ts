@@ -65,7 +65,7 @@ describe('cabinet placement model', () => {
       mode: 'floor',
       x: 132,
       z: 35,
-      rotation: 270,
+      rotation: 90,
     });
     expect(snapAngle(316)).toBe(0);
     expect(snapAngle(134)).toBe(90);
