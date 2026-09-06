@@ -173,6 +173,36 @@ export function cabinetGeometry(
     y: number,
     drawer: boolean,
   ) => {
+    const inset = item.face === 'inset-shaker';
+    const faceZ = inset ? d / 2 - 0.375 : d / 2;
+    if (inset) {
+      const frame = Math.min(1.5, width / 6, height / 6);
+      for (const side of [-1, 1]) {
+        box(
+          group,
+          frame,
+          height,
+          0.75,
+          x + (side * (width - frame)) / 2,
+          y,
+          faceZ,
+          wood,
+        ).name = 'cabinet-face-frame';
+        box(
+          group,
+          width - 2 * frame,
+          frame,
+          0.75,
+          x,
+          y + (side * (height - frame)) / 2,
+          faceZ,
+          wood,
+        ).name = 'cabinet-face-frame';
+      }
+      // One-eighth-inch reveal around each door or drawer, inside the frame.
+      width -= 2 * frame + 0.25;
+      height -= 2 * frame + 0.25;
+    }
     const glass = item.face === 'shaker-glass' && item.kind === 'wall-cabinet';
     const frontPanel = box(
       group,
@@ -181,7 +211,7 @@ export function cabinetGeometry(
       0.5,
       x,
       y,
-      d / 2 - 0.1,
+      faceZ - 0.1,
       glass
         ? new THREE.MeshStandardMaterial({
             color: 0xb6d2d7,
@@ -193,7 +223,7 @@ export function cabinetGeometry(
         : panel,
     );
     frontPanel.name = 'cabinet-front';
-    if (item.face === 'shaker' || glass) {
+    if (item.face === 'shaker' || inset || glass) {
       const rail = Math.min(2, width / 5, height / 4);
       for (const side of [-1, 1]) {
         box(
@@ -203,7 +233,7 @@ export function cabinetGeometry(
           0.75,
           x + (side * (width - rail)) / 2,
           y,
-          d / 2,
+          faceZ,
           wood,
         );
         box(
@@ -213,13 +243,13 @@ export function cabinetGeometry(
           0.75,
           x,
           y + (side * (height - rail)) / 2,
-          d / 2,
+          faceZ,
           wood,
         );
       }
     }
     if (drawer)
-      box(group, Math.min(6, width * 0.5), 0.35, 1, x, y, d / 2 + 0.7, steel);
+      box(group, Math.min(6, width * 0.5), 0.35, 1, x, y, faceZ + 0.7, steel);
     else
       box(
         group,
@@ -231,7 +261,7 @@ export function cabinetGeometry(
             0.33 *
             (x > 0 ? -1 : x < 0 ? 1 : item.hinge === 'right' ? -1 : 1),
         item.kind === 'wall-cabinet' ? y - height / 2 + 4 : y + height * 0.22,
-        d / 2 + 0.7,
+        faceZ + 0.7,
         steel,
       );
   };

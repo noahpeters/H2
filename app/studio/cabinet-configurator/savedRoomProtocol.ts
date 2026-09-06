@@ -63,7 +63,7 @@ export function validStudy(value: any): boolean {
         e &&
         ['base', 'wall-cabinet', 'tall', 'appliance'].includes(e.kind) &&
         ['width', 'depth', 'height'].every((k) => dimension(e[k])) &&
-        ['shaker', 'slab', 'shaker-glass'].includes(e.face) &&
+        ['shaker', 'slab', 'shaker-glass', 'inset-shaker'].includes(e.face) &&
         (e.kind !== 'appliance' ||
           [
             'refrigerator',

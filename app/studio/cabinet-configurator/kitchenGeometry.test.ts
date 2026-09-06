@@ -19,6 +19,36 @@ const base: KitchenElement = {
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
 describe('four wall kitchen geometry', () => {
+  it.each(['base', 'tall', 'wall-cabinet'] as const)(
+    'renders inset shaker %s fronts inside a flush face frame',
+    (kind) => {
+      for (const width of [30, 36]) {
+        const group = cabinetGeometry(
+          {...base, kind, width, face: 'inset-shaker'},
+          false,
+        );
+        group.updateMatrixWorld(true);
+        const frames = group.children.filter(
+          (child) => child.name === 'cabinet-face-frame',
+        );
+        const fronts = group.children.filter(
+          (child) => child.name === 'cabinet-front',
+        );
+        expect(fronts).toHaveLength(width > 30 ? 2 : 1);
+        expect(frames).toHaveLength(fronts.length * 4);
+        for (const frame of frames) {
+          expect(new THREE.Box3().setFromObject(frame).max.z).toBeCloseTo(
+            (base.depth / 2) * 0.0254,
+          );
+        }
+        for (const front of fronts) {
+          expect(new THREE.Box3().setFromObject(front).max.z).toBeLessThan(
+            (base.depth / 2) * 0.0254,
+          );
+        }
+      }
+    },
+  );
   it('renders a microwave drawer above one storage drawer under a countertop', () => {
     const group = cabinetGeometry(
       {...base, configuration: 'microwave-drawer'},

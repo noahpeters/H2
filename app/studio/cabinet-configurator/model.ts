@@ -54,7 +54,7 @@ export type KitchenElement = {
   width: number;
   depth: number;
   height: number;
-  face: 'shaker' | 'slab' | 'shaker-glass';
+  face: 'shaker' | 'slab' | 'shaker-glass' | 'inset-shaker';
   hinge?: 'left' | 'right';
   applianceFront?: 'stainless' | 'shaker' | 'slab';
   rangeHood?: boolean;
