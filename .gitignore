@@ -7,3 +7,6 @@ node_modules
 .env
 .shopify
 .react-router
+**/.wrangler/
+**/.dev.vars
+**/.dev.vars.*

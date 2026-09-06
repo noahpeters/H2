@@ -4,13 +4,14 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.d.ts",
+    "services/**/*.ts",
     "*.ts",
     "*.tsx",
     "*.d.ts",
     ".graphqlrc.ts",
     ".react-router/types/**/*"
   ],
-  "exclude": ["node_modules", "dist", "build", "packages/**/dist/**/*"],
+  "exclude": ["node_modules", "dist", "build", "packages/**/dist/**/*", "**/.wrangler/**"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "isolatedModules": true,
