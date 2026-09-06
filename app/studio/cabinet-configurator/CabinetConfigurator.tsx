@@ -20,6 +20,7 @@ import {
   CABINET_MATERIALS,
   CABINET_PAINTS,
   cabinetColor,
+  hasMaterialFinish,
   type CabinetMaterial,
   type CabinetPaint,
 } from './materials';
@@ -401,6 +402,7 @@ function ThreeStudy({
             depth,
             cabinet.applianceFront,
             cabinet.rangeHood,
+            cabinetColor(cabinet),
           )
         : cabinetGeometry(
             cabinet,
@@ -1411,7 +1413,7 @@ export function CabinetConfigurator({
                     </select>
                   </label>
                 )}
-                {selected.kind !== 'appliance' && (
+                {hasMaterialFinish(selected) && (
                   <>
                     <label>
                       Material
@@ -2095,7 +2097,7 @@ export function CabinetConfigurator({
                         {e.configuration === 'corner' ? (
                           <path
                             style={
-                              e.kind !== 'appliance' && !warnings.has(e.id)
+                              hasMaterialFinish(e) && !warnings.has(e.id)
                                 ? {fill: cabinetColor(e)}
                                 : undefined
                             }
@@ -2112,7 +2114,7 @@ export function CabinetConfigurator({
                         ) : (
                           <rect
                             style={
-                              e.kind !== 'appliance' && !warnings.has(e.id)
+                              hasMaterialFinish(e) && !warnings.has(e.id)
                                 ? {fill: cabinetColor(e)}
                                 : undefined
                             }

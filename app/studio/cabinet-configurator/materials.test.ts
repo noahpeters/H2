@@ -1,8 +1,64 @@
 import {describe, expect, it} from 'vitest';
 import {CABINET_MATERIALS, CABINET_PAINTS, cabinetColor} from './materials';
 import {cabinetGeometry} from './kitchenGeometry';
+import {applianceGeometry} from './applianceGeometry';
+import {hasMaterialFinish} from './materials';
 import {Mesh, MeshStandardMaterial} from 'three';
 describe('cabinet materials', () => {
+  it.each(['refrigerator', 'dishwasher'] as const)(
+    'colors %s panels for wood and paint finishes',
+    (kind) => {
+      for (const style of ['shaker', 'slab'] as const) {
+        expect(
+          hasMaterialFinish({
+            kind: 'appliance',
+            applianceKind: kind,
+            applianceFront: style,
+          }),
+        ).toBe(true);
+        for (const color of [
+          CABINET_MATERIALS.walnut.color,
+          CABINET_PAINTS['sage-green'].color,
+        ]) {
+          const group = applianceGeometry(
+            kind,
+            0.76,
+            1.8,
+            0.6,
+            style,
+            false,
+            color,
+          );
+          const panels = group.children.filter(
+            (child) => child.name === 'appliance-panel',
+          ) as Mesh[];
+          expect(panels).toHaveLength(kind === 'refrigerator' ? 2 : 1);
+          for (const panel of panels)
+            expect(
+              `#${(panel.material as MeshStandardMaterial).color.getHexString()}`,
+            ).toBe(color);
+        }
+      }
+      expect(
+        hasMaterialFinish({
+          kind: 'appliance',
+          applianceKind: kind,
+          applianceFront: 'stainless',
+        }),
+      ).toBe(false);
+      expect(
+        applianceGeometry(
+          kind,
+          0.76,
+          1.8,
+          0.6,
+          'stainless',
+          false,
+          '#929d86',
+        ).getObjectByName('appliance-panel'),
+      ).toBeUndefined();
+    },
+  );
   it('provides five materials and five original paint colors', () => {
     expect(Object.keys(CABINET_MATERIALS)).toHaveLength(5);
     expect(Object.keys(CABINET_PAINTS)).toHaveLength(5);

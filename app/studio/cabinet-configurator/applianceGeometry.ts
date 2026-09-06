@@ -9,6 +9,7 @@ export function applianceGeometry(
   d: number,
   frontStyle: 'stainless' | 'shaker' | 'slab' = 'stainless',
   rangeHood = false,
+  panelColor?: string,
 ) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
@@ -82,11 +83,11 @@ export function applianceGeometry(
     (kind === 'refrigerator' || kind === 'dishwasher')
   ) {
     const wood = new THREE.MeshStandardMaterial({
-      color: 0xa68159,
+      color: panelColor ?? 0xa68159,
       roughness: 0.6,
     });
     const panel = new THREE.MeshStandardMaterial({
-      color: frontStyle === 'shaker' ? 0x99754f : 0xa68159,
+      color: panelColor ?? (frontStyle === 'shaker' ? 0x99754f : 0xa68159),
       roughness: 0.65,
     });
     box(w, h, d, 0, 0, 0, wood);
