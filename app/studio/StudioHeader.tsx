@@ -3,6 +3,7 @@ import {Await, Link, useAsyncValue, useRouteLoaderData} from 'react-router';
 import {useOptimisticCart} from '@shopify/hydrogen';
 import type {CartApiQueryFragment} from 'storefrontapi.generated';
 import type {RootLoader} from '~/root';
+import {CONSULTATION_URL} from './consultation';
 
 type StudioHeaderLink = {label: string; to: string};
 
@@ -28,6 +29,11 @@ export function StudioHeader({
   home?: boolean;
 }) {
   const rootData = useRouteLoaderData<RootLoader>('root');
+  const navigationLinks = links.flatMap((link) =>
+    link.to === '/configurator'
+      ? [link, {label: 'Design Your Space', to: '/cabinet-configurator'}]
+      : [link],
+  );
 
   return (
     <header
@@ -38,10 +44,12 @@ export function StudioHeader({
         <span>from trees</span>
       </Link>
       <nav className="studio-header-links" aria-label="Primary navigation">
-        {links.map((link, index) => (
+        {navigationLinks.map((link, index) => (
           <Link
             className={
-              index === links.length - 1
+              link.to === '/configurator' ||
+              link.to === '/cabinet-configurator' ||
+              index === navigationLinks.length - 1
                 ? 'studio-header-cta-link'
                 : 'studio-header-secondary-link'
             }
@@ -51,6 +59,9 @@ export function StudioHeader({
             {link.label}
           </Link>
         ))}
+        <a className="studio-consultation-link" href={CONSULTATION_URL}>
+          Book A Free Home Consultation
+        </a>
         {rootData?.cart ? (
           <Suspense fallback={null}>
             <Await resolve={rootData.cart}>

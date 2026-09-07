@@ -180,7 +180,7 @@ export default function Configurator() {
   const body = `I\u2019d like to discuss a ${dimension} ${shape} table in ${timber.name}, with a ${selectedEdge.name.toLowerCase()} edge, ${selectedBase.name.toLowerCase()} base, and ${chair === "none" ? "no chair study" : `${chairName.toLowerCase()} chairs`}.`;
 
   return <main className="config-page">
-    <StudioHeader links={[{label:"Back to the studio",to:"/"},{label:"Pre-configured Examples",to:"/collections/all"}]}/>
+    <StudioHeader links={[{label:"Back to the studio",to:"/"},{label:"Pre-configured Examples",to:"/collections/all"},{label:"Design Your Space",to:"/cabinet-configurator"}]}/>
     <section className="config-page-intro"><p className="eyebrow">Table configurator</p><h1>Begin with<br/><em>a line.</em></h1><p>Explore the broad strokes of your table through a working concept study. This is the beginning of a conversation, not a final design or quote.<br/><Link className="geometry-link" to="/configurator/geometry">View the dimensioned spatial study →</Link></p></section>
     <section className="sketch-config">
       <div className="sketch-board">

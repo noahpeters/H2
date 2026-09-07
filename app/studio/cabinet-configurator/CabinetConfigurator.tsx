@@ -414,6 +414,7 @@ export function migrateStudy(raw: unknown): Study {
     ...fallback,
     ...value,
     version: 2,
+    view: 'split',
     room: {...fallback.room, ...value.room},
     elements: [...elements, ...migratedAppliances],
     islands: value.islands ?? [],
@@ -1509,16 +1510,6 @@ export function CabinetConfigurator({
                   }}
                 >
                   Corner base cabinet
-                </button>
-                <button
-                  onClick={(event) => {
-                    addElement('base', undefined, 'farmhouse-sink');
-                    event.currentTarget
-                      .closest('details')
-                      ?.removeAttribute('open');
-                  }}
-                >
-                  Farmhouse sink base cabinet
                 </button>
                 {(
                   [

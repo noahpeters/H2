@@ -1,5 +1,6 @@
 import {StudioFooter} from './StudioFooter';
 import {StudioHeader} from './StudioHeader';
+import {CONSULTATION_URL} from './consultation';
 
 const projects = [
   {
@@ -73,6 +74,7 @@ export default function Home() {
           <p className="eyebrow">From tree to table</p>
           <h2>Clear from concept<br />to <em>completion.</em></h2>
           <p>Open communication, detailed design, and practical guidance make the process collaborative and stress-free from the first conversation through installation.</p>
+          <a className="process-consultation-link" href={CONSULTATION_URL}>Book A Free Home Consultation <span aria-hidden="true">↗</span></a>
         </div>
         <div className="process-steps">
           {[
