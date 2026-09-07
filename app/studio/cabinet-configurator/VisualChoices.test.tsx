@@ -5,7 +5,7 @@ afterEach(cleanup);
 
 test('visual choices keep labels, selected state, disabled choices and change behavior', () => {
   const onChange = vi.fn();
-  render(
+  const {container} = render(
     <VisualSelect category="front" value="shaker" onChange={onChange}>
       <option value="shaker">Shaker</option>
       <option value="slab">Slab</option>
@@ -14,6 +14,9 @@ test('visual choices keep labels, selected state, disabled choices and change be
       </option>
     </VisualSelect>,
   );
+  const dropdown = container.querySelector('details')!;
+  expect(dropdown).not.toHaveAttribute('open');
+  fireEvent.click(container.querySelector('summary')!);
   expect(screen.getByRole('button', {name: 'Shaker'})).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -21,6 +24,8 @@ test('visual choices keep labels, selected state, disabled choices and change be
   expect(screen.getByRole('button', {name: 'Glass'})).toBeDisabled();
   fireEvent.click(screen.getByRole('button', {name: 'Slab'}));
   expect(onChange).toHaveBeenCalledWith({currentTarget: {value: 'slab'}});
+  expect(dropdown).not.toHaveAttribute('open');
+  expect(container.querySelector('summary')).toHaveFocus();
 });
 test('previews use the actual cabinet, appliance, storage and finish models', () => {
   expect(previewElement('cabinet', 'wall-cabinet')).toMatchObject({

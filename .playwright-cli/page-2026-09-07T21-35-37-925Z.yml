@@ -1,0 +1,89 @@
+- generic [ref=f37e3]:
+  - banner [ref=f37e4]:
+    - link "From Trees home" [ref=f37e5] [cursor=pointer]:
+      - /url: /
+    - navigation "Primary navigation" [ref=f37e6]:
+      - link "Shape Your Table" [ref=f37e7] [cursor=pointer]:
+        - /url: /configurator
+      - link "Design Your Space" [ref=f37e8] [cursor=pointer]:
+        - /url: /cabinet-configurator
+      - link "Book A Free Home Consultation" [ref=f37e9] [cursor=pointer]:
+        - /url: https://doodle.com/bp/noahpeters/free-in-home-consultation
+  - generic [ref=f37e10]:
+    - banner [ref=f37e11]:
+      - link "from trees" [ref=f37e12] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f37e14]:
+        - button "Undo" [disabled] [ref=f37e15]
+        - button "New room" [ref=f37e16] [cursor=pointer]
+        - button "Copy to new" [ref=f37e17] [cursor=pointer]
+        - button "Share" [ref=f37e18] [cursor=pointer]
+        - button "Get price range" [ref=f37e19] [cursor=pointer]
+        - group [ref=f37e20]:
+          - generic "History" [ref=f37e21] [cursor=pointer]
+    - main [ref=f37e22]:
+      - complementary "Design controls" [ref=f37e23]:
+        - group [ref=f37e24]:
+          - generic "Room" [ref=f37e25] [cursor=pointer]
+          - option "Choose a shape…" [disabled] [selected]
+          - option "Rectangle"
+          - option "L-shape"
+          - option "Alcove"
+          - text: ⌄
+        - group [ref=f37e26]:
+          - generic "Add to room" [ref=f37e27] [cursor=pointer]
+          - group [ref=f37e28]:
+            - generic "+ Add open storage ⌄" [ref=f37e29] [cursor=pointer]
+          - group [ref=f37e30]:
+            - generic "+ Add cabinet ⌄" [ref=f37e31] [cursor=pointer]
+          - group [ref=f37e32]:
+            - generic "+ Add appliance ⌄" [ref=f37e33] [cursor=pointer]
+        - group [ref=f37e34]:
+          - generic "Selected object" [ref=f37e35] [cursor=pointer]
+          - generic [ref=f37e36]:
+            - generic [ref=f37e37]:
+              - strong [ref=f37e38]: base
+              - button "Remove" [ref=f37e39] [cursor=pointer]
+            - group "Base configuration" [ref=f37e40]:
+              - text: Base configuration
+              - group [ref=f37e41]:
+                - generic "Farmhouse / apron-front sink base" [ref=f37e42] [cursor=pointer]:
+                  - generic [ref=f37e44]: ◇
+                  - generic [aria-hidden] [ref=f37e46]: ⌄
+            - group "Material" [ref=f37e47]:
+              - text: Material
+              - group [ref=f37e48]:
+                - generic "Rift-sawn white oak" [ref=f37e49] [cursor=pointer]:
+                  - generic [ref=f37e51]: ◇
+                  - generic [aria-hidden] [ref=f37e53]: ⌄
+            - generic [ref=f37e54]: Screen colors are approximate; approve a physical finish sample.
+            - group "Front style" [ref=f37e55]:
+              - text: Front style
+              - group [ref=f37e56]:
+                - generic "Vertical slat panel" [ref=f37e57] [cursor=pointer]:
+                  - generic [ref=f37e59]: ◇
+                  - generic [aria-hidden] [ref=f37e61]: ⌄
+            - generic [ref=f37e63]:
+              - text: Island
+              - combobox "Island" [ref=f37e64]:
+                - option "No island" [selected]
+                - option "Island 1"
+            - generic [ref=f37e65]:
+              - text: Width
+              - generic [ref=f37e66]:
+                - spinbutton "Width in" [ref=f37e67]: "36"
+                - text: in
+            - generic [ref=f37e68]:
+              - text: Depth
+              - generic [ref=f37e69]:
+                - spinbutton "Depth in" [ref=f37e70]: "24"
+                - text: in
+      - generic [ref=f37e71]:
+        - generic [ref=f37e72]:
+          - button "plan" [ref=f37e73] [cursor=pointer]
+          - button "split" [ref=f37e74] [cursor=pointer]
+          - button "three" [ref=f37e75] [cursor=pointer]
+        - generic [ref=f37e77]:
+          - generic [ref=f37e78]: Spatial study
+          - generic "Interactive 3D room study" [ref=f37e80]
+        - generic [ref=f37e82]: 15 elements · clear fit
