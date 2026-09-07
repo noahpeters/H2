@@ -3,6 +3,13 @@ import {useSavedRooms} from './useSavedRooms';
 import {ShareRoomForm} from './ShareRoomForm';
 import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
+import {
+  applyCreationPreferences,
+  loadCreationPreferences,
+  rememberCreationPreferences,
+  saveCreationPreferences,
+  type CreationPreferences,
+} from './creationPreferences';
 import {placeOpening} from './openingPlacement';
 import {
   roomPoints,
@@ -543,6 +550,11 @@ export function CabinetConfigurator({
   } | null>(null);
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
+  const creationPreferences = useRef<CreationPreferences | null>(null);
+  if (!creationPreferences.current)
+    creationPreferences.current = loadCreationPreferences(
+      typeof window === 'undefined' ? undefined : window.localStorage,
+    );
   const drag = useRef<ActiveDrag | null>(null);
   const rooms = useSavedRooms(study, setStudy, initialStudy, migrateStudy, () =>
     setHistory([]),
@@ -558,6 +570,17 @@ export function CabinetConfigurator({
     [],
   );
   const selected = study.elements.find((item) => item.id === study.selected);
+  useEffect(() => {
+    if (!selected || !creationPreferences.current) return;
+    creationPreferences.current = rememberCreationPreferences(
+      creationPreferences.current,
+      selected,
+    );
+    saveCreationPreferences(
+      typeof window === 'undefined' ? undefined : window.localStorage,
+      creationPreferences.current,
+    );
+  }, [selected]);
   const warnings = useMemo(() => {
     const result = validateLayout(study.elements, study.room);
     for (const o of study.openings)
@@ -584,7 +607,11 @@ export function CabinetConfigurator({
   ) =>
     update((d) => {
       if (kind === 'appliance' && applianceKind) {
-        const item = createKitchenAppliance(applianceKind, makeId());
+        const item = applyCreationPreferences(
+          createKitchenAppliance(applianceKind, makeId()),
+          creationPreferences.current!,
+          d.room,
+        );
         d.elements.push(item);
         d.selected = item.id;
         return;
@@ -612,8 +639,19 @@ export function CabinetConfigurator({
           elevation: kind === 'wall-cabinet' ? 54 : 0,
         },
       };
-      d.elements.push(item);
-      d.selected = item.id;
+      const remembered = applyCreationPreferences(
+        item,
+        creationPreferences.current!,
+        d.room,
+      );
+      // An explicit catalog choice wins over remembered defaults.
+      if (configuration === 'corner') {
+        remembered.configuration = 'corner';
+        remembered.width = 36;
+        remembered.depth = 36;
+      }
+      d.elements.push(remembered);
+      d.selected = remembered.id;
     });
   const addIsland = () =>
     update((d) => {
@@ -1239,9 +1277,10 @@ export function CabinetConfigurator({
                     key={type}
                     onClick={(event) => {
                       update((d) => {
-                        const item = createOpenStorage(
-                          type as StorageKind,
-                          makeId(),
+                        const item = applyCreationPreferences(
+                          createOpenStorage(type as StorageKind, makeId()),
+                          creationPreferences.current!,
+                          d.room,
                         );
                         d.elements.push(item);
                         d.selected = item.id;
