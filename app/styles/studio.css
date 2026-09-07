@@ -111,6 +111,7 @@ legend span { font-family:Arial,sans-serif; font-size:9px; letter-spacing:.12em;
 .table-study-cta { padding:135px 7vw; display:grid; grid-template-columns:1fr 1fr; gap:8vw; background:var(--paper); align-items:end; }
 .table-study-cta h2 { font-size:clamp(55px,6vw,96px); margin-top:25px; }
 .table-study-cta>div:last-child { max-width:520px; justify-self:end; }
+.design-study-links { display:grid; gap:48px; }
 .table-study-cta>div:last-child p { line-height:1.7; margin:0 0 42px; }
 .table-study-cta a { display:flex; justify-content:space-between; padding:19px 0; border-top:1px solid var(--ink); border-bottom:1px solid var(--ink); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
 
