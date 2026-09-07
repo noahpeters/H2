@@ -92,8 +92,11 @@ export default function Home() {
       </section>
 
       <section className="table-study-cta">
-        <div><p className="eyebrow">Table study</p><h2>Start with<br />a <em>sketch.</em></h2></div>
-        <div><p>Explore timber, proportions, edge profiles, and base designs through a line-drawing study inspired by our real concept process.</p><a href="/configurator">Open the table configurator <span>↗</span></a></div>
+        <div><p className="eyebrow">Design studies</p><h2>Start with<br />a <em>sketch.</em></h2></div>
+        <div className="design-study-links">
+          <div><p>Explore timber, proportions, edge profiles, and base designs through a line-drawing study inspired by our real concept process.</p><a href="/configurator">Open the table configurator <span>↗</span></a></div>
+          <div><p>Shape your space with cabinetry. Explore room layouts, cabinet fronts, and finishes in 3D—a starting point for the details we’ll design together.</p><a href="/cabinet-configurator">Open the cabinet configurator <span>↗</span></a></div>
+        </div>
       </section>
 
       <StudioFooter />

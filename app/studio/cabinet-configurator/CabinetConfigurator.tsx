@@ -149,6 +149,16 @@ export function reshapeStudy(study: Study, points: RoomPoint[]): Study {
 const INCH = 0.0254;
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
+export function blankStudy(): Study {
+  return {
+    ...initialStudy(),
+    openings: [],
+    elements: [],
+    islands: [],
+    selected: null,
+  };
+}
+
 function initialStudy(): Study {
   return {
     version: 2,
@@ -358,7 +368,7 @@ export function referenceKitchenStudy(): Study {
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
-function migrateStudy(raw: unknown): Study {
+export function migrateStudy(raw: unknown): Study {
   const fallback = initialStudy();
   if (!raw || typeof raw !== 'object') return fallback;
   const value = raw as Partial<Study> & {
@@ -494,12 +504,12 @@ function elementTransform(element: KitchenElement, room: Room) {
       : element.placement.rotation;
   return {...center, rotation};
 }
-function ThreeStudy({
+export function ThreeStudy({
   study,
   onSelect,
 }: {
   study: Study;
-  onSelect: (id: string) => void;
+  onSelect?: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<{
@@ -617,6 +627,24 @@ function ThreeStudy({
       const bounds = host.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
       camera.aspect = bounds.width / bounds.height;
+      if (!selectRef.current && !viewRef.current) {
+        // Fit the whole room in a starter card, including narrow mobile cards.
+        const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+        const limitingFov = Math.min(
+          halfFov,
+          Math.atan(Math.tan(halfFov) * camera.aspect),
+        );
+        const radius = Math.hypot(roomWidth, roomDepth, roomHeight) / 2;
+        controls.target.set(0, roomHeight / 2, 0);
+        camera.position
+          .copy(controls.target)
+          .add(
+            new THREE.Vector3(0.82, 0.6, 0.95)
+              .normalize()
+              .multiplyScalar(radius / Math.sin(limitingFov)),
+          );
+        controls.update();
+      }
       camera.updateProjectionMatrix();
       renderer.setSize(bounds.width, bounds.height, false);
     };
@@ -638,7 +666,7 @@ function ThreeStudy({
       while (current && !current.userData.id)
         current = current.parent ?? undefined;
       if (current?.userData.id)
-        selectRef.current(current.userData.id as string);
+        selectRef.current?.(current.userData.id as string);
     };
     renderer.domElement.addEventListener('pointerdown', handlePick);
 
@@ -722,7 +750,9 @@ export function CabinetConfigurator({
     (preset) =>
       preset === REFERENCE_KITCHEN_PRESET
         ? referenceKitchenStudy()
-        : initialStudy(),
+        : preset === 'blank'
+          ? blankStudy()
+          : initialStudy(),
     migrateStudy,
     () => setHistory([]),
   );
