@@ -289,7 +289,7 @@ export function referenceKitchenStudy(): Study {
       }),
       {
         ...createKitchenAppliance('dishwasher', 'reference-dishwasher'),
-        applianceFront: 'slab',
+        applianceFront: 'vertical-slat',
         material,
         placement: {mode: 'wall', wall: 'right', offset: 120, elevation: 0},
       },
@@ -568,6 +568,7 @@ function ThreeStudy({
             cabinet.applianceFront,
             cabinet.rangeHood,
             cabinetColor(cabinet),
+            study.countertop && !cabinet.islandId,
           )
         : cabinetGeometry(
             cabinet,
@@ -1717,6 +1718,9 @@ export function CabinetConfigurator({
                           Inset shaker with face frame
                         </option>
                         <option value="slab">Slab</option>
+                        <option value="vertical-slat">
+                          Vertical slat panel
+                        </option>
                         <option value="vertical-slat">
                           Vertical slat panel
                         </option>

@@ -56,7 +56,9 @@ export function projectSchedule(study: Study) {
     const panel =
       e.kind === 'appliance' &&
       ['refrigerator', 'dishwasher'].includes(e.applianceKind ?? '') &&
-      ['shaker', 'slab'].includes(e.applianceFront ?? 'stainless');
+      ['shaker', 'slab', 'vertical-slat'].includes(
+        e.applianceFront ?? 'stainless',
+      );
     if (e.kind === 'appliance' && !panel) continue;
     if (e.width <= 1.5 || e.depth <= 3 || e.height <= 4)
       throw new PricingError('unsupported_configuration', [e.id]);

@@ -7,9 +7,10 @@ export function applianceGeometry(
   w: number,
   h: number,
   d: number,
-  frontStyle: 'stainless' | 'shaker' | 'slab' = 'stainless',
+  frontStyle: 'stainless' | 'shaker' | 'slab' | 'vertical-slat' = 'stainless',
   rangeHood = false,
   panelColor?: string,
+  countertop = false,
 ) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
@@ -51,6 +52,22 @@ export function applianceGeometry(
     return mesh;
   };
   const z = d / 2;
+  if (kind === 'dishwasher' && countertop) {
+    const stone = new THREE.MeshStandardMaterial({
+      color: 0xe0d9cc,
+      roughness: 0.35,
+    });
+    const top = box(
+      w + 2 * 0.0254,
+      1.5 * 0.0254,
+      d + 2 * 0.0254,
+      0,
+      h / 2 + 0.75 * 0.0254,
+      0,
+      stone,
+    );
+    top.name = 'dishwasher-countertop';
+  }
   if (kind === 'range' && rangeHood) {
     // Concept hood: underside 30 inches above the cooking surface.
     const bottom = h / 2 + 30 * 0.0254;
@@ -119,6 +136,20 @@ export function applianceGeometry(
             wood,
           );
         }
+      }
+      if (frontStyle === 'vertical-slat') {
+        const spacing = Math.max(1.75 * 0.0254, Math.min(2.5 * 0.0254, pw / 8));
+        const slats = Math.max(2, Math.floor(pw / spacing));
+        for (let index = 1; index < slats; index++)
+          box(
+            0.16 * 0.0254,
+            Math.max(0.01, ph - 0.5 * 0.0254),
+            0.003,
+            x - pw / 2 + (index * pw) / slats,
+            0,
+            z + 0.014,
+            dark,
+          ).name = 'appliance-vertical-slat-groove';
       }
       if (count === 2)
         box(

@@ -68,7 +68,7 @@ export type KitchenElement = {
   height: number;
   face: 'shaker' | 'slab' | 'shaker-glass' | 'inset-shaker' | 'vertical-slat';
   hinge?: 'left' | 'right';
-  applianceFront?: 'stainless' | 'shaker' | 'slab';
+  applianceFront?: 'stainless' | 'shaker' | 'slab' | 'vertical-slat';
   rangeHood?: boolean;
   applianceKind?: ApplianceKind;
   configuration?: BaseConfiguration;
