@@ -1,6 +1,9 @@
 import {describe, expect, it} from 'vitest';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
 import {
   createDragUpdate,
+  CabinetConfigurator,
   migrateStudy,
   referenceKitchenStudy,
   type Study,
@@ -37,6 +40,11 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
+  it('offers a base cabinet without a separate farmhouse-sink creation button', () => {
+    const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
+    expect(markup).toContain('Base cabinet');
+    expect(markup).not.toContain('Farmhouse sink base cabinet');
+  });
   it.each(['plan', 'three', 'split'])(
     'opens saved %s views in split view',
     (view) => {

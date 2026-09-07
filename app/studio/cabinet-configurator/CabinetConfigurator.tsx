@@ -1511,16 +1511,6 @@ export function CabinetConfigurator({
                 >
                   Corner base cabinet
                 </button>
-                <button
-                  onClick={(event) => {
-                    addElement('base', undefined, 'farmhouse-sink');
-                    event.currentTarget
-                      .closest('details')
-                      ?.removeAttribute('open');
-                  }}
-                >
-                  Farmhouse sink base cabinet
-                </button>
                 {(
                   [
                     ['base', 'Base cabinet'],
