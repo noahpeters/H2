@@ -414,6 +414,7 @@ export function migrateStudy(raw: unknown): Study {
     ...fallback,
     ...value,
     version: 2,
+    view: 'split',
     room: {...fallback.room, ...value.room},
     elements: [...elements, ...migratedAppliances],
     islands: value.islands ?? [],

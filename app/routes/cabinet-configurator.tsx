@@ -1,10 +1,13 @@
 import type {Route} from './+types/cabinet-configurator';
 import {useLoaderData} from 'react-router';
 import cabinetStyles from '~/styles/cabinet-configurator.css?url';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioHeader} from '~/studio/StudioHeader';
 import {CabinetConfigurator} from '~/studio/cabinet-configurator/CabinetConfigurator';
 import {CabinetStartSheet} from '~/studio/cabinet-configurator/CabinetStartSheet';
 
 export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
   {rel: 'stylesheet', href: cabinetStyles},
 ];
 
@@ -29,6 +32,19 @@ export function loader({context, request}: Route.LoaderArgs) {
 }
 export default function CabinetPage() {
   const {turnstileSiteKey, showStartSheet} = useLoaderData<typeof loader>();
-  if (showStartSheet) return <CabinetStartSheet />;
-  return <CabinetConfigurator turnstileSiteKey={turnstileSiteKey} />;
+  return (
+    <div className="studio-cabinet-page">
+      <StudioHeader
+        links={[
+          {label: 'Back to the studio', to: '/'},
+          {label: 'Shape Your Table', to: '/configurator'},
+        ]}
+      />
+      {showStartSheet ? (
+        <CabinetStartSheet />
+      ) : (
+        <CabinetConfigurator turnstileSiteKey={turnstileSiteKey} />
+      )}
+    </div>
+  );
 }

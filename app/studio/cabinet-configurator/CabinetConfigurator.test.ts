@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {
   createDragUpdate,
+  migrateStudy,
   referenceKitchenStudy,
   type Study,
 } from './CabinetConfigurator';
@@ -36,6 +37,12 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
+  it.each(['plan', 'three', 'split'])(
+    'opens saved %s views in split view',
+    (view) => {
+      expect(migrateStudy({...study(), view}).view).toBe('split');
+    },
+  );
   it('provides a valid warm-oak reference kitchen preset', () => {
     const preset = referenceKitchenStudy();
     expect(validStudy(preset)).toBe(true);

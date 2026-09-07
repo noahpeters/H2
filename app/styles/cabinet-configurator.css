@@ -585,7 +585,7 @@
 .cc-start-home { color:inherit; font-size:14px; }
 .cc-start-sheet header { max-width:850px; margin:64px 0 42px; }
 .cc-start-eyebrow { text-transform:uppercase; letter-spacing:.16em; font-size:12px; }
-.cc-start-sheet h1 { font-family:Georgia,serif; font-size:clamp(36px,5vw,64px); line-height:1.1; margin:20px 0; }
+.cc-start-sheet h1 { font-family:Georgia,serif; font-size:clamp(36px,5vw,64px); line-height:1.1; margin:20px 0; white-space:normal; }
 .cc-start-sheet header p { line-height:1.7; }
 .cc-starter-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px; }
 .cc-starter-card { border:1px solid #13423240; overflow:hidden; }
