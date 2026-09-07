@@ -5,6 +5,18 @@ import {applianceGeometry} from './applianceGeometry';
 import {hasMaterialFinish} from './materials';
 import {Mesh, MeshStandardMaterial} from 'three';
 describe('cabinet materials', () => {
+  it.each(['refrigerator', 'dishwasher'])(
+    'offers finishes on vertical-slat %s panels',
+    (applianceKind) => {
+      expect(
+        hasMaterialFinish({
+          kind: 'appliance',
+          applianceKind,
+          applianceFront: 'vertical-slat',
+        }),
+      ).toBe(true);
+    },
+  );
   it.each(['refrigerator', 'dishwasher'] as const)(
     'colors %s panels for wood and paint finishes',
     (kind) => {

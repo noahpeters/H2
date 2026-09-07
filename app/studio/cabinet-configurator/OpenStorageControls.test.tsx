@@ -31,9 +31,7 @@ it('edits dimensions, interiors, doors/back and switches to overhead storage', (
     depth: 20,
     storage: {shelves: 3, doors: true, back: false},
   });
-  fireEvent.change(screen.getByLabelText('Open storage type'), {
-    target: {value: 'overhead'},
-  });
+  fireEvent.click(screen.getByRole('button', {name: 'Overhead storage'}));
   item = JSON.parse(container.querySelector('output')!.textContent!) as any;
   expect(item).toMatchObject({
     kind: 'wall-cabinet',
