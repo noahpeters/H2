@@ -513,6 +513,7 @@ export function ThreeStudy({
   onSelect?: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const hasNavigated = useRef(false);
   const viewRef = useRef<{
     position: THREE.Vector3;
     target: THREE.Vector3;
@@ -534,6 +535,10 @@ export function ThreeStudy({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     host.append(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
+    const rememberNavigation = () => {
+      hasNavigated.current = true;
+    };
+    controls.addEventListener('start', rememberNavigation);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2.02;
     scene.add(new THREE.HemisphereLight(0xffffff, 0x5b5546, 2.2));
@@ -628,8 +633,9 @@ export function ThreeStudy({
       const bounds = host.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
       camera.aspect = bounds.width / bounds.height;
-      if (!selectRef.current && !viewRef.current) {
-        // Fit the whole room in a starter card, including narrow mobile cards.
+      if (!hasNavigated.current) {
+        // Fit the loaded room until the user takes control of the camera.
+        // This also handles the saved design arriving after the initial render.
         const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
         const limitingFov = Math.min(
           halfFov,
@@ -687,6 +693,7 @@ export function ThreeStudy({
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.domElement.removeEventListener('pointerdown', handlePick);
+      controls.removeEventListener('start', rememberNavigation);
       controls.dispose();
       renderer.dispose();
       scene.traverse((object) => {
