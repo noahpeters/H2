@@ -51,6 +51,7 @@ import {applianceGeometry} from './applianceGeometry';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   APPLIANCE_CATALOG,
+  APPLIANCE_FRONT_OPTIONS,
   minimumTallHeight,
   type BaseConfiguration,
   aisleClearance,
@@ -1721,9 +1722,6 @@ export function CabinetConfigurator({
                         <option value="vertical-slat">
                           Vertical slat panel
                         </option>
-                        <option value="vertical-slat">
-                          Vertical slat panel
-                        </option>
                         {selected.kind === 'wall-cabinet' && (
                           <option value="shaker-glass">Shaker + glass</option>
                         )}
@@ -1779,9 +1777,11 @@ export function CabinetConfigurator({
                           });
                         }}
                       >
-                        <option value="stainless">Stainless</option>
-                        <option value="shaker">Shaker</option>
-                        <option value="slab">Slab</option>
+                        {APPLIANCE_FRONT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </label>
                   )}

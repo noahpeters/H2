@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type {ApplianceKind} from './model';
+import type {ApplianceFront, ApplianceKind} from './model';
 
 /** Original, dimension-scaled appliance silhouettes; front faces local +Z. */
 export function applianceGeometry(
@@ -7,7 +7,7 @@ export function applianceGeometry(
   w: number,
   h: number,
   d: number,
-  frontStyle: 'stainless' | 'shaker' | 'slab' | 'vertical-slat' = 'stainless',
+  frontStyle: ApplianceFront = 'stainless',
   rangeHood = false,
   panelColor?: string,
   countertop = false,
