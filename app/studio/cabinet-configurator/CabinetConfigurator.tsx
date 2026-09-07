@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
+import {ChoiceImage, VisualSelect} from './VisualChoices';
 import {ShareRoomForm} from './ShareRoomForm';
 import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
@@ -1500,6 +1501,7 @@ export function CabinetConfigurator({
                         ?.removeAttribute('open');
                     }}
                   >
+                    <ChoiceImage category="storage" value={type} />
                     {label}
                   </button>
                 ))}
@@ -1516,6 +1518,7 @@ export function CabinetConfigurator({
                       ?.removeAttribute('open');
                   }}
                 >
+                  <ChoiceImage category="cabinet" value="corner" />
                   Corner base cabinet
                 </button>
                 {(
@@ -1534,6 +1537,7 @@ export function CabinetConfigurator({
                         ?.removeAttribute('open');
                     }}
                   >
+                    <ChoiceImage category="cabinet" value={kind} />
                     {label}
                   </button>
                 ))}
@@ -1556,6 +1560,7 @@ export function CabinetConfigurator({
                           ?.removeAttribute('open');
                       }}
                     >
+                      <ChoiceImage category="appliance" value={kind} />
                       {APPLIANCE_CATALOG[kind].label}
                     </button>
                   ))}
@@ -1637,9 +1642,14 @@ export function CabinetConfigurator({
                     </label>
                   )}
                 {selected.kind === 'base' && (
-                  <label>
+                  <div
+                    className="cc-visual-field"
+                    role="group"
+                    aria-label="Base configuration"
+                  >
                     Base configuration
-                    <select
+                    <VisualSelect
+                      category="base"
                       value={selected.configuration ?? 'single-door'}
                       onChange={(event) => {
                         const configuration = event.currentTarget
@@ -1662,14 +1672,19 @@ export function CabinetConfigurator({
                       <option value="farmhouse-sink">
                         Farmhouse / apron-front sink base
                       </option>
-                    </select>
-                  </label>
+                    </VisualSelect>
+                  </div>
                 )}
                 {hasMaterialFinish(selected) && (
                   <>
-                    <label>
+                    <div
+                      className="cc-visual-field"
+                      role="group"
+                      aria-label="Material"
+                    >
                       Material
-                      <select
+                      <VisualSelect
+                        category="material"
                         value={selected.material ?? 'rift-white-oak'}
                         onChange={(event) => {
                           const material = event.currentTarget
@@ -1689,12 +1704,17 @@ export function CabinetConfigurator({
                             </option>
                           ),
                         )}
-                      </select>
-                    </label>
+                      </VisualSelect>
+                    </div>
                     {selected.material === 'paint-grade' && (
-                      <label>
+                      <div
+                        className="cc-visual-field"
+                        role="group"
+                        aria-label="Paint color"
+                      >
                         Paint color
-                        <select
+                        <VisualSelect
+                          category="paint"
                           value={selected.paintColor ?? 'white'}
                           onChange={(event) => {
                             const paintColor = event.currentTarget
@@ -1714,8 +1734,8 @@ export function CabinetConfigurator({
                               </option>
                             ),
                           )}
-                        </select>
-                      </label>
+                        </VisualSelect>
+                      </div>
                     )}
                     <small>
                       Screen colors are approximate; approve a physical finish
@@ -1727,9 +1747,14 @@ export function CabinetConfigurator({
                   (!selected.storage ||
                     selected.storage.doors ||
                     selected.storage.type === 'drawers') && (
-                    <label>
+                    <div
+                      className="cc-visual-field"
+                      role="group"
+                      aria-label="Front style"
+                    >
                       Front style
-                      <select
+                      <VisualSelect
+                        category="front"
                         value={selected.face}
                         onChange={(event) => {
                           const face = event.currentTarget
@@ -1753,8 +1778,8 @@ export function CabinetConfigurator({
                         {selected.kind === 'wall-cabinet' && (
                           <option value="shaker-glass">Shaker + glass</option>
                         )}
-                      </select>
-                    </label>
+                      </VisualSelect>
+                    </div>
                   )}
                 {selected.kind !== 'appliance' &&
                   (!selected.storage || selected.storage.doors) &&
@@ -1790,9 +1815,14 @@ export function CabinetConfigurator({
                   ['refrigerator', 'dishwasher'].includes(
                     selected.applianceKind ?? '',
                   ) && (
-                    <label>
+                    <div
+                      className="cc-visual-field"
+                      role="group"
+                      aria-label="Front style"
+                    >
                       Front style
-                      <select
+                      <VisualSelect
+                        category="appliance-front"
                         value={selected.applianceFront ?? 'stainless'}
                         onChange={(event) => {
                           const front = event.currentTarget
@@ -1810,8 +1840,8 @@ export function CabinetConfigurator({
                             {option.label}
                           </option>
                         ))}
-                      </select>
-                    </label>
+                      </VisualSelect>
+                    </div>
                   )}
                 {selected.storage && (
                   <OpenStorageControls
@@ -1827,9 +1857,14 @@ export function CabinetConfigurator({
                   />
                 )}
                 {selected.kind === 'tall' && !selected.storage && (
-                  <label>
+                  <div
+                    className="cc-visual-field"
+                    role="group"
+                    aria-label="Tall configuration"
+                  >
                     Tall configuration
-                    <select
+                    <VisualSelect
+                      category="tall"
                       value={selected.tallConfiguration ?? 'standard'}
                       onChange={(event) => {
                         const configuration = event.currentTarget
@@ -1870,8 +1905,8 @@ export function CabinetConfigurator({
                       >
                         Coffee maker · counter height
                       </option>
-                    </select>
-                  </label>
+                    </VisualSelect>
+                  </div>
                 )}
                 {!selected.storage &&
                   (selected.kind === 'tall' ||

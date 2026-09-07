@@ -23,7 +23,7 @@ export function hasMaterialFinish(item: {
   return (
     item.kind !== 'appliance' ||
     (['refrigerator', 'dishwasher'].includes(item.applianceKind ?? '') &&
-      ['shaker', 'slab'].includes(item.applianceFront ?? ''))
+      ['shaker', 'slab', 'vertical-slat'].includes(item.applianceFront ?? ''))
   );
 }
 export function cabinetColor(item: {

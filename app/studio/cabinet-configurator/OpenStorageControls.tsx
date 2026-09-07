@@ -1,4 +1,5 @@
 import type {KitchenElement} from './model';
+import {VisualSelect} from './VisualChoices';
 import {
   OPEN_STORAGE,
   storageDefaults,
@@ -20,9 +21,14 @@ export function OpenStorageControls({
   );
   return (
     <>
-      <label>
+      <div
+        className="cc-visual-field"
+        role="group"
+        aria-label="Open storage type"
+      >
         Open storage type
-        <select
+        <VisualSelect
+          category="storage"
           value={s.type}
           onChange={(event) => {
             const type = event.currentTarget.value as StorageKind;
@@ -45,8 +51,8 @@ export function OpenStorageControls({
               {label}
             </option>
           ))}
-        </select>
-      </label>
+        </VisualSelect>
+      </div>
       {(['depth', 'height'] as const).map((key) => (
         <label key={key}>
           {key}
