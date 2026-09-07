@@ -38,6 +38,13 @@ export type ApplianceKind =
   | 'microwave'
   | 'coffee-maker';
 export type SeatingSide = 'none' | 'north' | 'south' | 'east' | 'west';
+export const APPLIANCE_FRONT_OPTIONS = [
+  {value: 'stainless', label: 'Stainless'},
+  {value: 'shaker', label: 'Shaker'},
+  {value: 'slab', label: 'Slab'},
+  {value: 'vertical-slat', label: 'Vertical slat panel'},
+] as const;
+export type ApplianceFront = (typeof APPLIANCE_FRONT_OPTIONS)[number]['value'];
 
 export type Placement =
   | {
@@ -68,7 +75,7 @@ export type KitchenElement = {
   height: number;
   face: 'shaker' | 'slab' | 'shaker-glass' | 'inset-shaker' | 'vertical-slat';
   hinge?: 'left' | 'right';
-  applianceFront?: 'stainless' | 'shaker' | 'slab' | 'vertical-slat';
+  applianceFront?: ApplianceFront;
   rangeHood?: boolean;
   applianceKind?: ApplianceKind;
   configuration?: BaseConfiguration;

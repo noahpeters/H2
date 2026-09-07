@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
 import {cabinetGeometry} from './kitchenGeometry';
 import {applianceGeometry} from './applianceGeometry';
-import type {KitchenElement} from './model';
+import {APPLIANCE_FRONT_OPTIONS, type KitchenElement} from './model';
 const cabinet = (width: number): KitchenElement => ({
   id: 'test',
   kind: 'base',
@@ -12,6 +12,12 @@ const cabinet = (width: number): KitchenElement => ({
   placement: {mode: 'wall', wall: 'back', offset: 0, elevation: 0},
 });
 describe('front options', () => {
+  it('offers vertical slat panels in the appliance front catalog', () => {
+    expect(APPLIANCE_FRONT_OPTIONS).toContainEqual({
+      value: 'vertical-slat',
+      label: 'Vertical slat panel',
+    });
+  });
   it('adds an optional hood only to freestanding ranges', () => {
     expect(
       applianceGeometry('range', 0.76, 0.91, 0.68).getObjectByName(
