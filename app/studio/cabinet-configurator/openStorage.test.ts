@@ -10,7 +10,7 @@ import {cabinetGeometry} from './kitchenGeometry';
 import {validStudy} from './savedRoomProtocol';
 import type {Study} from './CabinetConfigurator';
 describe('open storage', () => {
-  it('supports all seven types in saved rooms and produces matching interior geometry', () => {
+  it('supports every type in saved rooms and produces matching geometry', () => {
     for (const type of Object.keys(OPEN_STORAGE) as StorageKind[]) {
       const item = createOpenStorage(type, type);
       expect(validStorage(item.storage)).toBe(true);
@@ -35,10 +35,15 @@ describe('open storage', () => {
         group = cabinetGeometry(item, true);
       const count = (name: string) =>
         group.children.filter((c) => c.name === name).length;
-      expect(count('storage-shelf')).toBe(layout.shelfYs.length);
+      expect(count('storage-shelf')).toBe(
+        type === 'floating-shelves' ? 0 : layout.shelfYs.length,
+      );
+      expect(count('floating-shelf')).toBe(
+        type === 'floating-shelves' ? item.storage!.shelves : 0,
+      );
       expect(count('storage-hanging-rod')).toBe(layout.rods.length);
       expect(count('storage-drawer-box')).toBe(layout.drawers);
-      expect(count('cabinet-top')).toBe(1);
+      expect(count('cabinet-top')).toBe(type === 'floating-shelves' ? 0 : 1);
       expect(count('cabinet-front')).toBe(layout.drawers);
       expect(count('storage-divider')).toBe(type === 'combination' ? 1 : 0);
       group.traverse((child) => {

@@ -7,6 +7,7 @@ export const OPEN_STORAGE = {
   combination: 'Shelf-and-hang combination',
   shoes: 'Shoe storage',
   overhead: 'Overhead storage',
+  'floating-shelves': 'Wall-mounted floating shelves',
 } as const;
 export type StorageKind = keyof typeof OPEN_STORAGE;
 export type OpenStorage = {
@@ -27,11 +28,13 @@ export function storageDefaults(type: StorageKind): OpenStorage {
     shelves:
       type === 'shoes'
         ? 8
-        : type === 'shelving' || type === 'combination'
-          ? 5
-          : type === 'drawers' || type === 'overhead'
-            ? 2
-            : 1,
+        : type === 'floating-shelves'
+          ? 3
+          : type === 'shelving' || type === 'combination'
+            ? 5
+            : type === 'drawers' || type === 'overhead'
+              ? 2
+              : 1,
     drawers: type === 'drawers' ? 4 : 0,
     rodHeight: 68,
     lowerRodHeight: 36,
@@ -48,22 +51,28 @@ export function createOpenStorage(
 ): KitchenElement {
   return {
     id,
-    kind: type === 'overhead' ? 'wall-cabinet' : 'tall',
+    kind:
+      type === 'overhead' || type === 'floating-shelves'
+        ? 'wall-cabinet'
+        : 'tall',
     width: type === 'combination' ? 48 : 30,
     depth:
       type === 'shoes'
         ? 16
-        : type === 'shelving' || type === 'overhead'
+        : type === 'shelving' ||
+            type === 'overhead' ||
+            type === 'floating-shelves'
           ? 16
           : 24,
-    height: type === 'overhead' ? 24 : 84,
+    height: type === 'floating-shelves' ? 36 : type === 'overhead' ? 24 : 84,
     face: 'slab',
     storage: storageDefaults(type),
     placement: {
       mode: 'wall',
       wall: 'back',
       offset: 12,
-      elevation: type === 'overhead' ? 72 : 0,
+      elevation:
+        type === 'floating-shelves' ? 52 : type === 'overhead' ? 72 : 0,
     },
   };
 }

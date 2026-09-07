@@ -61,6 +61,16 @@ describe('front options', () => {
       ).children.filter((c) => c.name === 'cabinet-front'),
     ).toHaveLength(1);
   });
+  it('renders routed vertical slat grooves across each front', () => {
+    const front = cabinetGeometry(
+      {...cabinet(36), face: 'vertical-slat'},
+      false,
+    );
+    expect(
+      front.children.filter((child) => child.name === 'vertical-slat-groove')
+        .length,
+    ).toBeGreaterThan(8);
+  });
   it.each(['refrigerator', 'dishwasher'] as const)(
     'renders %s wood panels only when requested',
     (kind) => {

@@ -196,6 +196,164 @@ function initialStudy(): Study {
     view: 'split',
   };
 }
+
+export const REFERENCE_KITCHEN_PRESET = 'warm-oak-farmhouse-kitchen';
+
+/** A shareable starting study modeled on the supplied warm-oak kitchen. */
+export function referenceKitchenStudy(): Study {
+  const face = 'vertical-slat' as const;
+  const material = 'rift-white-oak' as const;
+  const wallElement = (
+    id: string,
+    kind: KitchenElement['kind'],
+    wall: Wall,
+    offset: number,
+    width: number,
+    extras: Partial<KitchenElement> = {},
+  ): KitchenElement => ({
+    id,
+    kind,
+    width,
+    depth: kind === 'wall-cabinet' ? 12 : 24,
+    height: kind === 'wall-cabinet' ? 30 : kind === 'tall' ? 108 : 34.5,
+    face,
+    material,
+    placement: {
+      mode: 'wall',
+      wall,
+      offset,
+      elevation: kind === 'wall-cabinet' ? 54 : 0,
+    },
+    ...extras,
+  });
+  const islandBase = (id: string, x: number): KitchenElement => ({
+    id,
+    kind: 'base',
+    width: 30,
+    depth: 24,
+    height: 34.5,
+    face,
+    material,
+    configuration: 'door-drawer',
+    islandId: 'reference-island',
+    placement: {mode: 'floor', x, z: 135, rotation: 0},
+  });
+  return {
+    version: 2,
+    room: {
+      width: 300,
+      depth: 240,
+      height: 144,
+      floor: 'concrete',
+      walls: 'plaster',
+    },
+    openings: [
+      {
+        id: 'reference-entry',
+        kind: 'door',
+        wall: 'back',
+        offset: 118,
+        width: 36,
+        height: 84,
+      },
+      {
+        id: 'reference-window-one',
+        kind: 'window',
+        wall: 'right',
+        offset: 52,
+        width: 54,
+        height: 52,
+        sill: 42,
+      },
+      {
+        id: 'reference-window-two',
+        kind: 'window',
+        wall: 'right',
+        offset: 142,
+        width: 42,
+        height: 52,
+        sill: 42,
+      },
+    ],
+    elements: [
+      wallElement('reference-pantry-a', 'tall', 'back', 24, 36),
+      wallElement('reference-pantry-b', 'tall', 'back', 60, 36),
+      wallElement('reference-base-a', 'base', 'right', 20, 32, {
+        configuration: 'door-drawer',
+      }),
+      wallElement('reference-base-b', 'base', 'right', 52, 32, {
+        configuration: 'three-drawer',
+      }),
+      wallElement('reference-farmhouse-sink', 'base', 'right', 84, 36, {
+        configuration: 'farmhouse-sink',
+      }),
+      {
+        ...createKitchenAppliance('dishwasher', 'reference-dishwasher'),
+        applianceFront: 'slab',
+        material,
+        placement: {mode: 'wall', wall: 'right', offset: 120, elevation: 0},
+      },
+      wallElement('reference-base-c', 'base', 'right', 144, 36, {
+        configuration: 'door-drawer',
+      }),
+      wallElement('reference-tall-right', 'tall', 'right', 192, 36),
+      wallElement(
+        'reference-floating-shelves',
+        'wall-cabinet',
+        'right',
+        76,
+        48,
+        {
+          depth: 11,
+          height: 34,
+          storage: {
+            type: 'floating-shelves',
+            shelves: 3,
+            drawers: 0,
+            rodHeight: 68,
+            lowerRodHeight: 36,
+            shelfSpacing: 0,
+            dividerPercent: 40,
+            doors: false,
+            back: false,
+            angled: false,
+          },
+          placement: {mode: 'wall', wall: 'right', offset: 68, elevation: 55},
+        },
+      ),
+      wallElement('reference-left-base-a', 'base', 'left', 18, 30, {
+        configuration: 'door-drawer',
+      }),
+      {
+        ...createKitchenAppliance('range', 'reference-range'),
+        width: 36,
+        rangeHood: true,
+        placement: {mode: 'wall', wall: 'left', offset: 48, elevation: 0},
+      },
+      wallElement('reference-left-base-b', 'base', 'left', 84, 30, {
+        configuration: 'door-drawer',
+      }),
+      islandBase('reference-island-a', 120),
+      islandBase('reference-island-b', 150),
+      islandBase('reference-island-c', 180),
+    ],
+    islands: [
+      {
+        id: 'reference-island',
+        x: 150,
+        z: 135,
+        width: 96,
+        depth: 42,
+        rotation: 0,
+        overhang: 12,
+        seatingSide: 'south',
+      },
+    ],
+    selected: 'reference-farmhouse-sink',
+    countertop: true,
+    view: 'split',
+  };
+}
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -556,8 +714,15 @@ export function CabinetConfigurator({
       typeof window === 'undefined' ? undefined : window.localStorage,
     );
   const drag = useRef<ActiveDrag | null>(null);
-  const rooms = useSavedRooms(study, setStudy, initialStudy, migrateStudy, () =>
-    setHistory([]),
+  const rooms = useSavedRooms(
+    study,
+    setStudy,
+    (preset) =>
+      preset === REFERENCE_KITCHEN_PRESET
+        ? referenceKitchenStudy()
+        : initialStudy(),
+    migrateStudy,
+    () => setHistory([]),
   );
   const update = useCallback(
     (change: (draft: Study) => void) =>
@@ -620,7 +785,12 @@ export function CabinetConfigurator({
         configuration,
         id: makeId(),
         kind,
-        width: configuration === 'corner' ? 36 : kind === 'appliance' ? 24 : 30,
+        width:
+          configuration === 'corner' || configuration === 'farmhouse-sink'
+            ? 36
+            : kind === 'appliance'
+              ? 24
+              : 30,
         depth:
           configuration === 'corner' ? 36 : kind === 'wall-cabinet' ? 12 : 24,
         height:
@@ -645,10 +815,10 @@ export function CabinetConfigurator({
         d.room,
       );
       // An explicit catalog choice wins over remembered defaults.
-      if (configuration === 'corner') {
-        remembered.configuration = 'corner';
+      if (configuration === 'corner' || configuration === 'farmhouse-sink') {
+        remembered.configuration = configuration;
         remembered.width = 36;
-        remembered.depth = 36;
+        if (configuration === 'corner') remembered.depth = 36;
       }
       d.elements.push(remembered);
       d.selected = remembered.id;
@@ -1308,6 +1478,16 @@ export function CabinetConfigurator({
                 >
                   Corner base cabinet
                 </button>
+                <button
+                  onClick={(event) => {
+                    addElement('base', undefined, 'farmhouse-sink');
+                    event.currentTarget
+                      .closest('details')
+                      ?.removeAttribute('open');
+                  }}
+                >
+                  Farmhouse sink base cabinet
+                </button>
                 {(
                   [
                     ['base', 'Base cabinet'],
@@ -1449,6 +1629,9 @@ export function CabinetConfigurator({
                       <option value="three-drawer">Three drawers</option>
                       <option value="microwave-drawer">Microwave drawer</option>
                       <option value="sink">Sink base</option>
+                      <option value="farmhouse-sink">
+                        Farmhouse / apron-front sink base
+                      </option>
                     </select>
                   </label>
                 )}
@@ -1534,6 +1717,9 @@ export function CabinetConfigurator({
                           Inset shaker with face frame
                         </option>
                         <option value="slab">Slab</option>
+                        <option value="vertical-slat">
+                          Vertical slat panel
+                        </option>
                         {selected.kind === 'wall-cabinet' && (
                           <option value="shaker-glass">Shaker + glass</option>
                         )}

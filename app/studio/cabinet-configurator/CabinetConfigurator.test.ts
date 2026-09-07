@@ -1,5 +1,10 @@
 import {describe, expect, it} from 'vitest';
-import {createDragUpdate, type Study} from './CabinetConfigurator';
+import {
+  createDragUpdate,
+  referenceKitchenStudy,
+  type Study,
+} from './CabinetConfigurator';
+import {validStudy} from './savedRoomProtocol';
 import type {KitchenElement} from './model';
 
 const study = () => ({
@@ -31,6 +36,22 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
+  it('provides a valid warm-oak reference kitchen preset', () => {
+    const preset = referenceKitchenStudy();
+    expect(validStudy(preset)).toBe(true);
+    expect(preset.elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({configuration: 'farmhouse-sink'}),
+        expect.objectContaining({face: 'vertical-slat'}),
+        expect.objectContaining({
+          storage: expect.objectContaining({
+            type: 'floating-shelves',
+            shelves: 3,
+          }),
+        }),
+      ]),
+    );
+  });
   it('moves an island and only its grouped objects together', () => {
     const current: Study = study();
     current.islands = [

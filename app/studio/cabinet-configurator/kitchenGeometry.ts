@@ -23,7 +23,7 @@ export function islandCountertop(island: Island, elements: KitchenElement[]) {
   for (const item of elements) {
     if (
       item.islandId !== island.id ||
-      item.configuration !== 'sink' ||
+      !['sink', 'farmhouse-sink'].includes(item.configuration ?? '') ||
       item.placement.mode !== 'floor'
     )
       continue;
@@ -156,6 +156,20 @@ export function cabinetGeometry(
     color: 0xe0d9cc,
     roughness: 0.35,
   });
+  if (item.storage?.type === 'floating-shelves') {
+    const group = new THREE.Group();
+    const count = Math.max(1, item.storage.shelves);
+    const shelfDepth = Math.max(6, item.depth);
+    for (let index = 0; index < count; index++) {
+      const y = count === 1 ? 0 : -h / 2 + (index * h) / (count - 1);
+      box(group, w, 1.5, shelfDepth, 0, y, 0, wood).name = 'floating-shelf';
+      // A short inset block suggests concealed wall hardware without turning
+      // the composition into a cabinet carcass.
+      box(group, Math.max(4, w - 8), 1, 2, 0, y, -shelfDepth / 2, dark).name =
+        'floating-shelf-cleat';
+    }
+    return group;
+  }
   const toe = item.kind === 'wall-cabinet' ? 0 : Math.min(4, h / 3);
   const bottom = -h / 2 + toe;
   // Open carcass keeps the sink cavity visible; recessed plinth is four inches tall.
@@ -225,6 +239,21 @@ export function cabinetGeometry(
         : panel,
     );
     frontPanel.name = 'cabinet-front';
+    if (item.face === 'vertical-slat') {
+      const spacing = Math.max(1.75, Math.min(2.5, width / 8));
+      const count = Math.max(2, Math.floor(width / spacing));
+      for (let index = 1; index < count; index++)
+        box(
+          group,
+          0.16,
+          Math.max(0.5, height - 0.5),
+          0.1,
+          x - width / 2 + (index * width) / count,
+          y,
+          faceZ + 0.22,
+          dark,
+        ).name = 'vertical-slat-groove';
+    }
     if (item.face === 'shaker' || inset || glass) {
       const rail = Math.min(2, width / 5, height / 4);
       for (const side of [-1, 1]) {
@@ -498,6 +527,18 @@ export function cabinetGeometry(
           false,
         );
     else front(w - 0.25, doorHeight, 0, bottom + doorHeight / 2 + 0.125, false);
+  } else if (item.kind === 'base' && config === 'farmhouse-sink') {
+    const apronHeight = Math.min(10, usable * 0.35);
+    front(w - 0.25, apronHeight, 0, h / 2 - apronHeight / 2 - 0.125, false);
+    const doorHeight = usable - apronHeight - 0.125;
+    for (const side of [-1, 1])
+      front(
+        w / 2 - 0.1875,
+        doorHeight,
+        (side * w) / 4,
+        bottom + doorHeight / 2 + 0.125,
+        false,
+      );
   } else if (w > 30 && !(item.kind === 'base' && config === 'pullout')) {
     for (const side of [-1, 1])
       front(w / 2 - 0.1875, usable, (side * w) / 4, toe / 2, false);
@@ -511,7 +552,7 @@ export function cabinetGeometry(
     );
   if (countertop && item.kind === 'base') {
     const topY = h / 2 + 0.75;
-    if (config === 'sink') {
+    if (config === 'sink' || config === 'farmhouse-sink') {
       const sw = Math.min(22, w * 0.7),
         sd = Math.min(16, d * 0.65);
       // Four countertop strips surround a true opening, with an open basin below.
@@ -547,6 +588,9 @@ export function cabinetGeometry(
       box(group, 1, 8, 1, 0, h / 2 + 5.5, -sd / 2 - 1, steel);
       box(group, 1, 1, 6, 0, h / 2 + 9, -sd / 2 + 1.5, steel);
       box(group, 1, 2, 1, 0, h / 2 + 8, -sd / 2 + 4, steel);
+      if (config === 'farmhouse-sink')
+        box(group, sw + 1.5, 9, 1.5, 0, h / 2 - 3.5, d / 2 + 0.75, steel).name =
+          'farmhouse-sink-apron';
     } else if (!sharedCountertop)
       box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
   }

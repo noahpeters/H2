@@ -204,6 +204,41 @@ describe('four wall kitchen geometry', () => {
       expect(nonStoneCount(shared)).toBe(nonStoneCount(standalone));
     },
   );
+  it('renders an apron-front farmhouse sink and countertop opening', () => {
+    const sink = cabinetGeometry(
+      {...base, width: 36, configuration: 'farmhouse-sink'},
+      true,
+    );
+    expect(sink.getObjectByName('farmhouse-sink-apron')).toBeDefined();
+  });
+
+  it('renders wall-mounted floating shelves without a cabinet carcass', () => {
+    const shelves = cabinetGeometry(
+      {
+        ...base,
+        kind: 'wall-cabinet',
+        height: 36,
+        depth: 11,
+        storage: {
+          type: 'floating-shelves',
+          shelves: 3,
+          drawers: 0,
+          rodHeight: 68,
+          lowerRodHeight: 36,
+          shelfSpacing: 0,
+          dividerPercent: 40,
+          doors: false,
+          back: false,
+          angled: false,
+        },
+      },
+      false,
+    );
+    expect(
+      shelves.children.filter((child) => child.name === 'floating-shelf'),
+    ).toHaveLength(3);
+    expect(shelves.getObjectByName('cabinet-front')).toBeUndefined();
+  });
   it('places front-wall objects facing inward with the correct center and bounds', () => {
     expect(wallToFloor(base, room)).toEqual({
       mode: 'floor',

@@ -17,7 +17,8 @@ export type BaseConfiguration =
   | 'door-drawer'
   | 'three-drawer'
   | 'microwave-drawer'
-  | 'sink';
+  | 'sink'
+  | 'farmhouse-sink';
 export type Opening = {
   id: string;
   kind: 'door' | 'window' | 'opening';
@@ -65,7 +66,7 @@ export type KitchenElement = {
   width: number;
   depth: number;
   height: number;
-  face: 'shaker' | 'slab' | 'shaker-glass' | 'inset-shaker';
+  face: 'shaker' | 'slab' | 'shaker-glass' | 'inset-shaker' | 'vertical-slat';
   hinge?: 'left' | 'right';
   applianceFront?: 'stainless' | 'shaker' | 'slab';
   rangeHood?: boolean;
