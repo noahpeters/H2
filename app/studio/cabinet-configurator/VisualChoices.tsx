@@ -91,7 +91,7 @@ export function previewElement(
 
 // One renderer, reused for static images: no animation loops or WebGL context per tile.
 let renderer: THREE.WebGLRenderer | undefined;
-const images = new Map<string, string>();
+const images = new Map<string, HTMLCanvasElement>();
 function thumbnail(category: VisualCategory, value: string) {
   const key = `${category}:${value}`;
   const cached = images.get(key);
@@ -155,9 +155,14 @@ function thumbnail(category: VisualCategory, value: string) {
   camera.lookAt(center);
   try {
     renderer.render(scene, camera);
-    const url = renderer.domElement.toDataURL('image/png');
-    images.set(key, url);
-    return url;
+    const image = document.createElement('canvas');
+    image.width = 240;
+    image.height = 180;
+    const context = image.getContext('2d');
+    if (!context) throw new Error('Canvas preview unavailable');
+    context.drawImage(renderer.domElement, 0, 0);
+    images.set(key, image);
+    return image;
   } finally {
     body.traverse((object) => {
       if (
@@ -182,16 +187,20 @@ export function ChoiceImage({
   value: string;
 }) {
   const host = useRef<HTMLSpanElement>(null);
-  const [src, setSrc] = useState<string>();
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    setSrc(undefined);
+    setReady(false);
     const target = host.current;
     if (!target || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
       observer.disconnect();
       try {
-        setSrc(thumbnail(category, value));
+        const context = canvas.current?.getContext('2d');
+        if (!context) return;
+        context.drawImage(thumbnail(category, value), 0, 0);
+        setReady(true);
       } catch {
         /* Text labels remain usable without WebGL. */
       }
@@ -201,11 +210,8 @@ export function ChoiceImage({
   }, [category, value]);
   return (
     <span ref={host} className="cc-choice-image" aria-hidden="true">
-      {src ? (
-        <img src={src} alt="" width={240} height={180} />
-      ) : (
-        <span className="cc-choice-placeholder">◇</span>
-      )}
+      <canvas ref={canvas} width={240} height={180} hidden={!ready} />
+      {!ready && <span className="cc-choice-placeholder">◇</span>}
     </span>
   );
 }
@@ -221,11 +227,30 @@ export function VisualSelect({
   onChange: (event: {currentTarget: {value: string}}) => void;
   children: ReactNode;
 }) {
+  const dropdown = useRef<HTMLDetailsElement>(null);
+  const options = Children.toArray(children).filter(isValidElement);
+  const selected = options.find(
+    (child) => (child.props as {value: string}).value === value,
+  );
+  const closeOnEscape = (event: {key: string}) => {
+    if (event.key === 'Escape' && dropdown.current) {
+      dropdown.current.open = false;
+      dropdown.current.querySelector('summary')?.focus();
+    }
+  };
   return (
-    <div className="cc-choice-grid">
-      {Children.toArray(children)
-        .filter(isValidElement)
-        .map((child) => {
+    <details className="cc-visual-dropdown" ref={dropdown}>
+      <summary onKeyDown={closeOnEscape}>
+        <ChoiceImage category={category} value={value} />
+        <span>
+          {selected
+            ? (selected.props as {children: ReactNode}).children
+            : 'Choose an option'}
+        </span>
+        <span aria-hidden="true">⌄</span>
+      </summary>
+      <div className="cc-choice-grid">
+        {options.map((child) => {
           const option = child.props as {
             value: string;
             children: ReactNode;
@@ -238,13 +263,21 @@ export function VisualSelect({
               className="cc-choice"
               aria-pressed={value === option.value}
               disabled={option.disabled}
-              onClick={() => onChange({currentTarget: {value: option.value}})}
+              onKeyDown={closeOnEscape}
+              onClick={() => {
+                onChange({currentTarget: {value: option.value}});
+                if (dropdown.current) {
+                  dropdown.current.open = false;
+                  dropdown.current.querySelector('summary')?.focus();
+                }
+              }}
             >
               <ChoiceImage category={category} value={option.value} />
               <span>{option.children}</span>
             </button>
           );
         })}
-    </div>
+      </div>
+    </details>
   );
 }

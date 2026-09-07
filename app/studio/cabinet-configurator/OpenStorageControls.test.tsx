@@ -31,6 +31,11 @@ it('edits dimensions, interiors, doors/back and switches to overhead storage', (
     depth: 20,
     storage: {shelves: 3, doors: true, back: false},
   });
+  fireEvent.click(
+    screen
+      .getByRole('group', {name: 'Open storage type'})
+      .querySelector('summary')!,
+  );
   fireEvent.click(screen.getByRole('button', {name: 'Overhead storage'}));
   item = JSON.parse(container.querySelector('output')!.textContent!) as any;
   expect(item).toMatchObject({
