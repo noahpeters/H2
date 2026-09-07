@@ -162,7 +162,8 @@ export function applyCreationPreferences(
     item.kind === 'appliance' &&
     (profile.applianceFront === 'stainless' ||
       profile.applianceFront === 'shaker' ||
-      profile.applianceFront === 'slab')
+      profile.applianceFront === 'slab' ||
+      profile.applianceFront === 'vertical-slat')
   )
     next.applianceFront = profile.applianceFront;
   if (item.kind === 'appliance' && typeof profile.rangeHood === 'boolean')

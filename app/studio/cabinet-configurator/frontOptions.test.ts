@@ -74,7 +74,12 @@ describe('front options', () => {
   it.each(['refrigerator', 'dishwasher'] as const)(
     'renders %s wood panels only when requested',
     (kind) => {
-      for (const style of ['stainless', 'shaker', 'slab'] as const) {
+      for (const style of [
+        'stainless',
+        'shaker',
+        'slab',
+        'vertical-slat',
+      ] as const) {
         const panels = applianceGeometry(
           kind,
           0.9,
@@ -88,4 +93,40 @@ describe('front options', () => {
       }
     },
   );
+  it.each(['refrigerator', 'dishwasher'] as const)(
+    'renders vertical slat grooves on a panel-ready %s',
+    (kind) => {
+      const appliance = applianceGeometry(
+        kind,
+        0.9,
+        kind === 'refrigerator' ? 1.8 : 0.87,
+        0.7,
+        'vertical-slat',
+      );
+      expect(
+        appliance.children.filter(
+          (child) => child.name === 'appliance-vertical-slat-groove',
+        ).length,
+      ).toBeGreaterThan(8);
+    },
+  );
+  it('renders a countertop over the dishwasher when countertops are enabled', () => {
+    expect(
+      applianceGeometry(
+        'dishwasher',
+        0.6,
+        0.87,
+        0.6,
+        'vertical-slat',
+        false,
+        undefined,
+        true,
+      ).getObjectByName('dishwasher-countertop'),
+    ).toBeDefined();
+    expect(
+      applianceGeometry('dishwasher', 0.6, 0.87, 0.6).getObjectByName(
+        'dishwasher-countertop',
+      ),
+    ).toBeUndefined();
+  });
 });

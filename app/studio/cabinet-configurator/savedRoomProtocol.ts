@@ -101,6 +101,10 @@ export function validStudy(value: any): boolean {
           'inset-shaker',
           'vertical-slat',
         ].includes(e.face) &&
+        (e.applianceFront === undefined ||
+          ['stainless', 'shaker', 'slab', 'vertical-slat'].includes(
+            e.applianceFront,
+          )) &&
         (e.kind !== 'appliance' ||
           [
             'refrigerator',
