@@ -80,6 +80,7 @@ export function projectSchedule(study: Study) {
           'pullout',
           'microwave-drawer',
           'sink',
+          'farmhouse-sink',
           'corner',
         ].includes(config)
       )
@@ -104,9 +105,9 @@ export function projectSchedule(study: Study) {
           'Corner cabinets use their full rectangular envelope as a conservative material allowance; specialty mechanisms are excluded.',
         );
       }
-      if (config === 'sink')
+      if (config === 'sink' || config === 'farmhouse-sink')
         assumptions.add(
-          'Sink bases have a false front and no drawer box; sink, plumbing and countertop are excluded.',
+          `${config === 'farmhouse-sink' ? 'Farmhouse sink bases have an apron opening' : 'Sink bases have a false front'} and no drawer box; sink, plumbing and countertop are excluded.`,
         );
     }
     if (e.kind === 'tall' && !e.storage) {

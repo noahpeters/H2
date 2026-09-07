@@ -31,7 +31,7 @@ export async function roomRequest(
 export function useSavedRooms(
   study: Study,
   setStudy: (study: Study) => void,
-  sample: () => Study,
+  sample: (preset?: string) => Study,
   migrate: (study: any) => Study,
   clearUndo: () => void,
 ) {
@@ -152,11 +152,16 @@ export function useSavedRooms(
       if (incomingSlug.current === undefined) {
         const url = new URL(window.location.href);
         incomingSlug.current = url.searchParams.get('design');
+        const preset = url.searchParams.get('preset');
+        if (preset) incomingSlug.current = `preset:${preset}`;
         url.searchParams.delete('design');
+        url.searchParams.delete('preset');
         window.history.replaceState(null, '', url);
       }
       const slug = incomingSlug.current;
-      if (slug) {
+      if (slug?.startsWith('preset:')) {
+        await create(callbacks.current.sample(slug.slice('preset:'.length)));
+      } else if (slug) {
         const source = await roomRequest('GET', slug);
         await create(callbacks.current.migrate(source.study));
       } else if (rows.current[0]) {

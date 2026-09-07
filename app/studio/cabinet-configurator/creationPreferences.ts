@@ -45,6 +45,7 @@ const faces: KitchenElement['face'][] = [
   'slab',
   'shaker-glass',
   'inset-shaker',
+  'vertical-slat',
 ];
 const baseConfigurations = [
   'corner',
@@ -54,6 +55,7 @@ const baseConfigurations = [
   'three-drawer',
   'microwave-drawer',
   'sink',
+  'farmhouse-sink',
 ] as const;
 
 function validNumber(

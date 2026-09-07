@@ -248,6 +248,7 @@ describe('bottom-up cabinet pricing', () => {
       'three-drawer': 3,
       pullout: 1,
       sink: 0,
+      'farmhouse-sink': 0,
       corner: 0,
       'microwave-drawer': 1,
     };

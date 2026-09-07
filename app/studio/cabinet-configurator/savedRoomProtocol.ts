@@ -80,7 +80,9 @@ export function validStudy(value: any): boolean {
         (e.storage === undefined ||
           (validStorage(e.storage) &&
             e.kind ===
-              (e.storage.type === 'overhead' ? 'wall-cabinet' : 'tall') &&
+              (['overhead', 'floating-shelves'].includes(e.storage.type)
+                ? 'wall-cabinet'
+                : 'tall') &&
             e.width >= 12 &&
             e.width <= 96 &&
             e.depth >= 8 &&
@@ -92,7 +94,13 @@ export function validStudy(value: any): boolean {
         (e.paintColor === undefined ||
           Object.hasOwn(CABINET_PAINTS, e.paintColor)) &&
         ['width', 'depth', 'height'].every((k) => dimension(e[k])) &&
-        ['shaker', 'slab', 'shaker-glass', 'inset-shaker'].includes(e.face) &&
+        [
+          'shaker',
+          'slab',
+          'shaker-glass',
+          'inset-shaker',
+          'vertical-slat',
+        ].includes(e.face) &&
         (e.kind !== 'appliance' ||
           [
             'refrigerator',

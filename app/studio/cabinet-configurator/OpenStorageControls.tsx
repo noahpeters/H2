@@ -26,12 +26,17 @@ export function OpenStorageControls({
           value={s.type}
           onChange={(event) => {
             const type = event.currentTarget.value as StorageKind;
-            const overhead = type === 'overhead';
+            const wallMounted =
+              type === 'overhead' || type === 'floating-shelves';
             change({
               storage: storageDefaults(type),
-              kind: overhead ? 'wall-cabinet' : 'tall',
-              height: overhead ? 24 : 84,
-              placement: {...item.placement, elevation: overhead ? 72 : 0},
+              kind: wallMounted ? 'wall-cabinet' : 'tall',
+              height: type === 'floating-shelves' ? 36 : wallMounted ? 24 : 84,
+              placement: {
+                ...item.placement,
+                elevation:
+                  type === 'floating-shelves' ? 52 : wallMounted ? 72 : 0,
+              },
             });
           }}
         >
