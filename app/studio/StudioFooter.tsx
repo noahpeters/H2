@@ -5,15 +5,24 @@ import type {RootLoader} from '~/root';
 
 const fallbackPolicies = [
   {id: 'terms', title: 'Terms of service', url: '/policies/terms-of-service'},
-  {id: 'privacy-choices', title: 'Your Privacy Choices', url: '/pages/data-sharing-opt-out'},
+  {
+    id: 'privacy-choices',
+    title: 'Your Privacy Choices',
+    url: '/pages/data-sharing-opt-out',
+  },
   {id: 'privacy', title: 'Privacy', url: '/policies/privacy-policy'},
-  {id: 'cosmetic', title: 'Cosmetic Standards', url: '/pages/our-cosmetic-standards'},
+  {
+    id: 'cosmetic',
+    title: 'Cosmetic Standards',
+    url: '/pages/our-cosmetic-standards',
+  },
   {id: 'cancellation', title: 'Cancellation', url: '/pages/returns-refunds'},
   {id: 'shipping', title: 'Shipping', url: '/pages/delivery-pickup'},
   {id: 'contact', title: 'Contact', url: '/policies/contact-information'},
 ];
 
 const policyPaths = new Set(fallbackPolicies.map((item) => item.url));
+const socialTitles = new Set(['instagram', 'facebook', 'pinterest', 'houzz']);
 
 function policyLinks(footer: FooterQuery | null) {
   const policies = (footer?.menu?.items ?? []).flatMap((item) => {
@@ -42,6 +51,24 @@ function PolicyMenu({footer}: {footer: FooterQuery | null}) {
   );
 }
 
+function SocialMenu({footer}: {footer: FooterQuery | null}) {
+  const links = (footer?.menu?.items ?? []).filter(
+    (item) => item.url && socialTitles.has(item.title.trim().toLowerCase()),
+  );
+
+  if (!links.length) return null;
+
+  return (
+    <nav className="studio-social-menu" aria-label="Social media">
+      {links.map((item) => (
+        <a key={item.id} href={item.url!} rel="noreferrer" target="_blank">
+          {item.title} <span aria-hidden="true">↗</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 export function StudioFooter() {
   const rootData = useRouteLoaderData<RootLoader>('root');
   const footer = rootData?.footer ?? Promise.resolve(null);
@@ -55,9 +82,14 @@ export function StudioFooter() {
             <br />
             <em>vision to life.</em>
           </h2>
-          <a href="mailto:noah@fromtrees.studio">
-            noah@fromtrees.studio <span>↗</span>
-          </a>
+          <div className="footer-actions">
+            <Link to="/contact">
+              Start a project <span>→</span>
+            </Link>
+            <a href="mailto:noah@fromtrees.studio">
+              noah@fromtrees.studio <span>↗</span>
+            </a>
+          </div>
         </div>
         <img
           className="footer-logo"
@@ -66,7 +98,14 @@ export function StudioFooter() {
         />
       </div>
       <Suspense fallback={<PolicyMenu footer={null} />}>
-        <Await resolve={footer}>{(data) => <PolicyMenu footer={data} />}</Await>
+        <Await resolve={footer}>
+          {(data) => (
+            <>
+              <SocialMenu footer={data} />
+              <PolicyMenu footer={data} />
+            </>
+          )}
+        </Await>
       </Suspense>
       <div className="footer-bottom">
         <span>from trees / RIVERSIDE, CALIFORNIA</span>
