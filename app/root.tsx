@@ -366,6 +366,8 @@ export default function App() {
 function isStudioOwnedPath(pathname: string) {
   return (
     pathname === '/' ||
+    pathname === '/about' ||
+    pathname === '/contact' ||
     pathname === '/configurator' ||
     pathname.startsWith('/configurator/') ||
     pathname === '/cabinet-configurator' ||
