@@ -35,7 +35,12 @@ export default function Home() {
     <main className="studio-page">
       <StudioHeader
         home
-        links={[{label: 'Shape your table ↗', to: '/configurator'}]}
+        links={[
+          {label: 'Selected work', to: '/#work'},
+          {label: 'Process', to: '/#process'},
+          {label: 'About', to: '/#studio'},
+          {label: 'Shape your table ↗', to: '/configurator'},
+        ]}
       />
 
       <section className="hero" id="top">
