@@ -8,7 +8,6 @@ import {
 import type {Route} from './+types/contact';
 import {Script} from '@shopify/hydrogen';
 import {Resend} from 'resend';
-import {useCallback, useEffect, useRef} from 'react';
 import studioStyles from '~/styles/studio.css?url';
 import {StudioFooter} from '~/studio/StudioFooter';
 import {StudioHeader} from '~/studio/StudioHeader';
@@ -157,29 +156,6 @@ export default function ContactPage() {
   const {turnstileSiteKey, project} = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const busy = useNavigation().state !== 'idle';
-  const turnstileRef = useRef<HTMLDivElement | null>(null);
-  const widgetIdRef = useRef<string | null>(null);
-  const renderTurnstile = useCallback(() => {
-    const turnstile = (
-      window as Window & {
-        turnstile?: {
-          render: (element: HTMLElement, options: {sitekey: string}) => string;
-        };
-      }
-    ).turnstile;
-    if (!turnstile || !turnstileRef.current || widgetIdRef.current) return;
-    widgetIdRef.current = turnstile.render(turnstileRef.current, {
-      sitekey: turnstileSiteKey,
-    });
-  }, [turnstileSiteKey]);
-  useEffect(() => {
-    if (
-      turnstileSiteKey &&
-      turnstileRef.current &&
-      (window as Window & {turnstile?: unknown}).turnstile
-    )
-      renderTurnstile();
-  }, [renderTurnstile, turnstileSiteKey]);
 
   if (actionData?.ok)
     return (
@@ -305,15 +281,20 @@ export default function ContactPage() {
             </label>
           </div>
           <div className="turnstile-wrap">
-            <div ref={turnstileRef} className="cf-turnstile" />
+            {turnstileSiteKey ? (
+              <div
+                className="cf-turnstile"
+                data-sitekey={turnstileSiteKey}
+                data-theme="light"
+              />
+            ) : null}
             {error('turnstile')}
           </div>
           {turnstileSiteKey ? (
             <Script
-              src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+              src="https://challenges.cloudflare.com/turnstile/v0/api.js"
               async
               defer
-              onLoad={renderTurnstile}
             />
           ) : null}
           <button type="submit" disabled={busy}>
