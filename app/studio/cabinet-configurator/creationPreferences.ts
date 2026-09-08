@@ -37,6 +37,10 @@ function scopeFor(item: KitchenElement) {
   if (item.storage) return `storage:${item.storage.type}`;
   if (item.kind === 'appliance')
     return `appliance:${item.applianceKind ?? 'unknown'}`;
+  // Corner bases are a distinct catalog cabinet even though legacy room files
+  // represent their geometry with kind=base/configuration=corner.
+  if (item.kind === 'base' && item.configuration === 'corner')
+    return 'cabinet:corner-base';
   return `cabinet:${item.kind}`;
 }
 
@@ -48,7 +52,6 @@ const faces: KitchenElement['face'][] = [
   'vertical-slat',
 ];
 const baseConfigurations = [
-  'corner',
   'single-door',
   'pullout',
   'door-drawer',
@@ -152,6 +155,7 @@ export function applyCreationPreferences(
     next.paintColor = profile.paintColor;
   if (
     item.kind === 'base' &&
+    item.configuration !== 'corner' &&
     profile.configuration &&
     baseConfigurations.includes(profile.configuration)
   )

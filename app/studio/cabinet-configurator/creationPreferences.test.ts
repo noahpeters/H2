@@ -94,6 +94,46 @@ describe('creation preferences', () => {
     ).toBe(30);
   });
 
+  it('keeps corner-base defaults separate from ordinary base cabinets', () => {
+    let preferences = rememberCreationPreferences(emptyCreationPreferences(), {
+      ...cabinet('base'),
+      width: 27,
+      depth: 25,
+      configuration: 'three-drawer',
+    });
+    preferences = rememberCreationPreferences(preferences, {
+      ...cabinet('base'),
+      width: 39,
+      depth: 38,
+      configuration: 'corner',
+    });
+
+    expect(
+      applyCreationPreferences(cabinet('base'), preferences, room),
+    ).toMatchObject({
+      width: 27,
+      depth: 25,
+      configuration: 'three-drawer',
+    });
+    expect(
+      applyCreationPreferences(
+        {...cabinet('base'), width: 36, depth: 36, configuration: 'corner'},
+        preferences,
+        room,
+      ),
+    ).toMatchObject({width: 39, depth: 38, configuration: 'corner'});
+    expect(preferences.scopes).toHaveProperty('cabinet:corner-base');
+  });
+
+  it('does not turn a base cabinet into a corner from legacy preferences', () => {
+    const preferences = emptyCreationPreferences();
+    preferences.scopes['cabinet:base'] = {configuration: 'corner', width: 42};
+
+    const created = applyCreationPreferences(cabinet('base'), preferences, room);
+    expect(created.width).toBe(42);
+    expect(created.configuration).toBeUndefined();
+  });
+
   it('rejects invalid persisted dimensions and incompatible visual options', () => {
     const preferences = emptyCreationPreferences();
     preferences.scopes['cabinet:base'] = {width: -4, depth: 200, height: 120};

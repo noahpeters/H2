@@ -16,7 +16,7 @@ function Harness() {
     </>
   );
 }
-it('edits dimensions, interiors, doors/back and switches to overhead storage', () => {
+it('edits dimensions, interiors, doors and back without changing type', () => {
   const {container} = render(<Harness />);
   fireEvent.change(screen.getByLabelText('Storage depth'), {
     target: {value: '20'},
@@ -26,22 +26,11 @@ it('edits dimensions, interiors, doors/back and switches to overhead storage', (
   });
   fireEvent.click(screen.getByLabelText('Doors'));
   fireEvent.click(screen.getByLabelText('Finished back'));
-  let item = JSON.parse(container.querySelector('output')!.textContent!) as any;
+  const item = JSON.parse(container.querySelector('output')!.textContent!) as any;
   expect(item).toMatchObject({
     depth: 20,
     storage: {shelves: 3, doors: true, back: false},
   });
-  fireEvent.click(
-    screen
-      .getByRole('group', {name: 'Open storage type'})
-      .querySelector('summary')!,
-  );
-  fireEvent.click(screen.getByRole('button', {name: 'Overhead storage'}));
-  item = JSON.parse(container.querySelector('output')!.textContent!) as any;
-  expect(item).toMatchObject({
-    kind: 'wall-cabinet',
-    height: 24,
-    placement: {elevation: 72},
-    storage: {type: 'overhead'},
-  });
+  expect(item.storage.type).toBe('shelving');
+  expect(screen.queryByLabelText('Open storage type')).not.toBeInTheDocument();
 });

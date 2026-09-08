@@ -1,11 +1,5 @@
 import type {KitchenElement} from './model';
-import {VisualSelect} from './VisualChoices';
-import {
-  OPEN_STORAGE,
-  storageDefaults,
-  storageLayout,
-  type StorageKind,
-} from './openStorage';
+import {storageLayout} from './openStorage';
 export function OpenStorageControls({
   item,
   change,
@@ -21,38 +15,6 @@ export function OpenStorageControls({
   );
   return (
     <>
-      <div
-        className="cc-visual-field"
-        role="group"
-        aria-label="Open storage type"
-      >
-        Open storage type
-        <VisualSelect
-          category="storage"
-          value={s.type}
-          onChange={(event) => {
-            const type = event.currentTarget.value as StorageKind;
-            const wallMounted =
-              type === 'overhead' || type === 'floating-shelves';
-            change({
-              storage: storageDefaults(type),
-              kind: wallMounted ? 'wall-cabinet' : 'tall',
-              height: type === 'floating-shelves' ? 36 : wallMounted ? 24 : 84,
-              placement: {
-                ...item.placement,
-                elevation:
-                  type === 'floating-shelves' ? 52 : wallMounted ? 72 : 0,
-              },
-            });
-          }}
-        >
-          {Object.entries(OPEN_STORAGE).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </VisualSelect>
-      </div>
       {(['depth', 'height'] as const).map((key) => (
         <label key={key}>
           {key}
