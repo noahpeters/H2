@@ -506,14 +506,78 @@ function elementTransform(element: KitchenElement, room: Room) {
       : element.placement.rotation;
   return {...center, rotation};
 }
+function ViewControls({
+  view,
+  pan,
+  onPan,
+  onZoom,
+  onFit,
+}: {
+  view: string;
+  pan: boolean;
+  onPan: () => void;
+  onZoom: (factor: number) => void;
+  onFit: () => void;
+}) {
+  return (
+    <div className="cc-plan-tools" aria-label={`${view} navigation`}>
+      <button
+        type="button"
+        aria-label={`Zoom out ${view}`}
+        onClick={() => onZoom(1 / 1.25)}
+      >
+        −
+      </button>
+      <button
+        type="button"
+        aria-label={`Zoom in ${view}`}
+        onClick={() => onZoom(1.25)}
+      >
+        +
+      </button>
+      <button type="button" onClick={onFit} title="Fit room to view">
+        Fit
+      </button>
+      <button
+        type="button"
+        aria-pressed={pan}
+        onClick={onPan}
+        title="Drag to pan. You can also right-drag or Shift-drag."
+      >
+        Pan
+      </button>
+    </div>
+  );
+}
+
 export function ThreeStudy({
   study,
   onSelect,
+  showControls = false,
 }: {
   study: Study;
+  showControls?: boolean;
   onSelect?: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const [pan, setPan] = useState(false);
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const navigation = useRef<{
+    zoom: (factor: number) => void;
+    fit: () => void;
+  } | null>(null);
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.mouseButtons.LEFT = pan
+        ? THREE.MOUSE.PAN
+        : THREE.MOUSE.ROTATE;
+      controlsRef.current.touches.ONE = pan
+        ? THREE.TOUCH.PAN
+        : THREE.TOUCH.ROTATE;
+    }
+  }, [pan]);
   const hasNavigated = useRef(false);
   const viewRef = useRef<{
     position: THREE.Vector3;
@@ -536,6 +600,13 @@ export function ThreeStudy({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     host.append(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
+    controlsRef.current = controls;
+    controls.mouseButtons.LEFT = panRef.current
+      ? THREE.MOUSE.PAN
+      : THREE.MOUSE.ROTATE;
+    controls.touches.ONE = panRef.current
+      ? THREE.TOUCH.PAN
+      : THREE.TOUCH.ROTATE;
     const rememberNavigation = () => {
       hasNavigated.current = true;
     };
@@ -656,6 +727,21 @@ export function ThreeStudy({
       camera.updateProjectionMatrix();
       renderer.setSize(bounds.width, bounds.height, false);
     };
+    navigation.current = {
+      zoom: (factor) => {
+        hasNavigated.current = true;
+        camera.position
+          .sub(controls.target)
+          .multiplyScalar(1 / factor)
+          .add(controls.target);
+        controls.update();
+      },
+      fit: () => {
+        hasNavigated.current = false;
+        camera.zoom = 1;
+        resize();
+      },
+    };
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
@@ -663,6 +749,14 @@ export function ThreeStudy({
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const handlePick = (event: PointerEvent) => {
+      if (
+        panRef.current ||
+        event.button !== 0 ||
+        event.shiftKey ||
+        event.ctrlKey ||
+        event.metaKey
+      )
+        return;
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
@@ -695,6 +789,8 @@ export function ThreeStudy({
       observer.disconnect();
       renderer.domElement.removeEventListener('pointerdown', handlePick);
       controls.removeEventListener('start', rememberNavigation);
+      navigation.current = null;
+      controlsRef.current = null;
       controls.dispose();
       renderer.dispose();
       scene.traverse((object) => {
@@ -711,17 +807,80 @@ export function ThreeStudy({
   }, [study]);
 
   return (
-    <div
-      className="cc-three-host"
-      ref={hostRef}
-      aria-label="Interactive 3D room study"
-    />
+    <>
+      {showControls && (
+        <div className="cc-panel-label">
+          <span>Spatial study</span>
+          <ViewControls
+            view="3D"
+            pan={pan}
+            onPan={() => setPan((active) => !active)}
+            onZoom={(factor) => navigation.current?.zoom(factor)}
+            onFit={() => navigation.current?.fit()}
+          />
+        </div>
+      )}
+      <div
+        style={{cursor: pan ? 'grab' : undefined}}
+        className="cc-three-host"
+        ref={hostRef}
+        aria-label="Interactive 3D room study"
+      />
+    </>
   );
 }
 
 export function CabinetConfigurator({
   turnstileSiteKey = '',
 }: {turnstileSiteKey?: string} = {}) {
+  const planSvg = useRef<SVGSVGElement>(null);
+  const [viewport, setViewport] = useState({x: 0, y: 0, zoom: 1});
+  const [panMode, setPanMode] = useState(false);
+  const panDrag = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    scale: number;
+  } | null>(null);
+  const zoomPlan = useCallback((factor: number, point = {x: 390, y: 280}) => {
+    setViewport((current) => {
+      const zoom = Math.min(8, Math.max(0.5, current.zoom * factor));
+      return {
+        zoom,
+        x: current.x + point.x / current.zoom - point.x / zoom,
+        y: current.y + point.y / current.zoom - point.y / zoom,
+      };
+    });
+  }, []);
+  useEffect(() => {
+    const svg = planSvg.current;
+    if (!svg) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (
+        panDrag.current ||
+        drag.current ||
+        roomDrag.current ||
+        openingDrag.current
+      )
+        return;
+      const matrix = svg.getScreenCTM();
+      if (!matrix) return;
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+        matrix.inverse(),
+      );
+      const box = svg.viewBox.baseVal;
+      zoomPlan(
+        Math.exp(-event.deltaY * (event.deltaMode === 1 ? 0.04 : 0.002)),
+        {
+          x: ((point.x - box.x) * 780) / box.width,
+          y: ((point.y - box.y) * 560) / box.height,
+        },
+      );
+    };
+    svg.addEventListener('wheel', wheel, {passive: false});
+    return () => svg.removeEventListener('wheel', wheel);
+  }, [zoomPlan]);
   const [sharing, setSharing] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [editingRoom, setEditingRoom] = useState(false);
@@ -984,8 +1143,7 @@ export function CabinetConfigurator({
     }
     if (!drag.current) return;
     const a = drag.current,
-      b = ev.currentTarget.getBoundingClientRect(),
-      ss = (scale * b.width) / 780;
+      ss = scale * (ev.currentTarget.getScreenCTM()?.a ?? 1);
     const {clientX, clientY} = ev;
     setStudy(createDragUpdate(a, clientX, clientY, ss));
   };
@@ -1548,7 +1706,12 @@ export function CabinetConfigurator({
                           minimumTallHeight(configuration) > study.room.height
                         }
                         onClick={() =>
-                          addElement('tall', undefined, undefined, configuration)
+                          addElement(
+                            'tall',
+                            undefined,
+                            undefined,
+                            configuration,
+                          )
                         }
                       >
                         <ChoiceImage category="tall" value={configuration} />
@@ -2073,13 +2236,58 @@ export function CabinetConfigurator({
             <div className="cc-panel cc-plan-panel">
               <div className="cc-panel-label">
                 <span>Dimensioned plan</span>
-                <small>Drag floor-positioned elements on both axes</small>
+                <ViewControls
+                  view="plan"
+                  pan={panMode}
+                  onPan={() => setPanMode((active) => !active)}
+                  onZoom={zoomPlan}
+                  onFit={() => setViewport({x: 0, y: 0, zoom: 1})}
+                />
               </div>
               <svg
-                viewBox="0 0 780 560"
+                ref={planSvg}
+                viewBox={`${viewport.x} ${viewport.y} ${780 / viewport.zoom} ${560 / viewport.zoom}`}
+                style={{cursor: panMode ? 'grab' : undefined}}
+                onContextMenu={(event) => event.preventDefault()}
+                onClickCapture={(event) => {
+                  if (panMode) event.stopPropagation();
+                }}
+                onPointerDownCapture={(event) => {
+                  if (
+                    !panMode &&
+                    event.button !== 2 &&
+                    !event.shiftKey &&
+                    !event.ctrlKey &&
+                    !event.metaKey
+                  )
+                    return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  panDrag.current = {
+                    id: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    scale: event.currentTarget.getScreenCTM()?.a ?? 1,
+                  };
+                }}
                 aria-label="Dimensioned room plan"
-                onPointerMove={moveDrag}
+                onPointerMove={(event) => {
+                  const pan = panDrag.current;
+                  if (!pan) return moveDrag(event);
+                  if (pan.id !== event.pointerId) return;
+                  const dx = (event.clientX - pan.x) / pan.scale;
+                  const dy = (event.clientY - pan.y) / pan.scale;
+                  pan.x = event.clientX;
+                  pan.y = event.clientY;
+                  setViewport((current) => ({
+                    ...current,
+                    x: current.x - dx,
+                    y: current.y - dy,
+                  }));
+                }}
                 onPointerUp={() => {
+                  panDrag.current = null;
                   openingDrag.current = null;
                   roomDrag.current = null;
                   const active = drag.current;
@@ -2094,11 +2302,13 @@ export function CabinetConfigurator({
                   });
                 }}
                 onPointerCancel={() => {
+                  panDrag.current = null;
                   openingDrag.current = null;
                   roomDrag.current = null;
                   drag.current = null;
                 }}
                 onLostPointerCapture={() => {
+                  panDrag.current = null;
                   openingDrag.current = null;
                   roomDrag.current = null;
                   drag.current = null;
@@ -2159,14 +2369,15 @@ export function CabinetConfigurator({
                             e.currentTarget.setPointerCapture(e.pointerId);
                             setSelectedWall(s.id);
                             setHistory((h) => [...h.slice(-29), clone(study)]);
-                            const rect =
-                              e.currentTarget.ownerSVGElement!.getBoundingClientRect();
+                            const screenScale =
+                              e.currentTarget.ownerSVGElement!.getScreenCTM()
+                                ?.a ?? 1;
                             roomDrag.current = {
                               study: clone(study),
                               id: s.id,
                               pointer: s.horizontal ? e.clientY : e.clientX,
                               position: s.horizontal ? s.z : s.x,
-                              scale: (scale * rect.width) / 780,
+                              scale: scale * screenScale,
                               horizontal: s.horizontal,
                             };
                           }}
@@ -2214,8 +2425,9 @@ export function CabinetConfigurator({
                           return;
                         event.stopPropagation();
                         event.currentTarget.setPointerCapture(event.pointerId);
-                        const rect =
-                          event.currentTarget.ownerSVGElement!.getBoundingClientRect();
+                        const screenScale =
+                          event.currentTarget.ownerSVGElement!.getScreenCTM()
+                            ?.a ?? 1;
                         const center = wallPoint(
                           study.room,
                           o.wall,
@@ -2226,7 +2438,7 @@ export function CabinetConfigurator({
                           ...center,
                           clientX: event.clientX,
                           clientY: event.clientY,
-                          scale: (scale * rect.width) / 780,
+                          scale: scale * screenScale,
                           pointerId: event.pointerId,
                         };
                         setHistory((h) => [...h.slice(-29), clone(study)]);
@@ -2400,11 +2612,8 @@ export function CabinetConfigurator({
               </svg>
             </div>
             <div className="cc-panel cc-three-panel">
-              <div className="cc-panel-label">
-                <span>Spatial study</span>
-                <small>Plan and 3D share placement data</small>
-              </div>
               <ThreeStudy
+                showControls
                 study={study}
                 onSelect={(id) => setStudy((c) => ({...c, selected: id}))}
               />

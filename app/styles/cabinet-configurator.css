@@ -646,3 +646,22 @@
 .cabinet-app .cc-choice[aria-pressed="true"] { border:2px solid var(--cc-accent); padding:6px; background:#eee2d1; }
 .cabinet-app .cc-choice:focus-visible,.cabinet-app .cc-add-menu>div>button:focus-visible { outline:3px solid var(--cc-accent); outline-offset:2px; }
 .cabinet-app .cc-choice:disabled { opacity:.45; cursor:not-allowed; }
+
+.cc-plan-tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.cc-plan-tools button {
+  padding: 3px 7px;
+  min-height: 26px;
+}
+.cc-plan-tools button[aria-pressed='true'] {
+  background: var(--cc-ink);
+  color: white;
+}
+.cc-plan-tools span {
+  min-width: 35px;
+  text-align: center;
+}
