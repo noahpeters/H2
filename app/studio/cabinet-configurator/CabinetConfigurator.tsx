@@ -810,6 +810,7 @@ export function CabinetConfigurator({
     kind: KitchenElement['kind'],
     applianceKind?: ApplianceKind,
     configuration?: BaseConfiguration,
+    tallConfiguration?: KitchenElement['tallConfiguration'],
   ) =>
     update((d) => {
       if (kind === 'appliance' && applianceKind) {
@@ -824,6 +825,7 @@ export function CabinetConfigurator({
       }
       const item: KitchenElement = {
         configuration,
+        tallConfiguration,
         id: makeId(),
         kind,
         width:
@@ -855,11 +857,22 @@ export function CabinetConfigurator({
         creationPreferences.current!,
         d.room,
       );
-      // An explicit catalog choice wins over remembered defaults.
-      if (configuration === 'corner' || configuration === 'farmhouse-sink') {
+      // An explicit catalog choice wins over remembered defaults. Corner-base
+      // dimensions come from its own preference scope after its first use.
+      if (configuration === 'corner') {
+        remembered.configuration = 'corner';
+      } else if (configuration === 'farmhouse-sink') {
         remembered.configuration = configuration;
         remembered.width = 36;
-        if (configuration === 'corner') remembered.depth = 36;
+      } else if (kind === 'base' && configuration) {
+        remembered.configuration = configuration;
+      }
+      if (kind === 'tall' && tallConfiguration) {
+        remembered.tallConfiguration = tallConfiguration;
+        remembered.height = Math.max(
+          remembered.height,
+          minimumTallHeight(tallConfiguration),
+        );
       }
       d.elements.push(remembered);
       d.selected = remembered.id;
@@ -1481,66 +1494,104 @@ export function CabinetConfigurator({
           <details className="cc-accordion" open>
             <summary>Add to room</summary>
             <details className="cc-add-menu">
-              <summary>+ Add open storage</summary>
-              <div>
-                {Object.entries(OPEN_STORAGE).map(([type, label]) => (
-                  <button
-                    key={type}
-                    onClick={(event) => {
-                      update((d) => {
-                        const item = applyCreationPreferences(
-                          createOpenStorage(type as StorageKind, makeId()),
-                          creationPreferences.current!,
-                          d.room,
-                        );
-                        d.elements.push(item);
-                        d.selected = item.id;
-                      });
-                      event.currentTarget
-                        .closest('details')
-                        ?.removeAttribute('open');
-                    }}
-                  >
-                    <ChoiceImage category="storage" value={type} />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </details>
-            <details className="cc-add-menu">
               <summary>+ Add cabinet</summary>
-              <div>
-                <button
-                  onClick={(event) => {
-                    addElement('base', undefined, 'corner');
-                    event.currentTarget
-                      .closest('details')
-                      ?.removeAttribute('open');
-                  }}
-                >
-                  <ChoiceImage category="cabinet" value="corner" />
-                  Corner base cabinet
-                </button>
-                {(
-                  [
-                    ['base', 'Base cabinet'],
-                    ['wall-cabinet', 'Wall cabinet'],
-                    ['tall', 'Tall cabinet'],
-                  ] as const
-                ).map(([kind, label]) => (
-                  <button
-                    key={kind}
-                    onClick={(event) => {
-                      addElement(kind);
-                      event.currentTarget
-                        .closest('details')
-                        ?.removeAttribute('open');
-                    }}
-                  >
-                    <ChoiceImage category="cabinet" value={kind} />
-                    {label}
-                  </button>
-                ))}
+              <div className="cc-add-categories">
+                <details className="cc-add-category">
+                  <summary>Base</summary>
+                  <div>
+                    {(
+                      [
+                        ['single-door', 'Single door'],
+                        ['pullout', 'Full-height pullout'],
+                        ['door-drawer', 'Door + upper drawer'],
+                        ['three-drawer', 'Three drawers'],
+                        ['microwave-drawer', 'Microwave drawer'],
+                        ['sink', 'Sink base'],
+                        ['farmhouse-sink', 'Farmhouse / apron-front sink base'],
+                      ] as const
+                    ).map(([configuration, label]) => (
+                      <button
+                        key={configuration}
+                        onClick={() =>
+                          addElement('base', undefined, configuration)
+                        }
+                      >
+                        <ChoiceImage category="base" value={configuration} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </details>
+                <details className="cc-add-category">
+                  <summary>Wall</summary>
+                  <div>
+                    <button onClick={() => addElement('wall-cabinet')}>
+                      <ChoiceImage category="cabinet" value="wall-cabinet" />
+                      Standard wall cabinet
+                    </button>
+                  </div>
+                </details>
+                <details className="cc-add-category">
+                  <summary>Tall</summary>
+                  <div>
+                    {(
+                      [
+                        ['standard', 'Standard cabinet'],
+                        ['one-oven', '1 oven · drawers below'],
+                        ['two-oven', '2 ovens · drawers below'],
+                        ['coffee-maker', 'Coffee maker · counter height'],
+                      ] as const
+                    ).map(([configuration, label]) => (
+                      <button
+                        key={configuration}
+                        disabled={
+                          minimumTallHeight(configuration) > study.room.height
+                        }
+                        onClick={() =>
+                          addElement('tall', undefined, undefined, configuration)
+                        }
+                      >
+                        <ChoiceImage category="tall" value={configuration} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </details>
+                <details className="cc-add-category">
+                  <summary>Corner</summary>
+                  <div>
+                    <button
+                      onClick={() => addElement('base', undefined, 'corner')}
+                    >
+                      <ChoiceImage category="cabinet" value="corner" />
+                      L-shaped corner base
+                    </button>
+                  </div>
+                </details>
+                <details className="cc-add-category">
+                  <summary>Open</summary>
+                  <div>
+                    {Object.entries(OPEN_STORAGE).map(([type, label]) => (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          update((d) => {
+                            const item = applyCreationPreferences(
+                              createOpenStorage(type as StorageKind, makeId()),
+                              creationPreferences.current!,
+                              d.room,
+                            );
+                            d.elements.push(item);
+                            d.selected = item.id;
+                          });
+                        }}
+                      >
+                        <ChoiceImage category="storage" value={type} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </details>
               </div>
             </details>
             <details className="cc-add-menu">
@@ -1641,40 +1692,6 @@ export function CabinetConfigurator({
                       </select>
                     </label>
                   )}
-                {selected.kind === 'base' && (
-                  <div
-                    className="cc-visual-field"
-                    role="group"
-                    aria-label="Base configuration"
-                  >
-                    Base configuration
-                    <VisualSelect
-                      category="base"
-                      value={selected.configuration ?? 'single-door'}
-                      onChange={(event) => {
-                        const configuration = event.currentTarget
-                          .value as BaseConfiguration;
-                        update((d) => {
-                          const item = d.elements.find(
-                            (e) => e.id === selected.id,
-                          );
-                          if (item) item.configuration = configuration;
-                        });
-                      }}
-                    >
-                      <option value="single-door">Single door</option>
-                      <option value="corner">Corner (L-shaped)</option>
-                      <option value="pullout">Full-height pullout</option>
-                      <option value="door-drawer">Door + upper drawer</option>
-                      <option value="three-drawer">Three drawers</option>
-                      <option value="microwave-drawer">Microwave drawer</option>
-                      <option value="sink">Sink base</option>
-                      <option value="farmhouse-sink">
-                        Farmhouse / apron-front sink base
-                      </option>
-                    </VisualSelect>
-                  </div>
-                )}
                 {hasMaterialFinish(selected) && (
                   <>
                     <div
@@ -1855,58 +1872,6 @@ export function CabinetConfigurator({
                       })
                     }
                   />
-                )}
-                {selected.kind === 'tall' && !selected.storage && (
-                  <div
-                    className="cc-visual-field"
-                    role="group"
-                    aria-label="Tall configuration"
-                  >
-                    Tall configuration
-                    <VisualSelect
-                      category="tall"
-                      value={selected.tallConfiguration ?? 'standard'}
-                      onChange={(event) => {
-                        const configuration = event.currentTarget
-                          .value as KitchenElement['tallConfiguration'];
-                        update((d) => {
-                          const item = d.elements.find(
-                            (e) => e.id === selected.id,
-                          );
-                          if (
-                            item &&
-                            minimumTallHeight(configuration) <= d.room.height
-                          ) {
-                            item.tallConfiguration = configuration;
-                            item.height = Math.max(
-                              item.height,
-                              minimumTallHeight(configuration),
-                            );
-                          }
-                        });
-                      }}
-                    >
-                      <option value="standard">Standard cabinet</option>
-                      <option
-                        value="one-oven"
-                        disabled={study.room.height < 72}
-                      >
-                        1 oven · drawers below
-                      </option>
-                      <option
-                        value="two-oven"
-                        disabled={study.room.height < 84}
-                      >
-                        2 ovens · drawers below
-                      </option>
-                      <option
-                        value="coffee-maker"
-                        disabled={study.room.height < 66}
-                      >
-                        Coffee maker · counter height
-                      </option>
-                    </VisualSelect>
-                  </div>
                 )}
                 {!selected.storage &&
                   (selected.kind === 'tall' ||

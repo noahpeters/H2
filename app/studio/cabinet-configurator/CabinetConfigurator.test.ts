@@ -40,10 +40,26 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
-  it('offers a base cabinet without a separate farmhouse-sink creation button', () => {
+  it('offers farmhouse sink as a base configuration', () => {
     const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
-    expect(markup).toContain('Base cabinet');
-    expect(markup).not.toContain('Farmhouse sink base cabinet');
+    expect(markup).toContain('<summary>Base</summary>');
+    expect(markup).toContain('Farmhouse / apron-front sink base');
+  });
+  it('offers corner base as its own cabinet instead of a base configuration', () => {
+    const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
+    expect(markup).toContain('<summary>Corner</summary>');
+    expect(markup).toContain('L-shaped corner base');
+    expect(markup).not.toContain('Corner (L-shaped)');
+  });
+  it('chooses cabinet category and configuration entirely in the add menu', () => {
+    const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
+    for (const category of ['Base', 'Wall', 'Tall', 'Corner', 'Open'])
+      expect(markup).toContain(`<summary>${category}</summary>`);
+    expect(markup).toContain('Three drawers');
+    expect(markup).toContain('2 ovens · drawers below');
+    expect(markup).toContain('Adjustable shelving');
+    expect(markup).not.toContain('aria-label="Base configuration"');
+    expect(markup).not.toContain('aria-label="Tall configuration"');
   });
   it.each(['plan', 'three', 'split'])(
     'opens saved %s views in split view',
