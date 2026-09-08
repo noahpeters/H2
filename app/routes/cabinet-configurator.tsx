@@ -1,3 +1,5 @@
+import {useEffect, useState} from 'react';
+import {readSavedRooms} from '~/studio/cabinet-configurator/useSavedRooms';
 import type {Route} from './+types/cabinet-configurator';
 import {useLoaderData} from 'react-router';
 import cabinetStyles from '~/styles/cabinet-configurator.css?url';
@@ -32,6 +34,10 @@ export function loader({context, request}: Route.LoaderArgs) {
 }
 export default function CabinetPage() {
   const {turnstileSiteKey, showStartSheet} = useLoaderData<typeof loader>();
+  const [hasSavedRoom, setHasSavedRoom] = useState<boolean | null>(null);
+  useEffect(() => {
+    setHasSavedRoom(readSavedRooms().length > 0);
+  }, []);
   return (
     <div className="studio-cabinet-page">
       <StudioHeader
@@ -40,7 +46,9 @@ export default function CabinetPage() {
           {label: 'Shape Your Table', to: '/configurator'},
         ]}
       />
-      {showStartSheet ? (
+      {showStartSheet && hasSavedRoom === null ? (
+        <p role="status">Opening room…</p>
+      ) : showStartSheet && !hasSavedRoom ? (
         <CabinetStartSheet />
       ) : (
         <CabinetConfigurator turnstileSiteKey={turnstileSiteKey} />

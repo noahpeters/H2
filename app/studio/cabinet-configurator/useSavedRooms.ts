@@ -8,6 +8,22 @@ type SavedRoom = {
   draft?: Study;
 };
 const HISTORY_KEY = 'from-trees-room-history-v1';
+const ACTIVE_KEY = 'from-trees-active-room-v1';
+export function readSavedRooms(): SavedRoom[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    return Array.isArray(stored)
+      ? stored
+          .filter(
+            (r: any): r is SavedRoom =>
+              r && typeof r.slug === 'string' && typeof r.editKey === 'string',
+          )
+          .slice(0, 20)
+      : [];
+  } catch {
+    return [];
+  }
+}
 const LOCAL_KEY = 'from-trees-cabinet-study-v1';
 export async function roomRequest(
   method: string,
@@ -89,6 +105,11 @@ export function useSavedRooms(
   const install = useCallback(
     (record: SavedRoom, data: Study) => {
       active.current = record;
+      try {
+        sessionStorage.setItem(ACTIVE_KEY, record.slug);
+      } catch {
+        /* Fall back to the most recent room if session storage is unavailable. */
+      }
       latest.current = data;
       saved.current = JSON.stringify(data);
       callbacks.current.setStudy(data);
@@ -165,7 +186,13 @@ export function useSavedRooms(
         const source = await roomRequest('GET', slug);
         await create(callbacks.current.migrate(source.study));
       } else if (rows.current[0]) {
-        const record = rows.current[0];
+        let record = rows.current[0];
+        try {
+          const slug = sessionStorage.getItem(ACTIVE_KEY);
+          record = rows.current.find((room) => room.slug === slug) || record;
+        } catch {
+          /* Fall back to the most recent room. */
+        }
         const source = await roomRequest('GET', record.slug);
         install(
           {...record, revision: source.revision, updatedAt: source.updatedAt},
@@ -195,22 +222,8 @@ export function useSavedRooms(
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    try {
-      const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      rows.current = Array.isArray(stored)
-        ? stored
-            .filter(
-              (r: any): r is SavedRoom =>
-                r &&
-                typeof r.slug === 'string' &&
-                typeof r.editKey === 'string',
-            )
-            .slice(0, 20)
-        : [];
-      setRecent(rows.current);
-    } catch {
-      /* History is optional; database remains authoritative. */
-    }
+    rows.current = readSavedRooms();
+    setRecent(rows.current);
     void initialize();
   }, [initialize]);
   useEffect(() => {
