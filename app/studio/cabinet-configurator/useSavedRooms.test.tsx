@@ -53,6 +53,7 @@ describe('saved room lifecycle', () => {
   let records: Map<string, any>, count: number;
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     window.history.replaceState(null, '', '/cabinet-configurator');
     records = new Map();
     count = 0;
@@ -123,6 +124,28 @@ describe('saved room lifecycle', () => {
     });
     expect(count).toBe(before);
     expect(result.current.study.room.width).toBe(220);
+  });
+  it('restores this tab’s active room even when another room is more recent', async () => {
+    const first = renderHook(useHarness);
+    await waitFor(() => expect(first.result.current.ready).toBe(true));
+    const original = first.result.current.recent[0];
+    await act(async () => {
+      await first.result.current.switchRoom('new');
+    });
+    const other = first.result.current.recent[0];
+    await act(async () => {
+      await first.result.current.switchRoom(original);
+    });
+    first.unmount();
+    localStorage.setItem(
+      'from-trees-room-history-v1',
+      JSON.stringify([other, original]),
+    );
+    const before = count;
+    const second = renderHook(useHarness);
+    await waitFor(() => expect(second.result.current.ready).toBe(true));
+    expect(second.result.current.recent[0].slug).toBe(original.slug);
+    expect(count).toBe(before);
   });
   it('autosaves changes and preserves a recovery draft on failed writes', async () => {
     const {result} = renderHook(useHarness);
