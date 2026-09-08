@@ -91,17 +91,22 @@ export function previewElement(
 
 // One renderer, reused for static images: no animation loops or WebGL context per tile.
 let renderer: THREE.WebGLRenderer | undefined;
-const images = new Map<string, HTMLCanvasElement>();
+const images = new Map<string, string>();
 function thumbnail(category: VisualCategory, value: string) {
   const key = `${category}:${value}`;
   const cached = images.get(key);
   if (cached) return cached;
-  renderer ??= new THREE.WebGLRenderer({
-    antialias: true,
-    preserveDrawingBuffer: true,
-  });
-  renderer.setSize(240, 180);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  if (!renderer) {
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      preserveDrawingBuffer: true,
+    });
+    renderer.setSize(240, 180);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  }
+  if (renderer.getContext().isContextLost()) {
+    throw new Error('Preview context lost');
+  }
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#f4f2ec');
   const item = previewElement(category, value);
@@ -155,12 +160,12 @@ function thumbnail(category: VisualCategory, value: string) {
   camera.lookAt(center);
   try {
     renderer.render(scene, camera);
-    const image = document.createElement('canvas');
-    image.width = 240;
-    image.height = 180;
-    const context = image.getContext('2d');
-    if (!context) throw new Error('Canvas preview unavailable');
-    context.drawImage(renderer.domElement, 0, 0);
+    if (renderer.getContext().isContextLost()) {
+      throw new Error('Preview context lost');
+    }
+    // Store immutable pixels instead of hidden canvas backing stores, which
+    // browsers can discard when option groups are collapsed or off screen.
+    const image = renderer.domElement.toDataURL('image/png');
     images.set(key, image);
     return image;
   } finally {
@@ -187,31 +192,48 @@ export function ChoiceImage({
   value: string;
 }) {
   const host = useRef<HTMLSpanElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const [ready, setReady] = useState(false);
+  const [image, setImage] = useState<{key: string; src: string}>();
+  const key = `${category}:${value}`;
   useEffect(() => {
-    setReady(false);
     const target = host.current;
-    if (!target || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      observer.disconnect();
+    if (!target) return;
+    let observer: IntersectionObserver | undefined;
+    let source: HTMLCanvasElement | undefined;
+    const draw = () => {
       try {
-        const context = canvas.current?.getContext('2d');
-        if (!context) return;
-        context.drawImage(thumbnail(category, value), 0, 0);
-        setReady(true);
+        setImage({
+          key: `${category}:${value}`,
+          src: thumbnail(category, value),
+        });
+        observer?.disconnect();
+        source?.removeEventListener('webglcontextrestored', draw);
       } catch {
-        /* Text labels remain usable without WebGL. */
+        // A lost context must not become a permanently cached blank image.
+        // Retry visible options after Three.js restores its shared renderer.
+        source = renderer?.domElement;
+        source?.addEventListener('webglcontextrestored', draw);
       }
-    });
-    observer.observe(target);
-    return () => observer.disconnect();
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      draw();
+    } else {
+      observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) draw();
+      });
+      observer.observe(target);
+    }
+    return () => {
+      observer?.disconnect();
+      source?.removeEventListener('webglcontextrestored', draw);
+    };
   }, [category, value]);
   return (
     <span ref={host} className="cc-choice-image" aria-hidden="true">
-      <canvas ref={canvas} width={240} height={180} hidden={!ready} />
-      {!ready && <span className="cc-choice-placeholder">◇</span>}
+      {image?.key === key ? (
+        <img src={image.src} width={240} height={180} alt="" />
+      ) : (
+        <span className="cc-choice-placeholder">◇</span>
+      )}
     </span>
   );
 }
