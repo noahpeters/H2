@@ -79,6 +79,9 @@ function patchTurnstileCsp(
   nonce?: string,
 ): string {
   let out = csp;
+  if (new URL(requestUrl).pathname === '/cabinet-configurator') {
+    out = addCspSource(out, 'img-src', 'data:');
+  }
 
   // Turnstile
   const cf = 'https://challenges.cloudflare.com';
