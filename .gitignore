@@ -10,3 +10,4 @@ node_modules
 **/.wrangler/
 **/.dev.vars
 **/.dev.vars.*
+.playwright-cli/console-2026-09-08T19-09-27-653Z.log

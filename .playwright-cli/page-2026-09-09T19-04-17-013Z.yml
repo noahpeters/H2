@@ -1,0 +1,63 @@
+- generic [ref=f8e3]:
+  - banner [ref=f8e4]:
+    - link "from trees cabinet study / prototype" [ref=f8e5] [cursor=pointer]:
+      - /url: /
+      - generic [ref=f8e6]: from trees
+      - generic [ref=f8e7]: cabinet study / prototype
+    - generic [ref=f8e8]:
+      - button "Undo" [disabled] [ref=f8e9]
+      - button "New room" [ref=f8e10] [cursor=pointer]
+      - button "Copy to new" [ref=f8e11] [cursor=pointer]
+      - button "Share" [ref=f8e12] [cursor=pointer]
+      - button "Get price range" [ref=f8e13] [cursor=pointer]
+      - group [ref=f8e14]:
+        - generic "History" [ref=f8e15] [cursor=pointer]
+      - status [ref=f8e16]: Saved online
+  - main [ref=f8e17]:
+    - complementary "Design controls" [ref=f8e18]:
+      - group [ref=f8e19]:
+        - generic "Room" [ref=f8e20] [cursor=pointer]
+        - option "Choose a shape…" [disabled] [selected]
+        - option "Rectangle"
+        - option "L-shape"
+        - option "Alcove"
+        - text: ⌄
+      - group [ref=f8e21]:
+        - generic "Add to room" [ref=f8e22] [cursor=pointer]
+        - group [ref=f8e23]:
+          - generic "+ Add cabinet ⌄" [ref=f8e24] [cursor=pointer]
+        - group [ref=f8e25]:
+          - generic "+ Add appliance ⌄" [ref=f8e26] [cursor=pointer]
+      - group [ref=f8e27]:
+        - generic "Selected object" [ref=f8e28] [cursor=pointer]
+    - generic [ref=f8e29]:
+      - generic [ref=f8e30]:
+        - button "plan" [ref=f8e31] [cursor=pointer]
+        - button "split" [ref=f8e32] [cursor=pointer]
+        - button "three" [ref=f8e33] [cursor=pointer]
+      - generic [ref=f8e34]:
+        - generic [ref=f8e35]:
+          - generic [ref=f8e36]:
+            - generic [ref=f8e37]: Dimensioned plan
+            - generic "plan navigation" [ref=f8e38]:
+              - button "Zoom out plan" [ref=f8e39] [cursor=pointer]: −
+              - button "Zoom in plan" [ref=f8e40] [cursor=pointer]: +
+              - button "Fit" [ref=f8e41] [cursor=pointer]
+              - button "Pan" [ref=f8e42] [cursor=pointer]
+          - img "Dimensioned room plan" [ref=f8e43]:
+            - button "opening on front wall" [ref=f8e45] [cursor=pointer]
+            - button "door on back wall" [ref=f8e47] [cursor=pointer]
+            - generic [ref=f8e50] [cursor=pointer]: 30″
+            - generic [ref=f8e53] [cursor=pointer]: 30″
+        - generic [ref=f8e56]:
+          - generic [ref=f8e57]:
+            - generic [ref=f8e58]: Spatial study
+            - generic "3D navigation" [ref=f8e59]:
+              - button "Zoom out 3D" [ref=f8e60] [cursor=pointer]: −
+              - button "Zoom in 3D" [ref=f8e61] [cursor=pointer]: +
+              - button "Fit" [ref=f8e62] [cursor=pointer]
+              - button "Pan" [ref=f8e63] [cursor=pointer]
+          - generic "Interactive 3D room study" [ref=f8e64]
+      - generic [ref=f8e66]:
+        - generic [ref=f8e67]: 2 elements · clear fit
+        - generic [ref=f8e68]: Concept only · dimensions require field verification
