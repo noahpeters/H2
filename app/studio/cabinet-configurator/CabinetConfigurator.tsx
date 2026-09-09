@@ -13,6 +13,11 @@ import {
 } from './creationPreferences';
 import {placeOpening} from './openingPlacement';
 import {
+  automaticallyPlaceIsland,
+  automaticallyPlaceElement,
+  automaticallyPlaceOpening,
+} from './automaticPlacement';
+import {
   roomPoints,
   roomSegments,
   roomWall,
@@ -906,6 +911,7 @@ export function CabinetConfigurator({
   } | null>(null);
   const [study, setStudy] = useState<Study>(initialStudy);
   const [history, setHistory] = useState<Study[]>([]);
+  const placementHints = useRef<{floor?: string; wall?: string}>({});
   const creationPreferences = useRef<CreationPreferences | null>(null);
   if (!creationPreferences.current)
     creationPreferences.current = loadCreationPreferences(
@@ -922,7 +928,11 @@ export function CabinetConfigurator({
           ? blankStudy()
           : initialStudy(),
     migrateStudy,
-    () => setHistory([]),
+    () => {
+      setHistory([]);
+      placementHints.current = {};
+      setSelectedWall('back');
+    },
   );
   const update = useCallback(
     (change: (draft: Study) => void) =>
@@ -936,6 +946,10 @@ export function CabinetConfigurator({
   );
   const selected = study.elements.find((item) => item.id === study.selected);
   useEffect(() => {
+    if (selected)
+      placementHints.current[
+        selected.kind === 'wall-cabinet' ? 'wall' : 'floor'
+      ] = selected.id;
     if (!selected || !creationPreferences.current) return;
     creationPreferences.current = rememberCreationPreferences(
       creationPreferences.current,
@@ -965,6 +979,21 @@ export function CabinetConfigurator({
       (780 - pad * 2) / study.room.width,
       (560 - pad * 2) / study.room.depth,
     );
+  const placementContext = (item: KitchenElement, draft: Study) => ({
+    elementId:
+      draft.selected &&
+      (draft.islands.some((i) => i.id === draft.selected) ||
+        draft.elements.some(
+          (e) =>
+            e.id === draft.selected &&
+            (e.kind === 'wall-cabinet') === (item.kind === 'wall-cabinet'),
+        ))
+        ? draft.selected
+        : placementHints.current[
+            item.kind === 'wall-cabinet' ? 'wall' : 'floor'
+          ],
+    wall: selectedWall,
+  });
   const addElement = (
     kind: KitchenElement['kind'],
     applianceKind?: ApplianceKind,
@@ -978,7 +1007,9 @@ export function CabinetConfigurator({
           creationPreferences.current!,
           d.room,
         );
-        d.elements.push(item);
+        d.elements.push(
+          automaticallyPlaceElement(item, d, placementContext(item, d)),
+        );
         d.selected = item.id;
         return;
       }
@@ -1033,7 +1064,13 @@ export function CabinetConfigurator({
           minimumTallHeight(tallConfiguration),
         );
       }
-      d.elements.push(remembered);
+      d.elements.push(
+        automaticallyPlaceElement(
+          remembered,
+          d,
+          placementContext(remembered, d),
+        ),
+      );
       d.selected = remembered.id;
     });
   const addIsland = () =>
@@ -1048,7 +1085,7 @@ export function CabinetConfigurator({
         overhang: 12,
         seatingSide: 'south',
       };
-      d.islands.push(island);
+      d.islands.push(automaticallyPlaceIsland(island, d));
       d.selected = island.id;
     });
   const changeIsland = (
@@ -1446,16 +1483,26 @@ export function CabinetConfigurator({
                     onClick={(event) => {
                       update((d) => {
                         const id = makeId();
-                        d.openings.push({
-                          id,
-                          kind,
-                          wall: roomSegments(d.room)[0].id,
-                          offset: 12,
-                          width:
-                            kind === 'opening' ? 96 : kind === 'door' ? 32 : 42,
-                          height: kind === 'window' ? 38 : 80,
-                          sill: 42,
-                        });
+                        d.openings.push(
+                          automaticallyPlaceOpening(
+                            {
+                              id,
+                              kind,
+                              wall: roomSegments(d.room)[0].id,
+                              offset: 12,
+                              width:
+                                kind === 'opening'
+                                  ? 96
+                                  : kind === 'door'
+                                    ? 32
+                                    : 42,
+                              height: kind === 'window' ? 38 : 80,
+                              sill: 42,
+                            },
+                            d,
+                            {elementId: d.selected, wall: selectedWall},
+                          ),
+                        );
                         d.selected = id;
                       });
                       event.currentTarget
@@ -1744,7 +1791,13 @@ export function CabinetConfigurator({
                               creationPreferences.current!,
                               d.room,
                             );
-                            d.elements.push(item);
+                            d.elements.push(
+                              automaticallyPlaceElement(
+                                item,
+                                d,
+                                placementContext(item, d),
+                              ),
+                            );
                             d.selected = item.id;
                           });
                         }}
