@@ -1,0 +1,197 @@
+.cu-editor {
+  --ink: #20251f;
+  --paper: #f2efe7;
+  --line: #aaa99f;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font:
+    14px Manrope,
+    system-ui,
+    sans-serif;
+}
+.cu-editor * {
+  box-sizing: border-box;
+}
+.cu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 28px;
+  background: var(--ink);
+  color: #faf7ef;
+}
+.cu-header p {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font: 11px monospace;
+}
+.cu-header h1 {
+  margin: 4px 0 0;
+  font:
+    italic 28px Georgia,
+    serif;
+}
+.cu-actions,
+.cu-split,
+.cu-preview-bar,
+.cu-preview-bar div {
+  display: flex;
+  gap: 8px;
+}
+.cu-editor button {
+  border: 1px solid var(--line);
+  background: #f8f5ed;
+  padding: 8px 11px;
+  cursor: pointer;
+}
+.cu-header button {
+  background: transparent;
+  color: inherit;
+  border-color: #6c746c;
+}
+.cu-workbench {
+  display: grid;
+  grid-template-columns: 280px minmax(360px, 1fr) 340px;
+  min-height: calc(100vh - 85px);
+}
+.cu-panel {
+  padding: 22px;
+  border-right: 1px solid var(--line);
+}
+.cu-panel h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 0 0 14px;
+}
+.cu-panel h2:not(:first-child) {
+  margin-top: 28px;
+}
+.cu-panel label {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0;
+  text-transform: capitalize;
+}
+.cu-panel input,
+.cu-panel select,
+.cu-panel textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: #fcfaf4;
+}
+.cu-dimensions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.cu-split {
+  margin: 15px 0;
+}
+.cu-valid,
+.cu-errors {
+  margin-top: 20px;
+  padding: 10px;
+  border-left: 3px solid #537354;
+  background: #e7eee4;
+}
+.cu-errors {
+  border-color: #9b4f3e;
+  background: #f3e6e0;
+  white-space: pre-wrap;
+}
+.cu-preview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px;
+  background: #ded9cc;
+}
+.cu-preview-bar {
+  justify-content: space-between;
+  align-items: center;
+}
+.cu-preview-bar button.active {
+  background: var(--ink);
+  color: white;
+}
+.cu-svg {
+  width: 82%;
+  height: min(65vh, 620px);
+  margin: auto;
+  overflow: visible;
+}
+.cu-svg-3d {
+  transform: perspective(700px) rotateY(-18deg) rotateX(3deg);
+  filter: drop-shadow(15px 16px 8px #7778);
+}
+.cu-svg .cu-case {
+  fill: #b69d7d;
+  stroke: var(--ink);
+  stroke-width: 0.5;
+}
+.cu-svg g rect {
+  fill: #f5f0e4;
+  stroke: #655e54;
+  stroke-width: 0.35;
+  cursor: pointer;
+}
+.cu-svg g.selected rect {
+  fill: #d9c4a4;
+  stroke: #9d5734;
+  stroke-width: 1;
+}
+.cu-svg text {
+  font-size: 2.6px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.cu-takeoff {
+  text-align: center;
+  font: 11px monospace;
+}
+.cu-json {
+  border-left: 1px solid var(--line);
+  border-right: 0;
+}
+.cu-json textarea {
+  height: calc(100vh - 190px);
+  resize: none;
+  font: 11px/1.45 monospace;
+}
+.cu-json button {
+  width: 100%;
+}
+@media (max-width: 980px) {
+  .cu-workbench {
+    grid-template-columns: 240px 1fr;
+  }
+  .cu-json {
+    grid-column: 1/-1;
+  }
+  .cu-json textarea {
+    height: 280px;
+  }
+}
+@media (max-width: 680px) {
+  .cu-header {
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .cu-actions {
+    flex-wrap: wrap;
+  }
+  .cu-workbench {
+    display: block;
+  }
+  .cu-preview {
+    min-height: 480px;
+  }
+  .cu-svg {
+    width: 95%;
+  }
+}
