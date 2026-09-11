@@ -172,6 +172,9 @@ export async function action({
     );
     if (result.error || !result.data?.id)
       throw new Error('Email provider did not accept inquiry');
+    // Root revalidation consumes this receipt and tracks the accepted lead.
+    // Targeted landing actions replace the kind before redirecting home.
+    context.session.set('projectReceipt', {eventId, kind: 'contact'});
     return {ok: true, eventId};
   } catch (error) {
     console.error('Contact email send failed', error);

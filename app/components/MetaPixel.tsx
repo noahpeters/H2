@@ -8,6 +8,7 @@ type FbqFn = ((...args: unknown[]) => void) & {
   queue?: unknown[][];
   loaded?: boolean;
   version?: string;
+  disablePushState?: boolean;
 };
 declare global {
   interface Window {
@@ -73,6 +74,9 @@ export function MetaPixel({nonce}: {nonce?: string}) {
       window.fbq = fbq;
       window._fbq = fbq;
     }
+    // React Router owns PageView delivery. Meta's history listener otherwise
+    // sends an additional event on pushState/replaceState navigation.
+    window.fbq.disablePushState = true;
     window.fbq('consent', 'grant');
     if (!window.__metaPixelInitialized) {
       // Explicit events avoid inferring a lead from a button click or form attempt.
