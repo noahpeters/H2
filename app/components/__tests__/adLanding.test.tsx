@@ -127,7 +127,7 @@ describe('submission receipt', () => {
       vi.fn().mockResolvedValue(new Response('{"success":true}')),
     );
     send.mockResolvedValue({data: {id: 'contact-email-id'}, error: null});
-    const input = args();
+    const input = args({configuratorSource: 'table'});
     input.request = new Request('https://from-trees.com/contact', {
       method: 'POST',
       body: await input.request.formData(),
@@ -143,6 +143,7 @@ describe('submission receipt', () => {
         kind: 'contact',
       },
     );
+    expect(send.mock.calls[0][0].text).toContain('Configurator source: table');
     state.path = '/contact';
     state.receipt = {eventId: submissionId, kind: 'contact'};
     const view = render(<MetaPixel />);

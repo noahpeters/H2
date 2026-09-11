@@ -1,4 +1,4 @@
-import {Form, useNavigation} from 'react-router';
+import {Form, useFetcher, useNavigation} from 'react-router';
 import {ProjectVerification} from './ProjectVerification';
 
 export function ProjectForm({
@@ -8,6 +8,8 @@ export function ProjectForm({
   defaultProjectType = '',
   fieldErrors = {},
   formError,
+  configuratorSource,
+  inPlace = false,
 }: {
   turnstileSiteKey: string;
   project?: string;
@@ -15,17 +17,43 @@ export function ProjectForm({
   defaultProjectType?: string;
   fieldErrors?: Record<string, string>;
   formError?: string;
+  configuratorSource?: 'table' | 'cabinet';
+  inPlace?: boolean;
 }) {
-  const busy = useNavigation().state !== 'idle';
+  const fetcher = useFetcher<{
+    ok: boolean;
+    fieldErrors?: Record<string, string>;
+    formError?: string;
+  }>();
+  const navigation = useNavigation();
+  const response = inPlace ? fetcher.data : undefined;
+  const busy = inPlace ? fetcher.state !== 'idle' : navigation.state !== 'idle';
+  if (inPlace && response?.ok)
+    return (
+      <div className="project-form-success" role="status">
+        <p className="eyebrow">Study received</p>
+        <h2>Thank you.</h2>
+        <p>We’ll review your study and get back to you soon.</p>
+      </div>
+    );
+  const currentFieldErrors = response?.fieldErrors ?? fieldErrors;
+  const currentFormError = response?.formError ?? formError;
   const error = (field: string) =>
-    fieldErrors[field] ? (
+    currentFieldErrors[field] ? (
       <span className="field-error" role="alert">
-        {fieldErrors[field]}
+        {currentFieldErrors[field]}
       </span>
     ) : null;
-  return (
-    <Form method="post" className="project-form">
+  const contents = (
+    <>
       <input type="hidden" name="submissionId" value={submissionId} />
+      {configuratorSource ? (
+        <input
+          type="hidden"
+          name="configuratorSource"
+          value={configuratorSource}
+        />
+      ) : null}
       <input
         type="text"
         name="company"
@@ -34,7 +62,9 @@ export function ProjectForm({
         aria-hidden="true"
         style={{position: 'absolute', left: '-10000px'}}
       />
-      {formError ? <p className="form-error">{formError}</p> : null}
+      {currentFormError ? (
+        <p className="form-error">{currentFormError}</p>
+      ) : null}
       <div className="project-form-grid">
         <label>
           Name
@@ -103,8 +133,8 @@ export function ProjectForm({
         <ProjectVerification
           siteKey={turnstileSiteKey}
           retry={
-            formError || Object.keys(fieldErrors).length
-              ? fieldErrors
+            currentFormError || Object.keys(currentFieldErrors).length
+              ? currentFieldErrors
               : undefined
           }
         />
@@ -114,6 +144,15 @@ export function ProjectForm({
         <span>{busy ? 'Sending…' : 'Send project details'}</span>
         <span aria-hidden="true">→</span>
       </button>
+    </>
+  );
+  return inPlace ? (
+    <fetcher.Form method="post" action="/contact" className="project-form">
+      {contents}
+    </fetcher.Form>
+  ) : (
+    <Form method="post" className="project-form">
+      {contents}
     </Form>
   );
 }
