@@ -107,7 +107,11 @@ describe('physical cabinet authoring', () => {
       const open = new THREE.Box3().setFromObject(
         customUnitGeometry(next, {[door.id]: 1}),
       );
-      expect(open.equals(closed)).toBe(false);
+      if (mechanism === 'tambour') {
+        const shut = customUnitGeometry(next).children.at(-1)!;
+        const opened = customUnitGeometry(next, {[door.id]: 1}).children.at(-1)!;
+        expect(opened.children[0].position.equals(shut.children[0].position)).toBe(false);
+      } else expect(open.equals(closed)).toBe(false);
       expect(next.parts!.at(-1)!.z).toBe(-0.75);
     },
   );

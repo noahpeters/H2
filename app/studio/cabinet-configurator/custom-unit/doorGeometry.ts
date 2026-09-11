@@ -90,37 +90,32 @@ export function doorPreview(
     material.dispose();
     update = (amount) =>
       rig.children.forEach((slat, i) => {
-        const travel = (i + 0.5) * pitch + amount * span;
-        const turn = Math.max(0, (travel - span) / radius);
-        // Keep the spool and each rotated slat inside the opening envelope.
-        const coilRadius =
-          radius + (Math.max(0, turn - Math.PI) * part.depth) / (2 * Math.PI);
         const halfSlat = (pitch * 0.94) / 2;
-        const edgeExtent =
-          Math.abs(Math.cos(turn)) * halfSlat +
-          (Math.abs(Math.sin(turn)) * part.depth) / 2;
+        const clearance = Math.hypot(halfSlat, part.depth / 2);
+        const bendStart = span - radius - clearance;
+        const arcLength = (Math.PI * radius) / 2;
+        const availableDepth = cabinetDepth - part.z - part.depth / 2 - 0.75;
+        const closedEnd = radius + Math.max(0, span - bendStart - arcLength);
+        const advance = Math.min(
+          bendStart + arcLength,
+          Math.max(0, availableDepth - closedEnd - halfSlat),
+        );
+        const travel = (i + 0.5) * pitch + amount * advance;
+        const beyond = Math.max(0, travel - bendStart);
+        const turn = Math.min(Math.PI / 2, beyond / radius);
+        // A quarter-turn track returns flat along the inside top or side.
+        const along =
+          travel <= bendStart
+            ? travel - span / 2
+            : bendStart - span / 2 + Math.sin(turn) * radius;
+        const rawZ =
+          travel <= bendStart
+            ? 0
+            : radius * (1 - Math.cos(turn)) + Math.max(0, beyond - arcLength);
         const depthExtent =
           Math.abs(Math.sin(turn)) * halfSlat +
           (Math.abs(Math.cos(turn)) * part.depth) / 2;
-        const clearance = Math.hypot(halfSlat, part.depth / 2);
-        const center = span / 2 - coilRadius - clearance;
-        const along =
-          travel <= span
-            ? Math.min(span / 2 - edgeExtent, travel - span / 2)
-            : Math.max(
-                -span / 2 + edgeExtent,
-                Math.min(
-                  span / 2 - edgeExtent,
-                  center + Math.sin(turn) * coilRadius,
-                ),
-              );
-        const z =
-          travel <= span
-            ? 0
-            : Math.max(
-                depthExtent + part.depth / 2,
-                coilRadius + clearance - coilRadius * Math.cos(turn),
-              );
+        const z = Math.max(rawZ, depthExtent - part.depth / 2);
         slat.position.set(
           horizontal ? sign * along : 0,
           horizontal ? 0 : along,

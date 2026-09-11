@@ -44,6 +44,7 @@ it.each(['vertical', 'horizontal'] as const)(
       mesh(),
       {...part, door: {...part.door!, mechanism: 'tambour', direction}},
       0,
+      64,
     );
     const before = rig.children[0].position.clone();
     rig.userData.updateOpening(1);
@@ -73,5 +74,26 @@ it.each(['vertical', 'horizontal'] as const)(
         expect(bounds.min.z).toBeGreaterThanOrEqual(-part.depth / 2 - 0.0001);
       }
     }
+  },
+);
+
+it.each(['vertical', 'horizontal'] as const)(
+  'returns %s tambour flat after a quarter-turn',
+  (direction) => {
+    const rig = doorPreview(
+      mesh(),
+      {...part, door: {...part.door!, mechanism: 'tambour', direction}},
+      1,
+      64,
+    );
+    const along = direction === 'vertical' ? 'y' : 'x';
+    for (const slat of rig.children) {
+      expect(
+        Math.abs(direction === 'vertical' ? slat.rotation.x : slat.rotation.y),
+      ).toBeCloseTo(Math.PI / 2);
+      expect(slat.position[along]).toBeCloseTo(rig.children[0].position[along]);
+    }
+    const depths = rig.children.map((slat) => slat.position.z);
+    expect(new Set(depths).size).toBe(rig.children.length);
   },
 );
