@@ -1,3 +1,5 @@
+import type {DoorMechanism} from './doorGeometry';
+import type {CabinetCurve} from './curves';
 export const CUSTOM_UNIT_VERSION = 1 as const;
 
 export type SectionType =
@@ -34,6 +36,31 @@ export type CustomUnitDivision = {
 
 export type CustomUnitNode = CustomUnitSection | CustomUnitDivision;
 
+export type CabinetPart = {
+  id: string;
+  kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
+  name?: string;
+  door?: {
+    mechanism: DoorMechanism;
+    side: 'left' | 'right';
+    travel: number;
+    slatSize: number;
+  };
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+  depth: number;
+  sectionId?: string;
+  shape?: 'rectangular' | 'round-left' | 'round-right';
+  edges?: {
+    left: 'square' | 'convex' | 'concave';
+    right: 'square' | 'convex' | 'concave';
+    radius: number;
+  };
+};
+
 export type CustomUnitDefinition = {
   version: typeof CUSTOM_UNIT_VERSION;
   id: string;
@@ -43,6 +70,9 @@ export type CustomUnitDefinition = {
   depth: number;
   reveal: number;
   root: CustomUnitNode;
+  /** Optional explicit physical layout. Legacy region definitions remain supported. */
+  parts?: CabinetPart[];
+  curve?: CabinetCurve;
 };
 
 export const CUSTOM_UNIT_LIMITS = {
@@ -153,6 +183,34 @@ function validateNode(node: unknown, path: string, errors: string[]) {
       'open-lower',
       'hanging',
     ];
+    if (value.properties !== undefined) {
+      const props = value.properties;
+      if (!props || typeof props !== 'object')
+        errors.push(`${path} has invalid section properties`);
+      else {
+        for (const key of ['shelfCount', 'drawerCount'] as const) {
+          const count = props[key];
+          if (
+            count !== undefined &&
+            (!Number.isInteger(count) || count < 0 || count > 100)
+          )
+            errors.push(`${path} has invalid ${key}`);
+        }
+        if (
+          props.doorCount !== undefined &&
+          props.doorCount !== 1 &&
+          props.doorCount !== 2
+        )
+          errors.push(`${path} needs one or two doors`);
+        if (
+          props.rodHeight !== undefined &&
+          (!Number.isFinite(props.rodHeight) ||
+            props.rodHeight < 0 ||
+            props.rodHeight > 1000)
+        )
+          errors.push(`${path} has invalid rod height`);
+      }
+    }
     if (!types.includes(value.sectionType as SectionType))
       errors.push(`${path} has an unknown section type`);
     return;
@@ -171,9 +229,10 @@ function validateNode(node: unknown, path: string, errors: string[]) {
     value.weights.some((weight) => !Number.isFinite(weight) || weight <= 0)
   )
     errors.push(`${path} needs one positive weight per child`);
-  value.children?.forEach((child, index) =>
-    validateNode(child, `${path}.children[${index}]`, errors),
-  );
+  if (Array.isArray(value.children))
+    value.children.forEach((child, index) =>
+      validateNode(child, `${path}.children[${index}]`, errors),
+    );
 }
 
 export function validateCustomUnit(value: unknown): string[] {
@@ -196,20 +255,154 @@ export function validateCustomUnit(value: unknown): string[] {
     if (
       typeof number !== 'number' ||
       !Number.isFinite(number) ||
-      number < minimum
+      number < minimum ||
+      number > 1000
     )
       errors.push(`${field} must be at least ${minimum} inches`);
   }
   if (
     typeof unit.reveal !== 'number' ||
+    !Number.isFinite(unit.reveal) ||
     unit.reveal < CUSTOM_UNIT_LIMITS.minReveal ||
     unit.reveal > CUSTOM_UNIT_LIMITS.maxReveal
   )
     errors.push(
       `reveal must be between ${CUSTOM_UNIT_LIMITS.minReveal} and ${CUSTOM_UNIT_LIMITS.maxReveal} inches`,
     );
+  if (unit.curve !== undefined) {
+    const curve = unit.curve;
+    if (
+      !curve ||
+      !['cabinet', 'front'].includes(curve.scope) ||
+      !['arc', 'rounded-left', 'rounded-right', 'rounded-both'].includes(
+        curve.profile,
+      ) ||
+      !['inward', 'outward'].includes(curve.direction) ||
+      !Number.isFinite(curve.radius)
+    )
+      errors.push('Invalid cabinet curve');
+    else if (curve.profile === 'arc') {
+      if (curve.radius <= (unit.width ?? 0) / 2)
+        errors.push('Curve radius must exceed half the cabinet width');
+      else {
+        const sag =
+          curve.radius -
+          Math.sqrt(curve.radius ** 2 - ((unit.width ?? 0) / 2) ** 2);
+        if (
+          curve.scope === 'front' &&
+          curve.direction === 'inward' &&
+          sag >= (unit.depth ?? 0) - 0.75
+        )
+          errors.push('Inward curve leaves insufficient cabinet depth');
+        if (
+          curve.scope === 'cabinet' &&
+          curve.direction === 'inward' &&
+          curve.radius <= (unit.depth ?? 0) + 0.75
+        )
+          errors.push('Curve radius must exceed cabinet depth');
+      }
+    } else if (
+      curve.scope !== 'front' ||
+      curve.radius <= 0 ||
+      curve.radius > Math.min((unit.width ?? 0) / 2, (unit.depth ?? 0) - 0.75)
+    )
+      errors.push(
+        'Rounded ends need a front curve with a radius within half the width and cabinet depth',
+      );
+  }
+  if (unit.parts !== undefined) {
+    if (!Array.isArray(unit.parts) || unit.parts.length > 500)
+      errors.push('Parts must be a list of at most 500 items');
+    else {
+      const ids = new Set<string>();
+      for (const part of unit.parts) {
+        if (!part || typeof part !== 'object') {
+          errors.push('Invalid part');
+          continue;
+        }
+        if (typeof part.id !== 'string' || !part.id || ids.has(part.id))
+          errors.push('Parts need unique IDs');
+        ids.add(part.id);
+        if (
+          part.door &&
+          (part.kind !== 'door' ||
+            !['hinged', 'pocket', 'tambour', 'lift-up', 'pull-down'].includes(
+              part.door.mechanism,
+            ) ||
+            !['left', 'right'].includes(part.door.side) ||
+            !Number.isFinite(part.door.travel) ||
+            part.door.travel < 0 ||
+            part.door.travel > 1000 ||
+            !Number.isFinite(part.door.slatSize) ||
+            part.door.slatSize < 0.25 ||
+            part.door.slatSize > 6)
+        )
+          errors.push('Invalid door mechanism dimensions');
+        if (
+          part.door?.mechanism === 'tambour' &&
+          (unit.curve ||
+            part.edges ||
+            (part.shape && part.shape !== 'rectangular'))
+        )
+          errors.push(
+            'Tambour doors currently require a straight rectangular opening',
+          );
+        if (part.edges) {
+          if (
+            !['square', 'convex', 'concave'].includes(part.edges.left) ||
+            !['square', 'convex', 'concave'].includes(part.edges.right) ||
+            !Number.isFinite(part.edges.radius) ||
+            part.edges.radius <= 0 ||
+            part.edges.radius > part.width / 2
+          )
+            errors.push(
+              'Edge radius must be positive and within half the part width',
+            );
+          if (
+            !['door', 'drawer'].includes(part.kind) &&
+            part.edges.radius >= part.depth
+          )
+            errors.push('Edge radius must be smaller than the part depth');
+        }
+        if (
+          part.shape !== undefined &&
+          !['rectangular', 'round-left', 'round-right'].includes(part.shape)
+        )
+          errors.push('Unknown part shape');
+        if (
+          ![
+            'carcass',
+            'divider',
+            'door',
+            'drawer',
+            'shelf',
+            'rod',
+            'panel',
+          ].includes(part.kind)
+        )
+          errors.push('Unknown part kind');
+        for (const key of [
+          'x',
+          'y',
+          'z',
+          'width',
+          'height',
+          'depth',
+        ] as const) {
+          if (
+            !Number.isFinite(part[key]) ||
+            Math.abs(part[key]) > 1000 ||
+            (['width', 'height', 'depth'].includes(key) && part[key] <= 0)
+          )
+            errors.push(`Invalid part ${key}`);
+        }
+        if (Number.isFinite(part.y) && part.y < 0)
+          errors.push('Parts must be above the cabinet base');
+      }
+    }
+  }
   validateNode(unit.root, 'root', errors);
-  if (!errors.length) {
+  if (!errors.length && !unit.parts) {
     const {errors: layoutErrors} = layoutCustomUnit(
       unit as CustomUnitDefinition,
     );

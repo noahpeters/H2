@@ -1,3 +1,4 @@
+import {addEndShelf, editableParts} from './partEditing';
 import {createCustomUnit, type CustomUnitDefinition} from './model';
 
 export const VANITY_EXAMPLE: CustomUnitDefinition = createCustomUnit({
@@ -95,3 +96,52 @@ export const CLOSET_EXAMPLE: CustomUnitDefinition = createCustomUnit({
     ],
   },
 });
+
+export const CURVED_EXAMPLE: CustomUnitDefinition = createCustomUnit({
+  id: 'example-curved',
+  name: 'Curved bookcase',
+  width: 48,
+  height: 36,
+  depth: 16,
+  curve: {scope: 'cabinet', profile: 'arc', direction: 'inward', radius: 60},
+  root: {
+    id: 'curved-shelves',
+    type: 'section',
+    sectionType: 'shelves',
+    properties: {shelfCount: 2},
+  },
+});
+export const STEPPED_EXAMPLE: CustomUnitDefinition = {
+  ...VANITY_EXAMPLE,
+  id: 'example-stepped',
+  name: 'Stepped faces & curved edges',
+  parts: editableParts(VANITY_EXAMPLE).map((part) => ({
+    ...part,
+    ...(['door', 'drawer'].includes(part.kind)
+      ? {z: part.x < 24 ? -3 : part.x > 48 ? 1 : -0.75}
+      : {}),
+    ...(part.kind === 'door'
+      ? {edges: {left: 'concave' as const, right: 'convex' as const, radius: 2}}
+      : {}),
+  })),
+};
+const endBase = createCustomUnit({
+  id: 'example-end',
+  name: 'Open curved end shelves',
+  width: 36,
+  height: 34.5,
+  depth: 24,
+});
+const end = addEndShelf(endBase, 'right');
+const endPart = end.parts!.at(-1)!;
+export const END_SHELF_EXAMPLE: CustomUnitDefinition = {
+  ...end,
+  parts: [
+    ...end.parts!.slice(0, -1),
+    ...[0.75, 11.75, 22.75, 33.75].map((y, index) => ({
+      ...endPart,
+      id: `end-shelf-${index}`,
+      y,
+    })),
+  ],
+};

@@ -1,9 +1,12 @@
-import {useState} from 'react';
-import {Form, useLoaderData} from 'react-router';
+import studioStyles from '~/styles/studio.css?url';
+import {StudioHeader} from '~/studio/StudioHeader';
+import {useEffect, useState} from 'react';
+import {Form, useLoaderData, useActionData, useNavigation} from 'react-router';
 import type {Route} from './+types/admin.custom-cabinets';
 import {CustomUnitEditor} from '~/studio/cabinet-configurator/custom-unit/CustomUnitEditor';
 import {
   createCustomUnit,
+  validateCustomUnit,
   type CustomUnitDefinition,
 } from '~/studio/cabinet-configurator/custom-unit/model';
 import type {
@@ -14,6 +17,7 @@ import {jsonResponse} from '~/studio/cabinet-configurator/savedRoomProtocol';
 import styles from '~/styles/custom-unit-editor.css?url';
 
 export const links: Route.LinksFunction = () => [
+  {rel: 'stylesheet', href: studioStyles},
   {rel: 'stylesheet', href: styles},
 ];
 export const meta: Route.MetaFunction = () => [
@@ -52,7 +56,12 @@ export async function action({context, request}: Route.ActionArgs) {
   if (request.headers.get('Origin') !== new URL(request.url).origin)
     return jsonResponse({error: 'Invalid origin'}, 403);
   const form = await request.formData();
-  const value = JSON.parse(String(form.get('cabinet')));
+  let value: unknown;
+  try {
+    value = JSON.parse(String(form.get('cabinet')));
+  } catch {
+    return jsonResponse({error: 'Invalid cabinet definition'}, 400);
+  }
   const response = await fetch(
     new URL('/custom-cabinets', env.CABINET_ROOMS_URL),
     {
@@ -76,6 +85,10 @@ const slug = (name: string) =>
     .slice(0, 56) || 'cabinet';
 export default function CabinetAdmin() {
   const {items} = useLoaderData<typeof loader>();
+  const actionData = useActionData<
+    CustomCabinetLibraryItem & {error?: string}
+  >();
+  const navigation = useNavigation();
   const [selected, setSelected] = useState<CustomCabinetLibraryItem | null>(
     items[0] ?? null,
   );
@@ -87,6 +100,9 @@ export default function CabinetAdmin() {
   const [status, setStatus] = useState<CabinetLifecycle>(
     selected?.status ?? 'draft',
   );
+  useEffect(() => {
+    if (actionData?.id && !actionData.error) setSelected(actionData);
+  }, [actionData]);
   const choose = (item: CustomCabinetLibraryItem | null, duplicate = false) => {
     const source = item?.definition ?? createCustomUnit();
     const next = duplicate
@@ -114,21 +130,24 @@ export default function CabinetAdmin() {
     definition,
   };
   return (
-    <main className="cu-admin">
-      <header className="cu-header">
-        <div>
-          <p>Library editor</p>
-          <h1>Reusable cabinet library</h1>
-        </div>
-        <button onClick={() => choose(null)}>Create cabinet</button>
-      </header>
-      <nav className="cu-library" aria-label="Cabinet definitions">
-        {items.map((item) => (
-          <button key={item.id} onClick={() => choose(item)}>
-            {item.name} · v{item.version} · {item.status}
-          </button>
-        ))}
-      </nav>
+    <main className="cu-admin studio-cabinet-page">
+      <StudioHeader
+        links={[
+          {label: 'Studio', to: '/'},
+          {label: 'Room configurator', to: '/cabinet-configurator'},
+        ]}
+      />
+      <div className="cu-library-bar">
+        <h2>Cabinet library</h2>
+        <button onClick={() => choose(null)}>New cabinet</button>
+        <nav className="cu-library" aria-label="Cabinet definitions">
+          {items.map((item) => (
+            <button key={item.id} onClick={() => choose(item)}>
+              {item.name} · v{item.version} · {item.status}
+            </button>
+          ))}
+        </nav>
+      </div>
       <section className="cu-metadata">
         <label>
           Description
@@ -163,8 +182,18 @@ export default function CabinetAdmin() {
             value={selected ? 'PUT' : 'POST'}
           />
           <input type="hidden" name="cabinet" value={JSON.stringify(payload)} />
-          <button type="submit">
-            {selected ? 'Save new version' : 'Create'}
+          <button
+            type="submit"
+            disabled={
+              navigation.state !== 'idle' ||
+              validateCustomUnit(definition).length > 0
+            }
+          >
+            {navigation.state !== 'idle'
+              ? 'Saving…'
+              : selected
+                ? 'Save new version'
+                : 'Save cabinet'}
           </button>
         </Form>
         {selected && (
@@ -173,6 +202,11 @@ export default function CabinetAdmin() {
           </button>
         )}
       </section>
+      {actionData && (
+        <p className="cu-save-status" role="status">
+          {actionData.error || 'Cabinet saved to the library.'}
+        </p>
+      )}
       <CustomUnitEditor
         key={`${selected?.id ?? 'new'}-${definition.id}`}
         initialDefinition={definition}

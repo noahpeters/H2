@@ -1,3 +1,4 @@
+import {createCabinetRenderer} from './sceneRenderer';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ChoiceImage, VisualSelect} from './VisualChoices';
@@ -601,15 +602,8 @@ export function ThreeStudy({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf4f2ec);
+    const {scene, renderer} = createCabinetRenderer(host);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
-    const renderer = new THREE.WebGLRenderer({antialias: true});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    host.append(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
     controls.mouseButtons.LEFT = panRef.current
@@ -624,11 +618,6 @@ export function ThreeStudy({
     controls.addEventListener('start', rememberNavigation);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2.02;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x5b5546, 2.2));
-    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
-    sun.position.set(-3, 5, 4);
-    sun.castShadow = true;
-    scene.add(sun);
 
     const roomWidth = study.room.width * INCH;
     const roomDepth = study.room.depth * INCH;

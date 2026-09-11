@@ -1,3 +1,4 @@
+import {customUnitGeometry} from './custom-unit/geometry';
 import * as THREE from 'three';
 import {cabinetColor} from './materials';
 import {storageLayout} from './openStorage';
@@ -88,6 +89,23 @@ export function cabinetGeometry(
   countertop: boolean,
   sharedCountertop = false,
 ) {
+  if (item.customCabinet) {
+    const definition = item.customCabinet.definition;
+    const group = new THREE.Group();
+    const body = customUnitGeometry(definition);
+    const bounds = new THREE.Box3().setFromObject(body);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = new THREE.Vector3(
+      (item.width / (size.x || definition.width)) * inch,
+      (item.height / (size.y || definition.height)) * inch,
+      (-item.depth / (size.z || definition.depth)) * inch,
+    );
+    body.scale.copy(scale);
+    body.position.copy(center.multiply(scale).negate());
+    group.add(body);
+    return group;
+  }
   if (item.kind === 'base' && item.configuration === 'corner') {
     const group = new THREE.Group();
     const w = item.width,

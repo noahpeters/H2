@@ -1,35 +1,47 @@
 import {fireEvent, render, screen} from '@testing-library/react';
-import {describe, expect, it} from 'vitest';
+import {describe, expect, it, vi} from 'vitest';
 import {CustomUnitEditor} from './CustomUnitEditor';
+vi.mock('./PartViewport', () => ({PartViewport: () => <div>3D viewport</div>}));
 
-describe('CustomUnitEditor development harness', () => {
-  it('loads representative examples and edits a selected region', () => {
-    render(<CustomUnitEditor />);
-    fireEvent.click(screen.getByRole('button', {name: 'Vanity example'}));
-    expect(
-      screen.getByRole('img', {name: /Mixed vanity elevation/}),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByText('doors'));
-    fireEvent.change(screen.getByLabelText('Section type'), {
-      target: {value: 'shelves'},
-    });
-    expect(screen.getByText(/semantic regions/)).toHaveTextContent(
-      '4 semantic regions',
-    );
-    expect(
-      (screen.getByLabelText('Custom unit JSON') as HTMLTextAreaElement).value,
-    ).toContain('"sectionType": "shelves"');
+describe('Cabinet workshop', () => {
+  it('adds a shelf and commits exact sizes, setbacks, and undo to the parent', () => {
+    const onChange = vi.fn();
+    render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+    const field = screen.getByLabelText('Front setback');
+    fireEvent.change(field, {target: {value: '1.0625'}});
+    fireEvent.blur(field);
+    expect(onChange.mock.lastCall![0].parts.at(-1).z).toBe(1.0625);
+    fireEvent.click(screen.getByRole('button', {name: 'Undo'}));
+    expect(onChange.mock.lastCall![0].parts.at(-1).z).toBe(0.5);
   });
-
-  it('subdivides blank regions and offers a 3D preview', () => {
-    render(<CustomUnitEditor />);
-    fireEvent.click(screen.getByRole('button', {name: 'Split vertical'}));
-    expect(screen.getByText(/semantic regions/)).toHaveTextContent(
-      '2 semantic regions',
+  it('adds independent end shelves and door mechanisms', () => {
+    const onChange = vi.fn();
+    render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', {name: '+ right end shelf'}));
+    expect(onChange.mock.lastCall![0].parts.at(-1).shape).toBe('round-right');
+    fireEvent.click(screen.getByRole('button', {name: '+ door'}));
+    fireEvent.change(screen.getByLabelText('Mechanism'), {
+      target: {value: 'pocket'},
+    });
+    expect(onChange.mock.lastCall![0].parts.at(-1).door.mechanism).toBe(
+      'pocket',
     );
-    fireEvent.click(screen.getByRole('button', {name: '3D'}));
-    expect(screen.getByRole('img', {name: /3d preview/i})).toHaveClass(
-      'cu-svg-3d',
-    );
+    expect(screen.getByLabelText('Pocket travel')).toBeInTheDocument();
+  });
+  it('uses imported designs in the parent save payload', () => {
+    const onChange = vi.fn();
+    render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', {name: 'Vanity'}));
+    fireEvent.click(screen.getByText('Import / export definition'));
+    fireEvent.click(screen.getByRole('button', {name: 'Export to text'}));
+    const json = screen.getByLabelText(
+      'Custom unit JSON',
+    ) as HTMLTextAreaElement;
+    const value = JSON.parse(json.value) as {name: string};
+    value.name = 'Imported design';
+    fireEvent.change(json, {target: {value: JSON.stringify(value)}});
+    fireEvent.click(screen.getByRole('button', {name: 'Import definition'}));
+    expect(onChange.mock.lastCall![0].name).toBe('Imported design');
   });
 });
