@@ -760,29 +760,36 @@ export function CustomUnitEditor({
                       <option value="pull-down">Pull-down</option>
                     </select>
                   </label>
+                  {['hinged', 'pocket', 'tambour'].includes(
+                    selected.door?.mechanism ?? 'hinged',
+                  ) && (
+                    <label>
+                      {(selected.door?.mechanism ?? 'hinged') === 'hinged'
+                        ? 'Hinge side'
+                        : selected.door?.mechanism === 'pocket'
+                          ? 'Pocket side'
+                          : 'Roll side'}
+                      <select
+                        value={selected.door?.side ?? 'left'}
+                        onChange={(event) =>
+                          patch({
+                            door: {
+                              mechanism: 'hinged',
+                              travel: definition.depth,
+                              slatSize: 1,
+                              ...selected.door,
+                              side: event.target.value as 'left' | 'right',
+                            },
+                          })
+                        }
+                      >
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </label>
+                  )}
                   {selected.door && (
                     <>
-                      {['hinged', 'pocket', 'tambour'].includes(
-                        selected.door.mechanism,
-                      ) && (
-                        <label>
-                          Hinge / pocket / roll side
-                          <select
-                            value={selected.door.side}
-                            onChange={(event) =>
-                              patch({
-                                door: {
-                                  ...selected.door!,
-                                  side: event.target.value as 'left' | 'right',
-                                },
-                              })
-                            }
-                          >
-                            <option value="left">Left</option>
-                            <option value="right">Right</option>
-                          </select>
-                        </label>
-                      )}
                       {selected.door.mechanism === 'pocket' && (
                         <Dimension
                           label="Pocket travel"

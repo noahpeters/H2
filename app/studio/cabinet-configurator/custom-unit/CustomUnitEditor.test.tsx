@@ -132,3 +132,18 @@ it('keeps preview finishes out of cabinet changes', () => {
   expect(saved).not.toHaveProperty('face');
   expect(saved).not.toHaveProperty('material');
 });
+
+it('shows hinge side for a default door and persists the selection', () => {
+  const onChange = vi.fn();
+  render(<CustomUnitEditor onChange={onChange} />);
+  fireEvent.click(screen.getByRole('button', {name: '+ door'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
+  expect(screen.getByLabelText('Hinge side')).toHaveValue('left');
+  fireEvent.change(screen.getByLabelText('Hinge side'), {
+    target: {value: 'right'},
+  });
+  expect(onChange.mock.lastCall![0].parts.at(-1).door).toMatchObject({
+    mechanism: 'hinged',
+    side: 'right',
+  });
+});
