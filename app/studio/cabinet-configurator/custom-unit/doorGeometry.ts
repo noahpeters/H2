@@ -92,14 +92,35 @@ export function doorPreview(
       rig.children.forEach((slat, i) => {
         const travel = (i + 0.5) * pitch + amount * span;
         const turn = Math.max(0, (travel - span) / radius);
-        // Roll around a spool behind the top or side of the opening.
+        // Keep the spool and each rotated slat inside the opening envelope.
         const coilRadius =
           radius + (Math.max(0, turn - Math.PI) * part.depth) / (2 * Math.PI);
+        const halfSlat = (pitch * 0.94) / 2;
+        const edgeExtent =
+          Math.abs(Math.cos(turn)) * halfSlat +
+          (Math.abs(Math.sin(turn)) * part.depth) / 2;
+        const depthExtent =
+          Math.abs(Math.sin(turn)) * halfSlat +
+          (Math.abs(Math.cos(turn)) * part.depth) / 2;
+        const clearance = Math.hypot(halfSlat, part.depth / 2);
+        const center = span / 2 - coilRadius - clearance;
         const along =
           travel <= span
-            ? travel - span / 2
-            : span / 2 + Math.sin(turn) * coilRadius;
-        const z = travel <= span ? 0 : radius - coilRadius * Math.cos(turn);
+            ? Math.min(span / 2 - edgeExtent, travel - span / 2)
+            : Math.max(
+                -span / 2 + edgeExtent,
+                Math.min(
+                  span / 2 - edgeExtent,
+                  center + Math.sin(turn) * coilRadius,
+                ),
+              );
+        const z =
+          travel <= span
+            ? 0
+            : Math.max(
+                depthExtent + part.depth / 2,
+                coilRadius + clearance - coilRadius * Math.cos(turn),
+              );
         slat.position.set(
           horizontal ? sign * along : 0,
           horizontal ? 0 : along,

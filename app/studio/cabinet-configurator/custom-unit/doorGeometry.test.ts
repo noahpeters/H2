@@ -53,3 +53,25 @@ it.each(['vertical', 'horizontal'] as const)(
     expect(rig.children[0].position.equals(before)).toBe(true);
   },
 );
+
+it.each(['vertical', 'horizontal'] as const)(
+  'keeps the %s roll within the opening throughout travel',
+  (direction) => {
+    for (const side of ['left', 'right'] as const) {
+      const rig = doorPreview(
+        mesh(),
+        {...part, door: {...part.door!, mechanism: 'tambour', direction, side}},
+        0,
+      );
+      for (let step = 0; step <= 20; step++) {
+        rig.userData.updateOpening(step / 20);
+        const bounds = new THREE.Box3().setFromObject(rig);
+        expect(bounds.min.x).toBeGreaterThanOrEqual(-part.width / 2 - 0.0001);
+        expect(bounds.max.x).toBeLessThanOrEqual(part.width / 2 + 0.0001);
+        expect(bounds.min.y).toBeGreaterThanOrEqual(-part.height / 2 - 0.0001);
+        expect(bounds.max.y).toBeLessThanOrEqual(part.height / 2 + 0.0001);
+        expect(bounds.min.z).toBeGreaterThanOrEqual(-part.depth / 2 - 0.0001);
+      }
+    }
+  },
+);
