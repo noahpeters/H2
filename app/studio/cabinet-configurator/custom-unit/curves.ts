@@ -57,3 +57,24 @@ export function edgeSetback(
     ? r - Math.sqrt(Math.max(0, r * r - distance * distance))
     : Math.sqrt(Math.max(0, r * r - (r - distance) * (r - distance)));
 }
+
+/** Fit each part to one cabinet-wide front outline, retaining its own setback and rear edge. */
+export function cabinetProfilePoint(
+  unit: CustomUnitDefinition,
+  part: import('./model').CabinetPart,
+  x: number,
+  z: number,
+): [number, number] {
+  if (part.profileMode === 'independent') return [x, z];
+  if (!unit.profile) return curvePoint(unit, x, z);
+  const inset = edgeSetback(
+    Math.max(0, Math.min(unit.width, x)),
+    unit.width,
+    unit.profile,
+  );
+  const front = part.kind === 'door' || part.kind === 'drawer';
+  const blend = front
+    ? 1
+    : Math.max(0, Math.min(1, 1 - (z - part.z) / part.depth));
+  return [x, z + inset * blend];
+}

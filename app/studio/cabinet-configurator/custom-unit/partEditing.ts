@@ -72,6 +72,7 @@ export function addEndShelf(
     id: customUnitId('part'),
     kind: 'shelf',
     name: `${side === 'left' ? 'Left' : 'Right'} curved end shelf`,
+    profileMode: 'independent',
     shape: side === 'left' ? 'round-left' : 'round-right',
     x: side === 'left' ? -unit.depth / 2 : unit.width,
     y: unit.height / 2,
@@ -99,4 +100,11 @@ export function addPanel(
     depth: orientation === 'back' ? 0.5 : unit.depth,
   };
   return {...unit, parts: [...editableParts(unit), part]};
+}
+
+export function setCabinetProfile(
+  unit: CustomUnitDefinition,
+  profile: NonNullable<CustomUnitDefinition['profile']>,
+): CustomUnitDefinition {
+  return {...unit, profile, curve: undefined};
 }

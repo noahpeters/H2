@@ -1,5 +1,5 @@
 import {doorPreview} from './doorGeometry';
-import {curvePoint, edgeSetback} from './curves';
+import {cabinetProfilePoint, edgeSetback} from './curves';
 import * as THREE from 'three';
 import {
   layoutCustomUnit,
@@ -189,6 +189,13 @@ export function customUnitGeometry(
   const group = new THREE.Group();
   group.name = `custom-unit:${definition.id}`;
   for (const part of customUnitParts(definition)) {
+    const followsProfile =
+      part.profileMode !== 'independent' &&
+      Boolean(definition.profile || definition.curve);
+    const localEdges =
+      followsProfile || part.profileMode === 'cabinet' ? undefined : part.edges;
+    const localShape =
+      followsProfile || part.profileMode === 'cabinet' ? undefined : part.shape;
     const material = new THREE.MeshStandardMaterial({
       color:
         part.kind === 'rod'
@@ -201,30 +208,35 @@ export function customUnitGeometry(
       part.width,
       part.height,
       part.depth,
-      definition.curve || part.edges ? 64 : 1,
+      followsProfile || localEdges ? 64 : 1,
       1,
-      definition.curve || part.shape?.startsWith('round-') ? 64 : 1,
+      followsProfile || localShape?.startsWith('round-') ? 64 : 1,
     );
-    if (definition.curve || part.edges || part.shape?.startsWith('round-')) {
+    if (followsProfile || localEdges || localShape?.startsWith('round-')) {
       const positions = geometry.getAttribute('position');
       for (let index = 0; index < positions.count; index++) {
         let localX = positions.getX(index) + part.width / 2;
-        if (part.shape === 'round-left' || part.shape === 'round-right') {
+        if (localShape === 'round-left' || localShape === 'round-right') {
           const v = positions.getZ(index) / (part.depth / 2);
           const reach = Math.sqrt(Math.max(0, 1 - v * v));
           localX =
-            part.shape === 'round-right'
+            localShape === 'round-right'
               ? localX * reach
               : part.width - (part.width - localX) * reach;
         }
         const x = localX + part.x;
         let z = positions.getZ(index) + part.z + part.depth / 2;
-        if (part.edges) {
+        if (localEdges) {
           const front = part.kind === 'door' || part.kind === 'drawer';
           const blend = front ? 1 : 1 - (z - part.z) / part.depth;
-          z += edgeSetback(localX, part.width, part.edges) * blend;
+          z += edgeSetback(localX, part.width, localEdges) * blend;
         }
-        const [curvedX, curvedZ] = curvePoint(definition, x, z);
+        const [curvedX, curvedZ] = cabinetProfilePoint(
+          definition,
+          {...part, id: part.id!},
+          x,
+          z,
+        );
         positions.setX(index, curvedX - part.x - part.width / 2);
         positions.setZ(index, curvedZ - part.z - part.depth / 2);
       }

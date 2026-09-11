@@ -53,6 +53,7 @@ export type CabinetPart = {
   height: number;
   depth: number;
   sectionId?: string;
+  profileMode?: 'cabinet' | 'independent';
   shape?: 'rectangular' | 'round-left' | 'round-right';
   edges?: {
     left: 'square' | 'convex' | 'concave';
@@ -73,6 +74,8 @@ export type CustomUnitDefinition = {
   /** Optional explicit physical layout. Legacy region definitions remain supported. */
   parts?: CabinetPart[];
   curve?: CabinetCurve;
+  /** One front outline shared by all cabinet parts unless explicitly detached. */
+  profile?: NonNullable<CabinetPart['edges']>;
 };
 
 export const CUSTOM_UNIT_LIMITS = {
@@ -269,6 +272,20 @@ export function validateCustomUnit(value: unknown): string[] {
     errors.push(
       `reveal must be between ${CUSTOM_UNIT_LIMITS.minReveal} and ${CUSTOM_UNIT_LIMITS.maxReveal} inches`,
     );
+  if (unit.profile !== undefined) {
+    const profile = unit.profile;
+    if (
+      !profile ||
+      !['square', 'convex', 'concave'].includes(profile.left) ||
+      !['square', 'convex', 'concave'].includes(profile.right) ||
+      !Number.isFinite(profile.radius) ||
+      profile.radius <= 0 ||
+      profile.radius > Math.min((unit.width ?? 0) / 2, (unit.depth ?? 0) - 0.75)
+    )
+      errors.push(
+        'Cabinet profile radius must fit within half the width and leave at least 3/4 inch of depth',
+      );
+  }
   if (unit.curve !== undefined) {
     const curve = unit.curve;
     if (
@@ -324,6 +341,11 @@ export function validateCustomUnit(value: unknown): string[] {
           errors.push('Parts need unique IDs');
         ids.add(part.id);
         if (
+          part.profileMode !== undefined &&
+          !['cabinet', 'independent'].includes(part.profileMode)
+        )
+          errors.push('Invalid part profile mode');
+        if (
           part.door &&
           (part.kind !== 'door' ||
             !['hinged', 'pocket', 'tambour', 'lift-up', 'pull-down'].includes(
@@ -340,7 +362,11 @@ export function validateCustomUnit(value: unknown): string[] {
           errors.push('Invalid door mechanism dimensions');
         if (
           part.door?.mechanism === 'tambour' &&
-          (unit.curve ||
+          ((part.profileMode !== 'independent' &&
+            (unit.curve ||
+              (unit.profile &&
+                (unit.profile.left !== 'square' ||
+                  unit.profile.right !== 'square')))) ||
             part.edges ||
             (part.shape && part.shape !== 'rectangular'))
         )

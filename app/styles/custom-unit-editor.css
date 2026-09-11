@@ -361,10 +361,43 @@
 .cu-end-shelves {
   margin-top: 8px;
 }
-@media(min-width:1051px) {
-  .cu-workbench { height:max(650px, calc(100vh - 230px)); min-height:0; }
-  .cu-panel { overflow-y:auto; }
-  .cu-preview { min-height:0; }
-  .cu-canvas { height:auto; min-height:280px; }
-  .cu-heading>.cu-actions { max-width:490px; justify-content:flex-end; }
+@media (min-width: 1051px) {
+  .cu-workbench {
+    height: max(650px, calc(100vh - 230px));
+    min-height: 0;
+  }
+  .cu-panel {
+    overflow-y: auto;
+  }
+  .cu-preview {
+    min-height: 0;
+  }
+  .cu-canvas {
+    height: auto;
+    min-height: 280px;
+  }
+  .cu-heading > .cu-actions {
+    max-width: 490px;
+    justify-content: flex-end;
+  }
+}
+.cu-profile-options {
+  margin: 16px 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--cu-line);
+  border-bottom: 1px solid var(--cu-line);
+}
+.cu-profile-options summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #254536;
+  margin-bottom: 12px;
+}
+.cu-panel .cu-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cu-panel .cu-checkbox input {
+  width: auto;
 }

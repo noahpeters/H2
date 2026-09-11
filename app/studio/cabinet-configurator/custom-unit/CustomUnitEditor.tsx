@@ -9,6 +9,7 @@ import {
 import {PartViewport} from './PartViewport';
 import {
   addPart,
+  setCabinetProfile,
   addPanel,
   addEndShelf,
   changePart,
@@ -129,8 +130,8 @@ export function CustomUnitEditor({
           <p className="cu-eyebrow">Cabinet workshop</p>
           <h1>Make every detail yours.</h1>
           <p>
-            Build a single cabinet, part by part. All measurements are in
-            inches.
+            Shape the cabinet as a whole, then refine its parts. All
+            measurements are in inches.
           </p>
         </div>
         <div className="cu-actions">
@@ -230,105 +231,174 @@ export function CustomUnitEditor({
               });
             }}
           />
-          <h2>Cabinet shape</h2>
-          <label>
-            Curve scope
-            <select
-              value={definition.curve?.scope ?? 'straight'}
-              onChange={(event) => {
-                const scope = event.target.value;
-                update({
-                  ...definition,
-                  curve:
-                    scope === 'straight'
-                      ? undefined
-                      : {
-                          scope: scope as 'front' | 'cabinet',
-                          profile: 'arc',
-                          radius: Math.max(
-                            definition.width,
-                            definition.depth + 1,
-                          ),
-                          direction: 'outward',
-                        },
-                });
-              }}
-            >
-              <option value="straight">Straight cabinet</option>
-              <option value="cabinet">Curve entire cabinet</option>
-              <option value="front">Curve front / straight back</option>
-            </select>
-          </label>
-          {definition.curve && (
-            <>
-              {definition.curve.scope === 'front' && (
-                <label>
-                  Curve profile
-                  <select
-                    value={definition.curve.profile}
-                    onChange={(event) =>
-                      update({
-                        ...definition,
-                        curve: {
-                          ...definition.curve!,
-                          profile: event.target.value as NonNullable<
-                            CustomUnitDefinition['curve']
-                          >['profile'],
-                          radius:
-                            event.target.value === 'arc'
-                              ? definition.width
-                              : Math.min(
-                                  6,
-                                  definition.width / 2,
-                                  definition.depth - 1,
-                                ),
-                        },
-                      })
-                    }
-                  >
-                    <option value="arc">Full-width arc</option>
-                    <option value="rounded-left">Rounded left end</option>
-                    <option value="rounded-right">Rounded right end</option>
-                    <option value="rounded-both">Rounded both ends</option>
-                  </select>
-                </label>
-              )}
-              {definition.curve.profile === 'arc' && (
-                <label>
-                  Curve direction
-                  <select
-                    value={definition.curve.direction}
-                    onChange={(event) =>
-                      update({
-                        ...definition,
-                        curve: {
-                          ...definition.curve!,
-                          direction: event.target.value as 'inward' | 'outward',
-                        },
-                      })
-                    }
-                  >
-                    <option value="outward">Outward / convex</option>
-                    <option value="inward">Inward / concave</option>
-                  </select>
-                </label>
-              )}
-              <Dimension
-                label="Curve radius"
-                value={definition.curve.radius}
-                min={0.0625}
-                onChange={(radius) =>
-                  update({...definition, curve: {...definition.curve!, radius}})
+          <h2>Shared cabinet profile</h2>
+          <p className="cu-hint">
+            One outline for the top, bottom, sides, shelves, doors, and drawer
+            fronts. Change it once; the cabinet follows.
+          </p>
+          {(['left', 'right'] as const).map((side) => (
+            <label key={side}>
+              Cabinet {side} edge
+              <select
+                value={definition.profile?.[side] ?? 'square'}
+                onChange={(event) =>
+                  update(
+                    setCabinetProfile(definition, {
+                      ...(definition.profile ?? {
+                        left: 'square',
+                        right: 'square',
+                        radius: Math.min(
+                          6,
+                          definition.width / 2,
+                          definition.depth - 0.75,
+                        ),
+                      }),
+                      [side]: event.target.value as
+                        | 'square'
+                        | 'convex'
+                        | 'concave',
+                    }),
+                  )
                 }
-              />
-              <p className="cu-hint">
-                {definition.curve.scope === 'cabinet'
-                  ? 'Front, back, shelves, and dividers follow the same arc.'
-                  : 'The front and shelf edges follow the curve; the back remains straight.'}{' '}
-                Positions and sizes use the uncurved cabinet dimensions.
-              </p>
-            </>
+              >
+                <option value="square">Square</option>
+                <option value="convex">Outward / convex</option>
+                <option value="concave">Inward / concave</option>
+              </select>
+            </label>
+          ))}
+          {definition.profile && (
+            <Dimension
+              label="Cabinet edge radius"
+              value={definition.profile.radius}
+              min={0.0625}
+              max={Math.min(definition.width / 2, definition.depth - 0.75)}
+              onChange={(radius) =>
+                update(
+                  setCabinetProfile(definition, {
+                    ...definition.profile!,
+                    radius,
+                  }),
+                )
+              }
+            />
           )}
+          {selected?.edges && (
+            <button
+              onClick={() =>
+                update(setCabinetProfile(definition, {...selected.edges!}))
+              }
+            >
+              Use selected part’s edges for the cabinet
+            </button>
+          )}
+          <details className="cu-profile-options">
+            <summary>Full-width cabinet curves</summary>
+            <label>
+              Curve scope
+              <select
+                value={definition.curve?.scope ?? 'straight'}
+                onChange={(event) => {
+                  const scope = event.target.value;
+                  update({
+                    ...definition,
+                    profile: undefined,
+                    curve:
+                      scope === 'straight'
+                        ? undefined
+                        : {
+                            scope: scope as 'front' | 'cabinet',
+                            profile: 'arc',
+                            radius: Math.max(
+                              definition.width,
+                              definition.depth + 1,
+                            ),
+                            direction: 'outward',
+                          },
+                  });
+                }}
+              >
+                <option value="straight">Straight cabinet</option>
+                <option value="cabinet">Curve entire cabinet</option>
+                <option value="front">Curve front / straight back</option>
+              </select>
+            </label>
+            {definition.curve && (
+              <>
+                {definition.curve.scope === 'front' && (
+                  <label>
+                    Curve profile
+                    <select
+                      value={definition.curve.profile}
+                      onChange={(event) =>
+                        update({
+                          ...definition,
+                          curve: {
+                            ...definition.curve!,
+                            profile: event.target.value as NonNullable<
+                              CustomUnitDefinition['curve']
+                            >['profile'],
+                            radius:
+                              event.target.value === 'arc'
+                                ? definition.width
+                                : Math.min(
+                                    6,
+                                    definition.width / 2,
+                                    definition.depth - 1,
+                                  ),
+                          },
+                        })
+                      }
+                    >
+                      <option value="arc">Full-width arc</option>
+                      <option value="rounded-left">Rounded left end</option>
+                      <option value="rounded-right">Rounded right end</option>
+                      <option value="rounded-both">Rounded both ends</option>
+                    </select>
+                  </label>
+                )}
+                {definition.curve.profile === 'arc' && (
+                  <label>
+                    Curve direction
+                    <select
+                      value={definition.curve.direction}
+                      onChange={(event) =>
+                        update({
+                          ...definition,
+                          curve: {
+                            ...definition.curve!,
+                            direction: event.target.value as
+                              | 'inward'
+                              | 'outward',
+                          },
+                        })
+                      }
+                    >
+                      <option value="outward">Outward / convex</option>
+                      <option value="inward">Inward / concave</option>
+                    </select>
+                  </label>
+                )}
+                <Dimension
+                  label="Curve radius"
+                  value={definition.curve.radius}
+                  min={0.0625}
+                  onChange={(radius) =>
+                    update({
+                      ...definition,
+                      curve: {...definition.curve!, radius},
+                    })
+                  }
+                />
+                <p className="cu-hint">
+                  {definition.curve.scope === 'cabinet'
+                    ? 'Front, back, shelves, and dividers follow the same arc.'
+                    : 'The front and shelf edges follow the curve; the back remains straight.'}{' '}
+                  Positions and sizes use the uncurved cabinet dimensions.
+                </p>
+              </>
+            )}
+          </details>
           <h2>02 / Add a part</h2>
           <div className="cu-add">
             {(
@@ -509,25 +579,11 @@ export function CustomUnitEditor({
                 Position is measured from the left, bottom, and front of the
                 cabinet.
               </p>
-              <label>
-                Part shape
-                <select
-                  value={selected.shape ?? 'rectangular'}
-                  onChange={(event) =>
-                    patch({shape: event.target.value as CabinetPart['shape']})
-                  }
-                >
-                  <option value="rectangular">Rectangular</option>
-                  <option value="round-left">Rounded left end</option>
-                  <option value="round-right">Rounded right end</option>
-                </select>
-              </label>
-              {selected.shape?.startsWith('round-') && (
-                <p className="cu-hint">
-                  Width controls end projection; depth controls the full span of
-                  the curve. Set width to half the depth for a semicircle.
-                </p>
-              )}
+              <p className="cu-hint">
+                {selected.profileMode === 'independent'
+                  ? 'This part has an independent outline.'
+                  : 'Follows the shared cabinet profile, including changes to cabinet edges and curves.'}
+              </p>
               {selected.kind === 'door' && (
                 <>
                   <h3>Door operation</h3>
@@ -635,51 +691,98 @@ export function CustomUnitEditor({
                   </p>
                 </>
               )}
-              <h3>Front edge curves</h3>
-              {(['left', 'right'] as const).map((side) => (
-                <label key={side}>
-                  {side} edge
-                  <select
-                    value={selected.edges?.[side] ?? 'square'}
+              <details className="cu-profile-options">
+                <summary>Independent part shape (advanced)</summary>
+                <label className="cu-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selected.profileMode === 'independent'}
                     onChange={(event) =>
                       patch({
-                        edges: {
-                          ...(selected.edges ?? {
-                            left: 'square',
-                            right: 'square',
-                            radius: Math.min(
-                              2,
-                              selected.width / 2,
-                              selected.kind === 'door' ||
-                                selected.kind === 'drawer'
-                                ? 2
-                                : selected.depth / 2,
-                            ),
-                          }),
-                          [side]: event.target.value as
-                            | 'square'
-                            | 'convex'
-                            | 'concave',
-                        },
+                        profileMode: event.target.checked
+                          ? 'independent'
+                          : 'cabinet',
                       })
                     }
-                  >
-                    <option value="square">Square</option>
-                    <option value="convex">Outward / convex</option>
-                    <option value="concave">Inward / concave</option>
-                  </select>
+                  />
+                  Shape this part separately
                 </label>
-              ))}
-              {selected.edges && (
-                <Dimension
-                  label="Edge radius"
-                  value={selected.edges.radius}
-                  min={0.0625}
-                  onChange={(radius) =>
-                    patch({edges: {...selected.edges!, radius}})
-                  }
-                />
-              )}
+                <p className="cu-hint">
+                  Use only for a separate attachment, such as an end shelf. Keep
+                  cabinet panels linked so they match.
+                </p>
+                {selected.profileMode === 'independent' && (
+                  <>
+                    <label>
+                      Part shape
+                      <select
+                        value={selected.shape ?? 'rectangular'}
+                        onChange={(event) =>
+                          patch({
+                            shape: event.target.value as CabinetPart['shape'],
+                          })
+                        }
+                      >
+                        <option value="rectangular">Rectangular</option>
+                        <option value="round-left">Rounded left end</option>
+                        <option value="round-right">Rounded right end</option>
+                      </select>
+                    </label>
+                    {selected.shape?.startsWith('round-') && (
+                      <p className="cu-hint">
+                        Width controls end projection; depth controls the full
+                        span of the curve. Set width to half the depth for a
+                        semicircle.
+                      </p>
+                    )}
+                    <h3>Front edge curves</h3>
+                    {(['left', 'right'] as const).map((side) => (
+                      <label key={side}>
+                        Independent {side} edge
+                        <select
+                          value={selected.edges?.[side] ?? 'square'}
+                          onChange={(event) =>
+                            patch({
+                              edges: {
+                                ...(selected.edges ?? {
+                                  left: 'square',
+                                  right: 'square',
+                                  radius: Math.min(
+                                    2,
+                                    selected.width / 2,
+                                    selected.kind === 'door' ||
+                                      selected.kind === 'drawer'
+                                      ? 2
+                                      : selected.depth / 2,
+                                  ),
+                                }),
+                                [side]: event.target.value as
+                                  | 'square'
+                                  | 'convex'
+                                  | 'concave',
+                              },
+                            })
+                          }
+                        >
+                          <option value="square">Square</option>
+                          <option value="convex">Outward / convex</option>
+                          <option value="concave">Inward / concave</option>
+                        </select>
+                      </label>
+                    ))}
+                    {selected.edges && (
+                      <Dimension
+                        label="Edge radius"
+                        value={selected.edges.radius}
+                        min={0.0625}
+                        onChange={(radius) =>
+                          patch({edges: {...selected.edges!, radius}})
+                        }
+                      />
+                    )}
+                  </>
+                )}
+              </details>
               <h3>Position</h3>
               <div className="cu-fields">
                 {(['x', 'y', 'z'] as const).map((field, i) => (
@@ -745,7 +848,8 @@ export function CustomUnitEditor({
             <div className="cu-empty">
               <p>Select a part in the model or the parts list.</p>
               <p>
-                Edit any board, shelf, divider, panel, or front independently.
+                Set the shared cabinet profile on the left. Select a part here
+                to refine its position and dimensions.
               </p>
             </div>
           )}

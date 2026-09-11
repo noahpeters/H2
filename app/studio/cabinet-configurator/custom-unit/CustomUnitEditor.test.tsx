@@ -29,6 +29,32 @@ describe('Cabinet workshop', () => {
     );
     expect(screen.getByLabelText('Pocket travel')).toBeInTheDocument();
   });
+  it('edits one cabinet profile and makes newly added parts inherit it', () => {
+    const onChange = vi.fn();
+    render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', {name: 'Vanity'}));
+    fireEvent.change(screen.getByLabelText('Cabinet right edge'), {
+      target: {value: 'convex'},
+    });
+    const radius = screen.getByLabelText('Cabinet edge radius');
+    fireEvent.change(radius, {target: {value: '12'}});
+    fireEvent.blur(radius);
+    expect(onChange.mock.lastCall![0].profile).toEqual({
+      left: 'square',
+      right: 'convex',
+      radius: 12,
+    });
+    fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+    expect(onChange.mock.lastCall![0].profile.radius).toBe(12);
+    expect(onChange.mock.lastCall![0].parts.at(-1).profileMode).not.toBe(
+      'independent',
+    );
+    expect(screen.queryByLabelText('Part shape')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Follows the shared cabinet profile/),
+    ).toBeInTheDocument();
+  });
+
   it('uses imported designs in the parent save payload', () => {
     const onChange = vi.fn();
     render(<CustomUnitEditor onChange={onChange} />);

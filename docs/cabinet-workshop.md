@@ -15,6 +15,10 @@ The cabinet library at `/admin/custom-cabinets` uses the Studio shell and a phys
 
 The cabinet supports inward/outward circular arcs, either through the whole cabinet or at the front with a straight back. Front-only profiles also support rounded left, right, or both ends. Arc radius must exceed half the width; other limits prevent collapsed geometry.
 
+The primary controls are now **Shared cabinet profile**: left edge, right edge, and cabinet edge radius. This single outline fits the top and bottom identically, trims sides/dividers to the boundary, and shapes shelf/door/drawer fronts in cabinet coordinates. Shelves retain their exact front setback and rear edge; door and drawer thicknesses stay constant. Selecting a previously shaped panel offers **Use selected part’s edges for the cabinet** to promote its outline. New shelves and fronts inherit automatically.
+
+Individual shaping is collapsed under **Independent part shape (advanced)** and requires explicitly detaching the part. Existing end-shelf attachments remain independent. Shared profiles override legacy local panel outlines without deleting that source data.
+
 Parts can independently have a semicircular/elliptical left or right end. For end shelves, width is the projection and depth is the full span: width = depth / 2 produces a semicircle. Part front edges can independently use convex or concave quarter-circle profiles with a specified radius.
 
 Part sizes and positions describe the uncurved layout. Curves deform that layout into the displayed geometry; these dimensions are not developed cut lengths. The room configurator uses the same closed geometry and its actual bounds, including projecting shelves and fronts.
