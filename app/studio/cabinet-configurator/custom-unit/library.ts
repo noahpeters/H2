@@ -1,3 +1,4 @@
+import {customUnitBounds} from './geometry';
 import {validateCustomUnit, type CustomUnitDefinition} from './model';
 
 export type CabinetLifecycle = 'draft' | 'published' | 'archived';
@@ -48,12 +49,11 @@ export function customCabinetElement(
   item: CustomCabinetLibraryItem,
   id: string,
 ) {
+  const bounds = customUnitBounds(item.definition);
   return {
     id,
     kind: item.definition.height > 48 ? ('tall' as const) : ('base' as const),
-    width: item.definition.width,
-    height: item.definition.height,
-    depth: item.definition.depth,
+    ...bounds,
     face: 'slab' as const,
     customCabinet: {
       libraryId: item.id,

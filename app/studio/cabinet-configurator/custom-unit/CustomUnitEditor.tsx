@@ -1,47 +1,81 @@
-import {useMemo, useState} from 'react';
-import {CLOSET_EXAMPLE, VANITY_EXAMPLE} from './examples';
-import {customUnitParts} from './geometry';
+import {FACE_STYLES, type CabinetAppearance} from './facePreview';
+import {CABINET_MATERIALS, CABINET_PAINTS} from '../materials';
+import type {PlacementKind} from './openingPlacement';
+import {useState} from 'react';
+import {
+  CLOSET_EXAMPLE,
+  VANITY_EXAMPLE,
+  CURVED_EXAMPLE,
+  STEPPED_EXAMPLE,
+  END_SHELF_EXAMPLE,
+} from './examples';
+import {PartViewport} from './PartViewport';
+import {
+  setCabinetProfile,
+  changePart,
+  editableParts,
+  setPartSetback,
+} from './partEditing';
 import {
   createCustomUnit,
+  customUnitId,
   deserializeCustomUnit,
-  layoutCustomUnit,
-  resizeDivision,
   serializeCustomUnit,
-  splitSection,
-  updateNode,
   validateCustomUnit,
+  type CabinetPart,
   type CustomUnitDefinition,
-  type CustomUnitNode,
-  type SectionType,
 } from './model';
 
-const TYPES: SectionType[] = [
-  'open',
-  'doors',
-  'drawers',
-  'drawer-stack',
-  'shelves',
-  'open-lower',
-  'hanging',
-];
-
-function findNode(
-  node: CustomUnitNode,
-  id: string,
-): CustomUnitNode | undefined {
-  if (node.id === id) return node;
-  if (node.type === 'division')
-    for (const child of node.children) {
-      const found = findNode(child, id);
-      if (found) return found;
-    }
-}
-
-function divisions(
-  node: CustomUnitNode,
-): Extract<CustomUnitNode, {type: 'division'}>[] {
-  if (node.type === 'section') return [];
-  return [node, ...node.children.flatMap(divisions)];
+function Dimension({
+  label,
+  value,
+  onChange,
+  min = -1000,
+  max = 1000,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [last, setLast] = useState(value);
+  if (last !== value) {
+    setLast(value);
+    setDraft(String(Number(value.toFixed(4))));
+  }
+  return (
+    <label>
+      {label}
+      <span className="cu-number">
+        <input
+          aria-label={label}
+          type="number"
+          step="0.0625"
+          min={min}
+          max={max}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => {
+            const next = Number(draft);
+            if (
+              draft.trim() &&
+              Number.isFinite(next) &&
+              next >= min &&
+              next <= max
+            )
+              onChange(next);
+            setDraft(String(value));
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+        <span>in</span>
+      </span>
+    </label>
+  );
 }
 
 export function CustomUnitEditor({
@@ -52,306 +86,972 @@ export function CustomUnitEditor({
   onChange?: (definition: CustomUnitDefinition) => void;
 }) {
   const [definition, setDefinition] = useState(initialDefinition);
-  const [selectedId, setSelectedId] = useState(initialDefinition.root.id);
-  const [view, setView] = useState<'elevation' | '3d'>('elevation');
-  const [json, setJson] = useState(() =>
-    serializeCustomUnit(initialDefinition),
-  );
-  const [importError, setImportError] = useState('');
-  const layout = useMemo(() => layoutCustomUnit(definition), [definition]);
-  const errors = useMemo(() => validateCustomUnit(definition), [definition]);
-  const selected = findNode(definition.root, selectedId);
-  const update = (next: CustomUnitDefinition) => {
+  const [selectedId, setSelectedId] = useState('');
+  const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');
+  const [tool, setTool] = useState<'orbit' | 'move' | 'interact'>('orbit');
+  const [appearance, setAppearance] = useState<CabinetAppearance>({
+    face: 'slab',
+    material: 'rift-white-oak',
+    paintColor: 'white',
+  });
+  const [placement, setPlacement] = useState<PlacementKind | null>(null);
+  const [fitRevision, setFitRevision] = useState(0);
+  const [snap, setSnap] = useState(0.0625);
+  const [openings, setOpenings] = useState<Record<string, number>>({});
+  const [past, setPast] = useState<CustomUnitDefinition[]>([]);
+  const [future, setFuture] = useState<CustomUnitDefinition[]>([]);
+  const [json, setJson] = useState('');
+  const [error, setError] = useState('');
+  const parts = editableParts(definition);
+  const selected = parts.find((part) => part.id === selectedId);
+  const publish = (next: CustomUnitDefinition) => {
     setDefinition(next);
-    setJson(serializeCustomUnit(next));
     onChange?.(next);
   };
-  const dimension = (field: 'width' | 'height' | 'depth', value: number) =>
-    update({...definition, [field]: value});
-
+  const update = (next: CustomUnitDefinition) => {
+    const errors = validateCustomUnit(next);
+    if (errors.length) {
+      setError(errors.join('\n'));
+      return false;
+    }
+    setError('');
+    setPast([...past.slice(-49), definition]);
+    setFuture([]);
+    publish(next);
+    return true;
+  };
+  const patch = (value: Partial<CabinetPart>) => {
+    if (selected) update(changePart(definition, selected.id, value));
+  };
+  const name = (part: CabinetPart, index: number) =>
+    part.name ||
+    `${part.kind[0].toUpperCase()}${part.kind.slice(1)} ${index + 1}`;
+  const preset = (source: CustomUnitDefinition) => {
+    setPlacement(null);
+    setOpenings({});
+    update({...structuredClone(source), id: definition.id});
+    setSelectedId('');
+  };
   return (
     <div className="cu-editor">
-      <header className="cu-header">
+      <header className="cu-heading">
         <div>
-          <p>Development harness · schema v{definition.version}</p>
-          <h1>Custom unit editor</h1>
+          <p className="cu-eyebrow">Cabinet workshop</p>
+          <h1>Make every detail yours.</h1>
+          <p>
+            Shape the cabinet as a whole, then refine its parts. All
+            measurements are in inches.
+          </p>
         </div>
         <div className="cu-actions">
-          <button
-            type="button"
-            onClick={() => {
-              const next = createCustomUnit();
-              setSelectedId(next.root.id);
-              update(next);
-            }}
-          >
-            Blank unit
+          <button onClick={() => preset(createCustomUnit())}>
+            Blank cabinet
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedId(VANITY_EXAMPLE.root.id);
-              update(VANITY_EXAMPLE);
-            }}
-          >
-            Vanity example
+          <button onClick={() => preset(VANITY_EXAMPLE)}>Vanity</button>
+          <button onClick={() => preset(CLOSET_EXAMPLE)}>Closet</button>
+          <button onClick={() => preset(CURVED_EXAMPLE)}>
+            Curved bookcase
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedId(CLOSET_EXAMPLE.root.id);
-              update(CLOSET_EXAMPLE);
-            }}
-          >
-            Closet example
+          <button onClick={() => preset(END_SHELF_EXAMPLE)}>End shelves</button>
+          <button onClick={() => preset(STEPPED_EXAMPLE)}>
+            Stepped fronts
           </button>
         </div>
       </header>
       <div className="cu-workbench">
-        <aside className="cu-panel">
-          <h2>Definition</h2>
+        <aside className="cu-panel cu-structure">
+          <h2>01 / Cabinet</h2>
           <label>
             Name
             <input
               value={definition.name}
-              onChange={(e) => update({...definition, name: e.target.value})}
+              onChange={(event) => {
+                setDefinition({...definition, name: event.target.value});
+                onChange?.({...definition, name: event.target.value});
+              }}
             />
           </label>
           <div className="cu-dimensions">
             {(['width', 'height', 'depth'] as const).map((field) => (
-              <label key={field}>
-                {field}
-                <input
-                  aria-label={field}
-                  type="number"
-                  min={field === 'depth' ? 8 : 12}
-                  step="0.5"
-                  value={definition[field]}
-                  onChange={(e) => dimension(field, Number(e.target.value))}
-                />
-              </label>
+              <Dimension
+                key={field}
+                label={field}
+                value={definition[field]}
+                min={field === 'depth' ? 8 : 12}
+                onChange={(value) => {
+                  // Scale physical positions and spans with the envelope; preserve board thickness.
+                  const axis =
+                    field === 'width' ? 'x' : field === 'height' ? 'y' : 'z';
+                  const ratio = value / definition[field];
+                  update({
+                    ...definition,
+                    [field]: value,
+                    ...(definition.parts
+                      ? {
+                          parts: parts.map((part) => {
+                            const size =
+                              part[field] > 0.75
+                                ? part[field] * ratio
+                                : part[field];
+                            const anchored =
+                              Math.abs(
+                                part[axis] + part[field] - definition[field],
+                              ) < 0.001;
+                            return {
+                              ...part,
+                              [axis]: anchored
+                                ? value - size
+                                : part[axis] * ratio,
+                              [field]: size,
+                            };
+                          }),
+                        }
+                      : {}),
+                  });
+                }}
+              />
             ))}
           </div>
-          <label>
-            Reveal
-            <input
-              aria-label="reveal"
-              type="number"
-              min="0.0625"
-              max="1"
-              step="0.0625"
-              value={definition.reveal}
-              onChange={(e) =>
-                update({...definition, reveal: Number(e.target.value)})
+          <Dimension
+            label="Default front reveal"
+            value={definition.reveal}
+            min={0.0625}
+            max={1}
+            onChange={(value) => {
+              const delta = value - definition.reveal;
+              update({
+                ...definition,
+                reveal: value,
+                ...(definition.parts
+                  ? {
+                      parts: parts.map((part) =>
+                        part.kind === 'door' || part.kind === 'drawer'
+                          ? {
+                              ...part,
+                              x: part.x + delta,
+                              y: part.y + delta,
+                              width: part.width - delta * 2,
+                              height: part.height - delta * 2,
+                            }
+                          : part,
+                      ),
+                    }
+                  : {}),
+              });
+            }}
+          />
+          <h2>Shared cabinet profile</h2>
+          <p className="cu-hint">
+            One outline for the top, bottom, sides, shelves, doors, and drawer
+            fronts. Change it once; the cabinet follows.
+          </p>
+          {(['left', 'right'] as const).map((side) => (
+            <label key={side}>
+              Cabinet {side} edge
+              <select
+                value={definition.profile?.[side] ?? 'square'}
+                onChange={(event) =>
+                  update(
+                    setCabinetProfile(definition, {
+                      ...(definition.profile ?? {
+                        left: 'square',
+                        right: 'square',
+                        radius: Math.min(
+                          6,
+                          definition.width / 2,
+                          definition.depth - 0.75,
+                        ),
+                      }),
+                      [side]: event.target.value as
+                        | 'square'
+                        | 'convex'
+                        | 'concave',
+                    }),
+                  )
+                }
+              >
+                <option value="square">Square</option>
+                <option value="convex">Outward / convex</option>
+                <option value="concave">Inward / concave</option>
+              </select>
+            </label>
+          ))}
+          {definition.profile && (
+            <Dimension
+              label="Cabinet edge radius"
+              value={definition.profile.radius}
+              min={0.0625}
+              max={Math.min(definition.width / 2, definition.depth - 0.75)}
+              onChange={(radius) =>
+                update(
+                  setCabinetProfile(definition, {
+                    ...definition.profile!,
+                    radius,
+                  }),
+                )
               }
             />
-          </label>
-          <h2>Selected region</h2>
-          {selected?.type === 'section' ? (
-            <>
-              <label>
-                Section type
-                <select
-                  value={selected.sectionType}
-                  onChange={(e) =>
+          )}
+          {selected?.edges && (
+            <button
+              onClick={() =>
+                update(setCabinetProfile(definition, {...selected.edges!}))
+              }
+            >
+              Use selected part’s edges for the cabinet
+            </button>
+          )}
+          <details className="cu-profile-options">
+            <summary>Full-width cabinet curves</summary>
+            <label>
+              Curve scope
+              <select
+                value={definition.curve?.scope ?? 'straight'}
+                onChange={(event) => {
+                  const scope = event.target.value;
+                  update({
+                    ...definition,
+                    profile: undefined,
+                    curve:
+                      scope === 'straight'
+                        ? undefined
+                        : {
+                            scope: scope as 'front' | 'cabinet',
+                            profile: 'arc',
+                            radius: Math.max(
+                              definition.width,
+                              definition.depth + 1,
+                            ),
+                            direction: 'outward',
+                          },
+                  });
+                }}
+              >
+                <option value="straight">Straight cabinet</option>
+                <option value="cabinet">Curve entire cabinet</option>
+                <option value="front">Curve front / straight back</option>
+              </select>
+            </label>
+            {definition.curve && (
+              <>
+                {definition.curve.scope === 'front' && (
+                  <label>
+                    Curve profile
+                    <select
+                      value={definition.curve.profile}
+                      onChange={(event) =>
+                        update({
+                          ...definition,
+                          curve: {
+                            ...definition.curve!,
+                            profile: event.target.value as NonNullable<
+                              CustomUnitDefinition['curve']
+                            >['profile'],
+                            radius:
+                              event.target.value === 'arc'
+                                ? definition.width
+                                : Math.min(
+                                    6,
+                                    definition.width / 2,
+                                    definition.depth - 1,
+                                  ),
+                          },
+                        })
+                      }
+                    >
+                      <option value="arc">Full-width arc</option>
+                      <option value="rounded-left">Rounded left end</option>
+                      <option value="rounded-right">Rounded right end</option>
+                      <option value="rounded-both">Rounded both ends</option>
+                    </select>
+                  </label>
+                )}
+                {definition.curve.profile === 'arc' && (
+                  <label>
+                    Curve direction
+                    <select
+                      value={definition.curve.direction}
+                      onChange={(event) =>
+                        update({
+                          ...definition,
+                          curve: {
+                            ...definition.curve!,
+                            direction: event.target.value as
+                              | 'inward'
+                              | 'outward',
+                          },
+                        })
+                      }
+                    >
+                      <option value="outward">Outward / convex</option>
+                      <option value="inward">Inward / concave</option>
+                    </select>
+                  </label>
+                )}
+                <Dimension
+                  label="Curve radius"
+                  value={definition.curve.radius}
+                  min={0.0625}
+                  onChange={(radius) =>
                     update({
                       ...definition,
-                      root: updateNode(definition.root, selected.id, (node) =>
-                        node.type === 'section'
-                          ? {
-                              ...node,
-                              sectionType: e.target.value as SectionType,
-                            }
-                          : node,
-                      ),
+                      curve: {...definition.curve!, radius},
+                    })
+                  }
+                />
+                <p className="cu-hint">
+                  {definition.curve.scope === 'cabinet'
+                    ? 'Front, back, shelves, and dividers follow the same arc.'
+                    : 'The front and shelf edges follow the curve; the back remains straight.'}{' '}
+                  Positions and sizes use the uncurved cabinet dimensions.
+                </p>
+              </>
+            )}
+          </details>
+          <h2>02 / Add a part</h2>
+          <div className="cu-add">
+            {(['shelf', 'divider', 'door', 'drawer', 'rod'] as const).map(
+              (kind) => (
+                <button
+                  key={kind}
+                  onClick={() => {
+                    setPlacement(kind);
+                    setOpenings({});
+                  }}
+                >
+                  + {kind}
+                </button>
+              ),
+            )}
+          </div>
+          <div className="cu-add cu-end-shelves">
+            {(['back', 'side'] as const).map((orientation) => (
+              <button
+                key={orientation}
+                onClick={() => {
+                  setPlacement(`${orientation}-panel`);
+                  setOpenings({});
+                }}
+              >
+                + {orientation} panel
+              </button>
+            ))}
+          </div>
+          <div className="cu-add cu-end-shelves">
+            {(['left', 'right'] as const).map((side) => (
+              <button
+                key={side}
+                onClick={() => {
+                  setPlacement(`${side}-end-shelf`);
+                  setOpenings({});
+                }}
+              >
+                + {side} end shelf
+              </button>
+            ))}
+          </div>
+          <h2>
+            03 / Parts <span>{parts.length}</span>
+          </h2>
+          <div className="cu-parts" aria-label="Cabinet parts">
+            {parts.map((part, index) => (
+              <button
+                className={part.id === selectedId ? 'active' : ''}
+                key={part.id}
+                onClick={() => setSelectedId(part.id)}
+              >
+                <span>{name(part, index)}</span>
+                <small>
+                  {part.width.toFixed(2)} × {part.height.toFixed(2)}
+                </small>
+              </button>
+            ))}
+          </div>
+        </aside>
+        <section className="cu-preview" aria-label="Cabinet preview">
+          <div className="cu-toolbar">
+            <div className="cu-actions">
+              {(['3d', 'front', 'side', 'top'] as const).map((mode) => (
+                <button
+                  className={view === mode ? 'active' : ''}
+                  key={mode}
+                  onClick={() => setView(mode)}
+                >
+                  {mode === '3d' ? '3D' : mode}
+                </button>
+              ))}
+            </div>
+            <div className="cu-actions">
+              <button onClick={() => setFitRevision(fitRevision + 1)}>
+                Fit view
+              </button>
+              <button
+                disabled={!past.length}
+                onClick={() => {
+                  const next = past.at(-1)!;
+                  setPast(past.slice(0, -1));
+                  setFuture([definition, ...future]);
+                  publish(next);
+                }}
+              >
+                Undo
+              </button>
+              <button
+                disabled={!future.length}
+                onClick={() => {
+                  setPast([...past, definition]);
+                  publish(future[0]);
+                  setFuture(future.slice(1));
+                }}
+              >
+                Redo
+              </button>
+            </div>
+          </div>
+          <details className="cu-preview-appearance">
+            <summary>Preview style &amp; material</summary>
+            <p>
+              For this preview only. Choose finishes again when using this
+              cabinet in a room.
+            </p>
+            <div className="cu-actions">
+              <label>
+                Face style
+                <select
+                  value={appearance.face}
+                  onChange={(event) =>
+                    setAppearance({
+                      ...appearance,
+                      face: event.target.value as CabinetAppearance['face'],
                     })
                   }
                 >
-                  {TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
+                  {Object.entries(FACE_STYLES).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
                     </option>
                   ))}
                 </select>
               </label>
-              <div className="cu-split">
-                <button
-                  type="button"
-                  onClick={() =>
-                    update(splitSection(definition, selected.id, 'vertical'))
-                  }
-                >
-                  Split vertical
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    update(splitSection(definition, selected.id, 'horizontal'))
-                  }
-                >
-                  Split horizontal
-                </button>
-              </div>
               <label>
-                Count
-                <input
-                  aria-label="section count"
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={
-                    selected.properties?.drawerCount ??
-                    selected.properties?.shelfCount ??
-                    3
+                Preview material
+                <select
+                  value={appearance.material}
+                  onChange={(event) =>
+                    setAppearance({
+                      ...appearance,
+                      material: event.target
+                        .value as CabinetAppearance['material'],
+                    })
                   }
-                  onChange={(e) => {
-                    const count = Number(e.target.value);
-                    update({
-                      ...definition,
-                      root: updateNode(definition.root, selected.id, (node) =>
-                        node.type === 'section'
-                          ? {
-                              ...node,
-                              properties: {
-                                ...node.properties,
-                                drawerCount: count,
-                                shelfCount: count,
-                              },
-                            }
-                          : node,
-                      ),
-                    });
-                  }}
-                />
+                >
+                  {Object.entries(CABINET_MATERIALS).map(([value, item]) => (
+                    <option key={value} value={value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
               </label>
-            </>
-          ) : (
-            <p>Select a region in the preview to edit or subdivide it.</p>
-          )}
-          {divisions(definition.root).length > 0 && (
-            <>
-              <h2>Division sizes</h2>
-              {divisions(definition.root).map((division) => (
-                <label key={division.id}>
-                  {division.axis} split
-                  <input
-                    aria-label={`${division.axis} split`}
-                    type="range"
-                    min="1"
-                    max="9"
-                    value={division.weights[0]}
-                    onChange={(e) =>
-                      update(
-                        resizeDivision(definition, division.id, [
-                          Number(e.target.value),
-                          ...division.weights.slice(1),
-                        ]),
-                      )
+              {appearance.material === 'paint-grade' && (
+                <label>
+                  Preview paint
+                  <select
+                    value={appearance.paintColor}
+                    onChange={(event) =>
+                      setAppearance({
+                        ...appearance,
+                        paintColor: event.target
+                          .value as CabinetAppearance['paintColor'],
+                      })
                     }
-                  />
-                  <span>
-                    {division.weights
-                      .map((weight) => weight.toFixed(0))
-                      .join(' : ')}
-                  </span>
+                  >
+                    {Object.entries(CABINET_PAINTS).map(([value, item]) => (
+                      <option key={value} value={value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              ))}
-            </>
-          )}
-          <div className={errors.length ? 'cu-errors' : 'cu-valid'}>
-            {errors.length
-              ? errors.map((error) => <p key={error}>{error}</p>)
-              : 'Definition and geometry are valid'}
-          </div>
-        </aside>
-        <main className="cu-preview">
-          <div className="cu-preview-bar">
-            <strong>{definition.name}</strong>
-            <div>
-              <button
-                className={view === 'elevation' ? 'active' : ''}
-                onClick={() => setView('elevation')}
-              >
-                Elevation
-              </button>
-              <button
-                className={view === '3d' ? 'active' : ''}
-                onClick={() => setView('3d')}
-              >
-                3D
+              )}
+            </div>
+          </details>
+          {placement && (
+            <div className="cu-placement-banner" role="status">
+              Place {placement}: hover an opening, then click. Escape cancels.
+              <button onClick={() => setPlacement(null)}>
+                Cancel placement
               </button>
             </div>
-          </div>
-          <svg
-            className={view === '3d' ? 'cu-svg cu-svg-3d' : 'cu-svg'}
-            viewBox={`-5 -5 ${definition.width + 10} ${definition.height + 10}`}
-            role="img"
-            aria-label={`${definition.name} ${view} preview`}
-          >
-            <rect
-              className="cu-case"
-              x="0"
-              y="0"
-              width={definition.width}
-              height={definition.height}
-            />
-            {layout.regions.map((region) => (
-              <g
-                key={region.id}
-                onClick={() => setSelectedId(region.id)}
-                className={selectedId === region.id ? 'selected' : ''}
-              >
-                <rect
-                  x={region.x + definition.reveal}
-                  y={
-                    definition.height -
-                    region.y -
-                    region.height +
-                    definition.reveal
-                  }
-                  width={region.width - definition.reveal * 2}
-                  height={region.height - definition.reveal * 2}
-                />
-                <text
-                  x={region.x + region.width / 2}
-                  y={definition.height - region.y - region.height / 2}
-                >
-                  {region.section.sectionType}
-                </text>
-              </g>
-            ))}
-          </svg>
-          <p className="cu-takeoff">
-            {layout.regions.length} semantic regions ·{' '}
-            {customUnitParts(definition).length} generated parts ·{' '}
-            {definition.width} × {definition.height} × {definition.depth} in
-          </p>
-        </main>
-        <aside className="cu-panel cu-json">
-          <h2>Serialization</h2>
-          <textarea
-            aria-label="Custom unit JSON"
-            value={json}
-            onChange={(e) => setJson(e.target.value)}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                const next = deserializeCustomUnit(json);
-                setImportError('');
-                setSelectedId(next.root.id);
-                setDefinition(next);
-              } catch (error) {
-                setImportError(
-                  error instanceof Error ? error.message : 'Invalid definition',
-                );
-              }
+          )}
+          <PartViewport
+            definition={definition}
+            appearance={appearance}
+            selectedId={selectedId}
+            view={view}
+            tool={tool}
+            snap={snap}
+            openings={openings}
+            fitRevision={fitRevision}
+            placement={placement}
+            onCancelPlacement={() => setPlacement(null)}
+            onPlace={(part) => {
+              const next = {
+                ...definition,
+                parts: [...parts, {...part, id: customUnitId('part')}],
+              };
+              if (!update(next)) return;
+              setSelectedId(next.parts.at(-1)!.id);
+              setPlacement(null);
+              setTool('move');
             }}
-          >
-            Load JSON
-          </button>
-          {importError && <p className="cu-errors">{importError}</p>}
+            onInteract={(id) => {
+              const part = parts.find((part) => part.id === id);
+              if (part?.kind === 'door' || part?.kind === 'drawer')
+                setOpenings((previous) => ({
+                  ...previous,
+                  [id]: previous[id] ? 0 : 1,
+                }));
+            }}
+            onSelect={setSelectedId}
+            onMove={(id, delta) => {
+              const part = parts.find((item) => item.id === id);
+              if (part)
+                update(
+                  changePart(definition, id, {
+                    x: part.x + delta.x,
+                    y: Math.max(0, part.y + delta.y),
+                    z: part.z + delta.z,
+                  }),
+                );
+            }}
+          />
+          <div className="cu-toolbar">
+            <div className="cu-actions">
+              <button
+                className={tool === 'orbit' ? 'active' : ''}
+                onClick={() => setTool('orbit')}
+              >
+                Orbit / pan
+              </button>
+              <button
+                className={tool === 'move' ? 'active' : ''}
+                onClick={() => setTool('move')}
+              >
+                Move part
+              </button>
+              <button
+                className={tool === 'interact' ? 'active' : ''}
+                onClick={() => {
+                  setTool('interact');
+                  setSelectedId('');
+                  setPlacement(null);
+                }}
+              >
+                Interact
+              </button>
+            </div>
+            <label className="cu-snap">
+              Snap
+              <select
+                value={snap}
+                onChange={(event) => setSnap(Number(event.target.value))}
+              >
+                <option value={0.0625}>1/16 in</option>
+                <option value={0.125}>1/8 in</option>
+                <option value={0.5}>1/2 in</option>
+                <option value={0}>Off</option>
+              </select>
+            </label>
+          </div>
+          <p className="cu-hint">
+            {placement
+              ? 'Move over an opening to preview. Click to place · Escape to cancel'
+              : tool === 'interact'
+                ? 'Click a door or drawer to open or close it · Drag to orbit'
+                : tool === 'move'
+                  ? 'Select a part, then drag an axis arrow to move it. Use the inspector for exact sizes.'
+                  : 'Drag to orbit · Right-drag to pan · Scroll to zoom · Click a part to select'}
+          </p>
+          <p className="cu-takeoff">
+            {definition.width} W × {definition.height} H × {definition.depth} D
+            in
+          </p>
+        </section>
+        <aside className="cu-panel cu-inspector">
+          <h2>04 / Part details</h2>
+          {selected ? (
+            <>
+              <label>
+                Part name
+                <input
+                  value={
+                    selected.name ?? name(selected, parts.indexOf(selected))
+                  }
+                  onChange={(event) => patch({name: event.target.value})}
+                />
+              </label>
+              {(selected.kind === 'door' || selected.kind === 'drawer') && (
+                <label>
+                  Part face style
+                  <select
+                    value={selected.faceStyle ?? ''}
+                    onChange={(event) =>
+                      patch({
+                        faceStyle: (event.target.value ||
+                          undefined) as CabinetPart['faceStyle'],
+                      })
+                    }
+                  >
+                    <option value="">Use cabinet style</option>
+                    {Object.entries(FACE_STYLES).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="cu-hint">
+                    Saved with this part. Overrides the cabinet style in a room.
+                  </span>
+                </label>
+              )}
+              <p className="cu-hint">
+                Position is measured from the left, bottom, and front of the
+                cabinet.
+              </p>
+              <p className="cu-hint">
+                {selected.profileMode === 'independent'
+                  ? 'This part has an independent outline.'
+                  : 'Follows the shared cabinet profile, including changes to cabinet edges and curves.'}
+              </p>
+              {selected.kind === 'door' && (
+                <>
+                  <h3>Door operation</h3>
+                  {selected.door?.mechanism === 'pocket' &&
+                    selected.width > definition.depth - 1.5 && (
+                      <p className="cu-errors" role="status">
+                        This door is wider than the available pocket depth. Use
+                        a narrower door or a deeper cabinet to retract it fully.
+                      </p>
+                    )}
+                  <label>
+                    Mechanism
+                    <select
+                      value={selected.door?.mechanism ?? 'hinged'}
+                      onChange={(event) =>
+                        patch({
+                          door: {
+                            ...(selected.door ?? {
+                              mechanism: 'hinged',
+                              side: 'left',
+                              travel: selected.width,
+                              slatSize: 1,
+                            }),
+                            mechanism: event.target.value as NonNullable<
+                              CabinetPart['door']
+                            >['mechanism'],
+                          },
+                        })
+                      }
+                    >
+                      <option value="hinged">Side-hinged</option>
+                      <option value="pocket">Pocket door</option>
+                      <option value="tambour">Tambour / roll-up</option>
+                      <option value="lift-up">Lift-up</option>
+                      <option value="pull-down">Pull-down</option>
+                    </select>
+                  </label>
+                  {['hinged', 'pocket', 'tambour'].includes(
+                    selected.door?.mechanism ?? 'hinged',
+                  ) && (
+                    <label>
+                      {(selected.door?.mechanism ?? 'hinged') === 'hinged'
+                        ? 'Hinge side'
+                        : selected.door?.mechanism === 'pocket'
+                          ? 'Pocket side'
+                          : 'Roll side'}
+                      <select
+                        value={selected.door?.side ?? 'left'}
+                        onChange={(event) =>
+                          patch({
+                            door: {
+                              mechanism: 'hinged',
+                              travel: definition.depth,
+                              slatSize: 1,
+                              ...selected.door,
+                              side: event.target.value as 'left' | 'right',
+                            },
+                          })
+                        }
+                      >
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </label>
+                  )}
+                  {selected.door && (
+                    <>
+                      {selected.door.mechanism === 'pocket' && (
+                        <Dimension
+                          label="Pocket travel"
+                          value={selected.door.travel}
+                          min={0}
+                          onChange={(travel) =>
+                            patch({door: {...selected.door!, travel}})
+                          }
+                        />
+                      )}
+                      {selected.door.mechanism === 'tambour' && (
+                        <>
+                          <label>
+                            Tambour direction
+                            <select
+                              value={selected.door.direction ?? 'vertical'}
+                              onChange={(event) =>
+                                patch({
+                                  door: {
+                                    ...selected.door!,
+                                    direction: event.target.value as
+                                      | 'vertical'
+                                      | 'horizontal',
+                                  },
+                                })
+                              }
+                            >
+                              <option value="vertical">Vertical roll-up</option>
+                              <option value="horizontal">
+                                Horizontal roll
+                              </option>
+                            </select>
+                          </label>
+                          <Dimension
+                            label="Tambour slat size"
+                            value={selected.door.slatSize}
+                            min={0.25}
+                            max={6}
+                            onChange={(slatSize) =>
+                              patch({door: {...selected.door!, slatSize}})
+                            }
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                  <label>
+                    Preview opening ·{' '}
+                    {Math.round((openings[selected.id] ?? 0) * 100)}%
+                    <input
+                      aria-label="Door opening"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step=".01"
+                      value={openings[selected.id] ?? 0}
+                      onChange={(event) =>
+                        setOpenings({
+                          ...openings,
+                          [selected.id]: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <p className="cu-hint">
+                    Close the preview to move the door. Motion is illustrative;
+                    hardware and clearances need a separate construction check.
+                  </p>
+                </>
+              )}
+              <details className="cu-profile-options">
+                <summary>Independent part shape (advanced)</summary>
+                <label className="cu-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selected.profileMode === 'independent'}
+                    onChange={(event) =>
+                      patch({
+                        profileMode: event.target.checked
+                          ? 'independent'
+                          : 'cabinet',
+                      })
+                    }
+                  />
+                  Shape this part separately
+                </label>
+                <p className="cu-hint">
+                  Use only for a separate attachment, such as an end shelf. Keep
+                  cabinet panels linked so they match.
+                </p>
+                {selected.profileMode === 'independent' && (
+                  <>
+                    <label>
+                      Part shape
+                      <select
+                        value={selected.shape ?? 'rectangular'}
+                        onChange={(event) =>
+                          patch({
+                            shape: event.target.value as CabinetPart['shape'],
+                          })
+                        }
+                      >
+                        <option value="rectangular">Rectangular</option>
+                        <option value="round-left">Rounded left end</option>
+                        <option value="round-right">Rounded right end</option>
+                      </select>
+                    </label>
+                    {selected.shape?.startsWith('round-') && (
+                      <p className="cu-hint">
+                        Width controls end projection; depth controls the full
+                        span of the curve. Set width to half the depth for a
+                        semicircle.
+                      </p>
+                    )}
+                    <h3>Front edge curves</h3>
+                    {(['left', 'right'] as const).map((side) => (
+                      <label key={side}>
+                        Independent {side} edge
+                        <select
+                          value={selected.edges?.[side] ?? 'square'}
+                          onChange={(event) =>
+                            patch({
+                              edges: {
+                                ...(selected.edges ?? {
+                                  left: 'square',
+                                  right: 'square',
+                                  radius: Math.min(
+                                    2,
+                                    selected.width / 2,
+                                    selected.kind === 'door' ||
+                                      selected.kind === 'drawer'
+                                      ? 2
+                                      : selected.depth / 2,
+                                  ),
+                                }),
+                                [side]: event.target.value as
+                                  | 'square'
+                                  | 'convex'
+                                  | 'concave',
+                              },
+                            })
+                          }
+                        >
+                          <option value="square">Square</option>
+                          <option value="convex">Outward / convex</option>
+                          <option value="concave">Inward / concave</option>
+                        </select>
+                      </label>
+                    ))}
+                    {selected.edges && (
+                      <Dimension
+                        label="Edge radius"
+                        value={selected.edges.radius}
+                        min={0.0625}
+                        onChange={(radius) =>
+                          patch({edges: {...selected.edges!, radius}})
+                        }
+                      />
+                    )}
+                  </>
+                )}
+              </details>
+              <h3>Position</h3>
+              <div className="cu-fields">
+                {(['x', 'y', 'z'] as const).map((field, i) => (
+                  <Dimension
+                    key={field}
+                    label={['From left', 'From bottom', 'Front setback'][i]}
+                    value={selected[field]}
+                    min={field === 'y' ? 0 : -1000}
+                    onChange={(value) =>
+                      field === 'z'
+                        ? update(setPartSetback(definition, selected.id, value))
+                        : patch({[field]: value})
+                    }
+                  />
+                ))}
+              </div>
+              <h3>Size</h3>
+              <div className="cu-fields">
+                {(['width', 'height', 'depth'] as const).map((field) => (
+                  <Dimension
+                    key={field}
+                    label={`Part ${field}`}
+                    value={selected[field]}
+                    min={0.0625}
+                    onChange={(value) => patch({[field]: value})}
+                  />
+                ))}
+              </div>
+              <p className="cu-hint">
+                A positive setback recesses the part. For shelves and panels, it
+                keeps the rear edge in place. Negative values project past the
+                front.
+              </p>
+              <div className="cu-actions">
+                <button
+                  onClick={() => {
+                    const copy = {
+                      ...selected,
+                      id: customUnitId('part'),
+                      name: `${name(selected, parts.indexOf(selected))} copy`,
+                      y: selected.y + 1,
+                    };
+                    update({...definition, parts: [...parts, copy]});
+                    setSelectedId(copy.id);
+                  }}
+                >
+                  Duplicate
+                </button>
+                <button
+                  onClick={() => {
+                    update({
+                      ...definition,
+                      parts: parts.filter((part) => part.id !== selected.id),
+                    });
+                    setSelectedId('');
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="cu-empty">
+              <p>Select a part in the model or the parts list.</p>
+              <p>
+                Set the shared cabinet profile on the left. Select a part here
+                to refine its position and dimensions.
+              </p>
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="cu-errors">
+              {error}
+            </p>
+          )}
+          <details className="cu-transfer">
+            <summary>Import / export definition</summary>
+            <button onClick={() => setJson(serializeCustomUnit(definition))}>
+              Export to text
+            </button>
+            <textarea
+              aria-label="Custom unit JSON"
+              value={json}
+              onChange={(event) => setJson(event.target.value)}
+            />
+            <button
+              onClick={() => {
+                try {
+                  update(deserializeCustomUnit(json));
+                  setSelectedId('');
+                } catch (err) {
+                  setError(
+                    err instanceof Error ? err.message : 'Invalid cabinet',
+                  );
+                }
+              }}
+            >
+              Import definition
+            </button>
+          </details>
         </aside>
       </div>
     </div>

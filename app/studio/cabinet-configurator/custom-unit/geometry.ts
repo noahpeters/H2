@@ -1,25 +1,22 @@
+import {facePreviewGeometry, type CabinetAppearance} from './facePreview';
+import {cabinetColor} from '../materials';
+import {doorPreview} from './doorGeometry';
+import {cabinetProfilePoint, edgeSetback} from './curves';
 import * as THREE from 'three';
 import {
   layoutCustomUnit,
   type CustomUnitDefinition,
   type RegionLayout,
+  type CabinetPart,
 } from './model';
 
-export type CustomUnitPart = {
-  kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod';
-  x: number;
-  y: number;
-  z: number;
-  width: number;
-  height: number;
-  depth: number;
-  sectionId?: string;
-};
+export type CustomUnitPart = Omit<CabinetPart, 'id'> & {id?: string};
 
 /** Catalog-independent physical takeoff generated only from the semantic definition. */
 export function customUnitParts(
   definition: CustomUnitDefinition,
 ): CustomUnitPart[] {
+  if (definition.parts) return definition.parts;
   const t = 0.75,
     r = definition.reveal,
     parts: CustomUnitPart[] = [
@@ -181,35 +178,152 @@ export function customUnitParts(
         depth: 0.75,
       });
   }
-  return parts;
+  return parts.map((part, index) => ({
+    ...part,
+    id: `${part.sectionId ?? definition.id}-${part.kind}-${index}`,
+  }));
 }
 
 export function customUnitGeometry(
   definition: CustomUnitDefinition,
+  openings: Record<string, number> = {},
+  appearance?: CabinetAppearance,
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = `custom-unit:${definition.id}`;
   for (const part of customUnitParts(definition)) {
+    const followsProfile =
+      part.profileMode !== 'independent' &&
+      Boolean(definition.profile || definition.curve);
+    const localEdges =
+      followsProfile || part.profileMode === 'cabinet' ? undefined : part.edges;
+    const localShape =
+      followsProfile || part.profileMode === 'cabinet' ? undefined : part.shape;
     const material = new THREE.MeshStandardMaterial({
       color:
         part.kind === 'rod'
           ? 0x777777
-          : part.kind === 'carcass'
-            ? 0xc7b294
-            : 0xd8c7a9,
+          : appearance
+            ? cabinetColor(appearance)
+            : part.kind === 'carcass'
+              ? 0xc7b294
+              : 0xd8c7a9,
     });
+    const face =
+      part.faceStyle ??
+      (part.kind === 'drawer' && appearance?.face === 'shaker-glass'
+        ? 'shaker'
+        : appearance?.face);
+    const geometry =
+      face &&
+      (part.kind === 'door' || part.kind === 'drawer') &&
+      part.door?.mechanism !== 'tambour'
+        ? facePreviewGeometry(
+            part.width,
+            part.height,
+            part.depth,
+            face,
+            Boolean(followsProfile || localEdges),
+          )
+        : new THREE.BoxGeometry(
+            part.width,
+            part.height,
+            part.depth,
+            followsProfile || localEdges ? 64 : 1,
+            1,
+            followsProfile || localShape?.startsWith('round-') ? 64 : 1,
+          );
+    if (followsProfile || localEdges || localShape?.startsWith('round-')) {
+      const positions = geometry.getAttribute('position');
+      for (let index = 0; index < positions.count; index++) {
+        let localX = positions.getX(index) + part.width / 2;
+        if (localShape === 'round-left' || localShape === 'round-right') {
+          const v = positions.getZ(index) / (part.depth / 2);
+          const reach = Math.sqrt(Math.max(0, 1 - v * v));
+          localX =
+            localShape === 'round-right'
+              ? localX * reach
+              : part.width - (part.width - localX) * reach;
+        }
+        const x = localX + part.x;
+        let z = positions.getZ(index) + part.z + part.depth / 2;
+        if (localEdges) {
+          const front = part.kind === 'door' || part.kind === 'drawer';
+          const blend = front ? 1 : 1 - (z - part.z) / part.depth;
+          z += edgeSetback(localX, part.width, localEdges) * blend;
+        }
+        const [curvedX, curvedZ] = cabinetProfilePoint(
+          definition,
+          {...part, id: part.id!},
+          x,
+          z,
+        );
+        positions.setX(index, curvedX - part.x - part.width / 2);
+        positions.setZ(index, curvedZ - part.z - part.depth / 2);
+      }
+      geometry.computeVertexNormals();
+    }
+    const glass =
+      face === 'shaker-glass' &&
+      (part.kind === 'door' || part.kind === 'drawer') &&
+      part.door?.mechanism !== 'tambour';
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(part.width, part.height, part.depth),
-      material,
+      geometry,
+      glass
+        ? [
+            material,
+            new THREE.MeshStandardMaterial({
+              color: 0xb6d2d7,
+              transparent: true,
+              opacity: 0.25,
+              roughness: 0.12,
+              depthWrite: false,
+            }),
+          ]
+        : material,
     );
     mesh.name = `custom-unit-${part.kind}`;
     mesh.userData.sectionId = part.sectionId;
+    mesh.userData.partId = part.id;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     mesh.position.set(
       part.x + part.width / 2 - definition.width / 2,
       part.y + part.height / 2,
       part.z + part.depth / 2 - definition.depth / 2,
     );
-    group.add(mesh);
+    const object = doorPreview(
+      mesh,
+      {...part, id: part.id!},
+      openings[part.id!] ?? 0,
+      definition.depth,
+    );
+    object.userData.partId = part.id;
+    object.userData.partRoot = true;
+    group.add(object);
   }
   return group;
+}
+
+/** Closed physical footprint, including projecting fronts and end shelves. */
+export function customUnitBounds(definition: CustomUnitDefinition) {
+  const group = customUnitGeometry(definition);
+  const bounds = new THREE.Box3().setFromObject(group);
+  group.traverse((object) => {
+    if (object instanceof THREE.Mesh) {
+      object.geometry.dispose();
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
+      materials.forEach((material) => material.dispose());
+    }
+  });
+  if (bounds.isEmpty())
+    return {
+      width: definition.width,
+      height: definition.height,
+      depth: definition.depth,
+    };
+  const size = bounds.getSize(new THREE.Vector3());
+  return {width: size.x, height: size.y, depth: size.z};
 }
