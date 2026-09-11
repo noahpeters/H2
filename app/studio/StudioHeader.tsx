@@ -1,4 +1,4 @@
-import {Suspense} from 'react';
+import {Suspense, useEffect, useId, useRef, useState} from 'react';
 import {Await, Link, useAsyncValue, useRouteLoaderData} from 'react-router';
 import {useOptimisticCart} from '@shopify/hydrogen';
 import type {CartApiQueryFragment} from 'storefrontapi.generated';
@@ -28,12 +28,37 @@ export function StudioHeader({
   links: StudioHeaderLink[];
   home?: boolean;
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const navigationRef = useRef<HTMLElement>(null);
   const rootData = useRouteLoaderData<RootLoader>('root');
   const navigationLinks = links.flatMap((link) =>
     link.to === '/configurator'
       ? [link, {label: 'Design Your Space', to: '/cabinet-configurator'}]
       : [link],
   );
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    navigationRef.current?.querySelector<HTMLAnchorElement>('a')?.focus();
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+
+      event.preventDefault();
+      setMobileMenuOpen(false);
+      menuButtonRef.current?.focus();
+    }
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [mobileMenuOpen]);
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false);
+  }
 
   return (
     <header
@@ -43,7 +68,26 @@ export function StudioHeader({
         <img className="brand-tree" src="/from-trees-tree.png" alt="" />
         <span>from trees</span>
       </Link>
-      <nav className="studio-header-links" aria-label="Primary navigation">
+      <button
+        aria-controls={mobileMenuId}
+        aria-expanded={mobileMenuOpen}
+        aria-label={
+          mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'
+        }
+        className="studio-menu-button"
+        onClick={() => setMobileMenuOpen((open) => !open)}
+        ref={menuButtonRef}
+        type="button"
+      >
+        <span aria-hidden="true">{mobileMenuOpen ? 'Close' : 'Menu'}</span>
+      </button>
+      <nav
+        className="studio-header-links"
+        aria-label="Primary navigation"
+        data-mobile-open={mobileMenuOpen || undefined}
+        id={mobileMenuId}
+        ref={navigationRef}
+      >
         {navigationLinks.map((link, index) => (
           <Link
             className={
@@ -54,12 +98,17 @@ export function StudioHeader({
                 : 'studio-header-secondary-link'
             }
             key={link.to}
+            onClick={closeMobileMenu}
             to={link.to}
           >
             {link.label}
           </Link>
         ))}
-        <a className="studio-consultation-link" href={CONSULTATION_URL}>
+        <a
+          className="studio-consultation-link"
+          href={CONSULTATION_URL}
+          onClick={closeMobileMenu}
+        >
           Book A Free Home Consultation
         </a>
         {rootData?.cart ? (
