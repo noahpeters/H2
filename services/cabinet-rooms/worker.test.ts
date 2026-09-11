@@ -42,6 +42,9 @@ function setup() {
                   },
                 };
               },
+              async all<T>() {
+                return {results: db.prepare(sql).all(...values) as T[]};
+              },
             };
           },
         };
@@ -65,6 +68,85 @@ function setup() {
   return {db, call, env};
 }
 describe('D1 room API with SQLite migration', () => {
+  it('keeps drafts private and creates immutable published versions', async () => {
+    const {db, env} = setup();
+    db.exec(
+      readFileSync(
+        new URL('./migrations/0007_custom_cabinets.sql', import.meta.url),
+        'utf8',
+      ),
+    );
+    (env as typeof env & {ADMIN_TOKEN: string}).ADMIN_TOKEN = 'admin-secret';
+    const definition = {
+      version: 1,
+      id: 'semantic-unit',
+      name: 'Library vanity',
+      width: 36,
+      height: 34.5,
+      depth: 24,
+      reveal: 0.125,
+      root: {id: 'root', type: 'section', sectionType: 'doors'},
+    };
+    const request = (method: string, body?: unknown, admin = false) =>
+      worker.fetch(
+        new Request('https://rooms.test/custom-cabinets', {
+          method,
+          headers: {
+            Authorization: 'Bearer test-service',
+            ...(admin ? {'X-Admin-Token': 'admin-secret'} : {}),
+            'Content-Type': 'application/json',
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        }),
+        env as any,
+      );
+    const draft = {
+      id: 'library-vanity',
+      name: 'Library vanity',
+      description: 'A flexible vanity',
+      tags: ['vanity'],
+      status: 'draft',
+      definition,
+    };
+    expect((await request('POST', draft)).status).toBe(403);
+    expect((await request('POST', draft, true)).status).toBe(201);
+    expect(await (await request('GET')).json()).toEqual([]);
+    const published = {
+      ...draft,
+      status: 'published',
+      definition: {...definition, width: 42},
+    };
+    const result: any = await (await request('PUT', published, true)).json();
+    expect(result.version).toBe(2);
+    const publicItems: any = await (await request('GET')).json();
+    expect(publicItems[0]).toMatchObject({
+      id: 'library-vanity',
+      version: 2,
+      status: 'published',
+    });
+    expect(
+      db
+        .prepare(
+          'SELECT version, definition FROM custom_cabinet_versions ORDER BY version',
+        )
+        .all(),
+    ).toHaveLength(2);
+    expect(
+      (
+        JSON.parse(
+          String(
+            (
+              db
+                .prepare(
+                  'SELECT definition FROM custom_cabinet_versions WHERE version=1',
+                )
+                .get() as any
+            ).definition,
+          ),
+        ) as {width: number}
+      ).width,
+    ).toBe(36);
+  });
   it('round-trips irregular outlines and custom wall references, rejecting invalid polygons', async () => {
     const {db, call} = setup();
     try {

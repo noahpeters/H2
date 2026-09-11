@@ -177,6 +177,26 @@
     height: 280px;
   }
 }
+.cu-admin > .cu-header {
+  position: static;
+}
+.cu-library,
+.cu-metadata {
+  display: flex;
+  gap: 12px;
+  padding: 12px 24px;
+  align-items: end;
+  flex-wrap: wrap;
+  background: #f5f0e4;
+}
+.cu-metadata label {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+}
+.cu-metadata textarea {
+  height: 42px;
+}
 @media (max-width: 680px) {
   .cu-header {
     align-items: flex-start;

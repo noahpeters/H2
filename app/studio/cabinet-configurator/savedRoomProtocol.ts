@@ -1,6 +1,7 @@
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage} from './openStorage';
 import {validOutline, roomSegments} from './roomOutline';
+import {validateCustomUnit} from './custom-unit/model';
 export const ROOM_LIMIT = 200_000;
 export const SLUG = /^[a-f0-9]{32}$/;
 export const jsonResponse = (body: unknown, status = 200) =>
@@ -77,6 +78,11 @@ export function validStudy(value: any): boolean {
       (e: any) =>
         e &&
         ['base', 'wall-cabinet', 'tall', 'appliance'].includes(e.kind) &&
+        (e.customCabinet === undefined ||
+          (typeof e.customCabinet.libraryId === 'string' &&
+            Number.isInteger(e.customCabinet.libraryVersion) &&
+            e.customCabinet.libraryVersion > 0 &&
+            validateCustomUnit(e.customCabinet.definition).length === 0)) &&
         (e.storage === undefined ||
           (validStorage(e.storage) &&
             e.kind ===

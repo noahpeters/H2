@@ -65,6 +65,7 @@ export type Placement =
     };
 
 export type KitchenElement = {
+  customCabinet?: import('./custom-unit/library').CustomCabinetInstance;
   storage?: import('./openStorage').OpenStorage;
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;

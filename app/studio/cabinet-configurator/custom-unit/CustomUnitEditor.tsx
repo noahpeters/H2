@@ -46,8 +46,10 @@ function divisions(
 
 export function CustomUnitEditor({
   initialDefinition = createCustomUnit(),
+  onChange,
 }: {
   initialDefinition?: CustomUnitDefinition;
+  onChange?: (definition: CustomUnitDefinition) => void;
 }) {
   const [definition, setDefinition] = useState(initialDefinition);
   const [selectedId, setSelectedId] = useState(initialDefinition.root.id);
@@ -62,6 +64,7 @@ export function CustomUnitEditor({
   const update = (next: CustomUnitDefinition) => {
     setDefinition(next);
     setJson(serializeCustomUnit(next));
+    onChange?.(next);
   };
   const dimension = (field: 'width' | 'height' | 'depth', value: number) =>
     update({...definition, [field]: value});
