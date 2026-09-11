@@ -690,6 +690,30 @@ export function CustomUnitEditor({
                   onChange={(event) => patch({name: event.target.value})}
                 />
               </label>
+              {(selected.kind === 'door' || selected.kind === 'drawer') && (
+                <label>
+                  Part face style
+                  <select
+                    value={selected.faceStyle ?? ''}
+                    onChange={(event) =>
+                      patch({
+                        faceStyle: (event.target.value ||
+                          undefined) as CabinetPart['faceStyle'],
+                      })
+                    }
+                  >
+                    <option value="">Use cabinet style</option>
+                    {Object.entries(FACE_STYLES).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="cu-hint">
+                    Saved with this part. Overrides the cabinet style in a room.
+                  </span>
+                </label>
+              )}
               <p className="cu-hint">
                 Position is measured from the left, bottom, and front of the
                 cabinet.

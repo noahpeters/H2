@@ -209,17 +209,20 @@ export function customUnitGeometry(
               ? 0xc7b294
               : 0xd8c7a9,
     });
+    const face =
+      part.faceStyle ??
+      (part.kind === 'drawer' && appearance?.face === 'shaker-glass'
+        ? 'shaker'
+        : appearance?.face);
     const geometry =
-      appearance &&
+      face &&
       (part.kind === 'door' || part.kind === 'drawer') &&
       part.door?.mechanism !== 'tambour'
         ? facePreviewGeometry(
             part.width,
             part.height,
             part.depth,
-            part.kind === 'drawer' && appearance.face === 'shaker-glass'
-              ? 'shaker'
-              : appearance.face,
+            face,
             Boolean(followsProfile || localEdges),
           )
         : new THREE.BoxGeometry(
@@ -261,8 +264,8 @@ export function customUnitGeometry(
       geometry.computeVertexNormals();
     }
     const glass =
-      appearance?.face === 'shaker-glass' &&
-      part.kind === 'door' &&
+      face === 'shaker-glass' &&
+      (part.kind === 'door' || part.kind === 'drawer') &&
       part.door?.mechanism !== 'tambour';
     const mesh = new THREE.Mesh(
       geometry,

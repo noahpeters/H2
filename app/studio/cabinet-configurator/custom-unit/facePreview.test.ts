@@ -37,3 +37,51 @@ describe('preview face styles', () => {
     });
   }
 });
+
+it('honors saved part styles over the cabinet appearance and round trips them', async () => {
+  const {serializeCustomUnit, deserializeCustomUnit, validateCustomUnit} =
+    await import('./model');
+  const unit = createCustomUnit();
+  unit.parts = [
+    {
+      id: 'glass',
+      kind: 'door',
+      faceStyle: 'shaker-glass',
+      x: 0,
+      y: 0,
+      z: -0.75,
+      width: 20,
+      height: 30,
+      depth: 0.75,
+    },
+    {
+      id: 'inside',
+      kind: 'drawer',
+      faceStyle: 'slab',
+      x: 0,
+      y: 10,
+      z: 0.5,
+      width: 20,
+      height: 8,
+      depth: 0.75,
+    },
+  ];
+  expect(deserializeCustomUnit(serializeCustomUnit(unit)).parts).toEqual(
+    unit.parts,
+  );
+  const rendered = customUnitGeometry(
+    unit,
+    {},
+    {face: 'inset-shaker', material: 'walnut'},
+  );
+  const door = rendered.children[0].children[0] as THREE.Mesh;
+  const drawer = rendered.children[1].children[0] as THREE.Mesh;
+  expect(Array.isArray(door.material)).toBe(true);
+  expect(drawer.geometry.getAttribute('position').count).toBe(24);
+  expect(
+    validateCustomUnit({
+      ...unit,
+      parts: [{...unit.parts[0], faceStyle: 'invalid'}],
+    }),
+  ).toContain('Invalid part face style');
+});

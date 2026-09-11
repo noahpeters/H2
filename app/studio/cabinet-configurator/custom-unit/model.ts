@@ -40,6 +40,12 @@ export type CabinetPart = {
   id: string;
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
   name?: string;
+  faceStyle?:
+    | 'slab'
+    | 'shaker'
+    | 'inset-shaker'
+    | 'vertical-slat'
+    | 'shaker-glass';
   door?: {
     mechanism: DoorMechanism;
     side: 'left' | 'right';
@@ -341,6 +347,18 @@ export function validateCustomUnit(value: unknown): string[] {
         if (typeof part.id !== 'string' || !part.id || ids.has(part.id))
           errors.push('Parts need unique IDs');
         ids.add(part.id);
+        if (
+          part.faceStyle !== undefined &&
+          (!['door', 'drawer'].includes(part.kind) ||
+            ![
+              'slab',
+              'shaker',
+              'inset-shaker',
+              'vertical-slat',
+              'shaker-glass',
+            ].includes(part.faceStyle))
+        )
+          errors.push('Invalid part face style');
         if (
           part.profileMode !== undefined &&
           !['cabinet', 'independent'].includes(part.profileMode)
