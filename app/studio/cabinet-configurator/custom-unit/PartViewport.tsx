@@ -318,6 +318,7 @@ export function PartViewport(props: Props) {
         return;
       }
       if (
+        event.button !== 0 ||
         transform.axis ||
         Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4
       )
@@ -331,7 +332,7 @@ export function PartViewport(props: Props) {
         camera,
       );
       const hit = ray.intersectObjects(group.children, true)[0];
-      if (hit) current.current.onSelect(hit.object.userData.partId as string);
+      current.current.onSelect(hit ? (hit.object.userData.partId as string) : '');
     };
     renderer.domElement.addEventListener('pointerdown', down);
     renderer.domElement.addEventListener('pointermove', hover);
