@@ -1,18 +1,16 @@
-import {
-  Form,
-  Link,
-  useActionData,
-  useLoaderData,
-  useNavigation,
-} from 'react-router';
+import {Link, useActionData, useLoaderData} from 'react-router';
 import type {Route} from './+types/contact';
-import {Script} from '@shopify/hydrogen';
+import {ProjectForm} from '~/studio/ProjectForm';
 import {Resend} from 'resend';
 import studioStyles from '~/styles/studio.css?url';
 import {StudioFooter} from '~/studio/StudioFooter';
 import {StudioHeader} from '~/studio/StudioHeader';
 
-type LoaderData = {turnstileSiteKey: string; project: string};
+type LoaderData = {
+  turnstileSiteKey: string;
+  project: string;
+  submissionId: string;
+};
 interface Env {
   TURNSTILE_SITE_KEY?: string;
   RESEND_API_KEY?: string;
@@ -21,7 +19,7 @@ interface Env {
   TURNSTILE_SECRET_KEY?: string;
 }
 type ActionData =
-  | {ok: true}
+  | {ok: true; eventId?: string}
   | {ok: false; fieldErrors: Record<string, string>; formError?: string};
 
 export const links: Route.LinksFunction = () => [
@@ -39,12 +37,16 @@ export const meta: Route.MetaFunction = () => [
 export async function loader({
   context,
   request,
-}: Route.LoaderArgs): Promise<LoaderData> {
+}: Pick<Route.LoaderArgs, 'context' | 'request'>): Promise<LoaderData> {
   const turnstileSiteKey = (context.env as Env).TURNSTILE_SITE_KEY;
   if (!turnstileSiteKey) console.warn('TURNSTILE_SITE_KEY is not set');
   const project =
     new URL(request.url).searchParams.get('project')?.slice(0, 2000) ?? '';
-  return {turnstileSiteKey: turnstileSiteKey ?? '', project};
+  return {
+    turnstileSiteKey: turnstileSiteKey ?? '',
+    project,
+    submissionId: crypto.randomUUID(),
+  };
 }
 
 function isValidEmail(email: string) {
@@ -73,7 +75,7 @@ async function verifyTurnstile({
 export async function action({
   request,
   context,
-}: Route.ActionArgs): Promise<ActionData> {
+}: Pick<Route.ActionArgs, 'context' | 'request'>): Promise<ActionData> {
   const form = await request.formData();
   if (String(form.get('company') || '')) return {ok: true};
   const value = (name: string) => String(form.get(name) || '').trim();
@@ -86,6 +88,10 @@ export async function action({
   const budget = value('budget');
   const message = value('message');
   const token = value('cf-turnstile-response');
+  const submissionId = value('submissionId');
+  const eventId = /^[a-f0-9-]{36}$/.test(submissionId)
+    ? submissionId
+    : crypto.randomUUID();
   const fieldErrors: Record<string, string> = {};
   if (!name) fieldErrors.name = 'Please enter your name.';
   if (!email || !isValidEmail(email))
@@ -116,31 +122,57 @@ export async function action({
     request.headers.get('CF-Connecting-IP') ||
     request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ||
     undefined;
-  if (!(await verifyTurnstile({token, secret: env.TURNSTILE_SECRET_KEY, ip}))) {
+  let verified = false;
+  try {
+    verified = await verifyTurnstile({
+      token,
+      secret: env.TURNSTILE_SECRET_KEY,
+      ip,
+    });
+  } catch {
+    /* Fail closed when verification is unavailable. */
+  }
+  if (!verified) {
     return {
       ok: false,
       fieldErrors: {turnstile: 'Verification failed. Please try again.'},
     };
   }
   try {
-    await new Resend(env.RESEND_API_KEY).emails.send({
-      from: env.CONTACT_FROM_EMAIL,
-      to: env.CONTACT_TO_EMAIL,
-      replyTo: email,
-      subject: `Project inquiry: ${projectType} — ${name}`,
-      text: [
-        `Name: ${name}`,
-        `Email: ${email}`,
-        `Phone: ${phone || 'Not provided'}`,
-        `Project type: ${projectType}`,
-        `Project location: ${location}`,
-        `Timeline: ${timeline || 'Not provided'}`,
-        `Budget: ${budget || 'Not provided'}`,
-        '',
-        message,
-      ].join('\n'),
-    });
-    return {ok: true};
+    const result = await new Resend(env.RESEND_API_KEY).emails.send(
+      {
+        from: env.CONTACT_FROM_EMAIL,
+        to: env.CONTACT_TO_EMAIL,
+        replyTo: email,
+        subject: `Project inquiry: ${projectType} — ${name}`,
+        text: [
+          `Source: ${new URL(request.url).pathname}`,
+          ...[
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_content',
+            'utm_term',
+          ].map(
+            (key) =>
+              `${key}: ${(new URL(request.url).searchParams.get(key) || '').slice(0, 200)}`,
+          ),
+          `Name: ${name}`,
+          `Email: ${email}`,
+          `Phone: ${phone || 'Not provided'}`,
+          `Project type: ${projectType}`,
+          `Project location: ${location}`,
+          `Timeline: ${timeline || 'Not provided'}`,
+          `Budget: ${budget || 'Not provided'}`,
+          '',
+          message,
+        ].join('\n'),
+      },
+      {idempotencyKey: `project-${eventId}`},
+    );
+    if (result.error || !result.data?.id)
+      throw new Error('Email provider did not accept inquiry');
+    return {ok: true, eventId};
   } catch (error) {
     console.error('Contact email send failed', error);
     return {
@@ -153,9 +185,9 @@ export async function action({
 }
 
 export default function ContactPage() {
-  const {turnstileSiteKey, project} = useLoaderData<typeof loader>();
+  const {turnstileSiteKey, project, submissionId} =
+    useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const busy = useNavigation().state !== 'idle';
 
   if (actionData?.ok)
     return (
@@ -179,10 +211,6 @@ export default function ContactPage() {
     actionData && !actionData.ok ? actionData.fieldErrors : {};
   const formError =
     actionData && !actionData.ok ? actionData.formError : undefined;
-  const error = (field: string) =>
-    fieldErrors[field] ? (
-      <span className="field-error">{fieldErrors[field]}</span>
-    ) : null;
 
   return (
     <main className="studio-page studio-editorial-page">
@@ -206,102 +234,13 @@ export default function ContactPage() {
             <Link to="/">Return home →</Link>
           </div>
         </div>
-        <Form method="post" className="project-form">
-          <input
-            type="text"
-            name="company"
-            tabIndex={-1}
-            autoComplete="off"
-            aria-hidden="true"
-            style={{position: 'absolute', left: '-10000px'}}
-          />
-          {formError ? <p className="form-error">{formError}</p> : null}
-          <div className="project-form-grid">
-            <label>
-              Name
-              <input name="name" autoComplete="name" required />
-              {error('name')}
-            </label>
-            <label>
-              Email
-              <input name="email" type="email" autoComplete="email" required />
-              {error('email')}
-            </label>
-            <label>
-              Phone <span aria-hidden="true">(optional)</span>
-              <input name="phone" type="tel" autoComplete="tel" />
-            </label>
-            <label>
-              Project type
-              <select name="projectType" required defaultValue="">
-                <option value="" disabled>
-                  Select one
-                </option>
-                <option>Custom furniture</option>
-                <option>Kitchen or pantry</option>
-                <option>Bathroom vanity</option>
-                <option>Built-ins or storage</option>
-                <option>Other cabinetry</option>
-                <option>Something else</option>
-              </select>
-              {error('projectType')}
-            </label>
-            <label>
-              Project location
-              <input
-                name="location"
-                autoComplete="postal-code"
-                placeholder="City or ZIP code"
-                required
-              />
-              {error('location')}
-            </label>
-            <label>
-              Approximate timeline <span aria-hidden="true">(optional)</span>
-              <select name="timeline" defaultValue="">
-                <option value="">Not sure yet</option>
-                <option>As soon as practical</option>
-                <option>Within 3 months</option>
-                <option>3–6 months</option>
-                <option>6–12 months</option>
-                <option>More than a year</option>
-              </select>
-            </label>
-            <label className="form-wide">
-              General budget range <span aria-hidden="true">(optional)</span>
-              <input
-                name="budget"
-                placeholder="A range is helpful, but not required"
-              />
-            </label>
-            <label className="form-wide">
-              Tell us about your project
-              <textarea name="message" defaultValue={project} required />
-              {error('message')}
-            </label>
-          </div>
-          <div className="turnstile-wrap">
-            {turnstileSiteKey ? (
-              <div
-                className="cf-turnstile"
-                data-sitekey={turnstileSiteKey}
-                data-theme="light"
-              />
-            ) : null}
-            {error('turnstile')}
-          </div>
-          {turnstileSiteKey ? (
-            <Script
-              src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-              async
-              defer
-            />
-          ) : null}
-          <button type="submit" disabled={busy}>
-            <span>{busy ? 'Sending…' : 'Send project details'}</span>
-            <span aria-hidden="true">→</span>
-          </button>
-        </Form>
+        <ProjectForm
+          turnstileSiteKey={turnstileSiteKey}
+          project={project}
+          submissionId={submissionId}
+          fieldErrors={fieldErrors}
+          formError={formError}
+        />
       </section>
       <section className="contact-next">
         <h2>What happens next?</h2>

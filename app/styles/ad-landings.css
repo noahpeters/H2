@@ -1,0 +1,257 @@
+.ad-page {
+  background: var(--paper);
+  color: var(--forest);
+}
+.ad-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 5vw;
+  border-bottom: 1px solid var(--line);
+  gap: 20px;
+}
+.ad-header > a:last-child {
+  font-size: 13px;
+}
+.ad-header .brand-tree {
+  width: 28px;
+  height: 36px;
+  object-fit: contain;
+}
+.ad-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 740px;
+  background: var(--forest);
+  color: var(--paper);
+}
+.ad-hero-copy {
+  padding: 70px 5vw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.ad-page h1 {
+  font-size: clamp(45px, 5.3vw, 82px);
+  line-height: 1.03;
+  white-space: normal;
+  margin: 32px 0;
+  color: inherit;
+  letter-spacing: -0.06em;
+}
+.ad-page h2 {
+  font-size: clamp(34px, 3.4vw, 54px);
+  line-height: 1.08;
+  white-space: normal;
+  color: inherit;
+  margin: 24px 0;
+}
+.ad-page p {
+  line-height: 1.7;
+}
+.ad-page .eyebrow {
+  font-size: 10px;
+  line-height: 1.6;
+  color: inherit;
+}
+.ad-intro {
+  font-size: 17px;
+  max-width: 460px;
+  margin: 0 0 32px;
+}
+.ad-area {
+  font-size: 12px;
+  max-width: 380px;
+  opacity: 0.85;
+  margin-top: 24px;
+}
+.ad-button {
+  display: flex;
+  gap: 30px;
+  justify-content: space-between;
+  border: 1px solid currentColor;
+  padding: 17px 22px;
+  font-size: 14px;
+}
+.ad-button:hover {
+  background: var(--paper);
+  color: var(--forest);
+}
+.ad-page figure {
+  margin: 0;
+}
+.ad-hero figure {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ad-hero figure img {
+  height: 100%;
+  min-height: 0;
+  max-height: 800px;
+  object-fit: cover;
+  flex: 1;
+}
+.ad-designers .ad-hero figure img {
+  object-fit: contain;
+  background: #e9e3d6;
+}
+.ad-page figcaption {
+  padding: 15px 20px;
+  font-size: 11px;
+  line-height: 1.5;
+  background: #e9e3d6;
+  color: var(--forest);
+}
+.ad-detail {
+  padding: 90px 5vw;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 7vw;
+  align-items: center;
+}
+.ad-detail img {
+  height: auto;
+  max-height: 650px;
+  object-fit: contain;
+}
+.ad-detail p {
+  max-width: 460px;
+}
+.ad-text-link {
+  display: inline-block;
+  border-bottom: 1px solid;
+  padding-bottom: 8px;
+  margin-top: 18px;
+  font-size: 14px;
+}
+.ad-process {
+  padding: 75px 5vw;
+  background: #e6e8dc;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8vw;
+}
+.ad-process > div > p:last-child {
+  max-width: 450px;
+}
+.ad-process ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ad-process li {
+  display: flex;
+  gap: 26px;
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+}
+.ad-process li > span {
+  font-size: 12px;
+  padding-top: 6px;
+}
+.ad-process li p {
+  margin: 0;
+  max-width: 380px;
+}
+.ad-inquiry {
+  padding: 95px 5vw;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 8vw;
+  scroll-margin-top: 24px;
+}
+.ad-inquiry > div > p {
+  max-width: 380px;
+}
+.ad-next {
+  max-width: 360px;
+  margin: 35px 0;
+}
+.ad-next h3 {
+  font-size: 16px;
+}
+.ad-inquiry a {
+  font-size: 14px;
+  text-decoration: underline;
+}
+.ad-page .project-form {
+  min-width: 0;
+}
+.ad-page .project-form input,
+.ad-page .project-form select,
+.ad-page .project-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+.ad-page .project-form textarea {
+  min-height: 120px;
+}
+.ad-footer {
+  padding: 28px 5vw;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--forest);
+  font-size: 12px;
+}
+.ad-page a:focus-visible,
+.ad-page button:focus-visible {
+  outline: 3px solid #ad794d;
+  outline-offset: 5px;
+}
+@media (max-width: 760px) {
+  .ad-header {
+    padding: 18px 6vw;
+  }
+  .ad-header .brand {
+    font-size: 22px;
+  }
+  .ad-header > a:last-child {
+    font-size: 11px;
+    max-width: 125px;
+  }
+  .ad-hero,
+  .ad-detail,
+  .ad-process,
+  .ad-inquiry {
+    grid-template-columns: 1fr;
+  }
+  .ad-hero-copy {
+    padding: 45px 6vw;
+  }
+  .ad-page h1 {
+    font-size: 48px;
+    margin: 25px 0;
+  }
+  .ad-hero figure img {
+    height: auto;
+    max-height: 580px;
+    flex: none;
+  }
+  .ad-detail,
+  .ad-process,
+  .ad-inquiry {
+    padding: 50px 6vw;
+    gap: 35px;
+  }
+  .ad-inquiry .project-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .ad-page .form-wide {
+    grid-column: auto;
+  }
+  .ad-footer {
+    padding: 25px 6vw;
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
