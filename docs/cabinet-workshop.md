@@ -46,3 +46,7 @@ Click an Add button to enter placement mode, then hover the cabinet. A transluce
 New drawer fronts follow the cursor within the available front area and are capped at 8 inches high, shrinking to fit smaller remaining spaces. Door fronts fill the available area. Existing doors and exterior drawers reserve exterior door placement areas, with the default reveal retained between fronts. Drawer placement reserves existing drawer areas and allows placement behind doors. Shelves and other interior parts still target the physical opening behind fronts.
 
 Drawers may be placed behind an existing door. These are named Interior drawer and default to at least 0.5 inches behind the cabinet face and 0.5 inches behind the back of any covering door. Front setback remains editable. Existing drawers still exclude their occupied area; inset drawers do not block adding an exterior door in front of them.
+
+## Preview appearance
+
+Expand Preview style & material above the canvas to view slab, shaker, inset shaker, slatted, or shaker/glass fronts with the room configurator's wood and paint options. These controls are local React state: they never enter the cabinet definition, library save, export, or undo history. Room instances supply their own face/material/paint selections to the same custom-cabinet geometry renderer. Decorative profiles stay within the physical front envelope, follow cabinet curves, and retain part selection and opening previews. Tambour retains its slatted mechanism geometry. Glass applies to doors; drawer fronts use solid shaker panels.

@@ -1,3 +1,4 @@
+import type {CabinetAppearance} from './facePreview';
 import {useEffect, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
@@ -20,6 +21,7 @@ type Props = {
   snap: number;
   openings: Record<string, number>;
   fitRevision: number;
+  appearance?: CabinetAppearance;
   placement: PlacementKind | null;
   onPlace: (part: CabinetPart) => void;
   onCancelPlacement: () => void;
@@ -112,7 +114,11 @@ export function PartViewport(props: Props) {
       targets.updateMatrixWorld(true);
       targets.traverse((object) => {
         if (object instanceof THREE.Mesh) {
-          const mat = object.material as THREE.MeshStandardMaterial;
+          const mat = (
+            Array.isArray(object.material)
+              ? object.material[0]
+              : object.material
+          ) as THREE.MeshStandardMaterial;
           mat.color.set(0x7da77e);
           mat.transparent = true;
           mat.opacity = 0.16;
@@ -129,7 +135,11 @@ export function PartViewport(props: Props) {
         : '';
       scene.remove(group);
       disposeGroup();
-      group = customUnitGeometry(definition, current.current.openings);
+      group = customUnitGeometry(
+        definition,
+        current.current.openings,
+        current.current.appearance,
+      );
       group.scale.z = -1;
       scene.add(group);
       group.traverse((object) => {
@@ -138,7 +148,11 @@ export function PartViewport(props: Props) {
           object instanceof THREE.Mesh &&
           ['custom-unit-door', 'custom-unit-drawer'].includes(object.name)
         ) {
-          const mat = object.material as THREE.MeshStandardMaterial;
+          const mat = (
+            Array.isArray(object.material)
+              ? object.material[0]
+              : object.material
+          ) as THREE.MeshStandardMaterial;
           mat.transparent = true;
           mat.opacity = 0.12;
           mat.depthWrite = false;
@@ -147,10 +161,16 @@ export function PartViewport(props: Props) {
           object.userData.partId === selectedId &&
           object instanceof THREE.Mesh
         ) {
-          (object.material as THREE.MeshStandardMaterial).color.set(0xa9bd98);
-          (object.material as THREE.MeshStandardMaterial).emissive.set(
-            0x254535,
-          );
+          (
+            (Array.isArray(object.material)
+              ? object.material[0]
+              : object.material) as THREE.MeshStandardMaterial
+          ).color.set(0xa9bd98);
+          (
+            (Array.isArray(object.material)
+              ? object.material[0]
+              : object.material) as THREE.MeshStandardMaterial
+          ).emissive.set(0x254535);
         }
       });
       const selectedObject = group.children.find(
@@ -260,7 +280,11 @@ export function PartViewport(props: Props) {
       ghost.scale.z = -1;
       ghost.traverse((object) => {
         if (object instanceof THREE.Mesh) {
-          const mat = object.material as THREE.MeshStandardMaterial;
+          const mat = (
+            Array.isArray(object.material)
+              ? object.material[0]
+              : object.material
+          ) as THREE.MeshStandardMaterial;
           mat.color.set(0x80b496);
           mat.transparent = true;
           mat.opacity = 0.65;
@@ -355,6 +379,7 @@ export function PartViewport(props: Props) {
     props.openings,
     props.fitRevision,
     props.placement,
+    props.appearance,
   ]);
   return (
     <div

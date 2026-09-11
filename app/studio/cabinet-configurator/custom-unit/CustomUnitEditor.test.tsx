@@ -111,3 +111,24 @@ describe('Cabinet workshop', () => {
     expect(onChange.mock.lastCall![0].name).toBe('Imported design');
   });
 });
+
+it('keeps preview finishes out of cabinet changes', () => {
+  const onChange = vi.fn();
+  render(<CustomUnitEditor onChange={onChange} />);
+  fireEvent.change(screen.getByLabelText('Face style'), {
+    target: {value: 'inset-shaker'},
+  });
+  fireEvent.change(screen.getByLabelText('Preview material'), {
+    target: {value: 'paint-grade'},
+  });
+  fireEvent.change(screen.getByLabelText('Preview paint'), {
+    target: {value: 'sage-green'},
+  });
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
+  const saved = onChange.mock.lastCall![0];
+  expect(saved).not.toHaveProperty('appearance');
+  expect(saved).not.toHaveProperty('face');
+  expect(saved).not.toHaveProperty('material');
+});

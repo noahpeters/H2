@@ -92,7 +92,15 @@ export function cabinetGeometry(
   if (item.customCabinet) {
     const definition = item.customCabinet.definition;
     const group = new THREE.Group();
-    const body = customUnitGeometry(definition);
+    const body = customUnitGeometry(
+      definition,
+      {},
+      {
+        face: item.face,
+        material: item.material ?? 'rift-white-oak',
+        paintColor: item.paintColor,
+      },
+    );
     const bounds = new THREE.Box3().setFromObject(body);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());

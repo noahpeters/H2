@@ -1,3 +1,5 @@
+import {FACE_STYLES, type CabinetAppearance} from './facePreview';
+import {CABINET_MATERIALS, CABINET_PAINTS} from '../materials';
 import type {PlacementKind} from './openingPlacement';
 import {useState} from 'react';
 import {
@@ -87,6 +89,11 @@ export function CustomUnitEditor({
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');
   const [tool, setTool] = useState<'orbit' | 'move'>('orbit');
+  const [appearance, setAppearance] = useState<CabinetAppearance>({
+    face: 'slab',
+    material: 'rift-white-oak',
+    paintColor: 'white',
+  });
   const [placement, setPlacement] = useState<PlacementKind | null>(null);
   const [fitRevision, setFitRevision] = useState(0);
   const [snap, setSnap] = useState(0.0625);
@@ -500,6 +507,73 @@ export function CustomUnitEditor({
               </button>
             </div>
           </div>
+          <details className="cu-preview-appearance">
+            <summary>Preview style &amp; material</summary>
+            <p>
+              For this preview only. Choose finishes again when using this
+              cabinet in a room.
+            </p>
+            <div className="cu-actions">
+              <label>
+                Face style
+                <select
+                  value={appearance.face}
+                  onChange={(event) =>
+                    setAppearance({
+                      ...appearance,
+                      face: event.target.value as CabinetAppearance['face'],
+                    })
+                  }
+                >
+                  {Object.entries(FACE_STYLES).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Preview material
+                <select
+                  value={appearance.material}
+                  onChange={(event) =>
+                    setAppearance({
+                      ...appearance,
+                      material: event.target
+                        .value as CabinetAppearance['material'],
+                    })
+                  }
+                >
+                  {Object.entries(CABINET_MATERIALS).map(([value, item]) => (
+                    <option key={value} value={value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {appearance.material === 'paint-grade' && (
+                <label>
+                  Preview paint
+                  <select
+                    value={appearance.paintColor}
+                    onChange={(event) =>
+                      setAppearance({
+                        ...appearance,
+                        paintColor: event.target
+                          .value as CabinetAppearance['paintColor'],
+                      })
+                    }
+                  >
+                    {Object.entries(CABINET_PAINTS).map(([value, item]) => (
+                      <option key={value} value={value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          </details>
           {placement && (
             <div className="cu-placement-banner" role="status">
               Place {placement}: hover an opening, then click. Escape cancels.
@@ -510,6 +584,7 @@ export function CustomUnitEditor({
           )}
           <PartViewport
             definition={definition}
+            appearance={appearance}
             selectedId={selectedId}
             view={view}
             tool={tool}

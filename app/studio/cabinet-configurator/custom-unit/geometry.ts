@@ -1,3 +1,5 @@
+import {facePreviewGeometry, type CabinetAppearance} from './facePreview';
+import {cabinetColor} from '../materials';
 import {doorPreview} from './doorGeometry';
 import {cabinetProfilePoint, edgeSetback} from './curves';
 import * as THREE from 'three';
@@ -185,6 +187,7 @@ export function customUnitParts(
 export function customUnitGeometry(
   definition: CustomUnitDefinition,
   openings: Record<string, number> = {},
+  appearance?: CabinetAppearance,
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = `custom-unit:${definition.id}`;
@@ -200,18 +203,33 @@ export function customUnitGeometry(
       color:
         part.kind === 'rod'
           ? 0x777777
-          : part.kind === 'carcass'
-            ? 0xc7b294
-            : 0xd8c7a9,
+          : appearance
+            ? cabinetColor(appearance)
+            : part.kind === 'carcass'
+              ? 0xc7b294
+              : 0xd8c7a9,
     });
-    const geometry = new THREE.BoxGeometry(
-      part.width,
-      part.height,
-      part.depth,
-      followsProfile || localEdges ? 64 : 1,
-      1,
-      followsProfile || localShape?.startsWith('round-') ? 64 : 1,
-    );
+    const geometry =
+      appearance &&
+      (part.kind === 'door' || part.kind === 'drawer') &&
+      part.door?.mechanism !== 'tambour'
+        ? facePreviewGeometry(
+            part.width,
+            part.height,
+            part.depth,
+            part.kind === 'drawer' && appearance.face === 'shaker-glass'
+              ? 'shaker'
+              : appearance.face,
+            Boolean(followsProfile || localEdges),
+          )
+        : new THREE.BoxGeometry(
+            part.width,
+            part.height,
+            part.depth,
+            followsProfile || localEdges ? 64 : 1,
+            1,
+            followsProfile || localShape?.startsWith('round-') ? 64 : 1,
+          );
     if (followsProfile || localEdges || localShape?.startsWith('round-')) {
       const positions = geometry.getAttribute('position');
       for (let index = 0; index < positions.count; index++) {
@@ -242,7 +260,25 @@ export function customUnitGeometry(
       }
       geometry.computeVertexNormals();
     }
-    const mesh = new THREE.Mesh(geometry, material);
+    const glass =
+      appearance?.face === 'shaker-glass' &&
+      part.kind === 'door' &&
+      part.door?.mechanism !== 'tambour';
+    const mesh = new THREE.Mesh(
+      geometry,
+      glass
+        ? [
+            material,
+            new THREE.MeshStandardMaterial({
+              color: 0xb6d2d7,
+              transparent: true,
+              opacity: 0.25,
+              roughness: 0.12,
+              depthWrite: false,
+            }),
+          ]
+        : material,
+    );
     mesh.name = `custom-unit-${part.kind}`;
     mesh.userData.sectionId = part.sectionId;
     mesh.userData.partId = part.id;
