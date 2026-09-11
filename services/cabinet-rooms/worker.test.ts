@@ -23,6 +23,12 @@ function setup() {
       'utf8',
     ),
   );
+  db.exec(
+    readFileSync(
+      new URL('./migrations/0008_analytics.sql', import.meta.url),
+      'utf8',
+    ),
+  );
   const env = {
     SHARES: {limit: async () => ({success: true})},
     SERVICE_TOKEN: 'test-service',
