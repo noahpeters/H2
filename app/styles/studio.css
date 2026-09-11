@@ -94,7 +94,7 @@ legend span { font-family:Arial,sans-serif; font-size:9px; letter-spacing:.12em;
 .choice-row button:hover,.choice-row button.active { background:var(--ink); color:#fff; border-color:var(--ink); }
 .timber-row button { display:flex; align-items:center; gap:8px; }.timber-row i { width:14px; height:14px; border-radius:50%; border:1px solid rgba(0,0,0,.15); }
 .range-wrap input { width:100%; accent-color:var(--ink); }.range-wrap>div { display:flex; justify-content:space-between; align-items:baseline; font-size:10px; margin-top:7px; }.range-wrap strong { font-size:15px; }
-.inquiry-button { background:var(--orange); color:white; display:flex; justify-content:space-between; padding:20px 22px; font-size:12px; margin-top:30px; }
+.inquiry-button { width:100%; border:0; background:var(--orange); color:white; display:flex; justify-content:space-between; padding:20px 22px; font-size:12px; margin-top:30px; cursor:pointer; }
 .fine-print { font-size:9px; line-height:1.5; color:#77786f; max-width:390px; }
 .geometry-link { display:inline-block; margin-top:18px; color:var(--forest); border-bottom:1px solid currentColor; font-size:12px; }
 .geometry-page { min-height:100vh; background:var(--paper); }
@@ -254,6 +254,14 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
 .project-form .turnstile-wrap { margin:32px 0 22px; }
 .project-form button { width:100%; display:flex; justify-content:space-between; border:0; background:var(--forest); color:var(--paper); padding:19px 22px; cursor:pointer; text-transform:uppercase; letter-spacing:.1em; font-size:11px; }
 .project-form button:disabled { opacity:.55; cursor:wait; }
+.study-inquiry-dialog { width:min(760px,calc(100vw - 32px)); max-height:calc(100vh - 32px); padding:0; border:0; color:var(--ink); background:var(--paper); box-shadow:0 24px 80px rgba(24,31,27,.28); }
+.study-inquiry-dialog::backdrop { background:rgba(18,25,21,.68); }
+.study-inquiry-card { position:relative; padding:clamp(28px,5vw,60px); overflow:auto; }
+.study-inquiry-card>h2 { margin:10px 0 12px; color:var(--forest); font-size:clamp(38px,6vw,64px); }
+.study-inquiry-card>p:not(.eyebrow) { margin:0 50px 32px 0; line-height:1.6; }
+.study-inquiry-close { position:absolute; top:20px; right:20px; width:42px; height:42px; border:1px solid var(--line); border-radius:50%; background:transparent; color:inherit; font-size:24px; cursor:pointer; }
+.project-form-success { min-height:260px; display:grid; align-content:center; gap:14px; border-top:1px solid var(--ink); }
+.project-form-success h2,.project-form-success p { margin:0; }
 .contact-next { padding:100px 7vw; background:var(--sage); color:white; display:grid; grid-template-columns:1fr 1fr; gap:8vw; }
 .contact-next h2 { font-size:clamp(48px,6vw,90px); color:white; }
 .contact-next>div { max-width:560px; }

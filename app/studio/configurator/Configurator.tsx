@@ -20,6 +20,8 @@ import {
 } from "./feature-flags";
 import {StudioFooter} from "../StudioFooter";
 import {StudioHeader} from "../StudioHeader";
+import {StudyInquiryDialog} from "../StudyInquiryDialog";
+import {tableStudySummary} from "../studyInquiry";
 
 const timbers = [
   { name: "White oak", slug: "white-oak", color: "#c3a579" },
@@ -53,7 +55,7 @@ function rowForSize(shape: ShapeSlug, size: number) {
   return size <= 84 ? 0 : size <= 102 ? 1 : 2;
 }
 
-export default function Configurator() {
+export default function Configurator({turnstileSiteKey = ""}: {turnstileSiteKey?: string}) {
   const [enabledFeatures, setEnabledFeatures] = useState(environmentFeatureFlags);
   const activeShapes = enabledShapes(enabledFeatures);
   const [shape, setShape] = useState<ShapeSlug>("rectangle");
@@ -65,6 +67,7 @@ export default function Configurator() {
   const [base, setBase] = useState<BaseSlug>("curved-slab-frame");
   const [chair, setChair] = useState<ChairSlug>("none");
   const [urlReady, setUrlReady] = useState(false);
+  const [inquiring, setInquiring] = useState(false);
 
   const availableEdges = edgesForShape(shape);
   const availableBases = basesForShape(shape);
@@ -176,8 +179,14 @@ export default function Configurator() {
 
   const chairName = chairs.find((item) => item.slug === chair)?.name ?? "None";
 
-  const subject = `Table study \u2014 ${shape}, ${timber.name}, ${dimension}`;
-  const body = `I\u2019d like to discuss a ${dimension} ${shape} table in ${timber.name}, with a ${selectedEdge.name.toLowerCase()} edge, ${selectedBase.name.toLowerCase()} base, and ${chair === "none" ? "no chair study" : `${chairName.toLowerCase()} chairs`}.`;
+  const inquirySummary = tableStudySummary({
+    shape,
+    timber: timber.name,
+    dimension,
+    edge: selectedEdge.name,
+    base: selectedBase.name,
+    chairs: chair === "none" ? "None" : chairName,
+  });
 
   return <main className="config-page">
     <StudioHeader links={[{label:"Back to the studio",to:"/"},{label:"Pre-configured Examples",to:"/collections/all"},{label:"Design Your Space",to:"/cabinet-configurator"}]}/>
@@ -201,10 +210,11 @@ export default function Configurator() {
         <fieldset><legend>Edge profile</legend><div className="choice-row">{availableEdges.map((item) => <button type="button" className={edge === item.slug ? "active" : ""} onClick={() => setEdge(item.slug)} key={item.slug}>{item.name}</button>)}</div></fieldset>
         <fieldset><legend>Base study</legend><div className="choice-row base-options">{availableBases.map((item) => <button type="button" className={base === item.slug ? "active" : ""} onPointerEnter={() => preloadStudy(shape, item.slug)} onFocus={() => preloadStudy(shape, item.slug)} onClick={() => setBase(item.slug)} key={item.slug}>{item.name}</button>)}</div></fieldset>
         <fieldset><legend>Chair study</legend><div className="choice-row chair-options">{chairs.map((item) => <button type="button" className={chair === item.slug ? "active" : ""} onPointerEnter={() => preloadChair(shape, item.slug)} onFocus={() => preloadChair(shape, item.slug)} onClick={() => setChair(item.slug)} key={item.slug}>{item.name}</button>)}</div></fieldset>
-        <a className="inquiry-button" href={`mailto:furniture@from-trees.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}>Send this study <span>↗</span></a>
+        <button className="inquiry-button" type="button" onClick={() => setInquiring(true)}>Send this study <span>↗</span></button>
         <p className="fine-print">We’ll confirm proportion, joinery, timber availability, finish, timing, and all final details together. No prices or purchasing are shown here.</p>
       </form>
     </section>
+    {inquiring ? <StudyInquiryDialog source="table" summary={inquirySummary} turnstileSiteKey={turnstileSiteKey} onClose={() => setInquiring(false)} /> : null}
     <StudioFooter />
   </main>;
 }

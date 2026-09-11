@@ -87,6 +87,7 @@ export async function action({
   const timeline = value('timeline');
   const budget = value('budget');
   const message = value('message');
+  const configuratorSource = value('configuratorSource');
   const token = value('cf-turnstile-response');
   const submissionId = value('submissionId');
   const eventId = /^[a-f0-9-]{36}$/.test(submissionId)
@@ -164,6 +165,11 @@ export async function action({
           `Project location: ${location}`,
           `Timeline: ${timeline || 'Not provided'}`,
           `Budget: ${budget || 'Not provided'}`,
+          `Configurator source: ${
+            configuratorSource === 'table' || configuratorSource === 'cabinet'
+              ? configuratorSource
+              : 'Not provided'
+          }`,
           '',
           message,
         ].join('\n'),

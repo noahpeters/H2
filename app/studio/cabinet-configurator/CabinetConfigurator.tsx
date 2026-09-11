@@ -2,6 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ChoiceImage, VisualSelect} from './VisualChoices';
 import {ShareRoomForm} from './ShareRoomForm';
+import {StudyInquiryDialog} from '../StudyInquiryDialog';
+import {cabinetStudySummary} from '../studyInquiry';
 import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
 import {
@@ -888,6 +890,7 @@ export function CabinetConfigurator({
   }, [zoomPlan]);
   const [sharing, setSharing] = useState(false);
   const [pricing, setPricing] = useState(false);
+  const [inquiring, setInquiring] = useState(false);
   const [editingRoom, setEditingRoom] = useState(false);
   const [selectedWall, setSelectedWall] = useState<Wall>('back');
   const [outlineError, setOutlineError] = useState('');
@@ -1235,6 +1238,12 @@ export function CabinetConfigurator({
           >
             Get price range
           </button>
+          <button
+            disabled={rooms.busy || !rooms.ready}
+            onClick={() => setInquiring(true)}
+          >
+            Send this study
+          </button>
           {pricing && (
             <ShareRoomForm
               purpose="price"
@@ -1279,6 +1288,14 @@ export function CabinetConfigurator({
           )}
         </div>
       </header>
+      {inquiring && (
+        <StudyInquiryDialog
+          source="cabinet"
+          summary={cabinetStudySummary(study)}
+          turnstileSiteKey={turnstileSiteKey}
+          onClose={() => setInquiring(false)}
+        />
+      )}
       <main
         className="cc-main"
         ref={(node) => {
