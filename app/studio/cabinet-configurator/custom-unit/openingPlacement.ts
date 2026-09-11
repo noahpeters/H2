@@ -89,6 +89,45 @@ export function cabinetOpenings(unit: CustomUnitDefinition): CabinetOpening[] {
     }
   return [...found.values()];
 }
+/** Fronts occupy their elevation even when recessed or shown open in the preview. */
+export function placementOpenings(
+  unit: CustomUnitDefinition,
+  kind: PlacementKind,
+): CabinetOpening[] {
+  let spaces = cabinetOpenings(unit);
+  if (kind !== 'door' && kind !== 'drawer') return spaces;
+  for (const front of editableParts(unit).filter(
+    (part) => part.kind === 'door' || part.kind === 'drawer',
+  )) {
+    spaces = spaces.flatMap((space) => {
+      const left = Math.max(space.x, front.x);
+      const right = Math.min(space.x + space.width, front.x + front.width);
+      const bottom = Math.max(space.y, front.y);
+      const top = Math.min(space.y + space.height, front.y + front.height);
+      if (left >= right || bottom >= top) return [space];
+      return [
+        [space.x, space.y, space.width, bottom - space.y],
+        [space.x, top, space.width, space.y + space.height - top],
+        [space.x, bottom, left - space.x, top - bottom],
+        [right, bottom, space.x + space.width - right, top - bottom],
+      ]
+        .filter(
+          ([, , width, height]) =>
+            width > 2 * unit.reveal && height > 2 * unit.reveal,
+        )
+        .map(([x, y, width, height]) => ({
+          ...space,
+          id: `${x}:${y}:${width}:${height}`,
+          x,
+          y,
+          width,
+          height,
+        }));
+    });
+  }
+  return spaces;
+}
+
 export function partInOpening(
   unit: CustomUnitDefinition,
   kind: PlacementKind,
@@ -130,6 +169,10 @@ export function partInOpening(
   const snapTo = (v: number) => (snap ? Math.round(v / snap) * snap : v);
   const front = kind === 'door' || kind === 'drawer';
   const vertical = kind === 'divider';
+  const frontHeight =
+    kind === 'drawer'
+      ? Math.min(8, opening.height - 2 * r)
+      : opening.height - 2 * r;
   return {
     id: 'placement-preview',
     kind,
@@ -141,7 +184,15 @@ export function partInOpening(
         )
       : opening.x + (front ? r : 0),
     y: front
-      ? opening.y + r
+      ? kind === 'drawer'
+        ? Math.max(
+            opening.y + r,
+            Math.min(
+              opening.y + opening.height - r - frontHeight,
+              snapTo(y - frontHeight / 2),
+            ),
+          )
+        : opening.y + r
       : vertical
         ? opening.y
         : Math.max(
@@ -150,7 +201,7 @@ export function partInOpening(
           ),
     z: front ? -t : kind === 'rod' ? unit.depth / 2 : 0.5,
     width: vertical ? t : opening.width - (front ? 2 * r : 0),
-    height: front ? opening.height - 2 * r : vertical ? opening.height : t,
+    height: front ? frontHeight : vertical ? opening.height : t,
     depth: front || kind === 'rod' ? t : Math.max(t, opening.depth - 1.25),
   };
 }

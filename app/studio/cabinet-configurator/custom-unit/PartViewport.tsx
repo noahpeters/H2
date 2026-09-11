@@ -5,7 +5,7 @@ import {TransformControls} from 'three/examples/jsm/controls/TransformControls.j
 import {createCabinetRenderer} from '../sceneRenderer';
 import {customUnitGeometry} from './geometry';
 import {
-  cabinetOpenings,
+  placementOpenings,
   partInOpening,
   type CabinetOpening,
   type PlacementKind,
@@ -92,7 +92,9 @@ export function PartViewport(props: Props) {
       clearGhost();
       scene.remove(targets);
       dispose(targets);
-      spaces = current.current.placement ? cabinetOpenings(definition) : [];
+      spaces = current.current.placement
+        ? placementOpenings(definition, current.current.placement)
+        : [];
       targets = customUnitGeometry({
         ...definition,
         parts: spaces.map((space) => ({

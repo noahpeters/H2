@@ -1,7 +1,11 @@
 import {describe, expect, it} from 'vitest';
 import {createCustomUnit} from './model';
 import {editableParts} from './partEditing';
-import {cabinetOpenings, partInOpening} from './openingPlacement';
+import {
+  cabinetOpenings,
+  partInOpening,
+  placementOpenings,
+} from './openingPlacement';
 
 describe('opening placement', () => {
   it('finds the clear opening between carcass boards', () => {
@@ -75,5 +79,44 @@ describe('opening placement', () => {
     );
     const next = {...unit, parts: [...editableParts(unit), shelf]};
     expect(cabinetOpenings(next)).toHaveLength(2);
+  });
+});
+
+describe('front placement', () => {
+  it('caps drawers at eight inches and uses all of a shorter opening', () => {
+    const unit = createCustomUnit();
+    const opening = cabinetOpenings(unit)[0];
+    expect(partInOpening(unit, 'drawer', opening, 24, 35)).toMatchObject({
+      height: 8,
+      y: 27.125,
+    });
+    expect(
+      partInOpening(unit, 'drawer', {...opening, height: 6}),
+    ).toMatchObject({height: 5.75, y: 0.875});
+  });
+  it('fits a door beneath a drawer with a reveal and leaves interior placement available', () => {
+    const unit = createCustomUnit();
+    const opening = cabinetOpenings(unit)[0];
+    const drawer = partInOpening(unit, 'drawer', opening, 24, 35);
+    unit.parts = [...editableParts(unit), drawer];
+    const spaces = placementOpenings(unit, 'door');
+    expect(spaces).toHaveLength(1);
+    const door = partInOpening(unit, 'door', spaces[0]);
+    expect(door.y + door.height).toBeCloseTo(drawer.y - unit.reveal);
+    expect(placementOpenings(unit, 'shelf')).toEqual([opening]);
+    unit.parts.push({...door, id: 'door'});
+    expect(placementOpenings(unit, 'door')).toEqual([]);
+    expect(placementOpenings(unit, 'drawer')).toEqual([]);
+  });
+  it('excludes existing fronts at any setback, including partial-width doors', () => {
+    const unit = createCustomUnit();
+    const opening = cabinetOpenings(unit)[0];
+    const door = {...partInOpening(unit, 'door', opening), width: 20, z: 2};
+    unit.parts = [...editableParts(unit), door];
+    const spaces = placementOpenings(unit, 'drawer');
+    expect(spaces).toHaveLength(1);
+    const drawer = partInOpening(unit, 'drawer', spaces[0]);
+    expect(drawer.x).toBeCloseTo(door.x + door.width + unit.reveal);
+    expect(drawer.height).toBe(8);
   });
 });

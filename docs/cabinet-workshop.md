@@ -42,3 +42,5 @@ Automated coverage includes legacy round trips, exact part edits, setbacks, curv
 ## Opening placement
 
 Click an Add button to enter placement mode, then hover the cabinet. A translucent part follows the cursor and fits the opening beneath it; click to place or press Escape to cancel. Fronts fade during placement so the interior remains visible. Shelves and rods follow the cursor vertically, dividers horizontally, and doors/drawers fit the opening with the cabinet reveal. Openings are derived from the current physical boards, including newly placed shelves and moved dividers. Placement is a single undoable edit; hovering and cancellation do not change the design. The inspector remains available for precise adjustments after placement.
+
+New drawer fronts follow the cursor within the available front area and are capped at 8 inches high, shrinking to fit smaller remaining spaces. Door fronts fill the available area. Existing doors and drawers are excluded from both placement targets regardless of setback or preview opening state, with the default reveal retained between fronts. Shelves and other interior parts still target the physical opening behind fronts.
