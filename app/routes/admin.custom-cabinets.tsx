@@ -32,7 +32,6 @@ function config(context: Route.LoaderArgs['context'], request: Request) {
     CABINET_ROOMS_URL?: string;
     CABINET_ROOMS_TOKEN?: string;
     CABINET_ADMIN_CREDENTIALS?: string;
-    CABINET_ADMIN_TOKEN?: string;
   };
   const authorization = request.headers.get('Authorization');
   if (
@@ -40,11 +39,7 @@ function config(context: Route.LoaderArgs['context'], request: Request) {
     authorization !== `Basic ${btoa(env.CABINET_ADMIN_CREDENTIALS)}`
   )
     throw unauthorized();
-  if (
-    !env.CABINET_ROOMS_URL ||
-    !env.CABINET_ROOMS_TOKEN ||
-    !env.CABINET_ADMIN_TOKEN
-  )
+  if (!env.CABINET_ROOMS_URL || !env.CABINET_ROOMS_TOKEN)
     throw new Response('Cabinet library is not configured', {status: 503});
   return env as Required<typeof env>;
 }
@@ -55,7 +50,7 @@ export async function loader({context, request}: Route.LoaderArgs) {
     {
       headers: {
         Authorization: `Bearer ${env.CABINET_ROOMS_TOKEN}`,
-        'X-Admin-Token': env.CABINET_ADMIN_TOKEN,
+        'X-Admin-Token': env.CABINET_ROOMS_TOKEN,
       },
     },
   );
@@ -77,7 +72,7 @@ export async function action({context, request}: Route.ActionArgs) {
       method: String(form.get('method')) === 'POST' ? 'POST' : 'PUT',
       headers: {
         Authorization: `Bearer ${env.CABINET_ROOMS_TOKEN}`,
-        'X-Admin-Token': env.CABINET_ADMIN_TOKEN,
+        'X-Admin-Token': env.CABINET_ROOMS_TOKEN,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(value),
