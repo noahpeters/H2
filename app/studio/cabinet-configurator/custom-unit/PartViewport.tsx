@@ -4,7 +4,13 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {TransformControls} from 'three/examples/jsm/controls/TransformControls.js';
 import {createCabinetRenderer} from '../sceneRenderer';
 import {customUnitGeometry} from './geometry';
-import type {CustomUnitDefinition} from './model';
+import {
+  cabinetOpenings,
+  partInOpening,
+  type CabinetOpening,
+  type PlacementKind,
+} from './openingPlacement';
+import type {CabinetPart, CustomUnitDefinition} from './model';
 
 type Props = {
   definition: CustomUnitDefinition;
@@ -14,6 +20,9 @@ type Props = {
   snap: number;
   openings: Record<string, number>;
   fitRevision: number;
+  placement: PlacementKind | null;
+  onPlace: (part: CabinetPart) => void;
+  onCancelPlacement: () => void;
   onSelect: (id: string) => void;
   onMove: (id: string, delta: {x: number; y: number; z: number}) => void;
 };
@@ -42,6 +51,29 @@ export function PartViewport(props: Props) {
     transform.setMode('translate');
     scene.add(transform.getHelper());
     let group = new THREE.Group();
+    let targets = new THREE.Group();
+    let ghost = new THREE.Group();
+    let spaces: CabinetOpening[] = [];
+    let candidate: CabinetPart | null = null;
+    let candidateKey = '';
+    const dispose = (root: THREE.Object3D) =>
+      root.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.geometry.dispose();
+          const materials = Array.isArray(object.material)
+            ? object.material
+            : [object.material];
+          materials.forEach((material) => material.dispose());
+        }
+      });
+    const clearGhost = () => {
+      scene.remove(ghost);
+      dispose(ghost);
+      ghost = new THREE.Group();
+      candidate = null;
+      candidateKey = '';
+      targets.children.forEach((target) => (target.visible = false));
+    };
     let previousView = '';
     let previousUnit = '';
     const disposeGroup = () =>
@@ -57,12 +89,58 @@ export function PartViewport(props: Props) {
     const refresh = () => {
       const {definition, selectedId, tool, view, snap} = current.current;
       transform.detach();
+      clearGhost();
+      scene.remove(targets);
+      dispose(targets);
+      spaces = current.current.placement ? cabinetOpenings(definition) : [];
+      targets = customUnitGeometry({
+        ...definition,
+        parts: spaces.map((space) => ({
+          id: space.id,
+          kind: 'door',
+          x: space.x,
+          y: space.y,
+          z: 0,
+          width: space.width,
+          height: space.height,
+          depth: 0.02,
+        })),
+      });
+      targets.scale.z = -1;
+      targets.updateMatrixWorld(true);
+      targets.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          const mat = object.material as THREE.MeshStandardMaterial;
+          mat.color.set(0x7da77e);
+          mat.transparent = true;
+          mat.opacity = 0.16;
+          mat.depthTest = false;
+          object.renderOrder = 5;
+          mat.depthWrite = false;
+          object.visible = false;
+        }
+      });
+      scene.add(targets);
+      orbit.enabled = !current.current.placement;
+      renderer.domElement.style.cursor = current.current.placement
+        ? 'crosshair'
+        : '';
       scene.remove(group);
       disposeGroup();
       group = customUnitGeometry(definition, current.current.openings);
       group.scale.z = -1;
       scene.add(group);
       group.traverse((object) => {
+        if (
+          current.current.placement &&
+          object instanceof THREE.Mesh &&
+          ['custom-unit-door', 'custom-unit-drawer'].includes(object.name)
+        ) {
+          const mat = object.material as THREE.MeshStandardMaterial;
+          mat.transparent = true;
+          mat.opacity = 0.12;
+          mat.depthWrite = false;
+        }
         if (
           object.userData.partId === selectedId &&
           object instanceof THREE.Mesh
@@ -79,6 +157,7 @@ export function PartViewport(props: Props) {
       if (
         selectedObject &&
         tool === 'move' &&
+        !current.current.placement &&
         !current.current.openings[selectedId]
       )
         transform.attach(selectedObject);
@@ -121,7 +200,7 @@ export function PartViewport(props: Props) {
       if (transform.object) origin = transform.object.position.clone();
     });
     transform.addEventListener('dragging-changed', (event) => {
-      orbit.enabled = !event.value;
+      orbit.enabled = !event.value && !current.current.placement;
     });
     transform.addEventListener('mouseUp', () => {
       if (!transform.object) return;
@@ -138,7 +217,80 @@ export function PartViewport(props: Props) {
     const down = (event: PointerEvent) => {
       start = {x: event.clientX, y: event.clientY};
     };
+    const hover = (event: PointerEvent) => {
+      const {placement, definition, snap} = current.current;
+      if (!placement) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      ray.setFromCamera(
+        new THREE.Vector2(
+          ((event.clientX - rect.left) / rect.width) * 2 - 1,
+          (-(event.clientY - rect.top) / rect.height) * 2 + 1,
+        ),
+        camera,
+      );
+      const hits = ray.intersectObjects(targets.children, true);
+      const hit = hits[0];
+      const opening =
+        hit && spaces.find((space) => space.id === hit.object.userData.partId);
+      if (!opening) {
+        clearGhost();
+        return;
+      }
+      const part = partInOpening(
+        definition,
+        placement,
+        opening,
+        hit.point.x + definition.width / 2,
+        hit.point.y,
+        snap,
+      );
+      if (part.width <= 0 || part.height <= 0 || part.depth <= 0) {
+        clearGhost();
+        return;
+      }
+      const key = JSON.stringify(part);
+      if (key === candidateKey) return;
+      clearGhost();
+      candidate = part;
+      candidateKey = key;
+      hit.object.visible = true;
+      ghost = customUnitGeometry({...definition, parts: [part]});
+      ghost.scale.z = -1;
+      ghost.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          const mat = object.material as THREE.MeshStandardMaterial;
+          mat.color.set(0x80b496);
+          mat.transparent = true;
+          mat.opacity = 0.65;
+          mat.depthTest = false;
+          object.renderOrder = 10;
+          mat.depthWrite = false;
+          object.castShadow = false;
+        }
+      });
+      scene.add(ghost);
+    };
+    const leave = () => {
+      if (current.current.placement) clearGhost();
+    };
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && current.current.placement) {
+        clearGhost();
+        current.current.onCancelPlacement();
+      }
+    };
     const select = (event: PointerEvent) => {
+      if (current.current.placement) {
+        if (
+          event.button !== 0 ||
+          Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4
+        )
+          return;
+        hover(event);
+        if (candidate) current.current.onPlace(candidate);
+        clearGhost();
+        return;
+      }
       if (
         transform.axis ||
         Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4
@@ -156,6 +308,9 @@ export function PartViewport(props: Props) {
       if (hit) current.current.onSelect(hit.object.userData.partId as string);
     };
     renderer.domElement.addEventListener('pointerdown', down);
+    renderer.domElement.addEventListener('pointermove', hover);
+    renderer.domElement.addEventListener('pointerleave', leave);
+    window.addEventListener('keydown', cancel);
     renderer.domElement.addEventListener('pointerup', select);
     const resize = new ResizeObserver(() => {
       if (!host.current) return;
@@ -175,6 +330,11 @@ export function PartViewport(props: Props) {
       renderer.setAnimationLoop(null);
       renderer.domElement.removeEventListener('pointerdown', down);
       renderer.domElement.removeEventListener('pointerup', select);
+      renderer.domElement.removeEventListener('pointermove', hover);
+      renderer.domElement.removeEventListener('pointerleave', leave);
+      window.removeEventListener('keydown', cancel);
+      clearGhost();
+      dispose(targets);
       transform.dispose();
       orbit.dispose();
       disposeGroup();
@@ -192,6 +352,7 @@ export function PartViewport(props: Props) {
     props.snap,
     props.openings,
     props.fitRevision,
+    props.placement,
   ]);
   return (
     <div

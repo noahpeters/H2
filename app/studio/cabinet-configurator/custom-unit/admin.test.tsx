@@ -3,7 +3,31 @@ import {createMemoryRouter, RouterProvider} from 'react-router';
 import {describe, expect, it, vi} from 'vitest';
 import CabinetAdmin from '~/routes/admin.custom-cabinets';
 import type {CustomCabinetLibraryItem} from './library';
-vi.mock('./PartViewport', () => ({PartViewport: () => <div>3D viewport</div>}));
+vi.mock('./PartViewport', async () => {
+  const {cabinetOpenings, partInOpening} = await import('./openingPlacement');
+  return {
+    PartViewport: (
+      props: Parameters<typeof import('./PartViewport').PartViewport>[0],
+    ) =>
+      props.placement ? (
+        <button
+          onClick={() =>
+            props.onPlace(
+              partInOpening(
+                props.definition,
+                props.placement!,
+                cabinetOpenings(props.definition)[0],
+              ),
+            )
+          }
+        >
+          Place in opening
+        </button>
+      ) : (
+        <div>3D viewport</div>
+      ),
+  };
+});
 vi.mock('~/studio/StudioHeader', () => ({
   StudioHeader: () => <header>From Trees</header>,
 }));
@@ -39,6 +63,7 @@ describe('cabinet library save flow', () => {
     render(<RouterProvider router={router} />);
     await screen.findByRole('button', {name: 'Save cabinet'});
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     fireEvent.click(screen.getByRole('button', {name: 'Save cabinet'}));
     await screen.findByRole('button', {name: 'Save new version'});
     fireEvent.click(screen.getByRole('button', {name: 'Save new version'}));

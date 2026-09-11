@@ -1,3 +1,4 @@
+import type {PlacementKind} from './openingPlacement';
 import {useState} from 'react';
 import {
   CLOSET_EXAMPLE,
@@ -8,10 +9,7 @@ import {
 } from './examples';
 import {PartViewport} from './PartViewport';
 import {
-  addPart,
   setCabinetProfile,
-  addPanel,
-  addEndShelf,
   changePart,
   editableParts,
   setPartSetback,
@@ -89,6 +87,7 @@ export function CustomUnitEditor({
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');
   const [tool, setTool] = useState<'orbit' | 'move'>('orbit');
+  const [placement, setPlacement] = useState<PlacementKind | null>(null);
   const [fitRevision, setFitRevision] = useState(0);
   const [snap, setSnap] = useState(0.0625);
   const [openings, setOpenings] = useState<Record<string, number>>({});
@@ -106,12 +105,13 @@ export function CustomUnitEditor({
     const errors = validateCustomUnit(next);
     if (errors.length) {
       setError(errors.join('\n'));
-      return;
+      return false;
     }
     setError('');
     setPast([...past.slice(-49), definition]);
     setFuture([]);
     publish(next);
+    return true;
   };
   const patch = (value: Partial<CabinetPart>) => {
     if (selected) update(changePart(definition, selected.id, value));
@@ -120,6 +120,7 @@ export function CustomUnitEditor({
     part.name ||
     `${part.kind[0].toUpperCase()}${part.kind.slice(1)} ${index + 1}`;
   const preset = (source: CustomUnitDefinition) => {
+    setPlacement(null);
     update({...structuredClone(source), id: definition.id});
     setSelectedId('');
   };
@@ -407,10 +408,8 @@ export function CustomUnitEditor({
               <button
                 key={kind}
                 onClick={() => {
-                  const next = addPart(definition, kind);
-                  update(next);
-                  setSelectedId(next.parts!.at(-1)!.id);
-                  setTool('move');
+                  setPlacement(kind);
+                  setOpenings({});
                 }}
               >
                 + {kind}
@@ -422,9 +421,8 @@ export function CustomUnitEditor({
               <button
                 key={orientation}
                 onClick={() => {
-                  const next = addPanel(definition, orientation);
-                  update(next);
-                  setSelectedId(next.parts!.at(-1)!.id);
+                  setPlacement(`${orientation}-panel`);
+                  setOpenings({});
                 }}
               >
                 + {orientation} panel
@@ -436,9 +434,8 @@ export function CustomUnitEditor({
               <button
                 key={side}
                 onClick={() => {
-                  const next = addEndShelf(definition, side);
-                  update(next);
-                  setSelectedId(next.parts!.at(-1)!.id);
+                  setPlacement(`${side}-end-shelf`);
+                  setOpenings({});
                 }}
               >
                 + {side} end shelf
@@ -503,6 +500,14 @@ export function CustomUnitEditor({
               </button>
             </div>
           </div>
+          {placement && (
+            <div className="cu-placement-banner" role="status">
+              Place {placement}: hover an opening, then click. Escape cancels.
+              <button onClick={() => setPlacement(null)}>
+                Cancel placement
+              </button>
+            </div>
+          )}
           <PartViewport
             definition={definition}
             selectedId={selectedId}
@@ -511,6 +516,18 @@ export function CustomUnitEditor({
             snap={snap}
             openings={openings}
             fitRevision={fitRevision}
+            placement={placement}
+            onCancelPlacement={() => setPlacement(null)}
+            onPlace={(part) => {
+              const next = {
+                ...definition,
+                parts: [...parts, {...part, id: customUnitId('part')}],
+              };
+              if (!update(next)) return;
+              setSelectedId(next.parts.at(-1)!.id);
+              setPlacement(null);
+              setTool('move');
+            }}
             onSelect={setSelectedId}
             onMove={(id, delta) => {
               const part = parts.find((item) => item.id === id);
@@ -553,9 +570,11 @@ export function CustomUnitEditor({
             </label>
           </div>
           <p className="cu-hint">
-            {tool === 'move'
-              ? 'Select a part, then drag an axis arrow to move it. Use the inspector for exact sizes.'
-              : 'Drag to orbit · Right-drag to pan · Scroll to zoom · Click a part to select'}
+            {placement
+              ? 'Move over an opening to preview. Click to place · Escape to cancel'
+              : tool === 'move'
+                ? 'Select a part, then drag an axis arrow to move it. Use the inspector for exact sizes.'
+                : 'Drag to orbit · Right-drag to pan · Scroll to zoom · Click a part to select'}
           </p>
           <p className="cu-takeoff">
             {definition.width} W × {definition.height} H × {definition.depth} D

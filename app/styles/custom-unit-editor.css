@@ -401,3 +401,14 @@
 .cu-panel .cu-checkbox input {
   width: auto;
 }
+.cu-placement-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  background: #e2ecd9;
+  color: #254536;
+  font-size: 12px;
+}

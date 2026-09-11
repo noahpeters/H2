@@ -1,13 +1,50 @@
 import {fireEvent, render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
 import {CustomUnitEditor} from './CustomUnitEditor';
-vi.mock('./PartViewport', () => ({PartViewport: () => <div>3D viewport</div>}));
+vi.mock('./PartViewport', async () => {
+  const {cabinetOpenings, partInOpening} = await import('./openingPlacement');
+  return {
+    PartViewport: (
+      props: Parameters<typeof import('./PartViewport').PartViewport>[0],
+    ) =>
+      props.placement ? (
+        <button
+          onClick={() =>
+            props.onPlace(
+              partInOpening(
+                props.definition,
+                props.placement!,
+                cabinetOpenings(props.definition)[0],
+              ),
+            )
+          }
+        >
+          Place in opening
+        </button>
+      ) : (
+        <div>3D viewport</div>
+      ),
+  };
+});
 
 describe('Cabinet workshop', () => {
+  it('does not save a part before placement and cancels without changes', () => {
+    const onChange = vi.fn();
+    render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Place shelf');
+    fireEvent.click(screen.getByRole('button', {name: 'Cancel placement'}));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', {name: 'Place in opening'}),
+    ).not.toBeInTheDocument();
+  });
   it('adds a shelf and commits exact sizes, setbacks, and undo to the parent', () => {
     const onChange = vi.fn();
     render(<CustomUnitEditor onChange={onChange} />);
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     const field = screen.getByLabelText('Front setback');
     fireEvent.change(field, {target: {value: '1.0625'}});
     fireEvent.blur(field);
@@ -19,8 +56,10 @@ describe('Cabinet workshop', () => {
     const onChange = vi.fn();
     render(<CustomUnitEditor onChange={onChange} />);
     fireEvent.click(screen.getByRole('button', {name: '+ right end shelf'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     expect(onChange.mock.lastCall![0].parts.at(-1).shape).toBe('round-right');
     fireEvent.click(screen.getByRole('button', {name: '+ door'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     fireEvent.change(screen.getByLabelText('Mechanism'), {
       target: {value: 'pocket'},
     });
@@ -45,6 +84,7 @@ describe('Cabinet workshop', () => {
       radius: 12,
     });
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     expect(onChange.mock.lastCall![0].profile.radius).toBe(12);
     expect(onChange.mock.lastCall![0].parts.at(-1).profileMode).not.toBe(
       'independent',

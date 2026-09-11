@@ -38,3 +38,7 @@ Library saves require `CABINET_ROOMS_URL` and `CABINET_ROOMS_TOKEN`. The editor 
 ## Verification
 
 Automated coverage includes legacy round trips, exact part edits, setbacks, curved profiles, projected footprints, mechanism geometry, import propagation, and create-then-update library saves. Browser checks cover exact dimensions, handle dragging, curved cabinets/end shelves, door opening, and mobile layout. Local library persistence uses a simulated service in the save-flow test; a configured service is needed for live verification.
+
+## Opening placement
+
+Click an Add button to enter placement mode, then hover the cabinet. A translucent part follows the cursor and fits the opening beneath it; click to place or press Escape to cancel. Fronts fade during placement so the interior remains visible. Shelves and rods follow the cursor vertically, dividers horizontally, and doors/drawers fit the opening with the cabinet reveal. Openings are derived from the current physical boards, including newly placed shelves and moved dividers. Placement is a single undoable edit; hovering and cancellation do not change the design. The inspector remains available for precise adjustments after placement.
