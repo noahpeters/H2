@@ -409,19 +409,19 @@ export function CustomUnitEditor({
           </details>
           <h2>02 / Add a part</h2>
           <div className="cu-add">
-            {(
-              ['shelf', 'divider', 'panel', 'door', 'drawer', 'rod'] as const
-            ).map((kind) => (
-              <button
-                key={kind}
-                onClick={() => {
-                  setPlacement(kind);
-                  setOpenings({});
-                }}
-              >
-                + {kind}
-              </button>
-            ))}
+            {(['shelf', 'divider', 'door', 'drawer', 'rod'] as const).map(
+              (kind) => (
+                <button
+                  key={kind}
+                  onClick={() => {
+                    setPlacement(kind);
+                    setOpenings({});
+                  }}
+                >
+                  + {kind}
+                </button>
+              ),
+            )}
           </div>
           <div className="cu-add cu-end-shelves">
             {(['back', 'side'] as const).map((orientation) => (
