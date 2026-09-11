@@ -21,30 +21,17 @@ export const meta: Route.MetaFunction = () => [
   {name: 'robots', content: 'noindex,nofollow'},
 ];
 
-function unauthorized() {
-  return new Response('Administrator access required', {
-    status: 401,
-    headers: {'WWW-Authenticate': 'Basic realm="From Trees cabinets"'},
-  });
-}
-function config(context: Route.LoaderArgs['context'], request: Request) {
+function config(context: Route.LoaderArgs['context']) {
   const env = context.env as unknown as {
     CABINET_ROOMS_URL?: string;
     CABINET_ROOMS_TOKEN?: string;
-    CABINET_ADMIN_CREDENTIALS?: string;
   };
-  const authorization = request.headers.get('Authorization');
-  if (
-    !env.CABINET_ADMIN_CREDENTIALS ||
-    authorization !== `Basic ${btoa(env.CABINET_ADMIN_CREDENTIALS)}`
-  )
-    throw unauthorized();
   if (!env.CABINET_ROOMS_URL || !env.CABINET_ROOMS_TOKEN)
     throw new Response('Cabinet library is not configured', {status: 503});
   return env as Required<typeof env>;
 }
-export async function loader({context, request}: Route.LoaderArgs) {
-  const env = config(context, request);
+export async function loader({context}: Route.LoaderArgs) {
+  const env = config(context);
   const response = await fetch(
     new URL('/custom-cabinets', env.CABINET_ROOMS_URL),
     {
@@ -61,7 +48,7 @@ export async function loader({context, request}: Route.LoaderArgs) {
   return {items: (await response.json()) as CustomCabinetLibraryItem[]};
 }
 export async function action({context, request}: Route.ActionArgs) {
-  const env = config(context, request);
+  const env = config(context);
   if (request.headers.get('Origin') !== new URL(request.url).origin)
     return jsonResponse({error: 'Invalid origin'}, 403);
   const form = await request.formData();
@@ -130,7 +117,7 @@ export default function CabinetAdmin() {
     <main className="cu-admin">
       <header className="cu-header">
         <div>
-          <p>Administrator only</p>
+          <p>Library editor</p>
           <h1>Reusable cabinet library</h1>
         </div>
         <button onClick={() => choose(null)}>Create cabinet</button>
