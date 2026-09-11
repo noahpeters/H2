@@ -88,7 +88,7 @@ export function CustomUnitEditor({
   const [definition, setDefinition] = useState(initialDefinition);
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');
-  const [tool, setTool] = useState<'orbit' | 'move'>('orbit');
+  const [tool, setTool] = useState<'orbit' | 'move' | 'interact'>('orbit');
   const [appearance, setAppearance] = useState<CabinetAppearance>({
     face: 'slab',
     material: 'rift-white-oak',
@@ -128,6 +128,7 @@ export function CustomUnitEditor({
     `${part.kind[0].toUpperCase()}${part.kind.slice(1)} ${index + 1}`;
   const preset = (source: CustomUnitDefinition) => {
     setPlacement(null);
+    setOpenings({});
     update({...structuredClone(source), id: definition.id});
     setSelectedId('');
   };
@@ -603,6 +604,14 @@ export function CustomUnitEditor({
               setPlacement(null);
               setTool('move');
             }}
+            onInteract={(id) => {
+              const part = parts.find((part) => part.id === id);
+              if (part?.kind === 'door' || part?.kind === 'drawer')
+                setOpenings((previous) => ({
+                  ...previous,
+                  [id]: previous[id] ? 0 : 1,
+                }));
+            }}
             onSelect={setSelectedId}
             onMove={(id, delta) => {
               const part = parts.find((item) => item.id === id);
@@ -630,6 +639,16 @@ export function CustomUnitEditor({
               >
                 Move part
               </button>
+              <button
+                className={tool === 'interact' ? 'active' : ''}
+                onClick={() => {
+                  setTool('interact');
+                  setSelectedId('');
+                  setPlacement(null);
+                }}
+              >
+                Interact
+              </button>
             </div>
             <label className="cu-snap">
               Snap
@@ -647,9 +666,11 @@ export function CustomUnitEditor({
           <p className="cu-hint">
             {placement
               ? 'Move over an opening to preview. Click to place · Escape to cancel'
-              : tool === 'move'
-                ? 'Select a part, then drag an axis arrow to move it. Use the inspector for exact sizes.'
-                : 'Drag to orbit · Right-drag to pan · Scroll to zoom · Click a part to select'}
+              : tool === 'interact'
+                ? 'Click a door or drawer to open or close it · Drag to orbit'
+                : tool === 'move'
+                  ? 'Select a part, then drag an axis arrow to move it. Use the inspector for exact sizes.'
+                  : 'Drag to orbit · Right-drag to pan · Scroll to zoom · Click a part to select'}
           </p>
           <p className="cu-takeoff">
             {definition.width} W × {definition.height} H × {definition.depth} D
@@ -717,11 +738,11 @@ export function CustomUnitEditor({
                   </label>
                   {selected.door && (
                     <>
-                      {['hinged', 'pocket'].includes(
+                      {['hinged', 'pocket', 'tambour'].includes(
                         selected.door.mechanism,
                       ) && (
                         <label>
-                          Hinge / pocket side
+                          Hinge / pocket / roll side
                           <select
                             value={selected.door.side}
                             onChange={(event) =>
@@ -749,15 +770,38 @@ export function CustomUnitEditor({
                         />
                       )}
                       {selected.door.mechanism === 'tambour' && (
-                        <Dimension
-                          label="Tambour slat size"
-                          value={selected.door.slatSize}
-                          min={0.25}
-                          max={6}
-                          onChange={(slatSize) =>
-                            patch({door: {...selected.door!, slatSize}})
-                          }
-                        />
+                        <>
+                          <label>
+                            Tambour direction
+                            <select
+                              value={selected.door.direction ?? 'vertical'}
+                              onChange={(event) =>
+                                patch({
+                                  door: {
+                                    ...selected.door!,
+                                    direction: event.target.value as
+                                      | 'vertical'
+                                      | 'horizontal',
+                                  },
+                                })
+                              }
+                            >
+                              <option value="vertical">Vertical roll-up</option>
+                              <option value="horizontal">
+                                Horizontal roll
+                              </option>
+                            </select>
+                          </label>
+                          <Dimension
+                            label="Tambour slat size"
+                            value={selected.door.slatSize}
+                            min={0.25}
+                            max={6}
+                            onChange={(slatSize) =>
+                              patch({door: {...selected.door!, slatSize}})
+                            }
+                          />
+                        </>
                       )}
                     </>
                   )}

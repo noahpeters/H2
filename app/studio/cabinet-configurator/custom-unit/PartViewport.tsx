@@ -17,7 +17,8 @@ type Props = {
   definition: CustomUnitDefinition;
   selectedId: string;
   view: '3d' | 'front' | 'side' | 'top';
-  tool: 'orbit' | 'move';
+  tool: 'orbit' | 'move' | 'interact';
+  onInteract: (id: string) => void;
   snap: number;
   openings: Record<string, number>;
   fitRevision: number;
@@ -52,6 +53,7 @@ export function PartViewport(props: Props) {
     const transform = new TransformControls(camera, renderer.domElement);
     transform.setMode('translate');
     scene.add(transform.getHelper());
+    const animated: Record<string, number> = {};
     let group = new THREE.Group();
     let targets = new THREE.Group();
     let ghost = new THREE.Group();
@@ -137,7 +139,7 @@ export function PartViewport(props: Props) {
       disposeGroup();
       group = customUnitGeometry(
         definition,
-        current.current.openings,
+        animated,
         current.current.appearance,
       );
       group.scale.z = -1;
@@ -332,7 +334,10 @@ export function PartViewport(props: Props) {
         camera,
       );
       const hit = ray.intersectObjects(group.children, true)[0];
-      current.current.onSelect(hit ? (hit.object.userData.partId as string) : '');
+      const id = hit?.object.userData.partId as string | undefined;
+      if (current.current.tool === 'interact' && id)
+        current.current.onInteract(id);
+      else current.current.onSelect(id ?? '');
     };
     renderer.domElement.addEventListener('pointerdown', down);
     renderer.domElement.addEventListener('pointermove', hover);
@@ -347,7 +352,20 @@ export function PartViewport(props: Props) {
       camera.updateProjectionMatrix();
     });
     resize.observe(host.current);
+    let lastFrame = performance.now();
     renderer.setAnimationLoop(() => {
+      const now = performance.now();
+      const step = Math.min(0.05, (now - lastFrame) / 1000) * 1.25;
+      lastFrame = now;
+      group.children.forEach((object) => {
+        const id = object.userData.partId as string;
+        const target = current.current.openings[id] ?? 0;
+        const value = animated[id] ?? 0;
+        animated[id] =
+          value +
+          Math.sign(target - value) * Math.min(step, Math.abs(target - value));
+        object.userData.updateOpening?.(animated[id]);
+      });
       orbit.update();
       renderer.render(scene, camera);
     });

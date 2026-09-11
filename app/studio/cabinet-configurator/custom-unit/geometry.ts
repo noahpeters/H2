@@ -293,6 +293,7 @@ export function customUnitGeometry(
       mesh,
       {...part, id: part.id!},
       openings[part.id!] ?? 0,
+      definition.depth,
     );
     object.userData.partId = part.id;
     object.userData.partRoot = true;

@@ -37,12 +37,19 @@ const unit = setCabinetProfile(createCustomUnit({parts}), {
   right: 'convex',
   radius: 12,
 });
-function frontEdge(mesh: THREE.Mesh) {
+function frontEdge(object: THREE.Object3D) {
+  const mesh = (
+    object instanceof THREE.Mesh ? object : object.children[0]
+  ) as THREE.Mesh;
+  mesh.updateWorldMatrix(true, false);
   const vertices = mesh.geometry.getAttribute('position');
   const points = new Map<number, number>();
   for (let i = 0; i < vertices.count; i++) {
-    const x = vertices.getX(i) + mesh.position.x + 24;
-    const z = vertices.getZ(i) + mesh.position.z + 12;
+    const point = mesh.localToWorld(
+      new THREE.Vector3().fromBufferAttribute(vertices, i),
+    );
+    const x = point.x + 24;
+    const z = point.z + 12;
     points.set(x, Math.min(z, points.get(x) ?? Infinity));
   }
   return points;

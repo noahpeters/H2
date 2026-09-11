@@ -25,7 +25,7 @@ describe('preview face styles', () => {
       ];
       const before = JSON.stringify(unit);
       const group = customUnitGeometry(unit, {}, {face, material: 'walnut'});
-      const mesh = group.children[0] as THREE.Mesh;
+      const mesh = group.children[0].children[0] as THREE.Mesh;
       const positions = mesh.geometry.getAttribute('position');
       expect(Array.from(positions.array).every(Number.isFinite)).toBe(true);
       expect(JSON.stringify(unit)).toBe(before);

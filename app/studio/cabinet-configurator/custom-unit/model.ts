@@ -45,6 +45,7 @@ export type CabinetPart = {
     side: 'left' | 'right';
     travel: number;
     slatSize: number;
+    direction?: 'vertical' | 'horizontal';
   };
   x: number;
   y: number;
@@ -355,6 +356,8 @@ export function validateCustomUnit(value: unknown): string[] {
             !Number.isFinite(part.door.travel) ||
             part.door.travel < 0 ||
             part.door.travel > 1000 ||
+            (part.door.direction !== undefined &&
+              !['vertical', 'horizontal'].includes(part.door.direction)) ||
             !Number.isFinite(part.door.slatSize) ||
             part.door.slatSize < 0.25 ||
             part.door.slatSize > 6)

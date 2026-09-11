@@ -50,3 +50,7 @@ Drawers may be placed behind an existing door. These are named Interior drawer a
 ## Preview appearance
 
 Expand Preview style & material above the canvas to view slab, shaker, inset shaker, slatted, or shaker/glass fronts with the room configurator's wood and paint options. These controls are local React state: they never enter the cabinet definition, library save, export, or undo history. Room instances supply their own face/material/paint selections to the same custom-cabinet geometry renderer. Decorative profiles stay within the physical front envelope, follow cabinet curves, and retain part selection and opening previews. Tambour retains its slatted mechanism geometry. Glass applies to doors; drawer fronts use solid shaker panels.
+
+## Interact mode
+
+Select Interact to click doors and drawers open or closed with reversible animation; drag still orbits the cabinet. Motion uses reusable transform rigs. Pocket doors swing through 90 degrees before retracting; hinged, lift-up and pull-down fronts pivot at their corresponding edges. Drawers show a box and extend its full calculated depth. Tambour doors have a saved vertical/horizontal direction and side setting and roll onto a spool behind the top or side. Existing tambour definitions default to vertical. Opening amounts are transient preview state, not saved cabinet data. These motion previews remain illustrative rather than hardware collision or fabrication validation.
