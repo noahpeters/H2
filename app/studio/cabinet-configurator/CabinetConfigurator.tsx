@@ -7,6 +7,10 @@ import {cabinetStudySummary} from '../studyInquiry';
 import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
 import {
+  customCabinetElement,
+  type CustomCabinetLibraryItem,
+} from './custom-unit/library';
+import {
   applyCreationPreferences,
   loadCreationPreferences,
   rememberCreationPreferences,
@@ -839,7 +843,11 @@ export function ThreeStudy({
 
 export function CabinetConfigurator({
   turnstileSiteKey = '',
-}: {turnstileSiteKey?: string} = {}) {
+  customCabinets = [],
+}: {
+  turnstileSiteKey?: string;
+  customCabinets?: CustomCabinetLibraryItem[];
+} = {}) {
   const planSvg = useRef<SVGSVGElement>(null);
   const [viewport, setViewport] = useState({x: 0, y: 0, zoom: 1});
   const [panMode, setPanMode] = useState(false);
@@ -1090,6 +1098,17 @@ export function CabinetConfigurator({
       };
       d.islands.push(automaticallyPlaceIsland(island, d));
       d.selected = island.id;
+    });
+  const addCustomCabinet = (cabinet: CustomCabinetLibraryItem) =>
+    update((d) => {
+      const item = customCabinetElement(cabinet, makeId());
+      const placed = automaticallyPlaceElement(
+        item,
+        d,
+        placementContext(item, d),
+      );
+      d.elements.push(placed);
+      d.selected = placed.id;
     });
   const changeIsland = (
     island: Island,
@@ -1784,6 +1803,28 @@ export function CabinetConfigurator({
                     ))}
                   </div>
                 </details>
+                {customCabinets.length > 0 && (
+                  <details className="cc-add-category">
+                    <summary>From Trees custom</summary>
+                    <div>
+                      {customCabinets.map((cabinet) => (
+                        <button
+                          key={`${cabinet.id}-${cabinet.version}`}
+                          onClick={() => addCustomCabinet(cabinet)}
+                          title={cabinet.description}
+                        >
+                          {cabinet.name}
+                          <small>
+                            Version {cabinet.version}
+                            {cabinet.tags.length
+                              ? ` · ${cabinet.tags.join(', ')}`
+                              : ''}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 <details className="cc-add-category">
                   <summary>Corner</summary>
                   <div>
@@ -1878,6 +1919,22 @@ export function CabinetConfigurator({
                     }
                   >
                     Remove
+                  </button>
+                  <button
+                    onClick={() =>
+                      update((d) => {
+                        const copy = clone(selected);
+                        copy.id = makeId();
+                        if (copy.placement.mode === 'wall')
+                          copy.placement.offset += 3;
+                        else if (copy.placement.mode === 'floor')
+                          copy.placement.x += 3;
+                        d.elements.push(copy);
+                        d.selected = copy.id;
+                      })
+                    }
+                  >
+                    Duplicate
                   </button>
                 </div>
                 {selected.applianceKind === 'range' && (

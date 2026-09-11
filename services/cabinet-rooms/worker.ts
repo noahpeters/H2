@@ -11,16 +11,19 @@ import {
 import {estimateProject, PricingError, type Rates} from './pricing';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import {validPriceRequest} from '../../app/studio/cabinet-configurator/priceProtocol';
+import {validLibraryInput} from '../../app/studio/cabinet-configurator/custom-unit/library';
 interface Statement {
   bind(...values: unknown[]): Statement;
   first<T>(): Promise<T | null>;
   run(): Promise<{meta: {changes: number}}>;
+  all?<T>(): Promise<{results: T[]}>;
 }
 interface Env {
   DB: {prepare(sql: string): Statement};
   SERVICE_TOKEN: string;
   WRITES: {limit(options: {key: string}): Promise<{success: boolean}>};
   SHARES?: {limit(options: {key: string}): Promise<{success: boolean}>};
+  ADMIN_TOKEN?: string;
 }
 const hash = async (key: string) =>
   Array.from(
@@ -89,6 +92,82 @@ export default {
     if (slug && !SLUG.test(slug))
       return jsonResponse({error: 'Invalid room link'}, 400);
     try {
+      if (new URL(request.url).pathname === '/custom-cabinets') {
+        const admin =
+          !!env.ADMIN_TOKEN &&
+          request.headers.get('X-Admin-Token') === env.ADMIN_TOKEN;
+        if (request.method === 'GET') {
+          const statusClause = admin ? '' : " WHERE c.status = 'published'";
+          const rows = await env.DB.prepare(
+            `SELECT c.*, v.definition FROM custom_cabinets c JOIN custom_cabinet_versions v ON v.cabinet_id=c.id AND v.version=c.current_version${statusClause} ORDER BY c.name`,
+          ).bind().all!<{
+            id: string;
+            current_version: number;
+            name: string;
+            description: string;
+            tags: string;
+            thumbnail: string | null;
+            status: 'draft' | 'published' | 'archived';
+            updated_at: string;
+            definition: string;
+          }>();
+          return jsonResponse(
+            rows.results.map((row) => ({
+              id: row.id,
+              version: row.current_version,
+              name: row.name,
+              description: row.description,
+              tags: JSON.parse(row.tags),
+              thumbnail: row.thumbnail ?? undefined,
+              status: row.status,
+              updatedAt: row.updated_at,
+              definition: JSON.parse(row.definition),
+            })),
+          );
+        }
+        if (!admin)
+          return jsonResponse({error: 'Administrator access required'}, 403);
+        if (!['POST', 'PUT'].includes(request.method))
+          return jsonResponse({error: 'Method not allowed'}, 405);
+        const input = await readLimited(request);
+        if (!validLibraryInput(input))
+          return jsonResponse({error: 'Invalid cabinet definition'}, 400);
+        const previous = await env.DB.prepare(
+          'SELECT current_version FROM custom_cabinets WHERE id = ?',
+        )
+          .bind(input.id)
+          .first<{current_version: number}>();
+        if (request.method === 'POST' && previous)
+          return jsonResponse({error: 'Cabinet already exists'}, 409);
+        if (request.method === 'PUT' && !previous)
+          return jsonResponse({error: 'Cabinet not found'}, 404);
+        const version = (previous?.current_version ?? 0) + 1;
+        const now = new Date().toISOString();
+        await env.DB.prepare(
+          `INSERT INTO custom_cabinets (id,current_version,name,description,tags,thumbnail,status,updated_at)
+           VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET current_version=excluded.current_version,name=excluded.name,description=excluded.description,tags=excluded.tags,thumbnail=excluded.thumbnail,status=excluded.status,updated_at=excluded.updated_at`,
+        )
+          .bind(
+            input.id,
+            version,
+            input.name.trim(),
+            input.description,
+            JSON.stringify(input.tags),
+            input.thumbnail ?? null,
+            input.status,
+            now,
+          )
+          .run();
+        await env.DB.prepare(
+          'INSERT INTO custom_cabinet_versions (cabinet_id,version,definition,created_at) VALUES (?,?,?,?)',
+        )
+          .bind(input.id, version, JSON.stringify(input.definition), now)
+          .run();
+        return jsonResponse(
+          {...input, version, updatedAt: now},
+          previous ? 200 : 201,
+        );
+      }
       if (new URL(request.url).pathname === '/quote') {
         if (request.method !== 'POST')
           return jsonResponse({error: 'Method not allowed'}, 405);
