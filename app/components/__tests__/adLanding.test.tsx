@@ -128,10 +128,10 @@ describe('submission receipt', () => {
     );
     send.mockResolvedValue({data: {id: 'contact-email-id'}, error: null});
     const input = args();
-    input.request = new Request(
-      'https://from-trees.com/contact',
-      input.request,
-    );
+    input.request = new Request('https://from-trees.com/contact', {
+      method: 'POST',
+      body: await input.request.formData(),
+    });
     expect(await contactAction(input)).toEqual({
       ok: true,
       eventId: submissionId,
