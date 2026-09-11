@@ -381,19 +381,58 @@ export function validateCustomUnit(value: unknown): string[] {
             part.door.slatSize > 6)
         )
           errors.push('Invalid door mechanism dimensions');
-        if (
-          part.door?.mechanism === 'tambour' &&
-          ((part.profileMode !== 'independent' &&
-            (unit.curve ||
-              (unit.profile &&
-                (unit.profile.left !== 'square' ||
-                  unit.profile.right !== 'square')))) ||
-            part.edges ||
-            (part.shape && part.shape !== 'rectangular'))
-        )
-          errors.push(
-            'Tambour doors currently require a straight rectangular opening',
-          );
+        if (part.door?.mechanism === 'tambour') {
+          const intersectsEdges = (
+            edges: {left: string; right: string; radius: number},
+            x: number,
+            width: number,
+            span: number,
+          ) =>
+            (edges.left !== 'square' && x < edges.radius && x + width > 0) ||
+            (edges.right !== 'square' &&
+              x + width > span - edges.radius &&
+              x < span);
+          const followsCabinet = part.profileMode !== 'independent';
+          const sharedCurve =
+            followsCabinet &&
+            (unit.profile
+              ? intersectsEdges(
+                  unit.profile,
+                  part.x,
+                  part.width,
+                  unit.width ?? 0,
+                )
+              : unit.curve &&
+                (unit.curve.profile === 'arc' ||
+                  intersectsEdges(
+                    {
+                      left:
+                        unit.curve.profile === 'rounded-right'
+                          ? 'square'
+                          : 'convex',
+                      right:
+                        unit.curve.profile === 'rounded-left'
+                          ? 'square'
+                          : 'convex',
+                      radius: unit.curve.radius,
+                    },
+                    part.x,
+                    part.width,
+                    unit.width ?? 0,
+                  )));
+          const localShapeApplies =
+            part.profileMode !== 'cabinet' &&
+            !(followsCabinet && (unit.profile || unit.curve));
+          const localCurve =
+            localShapeApplies &&
+            ((part.edges &&
+              intersectsEdges(part.edges, 0, part.width, part.width)) ||
+              (part.shape && part.shape !== 'rectangular'));
+          if (sharedCurve || localCurve)
+            errors.push(
+              'Tambour doors require a straight rectangular opening; this door intersects a curved area',
+            );
+        }
         if (part.edges) {
           if (
             !['square', 'convex', 'concave'].includes(part.edges.left) ||

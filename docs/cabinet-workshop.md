@@ -27,7 +27,7 @@ Part sizes and positions describe the uncurved layout. Curves deform that layout
 
 Side-hinged, pocket, tambour, lift-up, and pull-down mechanisms are stored on individual door parts. Pocket travel, pocket/hinge side, and tambour slat size are editable. Opening sliders are transient preview state and are not saved as cabinet dimensions.
 
-Door motion is illustrative, not a hardware-specific clearance or fabrication check. The editor warns when a door is too wide for its pocket. Tambour currently supports a straight rectangular opening; combining it with cabinet or part curvature is rejected rather than silently drawing a different design.
+Door motion is illustrative, not a hardware-specific clearance or fabrication check. The editor warns when a door is too wide for its pocket. Tambour currently supports a straight rectangular opening; curvature is rejected only when it intersects the tambour opening. A separate curved cabinet end is allowed.
 
 ## Persistence and compatibility
 
