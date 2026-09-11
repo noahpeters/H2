@@ -30,6 +30,7 @@ function setup() {
     '0004_pricing.sql',
     '0005_price_requests.sql',
     '0006_open_storage.sql',
+    '0008_analytics.sql',
   ])
     db.exec(
       readFileSync(new URL(`./migrations/${name}`, import.meta.url), 'utf8'),
@@ -50,6 +51,9 @@ function setup() {
           bind(...args: any[]) {
             values = args;
             return this;
+          },
+          async all<T>() {
+            return {results: db.prepare(sql).all(...values) as T[]};
           },
           async first<T>() {
             return (db.prepare(sql).get(...values) ?? null) as T | null;
