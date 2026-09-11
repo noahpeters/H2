@@ -18,6 +18,7 @@ vi.mock('react-router', async (original) => ({
 }));
 import {MetaPixel, META_PIXEL_ID} from '../MetaPixel';
 import {action} from '../../routes/inquire.$kind';
+import {action as contactAction} from '../../routes/contact';
 
 beforeEach(() => {
   cleanup();
@@ -39,6 +40,7 @@ describe('landing pixel', () => {
       </StrictMode>,
     );
     expect(window.fbq).toHaveBeenCalledWith('init', META_PIXEL_ID);
+    expect(window.fbq?.disablePushState).toBe(true);
     expect(
       vi.mocked(window.fbq!).mock.calls.filter((c) => c[2] === 'PageView'),
     ).toHaveLength(1);
@@ -119,6 +121,44 @@ function args(overrides: Record<string, string> = {}) {
   } as unknown as Parameters<typeof action>[0];
 }
 describe('submission receipt', () => {
+  it('makes a successful standard contact submission available to global Lead tracking', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{"success":true}')),
+    );
+    send.mockResolvedValue({data: {id: 'contact-email-id'}, error: null});
+    const input = args();
+    input.request = new Request('https://from-trees.com/contact', {
+      method: 'POST',
+      body: await input.request.formData(),
+    });
+    expect(await contactAction(input)).toEqual({
+      ok: true,
+      eventId: submissionId,
+    });
+    expect(input.context.session.set).toHaveBeenLastCalledWith(
+      'projectReceipt',
+      {
+        eventId: submissionId,
+        kind: 'contact',
+      },
+    );
+    state.path = '/contact';
+    state.receipt = {eventId: submissionId, kind: 'contact'};
+    const view = render(<MetaPixel />);
+    view.rerender(<MetaPixel />);
+    expect(
+      vi.mocked(window.fbq!).mock.calls.filter((c) => c[2] === 'Lead'),
+    ).toEqual([
+      [
+        'trackSingle',
+        META_PIXEL_ID,
+        'Lead',
+        {content_name: 'contact'},
+        {eventID: submissionId},
+      ],
+    ]);
+  });
   it('redirects to home only after email acceptance and stores a non-PII receipt', async () => {
     vi.stubGlobal(
       'fetch',
@@ -130,10 +170,13 @@ describe('submission receipt', () => {
     expect(result).toBeInstanceOf(Response);
     expect((result as Response).status).toBe(303);
     expect((result as Response).headers.get('Location')).toBe('/');
-    expect(input.context.session.set).toHaveBeenCalledWith('projectReceipt', {
-      eventId: submissionId,
-      kind: 'furniture',
-    });
+    expect(input.context.session.set).toHaveBeenLastCalledWith(
+      'projectReceipt',
+      {
+        eventId: submissionId,
+        kind: 'furniture',
+      },
+    );
     expect(send.mock.calls[0][1]).toEqual({
       idempotencyKey: `project-${submissionId}`,
     });
