@@ -89,15 +89,17 @@ export function cabinetOpenings(unit: CustomUnitDefinition): CabinetOpening[] {
     }
   return [...found.values()];
 }
-/** Fronts occupy their elevation even when recessed or shown open in the preview. */
+/** Drawers can sit behind doors; exterior fronts still reserve their elevation. */
 export function placementOpenings(
   unit: CustomUnitDefinition,
   kind: PlacementKind,
 ): CabinetOpening[] {
   let spaces = cabinetOpenings(unit);
   if (kind !== 'door' && kind !== 'drawer') return spaces;
-  for (const front of editableParts(unit).filter(
-    (part) => part.kind === 'door' || part.kind === 'drawer',
+  for (const front of editableParts(unit).filter((part) =>
+    kind === 'drawer'
+      ? part.kind === 'drawer'
+      : part.kind === 'door' || (part.kind === 'drawer' && part.z < 0),
   )) {
     spaces = spaces.flatMap((space) => {
       const left = Math.max(space.x, front.x);
@@ -173,9 +175,26 @@ export function partInOpening(
     kind === 'drawer'
       ? Math.min(8, opening.height - 2 * r)
       : opening.height - 2 * r;
+  const coveringDoors =
+    kind === 'drawer'
+      ? editableParts(unit).filter(
+          (part) =>
+            part.kind === 'door' &&
+            part.x < opening.x + opening.width &&
+            part.x + part.width > opening.x &&
+            part.y < opening.y + opening.height &&
+            part.y + part.height > opening.y,
+        )
+      : [];
+  const drawerSetback = coveringDoors.length
+    ? Math.max(0.5, ...coveringDoors.map((door) => door.z + door.depth + 0.5))
+    : -t;
   return {
     id: 'placement-preview',
     kind,
+    ...(kind === 'drawer' && coveringDoors.length
+      ? {name: 'Interior drawer'}
+      : {}),
     profileMode: 'cabinet',
     x: vertical
       ? Math.max(
@@ -199,7 +218,14 @@ export function partInOpening(
             opening.y,
             Math.min(opening.y + opening.height - t, snapTo(y - t / 2)),
           ),
-    z: front ? -t : kind === 'rod' ? unit.depth / 2 : 0.5,
+    z:
+      kind === 'drawer'
+        ? drawerSetback
+        : front
+          ? -t
+          : kind === 'rod'
+            ? unit.depth / 2
+            : 0.5,
     width: vertical ? t : opening.width - (front ? 2 * r : 0),
     height: front ? frontHeight : vertical ? opening.height : t,
     depth: front || kind === 'rod' ? t : Math.max(t, opening.depth - 1.25),

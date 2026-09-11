@@ -106,9 +106,9 @@ describe('front placement', () => {
     expect(placementOpenings(unit, 'shelf')).toEqual([opening]);
     unit.parts.push({...door, id: 'door'});
     expect(placementOpenings(unit, 'door')).toEqual([]);
-    expect(placementOpenings(unit, 'drawer')).toEqual([]);
+    expect(placementOpenings(unit, 'drawer')).toHaveLength(1);
   });
-  it('excludes existing fronts at any setback, including partial-width doors', () => {
+  it('sets drawers behind even recessed partial-width doors', () => {
     const unit = createCustomUnit();
     const opening = cabinetOpenings(unit)[0];
     const door = {...partInOpening(unit, 'door', opening), width: 20, z: 2};
@@ -116,7 +116,33 @@ describe('front placement', () => {
     const spaces = placementOpenings(unit, 'drawer');
     expect(spaces).toHaveLength(1);
     const drawer = partInOpening(unit, 'drawer', spaces[0]);
-    expect(drawer.x).toBeCloseTo(door.x + door.width + unit.reveal);
+    expect(drawer.z).toBe(3.25);
+    expect(drawer.name).toBe('Interior drawer');
     expect(drawer.height).toBe(8);
   });
+});
+
+it('reserves interior drawer space while allowing a door in front of it', () => {
+  const unit = createCustomUnit();
+  const opening = cabinetOpenings(unit)[0];
+  const door = partInOpening(unit, 'door', opening);
+  unit.parts = [...editableParts(unit), {...door, id: 'door'}];
+  const drawer = partInOpening(
+    unit,
+    'drawer',
+    placementOpenings(unit, 'drawer')[0],
+    24,
+    35,
+  );
+  expect(drawer.z).toBe(0.5);
+  expect(drawer.height).toBe(8);
+  unit.parts.push({...drawer, id: 'drawer'});
+  const next = partInOpening(
+    unit,
+    'drawer',
+    placementOpenings(unit, 'drawer')[0],
+  );
+  expect(next.y + next.height).toBeLessThan(drawer.y);
+  unit.parts = unit.parts.filter((part) => part.id !== 'door');
+  expect(placementOpenings(unit, 'door')).toEqual([opening]);
 });
