@@ -39,6 +39,7 @@ jobs:
           workingDirectory: services/cabinet-rooms
           wranglerVersion: '4.129.0'
           command: deploy
-          secrets: SERVICE_TOKEN
+          secrets: SERVICE_TOKEN,ADMIN_TOKEN
         env:
           SERVICE_TOKEN: ${{ secrets.CABINET_ROOMS_TOKEN }}
+          ADMIN_TOKEN: ${{ secrets.CABINET_ROOMS_TOKEN }}
