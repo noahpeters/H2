@@ -29,16 +29,17 @@ export const adLandings = {
     label: 'Custom cabinetry & built-ins · Riverside, California',
     intro:
       'An unusual wall. A corner that could work harder. Storage that needs to feel part of the room. We design and build cabinetry around the space you have and the way you use it.',
-    hero: '/studio/ad-projects/arched-builtins.jpeg',
-    heroAlt: 'Arched built-in shelves and cabinets framing a fireplace',
-    caption: 'Shelving, storage, and a fireplace brought into one composition.',
-    detailTitle: 'The useful details belong in the design.',
-    detail:
-      'A finished wall can do more than it first reveals. In this media wall, the TV panel opens to allow access behind it. Thinking through how a room works is part of thinking through how it looks.',
-    image: '/studio/ad-projects/mediawall-access.jpeg',
-    imageAlt:
+    hero: '/studio/ad-projects/mediawall-access.jpeg',
+    heroAlt:
       'Custom media wall with the television panel open to reveal access behind it',
-    evidence: 'An opening TV panel, shown in use.',
+    caption: 'An opening TV panel, shown in use.',
+    detailTitle: 'Work through the details before the final fit.',
+    detail:
+      'Dimensions, material, and the way each part comes together all affect the finished room. We work through those decisions with you, then carry them into the shop and the details of the build.',
+    image: '/studio/ad-projects/slab-craft.jpeg',
+    imageAlt:
+      'A From Trees craftsperson routing a detail in a figured wood slab',
+    evidence: 'Detail work at the bench in our shop.',
     process: [
       'Start with the room, its dimensions, and what needs to work better.',
       'Resolve the layout, storage, materials, and details together.',
@@ -51,7 +52,7 @@ export const adLandings = {
   },
   designers: {
     title: 'Your design. Worked through together.',
-    label: 'For interior designers · A Riverside craft partner',
+    label: 'For interior designers · A Southern California craft partner',
     intro:
       'Bring the drawing, the unusual dimension, or the detail that needs another pair of hands. We work with you on custom cabinetry and commissioned furniture, with close attention to design intent and the finished piece.',
     hero: '/studio/ad-projects/mediawall-access.jpeg',
@@ -60,9 +61,10 @@ export const adLandings = {
     detailTitle: 'Resolve the construction. Keep the idea.',
     detail:
       'Openings, proportions, and the relationship between pieces all affect the room. We can work through those decisions with you, from dimensions and material direction to the details of fabrication.',
-    image: '/studio/ad-projects/arched-builtins.jpeg',
-    imageAlt: 'Paired arched shelves and cabinets arranged around a fireplace',
-    evidence: 'A fireplace wall with arched shelving and integrated storage.',
+    image: '/studio/ad-projects/slab-craft.jpeg',
+    imageAlt:
+      'A From Trees craftsperson routing a detail in a figured wood slab',
+    evidence: 'From the design details to the work at the bench.',
     process: [
       'Share your drawings, dimensions, and project context.',
       'Work through materials, construction, and the details of the fit.',
