@@ -81,19 +81,25 @@ function Dimension({
 export function CustomUnitEditor({
   initialDefinition = createCustomUnit(),
   onChange,
+  lockEnvelope = false,
+  initialAppearance,
 }: {
   initialDefinition?: CustomUnitDefinition;
+  lockEnvelope?: boolean;
+  initialAppearance?: CabinetAppearance;
   onChange?: (definition: CustomUnitDefinition) => void;
 }) {
   const [definition, setDefinition] = useState(initialDefinition);
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');
   const [tool, setTool] = useState<'orbit' | 'move' | 'interact'>('orbit');
-  const [appearance, setAppearance] = useState<CabinetAppearance>({
-    face: 'slab',
-    material: 'rift-white-oak',
-    paintColor: 'white',
-  });
+  const [appearance, setAppearance] = useState<CabinetAppearance>(
+    initialAppearance ?? {
+      face: 'slab',
+      material: 'rift-white-oak',
+      paintColor: 'white',
+    },
+  );
   const [placement, setPlacement] = useState<PlacementKind | null>(null);
   const [fitRevision, setFitRevision] = useState(0);
   const [snap, setSnap] = useState(0.0625);
@@ -109,6 +115,15 @@ export function CustomUnitEditor({
     onChange?.(next);
   };
   const update = (next: CustomUnitDefinition) => {
+    if (
+      lockEnvelope &&
+      (['width', 'height', 'depth'] as const).some(
+        (field) => next[field] !== initialDefinition[field],
+      )
+    ) {
+      setError('Cabinet dimensions are controlled by the configurator.');
+      return false;
+    }
     const errors = validateCustomUnit(next);
     if (errors.length) {
       setError(errors.join('\n'));
@@ -143,7 +158,7 @@ export function CustomUnitEditor({
             measurements are in inches.
           </p>
         </div>
-        <div className="cu-actions">
+        <div className="cu-actions" hidden={lockEnvelope}>
           <button onClick={() => preset(createCustomUnit())}>
             Blank cabinet
           </button>
@@ -162,7 +177,7 @@ export function CustomUnitEditor({
         <aside className="cu-panel cu-structure">
           <h2>01 / Cabinet</h2>
           <label>
-            Name
+            {lockEnvelope ? 'Configuration name' : 'Name'}
             <input
               value={definition.name}
               onChange={(event) => {
@@ -172,45 +187,53 @@ export function CustomUnitEditor({
             />
           </label>
           <div className="cu-dimensions">
-            {(['width', 'height', 'depth'] as const).map((field) => (
-              <Dimension
-                key={field}
-                label={field}
-                value={definition[field]}
-                min={field === 'depth' ? 8 : 12}
-                onChange={(value) => {
-                  // Scale physical positions and spans with the envelope; preserve board thickness.
-                  const axis =
-                    field === 'width' ? 'x' : field === 'height' ? 'y' : 'z';
-                  const ratio = value / definition[field];
-                  update({
-                    ...definition,
-                    [field]: value,
-                    ...(definition.parts
-                      ? {
-                          parts: parts.map((part) => {
-                            const size =
-                              part[field] > 0.75
-                                ? part[field] * ratio
-                                : part[field];
-                            const anchored =
-                              Math.abs(
-                                part[axis] + part[field] - definition[field],
-                              ) < 0.001;
-                            return {
-                              ...part,
-                              [axis]: anchored
-                                ? value - size
-                                : part[axis] * ratio,
-                              [field]: size,
-                            };
-                          }),
-                        }
-                      : {}),
-                  });
-                }}
-              />
-            ))}
+            {lockEnvelope ? (
+              <p>
+                Cabinet size: {definition.width} × {definition.height} ×{' '}
+                {definition.depth} in (width × height × depth). Change size in
+                the configurator.
+              </p>
+            ) : (
+              (['width', 'height', 'depth'] as const).map((field) => (
+                <Dimension
+                  key={field}
+                  label={field}
+                  value={definition[field]}
+                  min={field === 'depth' ? 8 : 12}
+                  onChange={(value) => {
+                    // Scale physical positions and spans with the envelope; preserve board thickness.
+                    const axis =
+                      field === 'width' ? 'x' : field === 'height' ? 'y' : 'z';
+                    const ratio = value / definition[field];
+                    update({
+                      ...definition,
+                      [field]: value,
+                      ...(definition.parts
+                        ? {
+                            parts: parts.map((part) => {
+                              const size =
+                                part[field] > 0.75
+                                  ? part[field] * ratio
+                                  : part[field];
+                              const anchored =
+                                Math.abs(
+                                  part[axis] + part[field] - definition[field],
+                                ) < 0.001;
+                              return {
+                                ...part,
+                                [axis]: anchored
+                                  ? value - size
+                                  : part[axis] * ratio,
+                                [field]: size,
+                              };
+                            }),
+                          }
+                        : {}),
+                    });
+                  }}
+                />
+              ))
+            )}
           </div>
           <Dimension
             label="Default front reveal"
@@ -970,15 +993,23 @@ export function CustomUnitEditor({
               </div>
               <h3>Size</h3>
               <div className="cu-fields">
-                {(['width', 'height', 'depth'] as const).map((field) => (
-                  <Dimension
-                    key={field}
-                    label={`Part ${field}`}
-                    value={selected[field]}
-                    min={0.0625}
-                    onChange={(value) => patch({[field]: value})}
-                  />
-                ))}
+                {lockEnvelope ? (
+                  <p>
+                    Cabinet size: {definition.width} × {definition.height} ×{' '}
+                    {definition.depth} in (width × height × depth). Change size
+                    in the configurator.
+                  </p>
+                ) : (
+                  (['width', 'height', 'depth'] as const).map((field) => (
+                    <Dimension
+                      key={field}
+                      label={`Part ${field}`}
+                      value={selected[field]}
+                      min={0.0625}
+                      onChange={(value) => patch({[field]: value})}
+                    />
+                  ))
+                )}
               </div>
               <p className="cu-hint">
                 A positive setback recesses the part. For shelves and panels, it

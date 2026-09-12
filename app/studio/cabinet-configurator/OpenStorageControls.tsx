@@ -39,85 +39,102 @@ export function OpenStorageControls({
           </span>
         </label>
       ))}
-      {(
-        [
-          [
-            'shelves',
-            'Shelf count',
-            0,
-            hanging && s.type !== 'combination' ? 1 : 20,
-          ],
-          ...(!hanging || s.type === 'combination'
-            ? [['shelfSpacing', 'Shelf spacing (0 = evenly spaced)', 0, 36]]
-            : []),
-          ...(s.type === 'drawers' ? [['drawers', 'Drawer count', 1, 10]] : []),
-          ...(hanging
-            ? [['rodHeight', 'Upper rod height from cabinet bottom', 6, 120]]
-            : []),
-          ...(s.type === 'double-hang'
-            ? [
-                [
-                  'lowerRodHeight',
-                  'Lower rod height from cabinet bottom',
-                  6,
-                  120,
-                ],
-              ]
-            : []),
-          ...(s.type === 'combination'
-            ? [['dividerPercent', 'Shelf section width (%)', 20, 80]]
-            : []),
-        ] as Array<[keyof typeof s, string, number, number]>
-      ).map(([key, label, min, max]) => (
-        <label key={key}>
-          {label}
-          <input
-            type="number"
-            min={min}
-            max={max}
-            step="1"
-            value={Number(s[key])}
-            onChange={(event) => {
-              const value = Number(event.currentTarget.value);
-              if (Number.isInteger(value) && value >= min && value <= max)
-                storage(key, value);
-            }}
-          />
-        </label>
-      ))}
-      <label>
-        Doors
-        <input
-          type="checkbox"
-          checked={s.doors}
-          onChange={(event) => storage('doors', event.currentTarget.checked)}
-        />
-      </label>
-      <label>
-        Finished back
-        <input
-          type="checkbox"
-          checked={s.back}
-          onChange={(event) => storage('back', event.currentTarget.checked)}
-        />
-      </label>
-      {s.type === 'shoes' && (
-        <label>
-          Angled shoe shelves
-          <input
-            type="checkbox"
-            checked={s.angled}
-            onChange={(event) => storage('angled', event.currentTarget.checked)}
-          />
-        </label>
+      {!item.customCabinet && (
+        <>
+          {(
+            [
+              [
+                'shelves',
+                'Shelf count',
+                0,
+                hanging && s.type !== 'combination' ? 1 : 20,
+              ],
+              ...(!hanging || s.type === 'combination'
+                ? [['shelfSpacing', 'Shelf spacing (0 = evenly spaced)', 0, 36]]
+                : []),
+              ...(s.type === 'drawers'
+                ? [['drawers', 'Drawer count', 1, 10]]
+                : []),
+              ...(hanging
+                ? [
+                    [
+                      'rodHeight',
+                      'Upper rod height from cabinet bottom',
+                      6,
+                      120,
+                    ],
+                  ]
+                : []),
+              ...(s.type === 'double-hang'
+                ? [
+                    [
+                      'lowerRodHeight',
+                      'Lower rod height from cabinet bottom',
+                      6,
+                      120,
+                    ],
+                  ]
+                : []),
+              ...(s.type === 'combination'
+                ? [['dividerPercent', 'Shelf section width (%)', 20, 80]]
+                : []),
+            ] as Array<[keyof typeof s, string, number, number]>
+          ).map(([key, label, min, max]) => (
+            <label key={key}>
+              {label}
+              <input
+                type="number"
+                min={min}
+                max={max}
+                step="1"
+                value={Number(s[key])}
+                onChange={(event) => {
+                  const value = Number(event.currentTarget.value);
+                  if (Number.isInteger(value) && value >= min && value <= max)
+                    storage(key, value);
+                }}
+              />
+            </label>
+          ))}
+          <label>
+            Doors
+            <input
+              type="checkbox"
+              checked={s.doors}
+              onChange={(event) =>
+                storage('doors', event.currentTarget.checked)
+              }
+            />
+          </label>
+          <label>
+            Finished back
+            <input
+              type="checkbox"
+              checked={s.back}
+              onChange={(event) => storage('back', event.currentTarget.checked)}
+            />
+          </label>
+          {s.type === 'shoes' && (
+            <label>
+              Angled shoe shelves
+              <input
+                type="checkbox"
+                checked={s.angled}
+                onChange={(event) =>
+                  storage('angled', event.currentTarget.checked)
+                }
+              />
+            </label>
+          )}
+          <p className="cc-muted">
+            Fitted layout: {storageLayout(item).shelfYs.length} shelves,{' '}
+            {storageLayout(item).drawers} drawers,{' '}
+            {storageLayout(item).rods.length} rods. Interior spacing adjusts to
+            fit the cabinet. Rod heights are measured from the unit bottom;
+            mounting height is added for wall-mounted units.
+          </p>
+        </>
       )}
-      <p className="cc-muted">
-        Fitted layout: {storageLayout(item).shelfYs.length} shelves,{' '}
-        {storageLayout(item).drawers} drawers, {storageLayout(item).rods.length}{' '}
-        rods. Interior spacing adjusts to fit the cabinet. Rod heights are
-        measured from the unit bottom; mounting height is added for wall-mounted
-        units.
-      </p>
     </>
   );
 }
