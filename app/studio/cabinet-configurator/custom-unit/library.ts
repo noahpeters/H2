@@ -16,6 +16,7 @@ export type CustomCabinetLibraryItem = {
 };
 
 export type CustomCabinetInstance = {
+  scope?: 'design';
   libraryId: string;
   libraryVersion: number;
   /** Immutable snapshot: publishing a later revision never changes a room. */

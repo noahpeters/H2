@@ -1,3 +1,10 @@
+import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
+import {
+  applyConfiguration,
+  compatibleConfiguration,
+  saveConfiguration,
+  type DesignConfiguration,
+} from './custom-unit/designConfigurations';
 import {createCabinetRenderer} from './sceneRenderer';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
@@ -94,6 +101,7 @@ type Opening = {
   sill?: number;
 };
 export type Study = {
+  configurations?: DesignConfiguration[];
   version: 2;
   room: Room;
   openings: Opening[];
@@ -885,6 +893,8 @@ export function CabinetConfigurator({
     svg.addEventListener('wheel', wheel, {passive: false});
     return () => svg.removeEventListener('wheel', wheel);
   }, [zoomPlan]);
+  const [customizing, setCustomizing] = useState<KitchenElement | null>(null);
+  const [configurationError, setConfigurationError] = useState('');
   const [sharing, setSharing] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [inquiring, setInquiring] = useState(false);
@@ -1198,6 +1208,30 @@ export function CabinetConfigurator({
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
   return (
     <div className="cabinet-app">
+      {customizing && (
+        <ConfigurationSheet
+          key={customizing.id}
+          item={customizing}
+          onClose={() => setCustomizing(null)}
+          onSave={(definition) => {
+            const item = study.elements.find((e) => e.id === customizing.id);
+            if (!item)
+              throw new Error('This cabinet is no longer in the design.');
+            const result = saveConfiguration(
+              study.configurations ?? [],
+              item,
+              definition,
+            );
+            update((d) => {
+              d.configurations = result.configurations;
+              d.elements = d.elements.map((e) =>
+                e.id === item.id ? result.item : e,
+              );
+            });
+            setCustomizing(null);
+          }}
+        />
+      )}
       <header className="cc-topbar">
         <a className="cc-brand" href="/">
           <span>from trees</span>
@@ -1926,6 +1960,107 @@ export function CabinetConfigurator({
                     Duplicate
                   </button>
                 </div>
+                {selected.kind !== 'appliance' && (
+                  <>
+                    <button onClick={() => setCustomizing(selected)}>
+                      Customize this cabinet
+                    </button>
+                    <label>
+                      Configuration in this design
+                      <select
+                        aria-label="Configuration in this design"
+                        value={
+                          selected.customCabinet?.scope === 'design'
+                            ? selected.customCabinet.libraryId
+                            : selected.customCabinet
+                              ? 'global'
+                              : ''
+                        }
+                        onChange={(event) => {
+                          if (event.target.value === 'global') return;
+                          const configuration = study.configurations?.find(
+                            (c) => c.id === event.target.value,
+                          );
+                          try {
+                            const next = configuration
+                              ? applyConfiguration(selected, configuration)
+                              : {...selected, customCabinet: undefined};
+                            update((d) => {
+                              d.elements = d.elements.map((e) =>
+                                e.id === selected.id ? next : e,
+                              );
+                            });
+                            setConfigurationError('');
+                          } catch (cause) {
+                            setConfigurationError(
+                              cause instanceof Error
+                                ? cause.message
+                                : 'Unable to apply configuration.',
+                            );
+                          }
+                        }}
+                      >
+                        {selected.customCabinet &&
+                          selected.customCabinet.scope !== 'design' && (
+                            <option value="global">
+                              Global library configuration
+                            </option>
+                          )}
+                        <option value="">Standard configuration</option>
+                        {(study.configurations ?? [])
+                          .filter((c) => compatibleConfiguration(selected, c))
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    {selected.customCabinet?.scope === 'design' && (
+                      <p>
+                        Applied: {selected.customCabinet.definition.name}{' '}
+                        (version {selected.customCabinet.libraryVersion})
+                      </p>
+                    )}
+                    {selected.customCabinet?.scope === 'design' &&
+                      study.configurations?.some(
+                        (c) =>
+                          c.id === selected.customCabinet?.libraryId &&
+                          c.version > selected.customCabinet.libraryVersion,
+                      ) && (
+                        <button
+                          onClick={() => {
+                            const configuration = study.configurations!.find(
+                              (c) => c.id === selected.customCabinet?.libraryId,
+                            )!;
+                            try {
+                              const next = applyConfiguration(
+                                selected,
+                                configuration,
+                              );
+                              update((d) => {
+                                d.elements = d.elements.map((e) =>
+                                  e.id === selected.id ? next : e,
+                                );
+                              });
+                              setConfigurationError('');
+                            } catch (cause) {
+                              setConfigurationError(
+                                cause instanceof Error
+                                  ? cause.message
+                                  : 'Unable to apply configuration.',
+                              );
+                            }
+                          }}
+                        >
+                          Apply latest saved version
+                        </button>
+                      )}
+                    {configurationError && (
+                      <p role="alert">{configurationError}</p>
+                    )}
+                  </>
+                )}
                 {selected.applianceKind === 'range' && (
                   <label>
                     Range hood

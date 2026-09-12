@@ -1,3 +1,4 @@
+import customUnitStyles from '~/styles/custom-unit-editor.css?url';
 import {useEffect, useState} from 'react';
 import {readSavedRooms} from '~/studio/cabinet-configurator/useSavedRooms';
 import type {Route} from './+types/cabinet-configurator';
@@ -12,6 +13,7 @@ import type {CustomCabinetLibraryItem} from '~/studio/cabinet-configurator/custo
 export const links: Route.LinksFunction = () => [
   {rel: 'stylesheet', href: studioStyles},
   {rel: 'stylesheet', href: cabinetStyles},
+  {rel: 'stylesheet', href: customUnitStyles},
 ];
 
 export const meta: Route.MetaFunction = () => [

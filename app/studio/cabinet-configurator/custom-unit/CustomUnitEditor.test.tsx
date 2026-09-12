@@ -147,3 +147,104 @@ it('shows hinge side for a default door and persists the selection', () => {
     side: 'right',
   });
 });
+
+it('locks envelope controls and imports while allowing configuration naming and part editing', async () => {
+  const {createCustomUnit} = await import('./model');
+  const initial = createCustomUnit({width: 36, height: 34.5, depth: 24});
+  const onChange = vi.fn();
+  render(
+    <CustomUnitEditor
+      initialDefinition={initial}
+      lockEnvelope
+      onChange={onChange}
+    />,
+  );
+  expect(
+    screen.queryByRole('spinbutton', {name: 'width'}),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('spinbutton', {name: 'height'}),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('spinbutton', {name: 'depth'}),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText(/Cabinet size: 36/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Configuration name'), {
+    target: {value: 'Coffee station'},
+  });
+  expect(onChange.mock.lastCall![0]).toMatchObject({
+    name: 'Coffee station',
+    width: 36,
+    height: 34.5,
+    depth: 24,
+  });
+  fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
+  expect(onChange.mock.lastCall![0]).toMatchObject({
+    width: 36,
+    height: 34.5,
+    depth: 24,
+  });
+  fireEvent.click(screen.getByText('Import / export definition'));
+  fireEvent.change(screen.getByRole('textbox', {name: /JSON/i}), {
+    target: {value: JSON.stringify({...initial, width: 60})},
+  });
+  fireEvent.click(screen.getByRole('button', {name: 'Import definition'}));
+  expect(
+    screen.getByText('Cabinet dimensions are controlled by the configurator.'),
+  ).toBeInTheDocument();
+  expect(onChange.mock.lastCall![0].width).toBe(36);
+});
+
+it('saves the sheet draft only on Save configuration and discards canceled edits', async () => {
+  const {ConfigurationSheet} = await import('./ConfigurationSheet');
+  const showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: showModal,
+  });
+  const onSave = vi.fn();
+  const onClose = vi.fn();
+  render(
+    <ConfigurationSheet
+      item={{
+        id: 'placed',
+        kind: 'base',
+        configuration: 'three-drawer',
+        width: 36,
+        height: 34.5,
+        depth: 24,
+        face: 'slab',
+        placement: {mode: 'floor', x: 0, z: 0, rotation: 0},
+      }}
+      onSave={onSave}
+      onClose={onClose}
+    />,
+  );
+  expect(showModal).toHaveBeenCalledOnce();
+  expect(
+    screen.getByRole('dialog', {name: 'Customize this cabinet'}),
+  ).toHaveAttribute('open');
+  fireEvent.change(screen.getByLabelText('Configuration name'), {
+    target: {value: 'Coffee station'},
+  });
+  expect(onSave).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', {name: 'Save configuration'}));
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({
+      name: 'Coffee station',
+      width: 36,
+      height: 34.5,
+      depth: 24,
+    }),
+  );
+  onSave.mockClear();
+  fireEvent.change(screen.getByLabelText('Configuration name'), {
+    target: {value: 'Discard me'},
+  });
+  fireEvent.click(screen.getByRole('button', {name: 'Cancel'}));
+  expect(onClose).toHaveBeenCalledOnce();
+  expect(onSave).not.toHaveBeenCalled();
+});

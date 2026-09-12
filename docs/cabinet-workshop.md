@@ -58,3 +58,34 @@ Select Interact to click doors and drawers open or closed with reversible animat
 Individual doors and drawers expose Part face style. Use cabinet style clears the override; a specific choice is stored as the optional `faceStyle` field on the part and wins over workshop and room appearance settings. This permits glass doors and slab interior drawers within an otherwise shaker cabinet. Material still follows the cabinet's appearance. Legacy definitions without an override inherit as before.
 
 Tambour flat-return travel is limited by the cabinet depth. A door longer than the available return remains partly across the opening at maximum travel rather than projecting through the back.
+
+## Design-local configurations
+
+Placed cabinets expose **Customize this cabinet** in the configurator. A modal
+sheet reuses `CustomUnitEditor`, initializes its composition from the selected
+cabinet, and shows the instance width/height/depth read-only. Imports cannot
+change that envelope. Cancel discards the draft; Save configuration validates and
+names it, updates the design's reusable configuration record, and applies a copy
+to this instance. Other instances retain their snapshots. The inspector offers
+compatible configurations and an explicit Apply latest saved version action.
+
+Saved studies remain version 2. Optional `configurations[]` records contain id,
+version, name, category and the existing `CustomUnitDefinition`. Applied copies
+use the existing `customCabinet` snapshot fields with `scope: 'design'` to
+separate local references from global library ids. Missing scope retains global
+library semantics. Local references must resolve in the design, match category,
+and reference a version no newer than the design record; historical snapshot
+versions remain valid. No D1 migration or global-library mutation is required.
+The existing room payload size limit remains in force.
+
+Kinds remain base, wall-cabinet and tall. Corner bases and each open-storage
+subtype are separate compatibility categories. Appliances cannot use these
+configurations. Reuse fits composition to the destination envelope, preserving
+board thickness where practical; existing editor validation rejects layouts
+that cannot fit. Standard configuration fields stay on the instance and can be
+restored by selecting Standard configuration.
+
+Doors, drawer stacks, door/drawer splits, and shelving seed semantic templates.
+Specialty corners, sink cutouts, appliance openings and storage fittings use
+simplified compositions, disclosed in the sheet; this integration does not
+convert every standard geometry definition into an exact custom-unit model.

@@ -1,3 +1,4 @@
+import {configurationCategory} from './custom-unit/designConfigurations';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage} from './openStorage';
 import {validOutline, roomSegments} from './roomOutline';
@@ -69,6 +70,27 @@ export function validStudy(value: any): boolean {
     )
   )
     return false;
+  if (
+    value.configurations !== undefined &&
+    (!Array.isArray(value.configurations) ||
+      value.configurations.length > 200 ||
+      !value.configurations.every(
+        (c: any) =>
+          c &&
+          id(c.id) &&
+          Number.isInteger(c.version) &&
+          c.version > 0 &&
+          typeof c.name === 'string' &&
+          c.name.trim().length > 0 &&
+          c.name.length <= 100 &&
+          typeof c.category === 'string' &&
+          c.category.length < 100 &&
+          validateCustomUnit(c.definition).length === 0,
+      ) ||
+      new Set(value.configurations.map((c: any) => c.id)).size !==
+        value.configurations.length)
+  )
+    return false;
   const ids = [...value.elements, ...value.openings, ...value.islands].map(
     (e) => e?.id,
   );
@@ -79,7 +101,17 @@ export function validStudy(value: any): boolean {
         e &&
         ['base', 'wall-cabinet', 'tall', 'appliance'].includes(e.kind) &&
         (e.customCabinet === undefined ||
-          (typeof e.customCabinet.libraryId === 'string' &&
+          (e.customCabinet &&
+            typeof e.customCabinet.libraryId === 'string' &&
+            (e.customCabinet.scope === undefined ||
+              (e.customCabinet.scope === 'design' &&
+                e.kind !== 'appliance' &&
+                value.configurations?.some(
+                  (c: any) =>
+                    c.id === e.customCabinet.libraryId &&
+                    c.category === configurationCategory(e) &&
+                    c.version >= e.customCabinet.libraryVersion,
+                ))) &&
             Number.isInteger(e.customCabinet.libraryVersion) &&
             e.customCabinet.libraryVersion > 0 &&
             validateCustomUnit(e.customCabinet.definition).length === 0)) &&
