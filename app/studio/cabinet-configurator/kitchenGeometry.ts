@@ -122,20 +122,16 @@ export function cabinetGeometry(
         paintColor: item.paintColor,
       },
     );
-    const bounds = new THREE.Box3().setFromObject(body);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
-    const scale = new THREE.Vector3(
-      (item.width / (size.x || definition.width)) * inch,
-      (envelope.height / (size.y || definition.height)) * inch,
-      (-item.depth / (size.z || definition.depth)) * inch,
-    );
-    body.scale.copy(scale);
-    body.position.copy(center.multiply(scale).negate());
-    body.position.y += (toe.height / 2) * inch;
+    // The definition is already fitted to the body envelope. Convert units only:
+    // bounds can include projecting fronts/end shelves or omit removed panels.
+    // Normalizing those bounds would distort exact part sizes and positions.
+    body.scale.set(inch, inch, -inch);
+    body.position.y = (-item.height / 2 + toe.height) * inch;
     body.name = 'custom-cabinet-body';
     group.add(body);
     if (toe.height) addToeKick(group, item, toe);
+    if (countertop && item.kind === 'base')
+      addBaseCountertop(group, item, sharedCountertop);
     return group;
   }
   if (item.kind === 'base' && item.configuration === 'corner') {
@@ -205,10 +201,6 @@ export function cabinetGeometry(
     color: 0xb9c0c4,
     metalness: 0.65,
     roughness: 0.28,
-  });
-  const stone = new THREE.MeshStandardMaterial({
-    color: 0xe0d9cc,
-    roughness: 0.35,
   });
   if (item.storage?.type === 'floating-shelves') {
     const group = new THREE.Group();
@@ -615,51 +607,70 @@ export function cabinetGeometry(
       toe / 2,
       item.kind === 'base' && config === 'pullout',
     );
-  if (countertop && item.kind === 'base') {
-    const topY = h / 2 + 0.75;
-    if (config === 'sink' || config === 'farmhouse-sink') {
-      const sw = Math.min(22, w * 0.7),
-        sd = Math.min(16, d * 0.65);
-      // Four countertop strips surround a true opening, with an open basin below.
-      for (const side of [-1, 1]) {
-        if (!sharedCountertop) {
-          box(
-            group,
-            (w + 2 - sw) / 2,
-            1.5,
-            d + 2,
-            side * (sw / 2 + (w + 2 - sw) / 4),
-            topY,
-            0,
-            stone,
-          );
-          box(
-            group,
-            sw,
-            1.5,
-            (d + 2 - sd) / 2,
-            0,
-            topY,
-            side * (sd / 2 + (d + 2 - sd) / 4),
-            stone,
-          );
-        }
-        box(group, 0.3, 7, sd, side * (sw / 2 - 0.15), h / 2 - 2, 0, steel);
-        box(group, sw, 7, 0.3, 0, h / 2 - 2, side * (sd / 2 - 0.15), steel);
-        box(group, 0.7, 0.18, sd + 0.7, (side * sw) / 2, h / 2 + 1.6, 0, steel);
-        box(group, sw + 0.7, 0.18, 0.7, 0, h / 2 + 1.6, (side * sd) / 2, steel);
-      }
-      box(group, sw, 0.3, sd, 0, h / 2 - 5.5, 0, steel);
-      box(group, 1, 8, 1, 0, h / 2 + 5.5, -sd / 2 - 1, steel);
-      box(group, 1, 1, 6, 0, h / 2 + 9, -sd / 2 + 1.5, steel);
-      box(group, 1, 2, 1, 0, h / 2 + 8, -sd / 2 + 4, steel);
-      if (config === 'farmhouse-sink')
-        box(group, sw + 1.5, 9, 1.5, 0, h / 2 - 3.5, d / 2 + 0.75, steel).name =
-          'farmhouse-sink-apron';
-    } else if (!sharedCountertop)
-      box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
-  }
+  if (countertop && item.kind === 'base')
+    addBaseCountertop(group, item, sharedCountertop);
   return group;
+}
+
+/** Room countertop treatment is independent of the cabinet composition. */
+function addBaseCountertop(
+  group: THREE.Group,
+  item: KitchenElement,
+  sharedCountertop: boolean,
+) {
+  const {width: w, height: h, depth: d} = item;
+  const config = item.configuration ?? 'single-door';
+  const steel = new THREE.MeshStandardMaterial({
+    color: 0xb9c0c4,
+    metalness: 0.65,
+    roughness: 0.28,
+  });
+  const stone = new THREE.MeshStandardMaterial({
+    color: 0xe0d9cc,
+    roughness: 0.35,
+  });
+  const topY = h / 2 + 0.75;
+  if (config === 'sink' || config === 'farmhouse-sink') {
+    const sw = Math.min(22, w * 0.7),
+      sd = Math.min(16, d * 0.65);
+    // Four countertop strips surround a true opening, with an open basin below.
+    for (const side of [-1, 1]) {
+      if (!sharedCountertop) {
+        box(
+          group,
+          (w + 2 - sw) / 2,
+          1.5,
+          d + 2,
+          side * (sw / 2 + (w + 2 - sw) / 4),
+          topY,
+          0,
+          stone,
+        );
+        box(
+          group,
+          sw,
+          1.5,
+          (d + 2 - sd) / 2,
+          0,
+          topY,
+          side * (sd / 2 + (d + 2 - sd) / 4),
+          stone,
+        );
+      }
+      box(group, 0.3, 7, sd, side * (sw / 2 - 0.15), h / 2 - 2, 0, steel);
+      box(group, sw, 7, 0.3, 0, h / 2 - 2, side * (sd / 2 - 0.15), steel);
+      box(group, 0.7, 0.18, sd + 0.7, (side * sw) / 2, h / 2 + 1.6, 0, steel);
+      box(group, sw + 0.7, 0.18, 0.7, 0, h / 2 + 1.6, (side * sd) / 2, steel);
+    }
+    box(group, sw, 0.3, sd, 0, h / 2 - 5.5, 0, steel);
+    box(group, 1, 8, 1, 0, h / 2 + 5.5, -sd / 2 - 1, steel);
+    box(group, 1, 1, 6, 0, h / 2 + 9, -sd / 2 + 1.5, steel);
+    box(group, 1, 2, 1, 0, h / 2 + 8, -sd / 2 + 4, steel);
+    if (config === 'farmhouse-sink')
+      box(group, sw + 1.5, 9, 1.5, 0, h / 2 - 3.5, d / 2 + 0.75, steel).name =
+        'farmhouse-sink-apron';
+  } else if (!sharedCountertop)
+    box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
 }
 
 export function placeOnWall(
