@@ -2,19 +2,22 @@ import {useEffect, useRef, useState} from 'react';
 import {CustomUnitEditor} from './CustomUnitEditor';
 import {configurationTemplate} from './designConfigurations';
 import type {CustomUnitDefinition} from './model';
-import type {KitchenElement} from '../model';
+import {baseToeKick} from '../cabinetEnvelope';
+import type {KitchenElement, Room} from '../model';
 
 export function ConfigurationSheet({
   item,
+  room,
   onSave,
   onClose,
 }: {
   item: KitchenElement;
+  room?: Pick<Room, 'toeKick'>;
   onSave: (definition: CustomUnitDefinition) => void;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [initial] = useState(() => configurationTemplate(item));
+  const [initial] = useState(() => configurationTemplate(item, room));
   const [definition, setDefinition] = useState(initial);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
@@ -36,6 +39,13 @@ export function ConfigurationSheet({
     >
       <div className="cc-configuration-actions">
         <h2>Customize this cabinet</h2>
+        {item.kind === 'base' && (
+          <p>
+            Overall size: {item.width} × {item.height} × {item.depth} in. The
+            room provides a {baseToeKick(item, room).height} in toe kick below
+            the cabinet body. Toe-kick settings are in Room.
+          </p>
+        )}
         <p>
           Save a named configuration for reuse in this design. Other cabinets
           keep their current configuration.

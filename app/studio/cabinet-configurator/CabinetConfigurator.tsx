@@ -1,3 +1,4 @@
+import {DEFAULT_TOE_KICK} from './cabinetEnvelope';
 import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
 import {
   applyConfiguration,
@@ -671,6 +672,7 @@ export function ThreeStudy({
             cabinet,
             study.countertop,
             study.islands.some((i) => i.id === cabinet.islandId),
+            study.room,
           );
       body.userData.id = cabinet.id;
       const transform = elementTransform(cabinet, study.room);
@@ -1212,6 +1214,7 @@ export function CabinetConfigurator({
         <ConfigurationSheet
           key={customizing.id}
           item={customizing}
+          room={study.room}
           onClose={() => setCustomizing(null)}
           onSave={(definition) => {
             const item = study.elements.find((e) => e.id === customizing.id);
@@ -1221,6 +1224,7 @@ export function CabinetConfigurator({
               study.configurations ?? [],
               item,
               definition,
+              study.room,
             );
             update((d) => {
               d.configurations = result.configurations;
@@ -1348,6 +1352,35 @@ export function CabinetConfigurator({
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
+              <fieldset>
+                <legend>Base cabinet toe kicks</legend>
+                {(['height', 'setback'] as const).map((field) => (
+                  <label key={field}>
+                    Toe-kick {field === 'setback' ? 'recess' : 'height'} (in)
+                    <input
+                      type="number"
+                      min={field === 'height' ? 0.5 : 0}
+                      max={12}
+                      step={0.25}
+                      value={(study.room.toeKick ?? DEFAULT_TOE_KICK)[field]}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (
+                          Number.isFinite(value) &&
+                          value >= (field === 'height' ? 0.5 : 0) &&
+                          value <= 12
+                        )
+                          update((d) => {
+                            d.room.toeKick = {
+                              ...(d.room.toeKick ?? DEFAULT_TOE_KICK),
+                              [field]: value,
+                            };
+                          });
+                      }}
+                    />
+                  </label>
+                ))}
+              </fieldset>
               <label>
                 Room outline
                 <select
@@ -1983,7 +2016,11 @@ export function CabinetConfigurator({
                           );
                           try {
                             const next = configuration
-                              ? applyConfiguration(selected, configuration)
+                              ? applyConfiguration(
+                                  selected,
+                                  configuration,
+                                  study.room,
+                                )
                               : {...selected, customCabinet: undefined};
                             update((d) => {
                               d.elements = d.elements.map((e) =>
@@ -2037,6 +2074,7 @@ export function CabinetConfigurator({
                               const next = applyConfiguration(
                                 selected,
                                 configuration,
+                                study.room,
                               );
                               update((d) => {
                                 d.elements = d.elements.map((e) =>

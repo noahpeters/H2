@@ -58,6 +58,17 @@ export function validStudy(value: any): boolean {
       ))
   )
     return false;
+  if (
+    value.room.toeKick !== undefined &&
+    (!value.room.toeKick ||
+      !num(value.room.toeKick.height) ||
+      value.room.toeKick.height < 0.5 ||
+      value.room.toeKick.height > 12 ||
+      !num(value.room.toeKick.setback) ||
+      value.room.toeKick.setback < 0 ||
+      value.room.toeKick.setback > 12)
+  )
+    return false;
   const walls = roomSegments(value.room).map((s) => s.id);
   if (
     !['oak', 'walnut', 'concrete'].includes(value.room.floor) ||

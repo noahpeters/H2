@@ -181,6 +181,7 @@ export type Island = {
   seatingSide: SeatingSide;
 };
 export type Room = {
+  toeKick?: {height: number; setback: number};
   outline?: RoomPoint[];
   width: number;
   depth: number;

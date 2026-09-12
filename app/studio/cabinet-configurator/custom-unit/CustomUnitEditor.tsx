@@ -189,7 +189,7 @@ export function CustomUnitEditor({
           <div className="cu-dimensions">
             {lockEnvelope ? (
               <p>
-                Cabinet size: {definition.width} × {definition.height} ×{' '}
+                Cabinet body size: {definition.width} × {definition.height} ×{' '}
                 {definition.depth} in (width × height × depth). Change size in
                 the configurator.
               </p>
