@@ -168,7 +168,7 @@ it('locks envelope controls and imports while allowing configuration naming and 
   expect(
     screen.queryByRole('spinbutton', {name: 'depth'}),
   ).not.toBeInTheDocument();
-  expect(screen.getByText(/Cabinet size: 36/)).toBeInTheDocument();
+  expect(screen.getByText(/Cabinet body size: 36/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Configuration name'), {
     target: {value: 'Coffee station'},
   });
@@ -236,7 +236,7 @@ it('saves the sheet draft only on Save configuration and discards canceled edits
     expect.objectContaining({
       name: 'Coffee station',
       width: 36,
-      height: 34.5,
+      height: 30.5,
       depth: 24,
     }),
   );

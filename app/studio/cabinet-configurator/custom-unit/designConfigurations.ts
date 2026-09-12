@@ -1,4 +1,5 @@
-import type {KitchenElement} from '../model';
+import {cabinetCompositionEnvelope} from '../cabinetEnvelope';
+import type {KitchenElement, Room} from '../model';
 import {
   createCustomUnit,
   customUnitId,
@@ -66,9 +67,11 @@ const section = (
 });
 export function configurationTemplate(
   item: KitchenElement,
+  room?: Pick<Room, 'toeKick'>,
 ): CustomUnitDefinition {
+  const envelope = cabinetCompositionEnvelope(item, room);
   if (item.customCabinet)
-    return fitDefinition(item.customCabinet.definition, item);
+    return fitDefinition(item.customCabinet.definition, envelope);
   let root = section('doors', {doorCount: item.width > 24 ? 2 : 1});
   if (item.storage)
     root = section(
@@ -101,9 +104,7 @@ export function configurationTemplate(
       children: [root, section('open'), section('doors')],
     };
   return createCustomUnit({
-    width: item.width,
-    height: item.height,
-    depth: item.depth,
+    ...envelope,
     name: `Custom ${item.storage?.type ?? item.tallConfiguration ?? item.configuration ?? item.kind}`.replaceAll(
       '-',
       ' ',
@@ -114,12 +115,16 @@ export function configurationTemplate(
 export function applyConfiguration(
   item: KitchenElement,
   configuration: DesignConfiguration,
+  room?: Pick<Room, 'toeKick'>,
 ): KitchenElement {
   if (!compatibleConfiguration(item, configuration))
     throw new Error(
       'This configuration is not compatible with this cabinet category.',
     );
-  const definition = fitDefinition(configuration.definition, item);
+  const definition = fitDefinition(
+    configuration.definition,
+    cabinetCompositionEnvelope(item, room),
+  );
   const errors = validateCustomUnit(definition);
   if (errors.length) throw new Error(errors.join('\n'));
   return {
@@ -136,11 +141,15 @@ export function saveConfiguration(
   configurations: DesignConfiguration[],
   item: KitchenElement,
   definition: CustomUnitDefinition,
+  room?: Pick<Room, 'toeKick'>,
 ) {
   const name = definition.name.trim();
   if (!name || name.length > 100)
     throw new Error('Enter a configuration name of 1–100 characters.');
-  const fitted = fitDefinition({...definition, name}, item);
+  const fitted = fitDefinition(
+    {...definition, name},
+    cabinetCompositionEnvelope(item, room),
+  );
   const errors = validateCustomUnit(fitted);
   if (errors.length) throw new Error(errors.join('\n'));
   const previous =
@@ -159,6 +168,6 @@ export function saveConfiguration(
       ...configurations.filter((c) => c.id !== configuration.id),
       configuration,
     ],
-    item: applyConfiguration(item, configuration),
+    item: applyConfiguration(item, configuration, room),
   };
 }

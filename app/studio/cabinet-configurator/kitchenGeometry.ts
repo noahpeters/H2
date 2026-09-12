@@ -1,3 +1,5 @@
+import {baseToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
+import {fitDefinition} from './custom-unit/designConfigurations';
 import {customUnitGeometry} from './custom-unit/geometry';
 import * as THREE from 'three';
 import {cabinetColor} from './materials';
@@ -84,13 +86,32 @@ function box(
   group.add(mesh);
   return mesh;
 }
+function addToeKick(
+  group: THREE.Group,
+  item: KitchenElement,
+  toe: {height: number; setback: number},
+) {
+  return (box(
+    group,
+    item.width - 0.5,
+    toe.height,
+    item.depth - toe.setback,
+    0,
+    -item.height / 2 + toe.height / 2,
+    -toe.setback / 2,
+    new THREE.MeshStandardMaterial({color: cabinetColor(item), roughness: 0.6}),
+  ).name = 'room-toe-kick');
+}
 export function cabinetGeometry(
   item: KitchenElement,
   countertop: boolean,
   sharedCountertop = false,
+  room?: Pick<Room, 'toeKick'>,
 ) {
   if (item.customCabinet) {
-    const definition = item.customCabinet.definition;
+    const toe = baseToeKick(item, room);
+    const envelope = cabinetCompositionEnvelope(item, room);
+    const definition = fitDefinition(item.customCabinet.definition, envelope);
     const group = new THREE.Group();
     const body = customUnitGeometry(
       definition,
@@ -106,12 +127,15 @@ export function cabinetGeometry(
     const center = bounds.getCenter(new THREE.Vector3());
     const scale = new THREE.Vector3(
       (item.width / (size.x || definition.width)) * inch,
-      (item.height / (size.y || definition.height)) * inch,
+      (envelope.height / (size.y || definition.height)) * inch,
       (-item.depth / (size.z || definition.depth)) * inch,
     );
     body.scale.copy(scale);
     body.position.copy(center.multiply(scale).negate());
+    body.position.y += (toe.height / 2) * inch;
+    body.name = 'custom-cabinet-body';
     group.add(body);
+    if (toe.height) addToeKick(group, item, toe);
     return group;
   }
   if (item.kind === 'base' && item.configuration === 'corner') {
@@ -122,12 +146,16 @@ export function cabinetGeometry(
     const back = cabinetGeometry(
       {...item, configuration: 'single-door', depth: arm},
       false,
+      false,
+      room,
     );
     back.position.z = (-d / 2 + arm / 2) * inch;
     group.add(back);
     const leg = cabinetGeometry(
       {...item, configuration: 'single-door', width: d - arm, depth: arm},
       false,
+      false,
+      room,
     );
     leg.rotation.y = Math.PI / 2;
     leg.position.set((-w / 2 + arm / 2) * inch, 0, (arm / 2) * inch);
@@ -196,10 +224,21 @@ export function cabinetGeometry(
     }
     return group;
   }
-  const toe = item.kind === 'wall-cabinet' ? 0 : Math.min(4, h / 3);
+  const support = baseToeKick(item, room);
+  const toe =
+    item.kind === 'base'
+      ? support.height
+      : item.kind === 'wall-cabinet'
+        ? 0
+        : Math.min(4, h / 3);
   const bottom = -h / 2 + toe;
   // Open carcass keeps the sink cavity visible; recessed plinth is four inches tall.
-  if (toe) box(group, w - 0.5, toe, d - 3, 0, -h / 2 + toe / 2, -1.5, wood);
+  if (toe)
+    addToeKick(
+      group,
+      item,
+      item.kind === 'base' ? support : {height: toe, setback: 3},
+    );
   for (const side of [-1, 1])
     box(group, 0.75, h - toe, d, side * (w / 2 - 0.375), toe / 2, 0, wood);
   box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood);

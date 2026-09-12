@@ -89,3 +89,18 @@ Doors, drawer stacks, door/drawer splits, and shelving seed semantic templates.
 Specialty corners, sink cutouts, appliance openings and storage fittings use
 simplified compositions, disclosed in the sheet; this integration does not
 convert every standard geometry definition into an exact custom-unit model.
+
+### Room-owned base toe kicks
+
+Every base cabinet reserves a recessed toe kick below its composition, including
+local and global custom cabinets. `room.toeKick` stores height and setback; older
+rooms default to the existing 4-inch height and 3-inch recess. The Room panel
+controls both values for all bases. Cabinet overall height and placement remain
+unchanged, while the editor shows the body envelope above the toe kick.
+
+Toe-kick geometry is supplied by the room renderer, never by a custom-unit
+part. Reusing or replacing a configuration therefore cannot remove it. Existing
+snapshots, including older full-height definitions, fit into the current room's
+body envelope at render time without rewriting their saved definitions. Changing
+room toe-kick settings does not revise the reusable configuration. Standard
+corner bases retain their two supports; wall cabinets receive no toe kick.
