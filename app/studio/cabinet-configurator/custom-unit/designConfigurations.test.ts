@@ -8,6 +8,7 @@ import {validStudy} from '../savedRoomProtocol';
 import {blankStudy, migrateStudy} from '../CabinetConfigurator';
 import {createOpenStorage} from '../openStorage';
 import type {KitchenElement} from '../model';
+import {withDrawerArrays} from './drawerArrayEditing';
 const cabinet: KitchenElement = {
   id: 'cabinet',
   kind: 'base',
@@ -19,6 +20,31 @@ const cabinet: KitchenElement = {
   placement: {mode: 'floor', x: 48, z: 48, rotation: 0},
 };
 describe('design-local configurations', () => {
+  it('persists drawer arrays in room snapshots and reuses them with fitted widths', () => {
+    const saved = saveConfiguration(
+      [],
+      cabinet,
+      withDrawerArrays(configurationTemplate(cabinet)),
+    );
+    const second = applyConfiguration(
+      {...cabinet, id: 'second', width: 30},
+      saved.configurations[0],
+    );
+    const study = {
+      ...blankStudy(),
+      configurations: saved.configurations,
+      elements: [saved.item, second],
+    };
+    expect(validStudy(study)).toBe(true);
+    const loaded = migrateStudy(JSON.parse(JSON.stringify(study)));
+    expect(loaded.elements).toEqual(study.elements);
+    const drawer = second.customCabinet!.definition.parts!.find(
+      (p) => p.drawerArray,
+    )!;
+    expect(drawer.width).toBeCloseTo(29.75);
+    expect(drawer.drawerArray!.heights).toHaveLength(3);
+    expect(second.height).toBe(cabinet.height);
+  });
   it('starts from standard drawers, names, and preserves the envelope and category', () => {
     const template = configurationTemplate(cabinet);
     expect(template.root).toMatchObject({

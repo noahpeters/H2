@@ -8,7 +8,7 @@ The cabinet library at `/admin/custom-cabinets` uses the Studio shell and a phys
 - Move a selected part with the translation handles. Snap can be disabled or set to 1/16, 1/8, or 1/2 inch. Position and size inputs accept precise decimal inches.
 - X is measured from the cabinet's left side, Y from its bottom, and Z from its front. Positive Z recesses a part; negative Z projects it outward. Changing a shelf/panel setback preserves its rear edge.
 - Add back/side panels or left/right rounded end shelves with dedicated controls. Duplicate and position shelves individually to form an end stack.
-- Use independent front setbacks to build stepped faces. The reveal control adjusts all fronts; individual front dimensions and positions remain editable.
+- Use independent front setbacks to build stepped faces. The reveal control adjusts all fronts; individual door dimensions and positions remain editable; drawer arrays follow their openings.
 - Undo/redo retains the last 50 geometry edits. Import/export is under a collapsed section in the inspector.
 
 ## Curves
@@ -43,9 +43,11 @@ Automated coverage includes legacy round trips, exact part edits, setbacks, curv
 
 Click an Add button to enter placement mode, then hover the cabinet. A translucent part follows the cursor and fits the opening beneath it; click to place or press Escape to cancel. Fronts fade during placement so the interior remains visible. Shelves and rods follow the cursor vertically, dividers horizontally, and doors/drawers fit the opening with the cabinet reveal. Openings are derived from the current physical boards, including newly placed shelves and moved dividers. Placement is a single undoable edit; hovering and cancellation do not change the design. The inspector remains available for precise adjustments after placement.
 
-New drawer fronts follow the cursor within the available front area and are capped at 8 inches high, shrinking to fit smaller remaining spaces. Door fronts fill the available area. Existing doors and exterior drawers reserve exterior door placement areas, with the default reveal retained between fronts. Drawer placement reserves existing drawer areas and allows placement behind doors. Shelves and other interior parts still target the physical opening behind fronts.
+**+ Drawer array** fills an opening with equal fronts. The default is the largest count whose fronts are at least 6 inches high after subtracting reveals; a shorter opening gets one front if it can accommodate the 2-inch minimum. Change Drawer count to divide the space equally again. Individual height inputs run top to bottom. Editing one height balances the remaining space from the bottom upward, retaining other upper heights where possible; every front stays at least 2 inches high. Equalize drawer heights restores equal spacing.
 
-Drawers may be placed behind an existing door. These are named Interior drawer and default to at least 0.5 inches behind the cabinet face and 0.5 inches behind the back of any covering door. Front setback remains editable. Existing drawers still exclude their occupied area; inset drawers do not block adding an exterior door in front of them.
+Width, position, and setback are derived from the opening and internal/external face placement. External fronts overlay surrounding carcass edges; internal fronts clear the opening and sit at least 0.5 inches behind covering doors. The array reserves its entire opening, uses one reveal between adjacent fronts, and reflows when the opening, reveal, or instance dimensions change. The overall cabinet envelope is unchanged. Move and Duplicate are disabled for arrays; Remove and undo affect the whole array.
+
+Arrays persist as optional `drawerArray` metadata on a drawer part: opening bounds, face placement, and bottom-to-top front heights. Rendering and takeoff expand that record into individual fronts with unique IDs, while selection and interaction target the array. The existing version-1 definition and version-2 saved-room formats remain supported; no database migration is required. Compatible legacy stacks become arrays when edited. Unequal upper heights are retained where they fit; stacks with incompatible per-front appearance, independent shapes, or undersized fronts remain legacy parts until replaced, avoiding silent loss of their details.
 
 ## Preview appearance
 

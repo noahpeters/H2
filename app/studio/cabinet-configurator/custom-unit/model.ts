@@ -1,3 +1,4 @@
+import {drawerArrayErrors} from './drawerArrays';
 import type {DoorMechanism} from './doorGeometry';
 import type {CabinetCurve} from './curves';
 export const CUSTOM_UNIT_VERSION = 1 as const;
@@ -60,6 +61,12 @@ export type CabinetPart = {
   height: number;
   depth: number;
   sectionId?: string;
+  /** One opening-owned array; heights are front sizes ordered bottom to top. */
+  drawerArray?: {
+    face: 'internal' | 'external';
+    opening: {x: number; y: number; width: number; height: number};
+    heights: number[];
+  };
   profileMode?: 'cabinet' | 'independent';
   shape?: 'rectangular' | 'round-left' | 'round-right';
   edges?: {
@@ -344,6 +351,7 @@ export function validateCustomUnit(value: unknown): string[] {
           errors.push('Invalid part');
           continue;
         }
+        errors.push(...drawerArrayErrors(unit as CustomUnitDefinition, part));
         if (typeof part.id !== 'string' || !part.id || ids.has(part.id))
           errors.push('Parts need unique IDs');
         ids.add(part.id);

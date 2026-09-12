@@ -180,6 +180,7 @@ export function PartViewport(props: Props) {
       );
       if (
         selectedObject &&
+        !definition.parts?.find((p) => p.id === selectedId)?.drawerArray &&
         tool === 'move' &&
         !current.current.placement &&
         !current.current.openings[selectedId]

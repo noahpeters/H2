@@ -1,3 +1,5 @@
+import {reflowDrawerArrays} from './drawerArrayEditing';
+import {refitDrawerArray} from './drawerArrays';
 import {cabinetCompositionEnvelope} from '../cabinetEnvelope';
 import type {KitchenElement, Room} from '../model';
 import {
@@ -45,6 +47,10 @@ export function fitDefinition(
   ] as const) {
     const ratio = envelope[field] / source[field];
     result.parts?.forEach((part) => {
+      if (part.drawerArray && axis !== 'z') {
+        part.drawerArray.opening[axis] *= ratio;
+        part.drawerArray.opening[field] *= ratio;
+      }
       const size = part[field] > 0.75 ? part[field] * ratio : part[field];
       part[axis] =
         Math.abs(part[axis] + part[field] - source[field]) < 0.001
@@ -54,7 +60,10 @@ export function fitDefinition(
     });
     result[field] = envelope[field];
   }
-  return result;
+  result.parts = result.parts?.map((part) =>
+    part.drawerArray ? refitDrawerArray(result, part) : part,
+  );
+  return reflowDrawerArrays(result);
 }
 const section = (
   sectionType: SectionType,
