@@ -1,3 +1,4 @@
+import {expandDrawerArray} from './drawerArrays';
 import {facePreviewGeometry, type CabinetAppearance} from './facePreview';
 import {cabinetColor} from '../materials';
 import {doorPreview} from './doorGeometry';
@@ -10,10 +11,13 @@ import {
   type CabinetPart,
 } from './model';
 
-export type CustomUnitPart = Omit<CabinetPart, 'id'> & {id?: string};
+export type CustomUnitPart = Omit<CabinetPart, 'id'> & {
+  id?: string;
+  arrayId?: string;
+};
 
 /** Catalog-independent physical takeoff generated only from the semantic definition. */
-export function customUnitParts(
+export function customUnitLayoutParts(
   definition: CustomUnitDefinition,
 ): CustomUnitPart[] {
   if (definition.parts) return definition.parts;
@@ -184,6 +188,14 @@ export function customUnitParts(
   }));
 }
 
+export function customUnitParts(
+  definition: CustomUnitDefinition,
+): CustomUnitPart[] {
+  return customUnitLayoutParts(definition).flatMap((part) =>
+    expandDrawerArray(part as CabinetPart, definition.reveal),
+  );
+}
+
 export function customUnitGeometry(
   definition: CustomUnitDefinition,
   openings: Record<string, number> = {},
@@ -284,7 +296,7 @@ export function customUnitGeometry(
     );
     mesh.name = `custom-unit-${part.kind}`;
     mesh.userData.sectionId = part.sectionId;
-    mesh.userData.partId = part.id;
+    mesh.userData.partId = part.arrayId ?? part.id;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.position.set(
@@ -295,10 +307,10 @@ export function customUnitGeometry(
     const object = doorPreview(
       mesh,
       {...part, id: part.id!},
-      openings[part.id!] ?? 0,
+      openings[part.arrayId ?? part.id!] ?? 0,
       definition.depth,
     );
-    object.userData.partId = part.id;
+    object.userData.partId = part.arrayId ?? part.id;
     object.userData.partRoot = true;
     group.add(object);
   }

@@ -1,4 +1,4 @@
-import {customUnitParts} from './geometry';
+import {customUnitLayoutParts} from './geometry';
 import {
   customUnitId,
   type CabinetPart,
@@ -6,7 +6,7 @@ import {
 } from './model';
 
 export function editableParts(unit: CustomUnitDefinition): CabinetPart[] {
-  return customUnitParts(unit).map((part, index) => ({
+  return customUnitLayoutParts(unit).map((part, index) => ({
     ...part,
     id: part.id ?? `${unit.id}-part-${index}`,
   }));

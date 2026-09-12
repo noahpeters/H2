@@ -1,3 +1,9 @@
+import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
+import {
+  drawerBounds,
+  equalDrawerHeights,
+  setDrawerHeight,
+} from './drawerArrays';
 import {FACE_STYLES, type CabinetAppearance} from './facePreview';
 import {CABINET_MATERIALS, CABINET_PAINTS} from '../materials';
 import type {PlacementKind} from './openingPlacement';
@@ -40,9 +46,11 @@ function Dimension({
   max?: number;
 }) {
   const [draft, setDraft] = useState(String(value));
+  const [dirty, setDirty] = useState(false);
   const [last, setLast] = useState(value);
   if (last !== value) {
     setLast(value);
+    setDirty(false);
     setDraft(String(Number(value.toFixed(4))));
   }
   return (
@@ -56,16 +64,21 @@ function Dimension({
           min={min}
           max={max}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDirty(true);
+            setDraft(event.target.value);
+          }}
           onBlur={() => {
             const next = Number(draft);
             if (
+              dirty &&
               draft.trim() &&
               Number.isFinite(next) &&
               next >= min &&
               next <= max
             )
               onChange(next);
+            setDirty(false);
             setDraft(String(value));
           }}
           onKeyDown={(event) => {
@@ -89,7 +102,9 @@ export function CustomUnitEditor({
   initialAppearance?: CabinetAppearance;
   onChange?: (definition: CustomUnitDefinition) => void;
 }) {
-  const [definition, setDefinition] = useState(initialDefinition);
+  const [definition, setDefinition] = useState(() =>
+    withDrawerArrays(initialDefinition),
+  );
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');
   const [tool, setTool] = useState<'orbit' | 'move' | 'interact'>('orbit');
@@ -122,6 +137,12 @@ export function CustomUnitEditor({
       )
     ) {
       setError('Cabinet dimensions are controlled by the configurator.');
+      return false;
+    }
+    try {
+      next = reflowDrawerArrays(next);
+    } catch (reason) {
+      setError((reason as Error).message);
       return false;
     }
     const errors = validateCustomUnit(next);
@@ -433,7 +454,7 @@ export function CustomUnitEditor({
           </details>
           <h2>02 / Add a part</h2>
           <div className="cu-add">
-            {(['shelf', 'divider', 'door', 'drawer', 'rod'] as const).map(
+            {(['shelf', 'divider', 'door', 'drawer-array', 'rod'] as const).map(
               (kind) => (
                 <button
                   key={kind}
@@ -442,7 +463,7 @@ export function CustomUnitEditor({
                     setOpenings({});
                   }}
                 >
-                  + {kind}
+                  + {kind === 'drawer-array' ? 'drawer array' : kind}
                 </button>
               ),
             )}
@@ -638,7 +659,7 @@ export function CustomUnitEditor({
             onSelect={setSelectedId}
             onMove={(id, delta) => {
               const part = parts.find((item) => item.id === id);
-              if (part)
+              if (part && !part.drawerArray)
                 update(
                   changePart(definition, id, {
                     x: part.x + delta.x,
@@ -975,41 +996,204 @@ export function CustomUnitEditor({
                   </>
                 )}
               </details>
-              <h3>Position</h3>
-              <div className="cu-fields">
-                {(['x', 'y', 'z'] as const).map((field, i) => (
-                  <Dimension
-                    key={field}
-                    label={['From left', 'From bottom', 'Front setback'][i]}
-                    value={selected[field]}
-                    min={field === 'y' ? 0 : -1000}
-                    onChange={(value) =>
-                      field === 'z'
-                        ? update(setPartSetback(definition, selected.id, value))
-                        : patch({[field]: value})
+              {selected.drawerArray ? (
+                <>
+                  <h3>Drawer array</h3>
+                  <p className="cu-hint">
+                    Fills the opening. Width and position follow the opening and
+                    face placement. Heights below are listed top to bottom;
+                    changing one balances the remaining space from the bottom
+                    drawer upward.
+                  </p>
+                  <label>
+                    Drawer count
+                    <input
+                      aria-label="Drawer count"
+                      type="number"
+                      min={1}
+                      max={Math.min(
+                        100,
+                        Math.floor(
+                          (selected.height + definition.reveal) /
+                            (2 + definition.reveal),
+                        ),
+                      )}
+                      step={1}
+                      value={selected.drawerArray.heights.length}
+                      onChange={(event) => {
+                        try {
+                          patch({
+                            drawerArray: {
+                              ...selected.drawerArray!,
+                              heights: equalDrawerHeights(
+                                selected.height,
+                                definition.reveal,
+                                Number(event.target.value),
+                              ),
+                            },
+                          });
+                        } catch (reason) {
+                          setError((reason as Error).message);
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Drawer face placement
+                    <select
+                      aria-label="Drawer face placement"
+                      value={selected.drawerArray.face}
+                      onChange={(event) => {
+                        const face = event.target.value as
+                          | 'internal'
+                          | 'external';
+                        const bounds = drawerBounds(
+                          definition,
+                          selected.drawerArray!.opening,
+                          face,
+                        );
+                        const doors = parts.filter(
+                          (p) =>
+                            p.kind === 'door' &&
+                            p.x < selected.x + selected.width &&
+                            p.x + p.width > selected.x &&
+                            p.y < selected.y + selected.height &&
+                            p.y + p.height > selected.y,
+                        );
+                        if (face === 'external' && doors.length) {
+                          setError(
+                            'Remove the covering door before using external drawer fronts.',
+                          );
+                          return;
+                        }
+                        try {
+                          patch({
+                            ...bounds,
+                            z:
+                              face === 'external'
+                                ? -selected.depth
+                                : Math.max(
+                                    0.5,
+                                    ...doors.map((p) => p.z + p.depth + 0.5),
+                                  ),
+                            drawerArray: {
+                              ...selected.drawerArray!,
+                              face,
+                              heights: equalDrawerHeights(
+                                bounds.height,
+                                definition.reveal,
+                                selected.drawerArray!.heights.length,
+                              ),
+                            },
+                          });
+                        } catch (reason) {
+                          setError((reason as Error).message);
+                        }
+                      }}
+                    >
+                      <option value="external">External front</option>
+                      <option value="internal">Internal front</option>
+                    </select>
+                  </label>
+                  <p className="cu-hint">
+                    Front width: {Number(selected.width.toFixed(4))}″ · Reveal:{' '}
+                    {definition.reveal}″
+                  </p>
+                  {[...selected.drawerArray.heights]
+                    .reverse()
+                    .map((height, row) => (
+                      <Dimension
+                        // Rows represent fixed top-to-bottom positions within the array.
+                        // eslint-disable-next-line react/no-array-index-key
+                        key={row}
+                        label={`Drawer ${row + 1} height`}
+                        value={height}
+                        min={2}
+                        max={
+                          selected.height -
+                          (selected.drawerArray!.heights.length - 1) *
+                            (2 + definition.reveal)
+                        }
+                        onChange={(value) => {
+                          try {
+                            patch(
+                              setDrawerHeight(
+                                selected,
+                                definition.reveal,
+                                selected.drawerArray!.heights.length - 1 - row,
+                                value,
+                              ),
+                            );
+                          } catch (reason) {
+                            setError((reason as Error).message);
+                          }
+                        }}
+                      />
+                    ))}
+                  <button
+                    onClick={() =>
+                      patch({
+                        drawerArray: {
+                          ...selected.drawerArray!,
+                          heights: equalDrawerHeights(
+                            selected.height,
+                            definition.reveal,
+                            selected.drawerArray!.heights.length,
+                          ),
+                        },
+                      })
                     }
-                  />
-                ))}
-              </div>
-              <h3>Size</h3>
-              <div className="cu-fields">
-                {(['width', 'height', 'depth'] as const).map((field) => (
-                  <Dimension
-                    key={field}
-                    label={`Part ${field}`}
-                    value={selected[field]}
-                    min={0.0625}
-                    onChange={(value) => patch({[field]: value})}
-                  />
-                ))}
-              </div>
-              <p className="cu-hint">
-                A positive setback recesses the part. For shelves and panels, it
-                keeps the rear edge in place. Negative values project past the
-                front.
-              </p>
+                  >
+                    Equalize drawer heights
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h3>Position</h3>
+                  <div className="cu-fields">
+                    {(['x', 'y', 'z'] as const).map((field, i) => (
+                      <Dimension
+                        key={field}
+                        label={['From left', 'From bottom', 'Front setback'][i]}
+                        value={selected[field]}
+                        min={field === 'y' ? 0 : -1000}
+                        onChange={(value) =>
+                          field === 'z'
+                            ? update(
+                                setPartSetback(definition, selected.id, value),
+                              )
+                            : patch({[field]: value})
+                        }
+                      />
+                    ))}
+                  </div>
+                  <h3>Size</h3>
+                  <div className="cu-fields">
+                    {(['width', 'height', 'depth'] as const)
+                      .filter(
+                        (field) =>
+                          selected.kind !== 'drawer' || field !== 'width',
+                      )
+                      .map((field) => (
+                        <Dimension
+                          key={field}
+                          label={`Part ${field}`}
+                          value={selected[field]}
+                          min={0.0625}
+                          onChange={(value) => patch({[field]: value})}
+                        />
+                      ))}
+                  </div>
+                  <p className="cu-hint">
+                    A positive setback recesses the part. For shelves and
+                    panels, it keeps the rear edge in place. Negative values
+                    project past the front.
+                  </p>
+                </>
+              )}
               <div className="cu-actions">
                 <button
+                  disabled={Boolean(selected.drawerArray)}
                   onClick={() => {
                     const copy = {
                       ...selected,

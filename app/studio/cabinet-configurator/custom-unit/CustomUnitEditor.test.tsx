@@ -27,6 +27,45 @@ vi.mock('./PartViewport', async () => {
   };
 });
 
+it('places an array, edits count and heights, and removes/undoes the entire array', () => {
+  const onChange = vi.fn();
+  render(<CustomUnitEditor onChange={onChange} />);
+  fireEvent.click(screen.getByRole('button', {name: '+ drawer array'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
+  expect(screen.queryByLabelText('Part width')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('From bottom')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Duplicate'})).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Drawer count'), {
+    target: {value: '3'},
+  });
+  expect(
+    onChange.mock.lastCall![0].parts.at(-1).drawerArray.heights,
+  ).toHaveLength(3);
+  const calls = onChange.mock.calls.length;
+  fireEvent.blur(screen.getByLabelText('Drawer 2 height'));
+  expect(onChange).toHaveBeenCalledTimes(calls);
+  const height = screen.getByLabelText('Drawer 1 height');
+  fireEvent.change(height, {target: {value: '6.125'}});
+  fireEvent.blur(height);
+  expect(
+    onChange.mock.lastCall![0].parts.at(-1).drawerArray.heights.at(-1),
+  ).toBeCloseTo(6.125, 10);
+  fireEvent.change(screen.getByLabelText('Drawer face placement'), {
+    target: {value: 'internal'},
+  });
+  expect(onChange.mock.lastCall![0].parts.at(-1).width).toBe(46.25);
+  fireEvent.click(screen.getByRole('button', {name: 'Remove'}));
+  expect(
+    onChange.mock.lastCall![0].parts.some(
+      (p: {drawerArray?: unknown}) => p.drawerArray,
+    ),
+  ).toBe(false);
+  fireEvent.click(screen.getByRole('button', {name: 'Undo'}));
+  expect(
+    onChange.mock.lastCall![0].parts.at(-1).drawerArray.heights,
+  ).toHaveLength(3);
+});
+
 describe('Cabinet workshop', () => {
   it('does not save a part before placement and cancels without changes', () => {
     const onChange = vi.fn();
@@ -270,15 +309,16 @@ it('allows drawer height edits while the overall cabinet envelope is locked', as
       onChange={onChange}
     />,
   );
-  fireEvent.click(screen.getAllByRole('button', {name: /^Drawer \d/})[0]);
-  expect(screen.getByLabelText('Part width')).toBeInTheDocument();
-  expect(screen.getByLabelText('Part depth')).toBeInTheDocument();
-  const height = screen.getByLabelText('Part height');
+  fireEvent.click(screen.getAllByRole('button', {name: /^Drawer array/})[0]);
+  expect(screen.queryByLabelText('Part width')).not.toBeInTheDocument();
+  const height = screen.getByLabelText('Drawer 1 height');
   fireEvent.change(height, {target: {value: '6'}});
   fireEvent.blur(height);
   const saved = onChange.mock.lastCall![0];
   expect(
-    saved.parts.find((part: {kind: string}) => part.kind === 'drawer').height,
+    saved.parts
+      .find((part: {kind: string}) => part.kind === 'drawer')
+      .drawerArray.heights.at(-1),
   ).toBe(6);
   expect(saved).toMatchObject({width: 36, height: 34.5, depth: 24});
   expect(

@@ -1,8 +1,10 @@
+import {drawerBounds, equalDrawerHeights} from './drawerArrays';
 import {editableParts} from './partEditing';
 import type {CabinetPart, CustomUnitDefinition} from './model';
 
 export type PlacementKind =
   | CabinetPart['kind']
+  | 'drawer-array'
   | 'back-panel'
   | 'side-panel'
   | 'left-end-shelf'
@@ -94,6 +96,10 @@ export function placementOpenings(
   unit: CustomUnitDefinition,
   kind: PlacementKind,
 ): CabinetOpening[] {
+  if (kind === 'drawer-array')
+    return placementOpenings(unit, 'drawer').filter(
+      (space) => space.height >= 2 + 2 * unit.reveal,
+    );
   let spaces = cabinetOpenings(unit);
   if (kind !== 'door' && kind !== 'drawer') return spaces;
   for (const front of editableParts(unit).filter((part) =>
@@ -138,6 +144,26 @@ export function partInOpening(
   y = opening.y + opening.height / 2,
   snap = 0.0625,
 ): CabinetPart {
+  if (kind === 'drawer-array') {
+    const template = partInOpening(unit, 'drawer', opening);
+    const face = template.z >= 0 ? 'internal' : 'external';
+    const bounds = drawerBounds(unit, opening, face);
+    return {
+      ...template,
+      ...bounds,
+      name: 'Drawer array',
+      drawerArray: {
+        face,
+        opening: {
+          x: opening.x,
+          y: opening.y,
+          width: opening.width,
+          height: opening.height,
+        },
+        heights: equalDrawerHeights(bounds.height, unit.reveal),
+      },
+    };
+  }
   if (kind === 'back-panel' || kind === 'side-panel')
     return {
       id: 'placement-preview',
