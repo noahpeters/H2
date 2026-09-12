@@ -9,7 +9,10 @@ concurrency:
   group: cabinet-rooms-deploy
   cancel-in-progress: false
 jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
   deploy:
+    needs: validate
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: cabinet-rooms-production
@@ -19,7 +22,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - run: npm run typecheck && npm run lint && npm test -- --run
       - name: Configure database binding
         env:
           DATABASE_ID: ${{ vars.CABINET_ROOMS_DATABASE_ID }}
