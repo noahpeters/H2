@@ -17,6 +17,7 @@ export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
     const target = window as GoogleWindow;
     // Google's queue expects an arguments object for each command.
     function gtag(..._args: unknown[]) {
+      // eslint-disable-next-line prefer-rest-params -- Google requires an arguments object, not an array.
       (target.dataLayer ??= []).push(arguments);
     }
     const syncConsent = () => {
