@@ -1,3 +1,4 @@
+import {ConfiguratorAnalytics} from '~/components/ConfiguratorAnalytics';
 import {Analytics, getShopAnalytics, useNonce} from '@shopify/hydrogen';
 import {PageViewAnalytics} from '~/components/PageAnalyticsView';
 import {
@@ -190,38 +191,9 @@ export function TawkToTag({nonce}: {nonce?: string}) {
   return null;
 }
 
-export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
-  useEffect(() => {
-    // avoid double-inject (HMR, client nav, etc.)
-    const existing = document.querySelector(
-      `script[src="https://www.googletagmanager.com/gtag/js?id=${id}"]`,
-    );
-    if (existing) return;
-
-    const s1 = document.createElement('script');
-    s1.async = true;
-    s1.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
-    if (nonce) s1.nonce = nonce;
-    document.head.appendChild(s1);
-
-    const s2 = document.createElement('script');
-    if (nonce) s2.nonce = nonce;
-    s2.text = `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){window.dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${id}');
-    `;
-    document.head.appendChild(s2);
-  }, [id, nonce]);
-
-  return null;
-}
-
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
   const location = useLocation();
-  const gtagId = 'GT-TXBKGK45';
   const studioOwned = isStudioOwnedPath(location.pathname);
 
   return (
@@ -253,7 +225,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <ClientErrorReporter />
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
-        <GoogleTag nonce={nonce} id={gtagId} />
+        <ConfiguratorAnalytics />
         {!studioOwned ? <TawkToTag nonce={nonce} /> : null}
         <MetaPixel nonce={nonce} />
       </body>

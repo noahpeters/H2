@@ -1,6 +1,5 @@
 const KEY = 'from-trees-configurator-session-v1';
 const WINDOW = 30 * 60 * 1000;
-let permission: () => boolean = () => false;
 type Session = {
   id: string;
   source: string;
@@ -9,19 +8,9 @@ type Session = {
   lastSeen: number;
 };
 let memory: Session | null = null;
-export function setAnalyticsPermission(canTrack: () => boolean) {
-  permission = canTrack;
-}
+// First-party operational sessions are independent of optional analytics consent.
 export function currentAnalyticsSession(): Session | null {
-  if (typeof window === 'undefined' || !permission()) {
-    memory = null;
-    try {
-      sessionStorage.removeItem(KEY);
-    } catch {
-      /* Storage may be unavailable. */
-    }
-    return null;
-  }
+  if (typeof window === 'undefined') return null;
   let session = memory;
   try {
     session = JSON.parse(
