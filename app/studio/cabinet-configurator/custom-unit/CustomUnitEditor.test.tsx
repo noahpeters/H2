@@ -248,3 +248,40 @@ it('saves the sheet draft only on Save configuration and discards canceled edits
   expect(onClose).toHaveBeenCalledOnce();
   expect(onSave).not.toHaveBeenCalled();
 });
+
+it('allows drawer height edits while the overall cabinet envelope is locked', async () => {
+  const {createCustomUnit} = await import('./model');
+  const initial = createCustomUnit({
+    width: 36,
+    height: 34.5,
+    depth: 24,
+    root: {
+      id: 'drawers',
+      type: 'section',
+      sectionType: 'drawer-stack',
+      properties: {drawerCount: 3},
+    },
+  });
+  const onChange = vi.fn();
+  render(
+    <CustomUnitEditor
+      initialDefinition={initial}
+      lockEnvelope
+      onChange={onChange}
+    />,
+  );
+  fireEvent.click(screen.getAllByRole('button', {name: /^Drawer \d/})[0]);
+  expect(screen.getByLabelText('Part width')).toBeInTheDocument();
+  expect(screen.getByLabelText('Part depth')).toBeInTheDocument();
+  const height = screen.getByLabelText('Part height');
+  fireEvent.change(height, {target: {value: '6'}});
+  fireEvent.blur(height);
+  const saved = onChange.mock.lastCall![0];
+  expect(
+    saved.parts.find((part: {kind: string}) => part.kind === 'drawer').height,
+  ).toBe(6);
+  expect(saved).toMatchObject({width: 36, height: 34.5, depth: 24});
+  expect(
+    screen.queryByRole('spinbutton', {name: 'height'}),
+  ).not.toBeInTheDocument();
+});
