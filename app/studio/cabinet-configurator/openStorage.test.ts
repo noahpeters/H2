@@ -6,7 +6,7 @@ import {
   validStorage,
   type StorageKind,
 } from './openStorage';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {validStudy} from './savedRoomProtocol';
 import type {Study} from './CabinetConfigurator';
 describe('open storage', () => {

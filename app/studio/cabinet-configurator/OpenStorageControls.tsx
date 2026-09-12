@@ -1,11 +1,11 @@
-import type {KitchenElement} from './model';
+import type {RoomElement} from './model';
 import {storageLayout} from './openStorage';
 export function OpenStorageControls({
   item,
   change,
 }: {
-  item: KitchenElement;
-  change: (patch: Partial<KitchenElement>) => void;
+  item: RoomElement;
+  change: (patch: Partial<RoomElement>) => void;
 }) {
   const s = item.storage!;
   const storage = (key: keyof typeof s, value: number | boolean) =>

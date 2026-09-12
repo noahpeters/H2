@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
 import * as THREE from 'three';
-import {cabinetGeometry, openingGeometry} from './kitchenGeometry';
-import {wallToFloor, bounds, type KitchenElement, type Room} from './model';
+import {cabinetGeometry, openingGeometry} from './roomGeometry';
+import {wallToFloor, bounds, type RoomElement, type Room} from './model';
 const room: Room = {
   width: 144,
   depth: 120,
@@ -9,7 +9,7 @@ const room: Room = {
   floor: 'oak',
   walls: 'plaster',
 };
-const base: KitchenElement = {
+const base: RoomElement = {
   id: 'base',
   kind: 'base',
   width: 30,
@@ -18,7 +18,7 @@ const base: KitchenElement = {
   face: 'shaker',
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
-describe('four wall kitchen geometry', () => {
+describe('four wall room geometry', () => {
   it('centers standard tall cabinet handles 36 inches above the floor', () => {
     for (const height of [72, 84, 96])
       for (const width of [30, 36])

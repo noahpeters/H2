@@ -1,3 +1,4 @@
+import {createFixture} from '../../app/studio/cabinet-configurator/fixtures';
 // @vitest-environment node
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
@@ -14,7 +15,7 @@ import {createOpenStorage} from '../../app/studio/cabinet-configurator/openStora
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import type {
   BaseConfiguration,
-  KitchenElement,
+  RoomElement,
 } from '../../app/studio/cabinet-configurator/model';
 const dbs: DatabaseSync[] = [];
 afterEach(() => {
@@ -77,7 +78,7 @@ function setup() {
       ),
   };
 }
-const cabinet: KitchenElement = {
+const cabinet: RoomElement = {
   id: 'b1',
   kind: 'base',
   configuration: 'three-drawer',
@@ -88,7 +89,7 @@ const cabinet: KitchenElement = {
   face: 'shaker',
   placement: {mode: 'floor', x: 30, z: 30, rotation: 0},
 };
-function study(elements: KitchenElement[] = [cabinet]): Study {
+function study(elements: RoomElement[] = [cabinet]): Study {
   return {
     version: 2,
     room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
@@ -353,4 +354,12 @@ describe('bottom-up cabinet pricing', () => {
     ).run();
     expect((await call(`/price?slug=${slug}`)).status).toBe(503);
   });
+});
+
+it('excludes bathroom room fixtures from cabinetry pricing', () => {
+  const fixture = createFixture('toilet', 'toilet', study().room);
+  expect(projectSchedule(study([fixture])).lines).toHaveLength(0);
+  expect(projectSchedule(study([cabinet, fixture])).lines).toEqual(
+    projectSchedule(study([cabinet])).lines,
+  );
 });

@@ -5,11 +5,11 @@ import {
   createDragUpdate,
   CabinetConfigurator,
   migrateStudy,
-  referenceKitchenStudy,
+  referenceRoomStudy,
   type Study,
 } from './CabinetConfigurator';
 import {validStudy} from './savedRoomProtocol';
-import type {KitchenElement} from './model';
+import type {RoomElement} from './model';
 
 const study = () => ({
   version: 2 as const,
@@ -32,7 +32,7 @@ const study = () => ({
       face: 'slab' as const,
       placement: {mode: 'floor' as const, x: 48, z: 42, rotation: 0},
     },
-  ] as KitchenElement[],
+  ] as RoomElement[],
   islands: [],
   selected: 'island-appliance',
   countertop: true,
@@ -40,10 +40,15 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
-  it('offers farmhouse sink as a base configuration', () => {
+  it('offers bathroom fixtures and moves sinks out of cabinet configuration choices', () => {
     const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
     expect(markup).toContain('<summary>Base</summary>');
-    expect(markup).toContain('Farmhouse / apron-front sink base');
+    expect(markup).not.toContain('Farmhouse / apron-front sink base');
+    expect(markup).toContain('Freestanding bathtub');
+    expect(markup).toContain('Toilet');
+    expect(markup).toContain('+ Add fixture');
+    expect(markup).not.toContain('+ Add appliance');
+    expect(markup).not.toContain('+ Add bathroom');
   });
   it('offers corner base as its own cabinet instead of a base configuration', () => {
     const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
@@ -67,8 +72,8 @@ describe('createDragUpdate', () => {
       expect(migrateStudy({...study(), view}).view).toBe('split');
     },
   );
-  it('provides a valid warm-oak reference kitchen preset', () => {
-    const preset = referenceKitchenStudy();
+  it('provides a valid warm-oak reference room preset', () => {
+    const preset = referenceRoomStudy();
     expect(validStudy(preset)).toBe(true);
     expect(preset.elements).toEqual(
       expect.arrayContaining([

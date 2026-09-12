@@ -2,7 +2,7 @@ import {
   bounds,
   elementCenter,
   wallToFloor,
-  type KitchenElement,
+  type RoomElement,
   type Island,
   type Room,
   type Wall,
@@ -10,7 +10,7 @@ import {
 import {roomSegments, roomPoints, boxInRoom} from './roomOutline';
 /** Corner footprints sit flush against both walls; the notch points inward. */
 export function snapRoomCorner(
-  item: KitchenElement,
+  item: RoomElement,
   room: Room,
   threshold = 3,
 ) {
@@ -64,7 +64,7 @@ export function snapRoomCorner(
   delete item.islandId;
   return true;
 }
-export function snapWall(item: KitchenElement, room: Room, threshold = 3) {
+export function snapWall(item: RoomElement, room: Room, threshold = 3) {
   if (item.placement.mode !== 'floor') return;
   const {x, z, elevation = 0} = item.placement;
   const candidates: {
@@ -120,7 +120,8 @@ export function snapWall(item: KitchenElement, room: Room, threshold = 3) {
   };
   delete item.islandId;
 }
-export function islandAt(item: KitchenElement, islands: Island[], room: Room) {
+export function islandAt(item: RoomElement, islands: Island[], room: Room) {
+  if (item.kind === 'fixture') return undefined;
   const p = elementCenter(item, room);
   return islands
     .filter((i) => {
@@ -138,7 +139,7 @@ export function islandAt(item: KitchenElement, islands: Island[], room: Room) {
     )[0]?.id;
 }
 export function positionElement(
-  item: KitchenElement,
+  item: RoomElement,
   x: number,
   z: number,
   room: Room,
@@ -151,7 +152,7 @@ export function positionElement(
 }
 /** Snap the footprint inside an island boundary, in the island's local axes. */
 export function snapIslandEdges(
-  item: KitchenElement,
+  item: RoomElement,
   islands: Island[],
   room: Room,
   threshold = 3,
@@ -187,8 +188,8 @@ export function snapIslandEdges(
   p.z = island.z + x * s + z * c;
 }
 export function snapAdjacent(
-  item: KitchenElement,
-  items: KitchenElement[],
+  item: RoomElement,
+  items: RoomElement[],
   room: Room,
   threshold = 3,
 ) {
@@ -222,7 +223,7 @@ export function snapAdjacent(
     dz = Infinity;
   for (const other of items) {
     if (other.id === item.id) continue;
-    const elevation = (i: KitchenElement) => i.placement.elevation ?? 0;
+    const elevation = (i: RoomElement) => i.placement.elevation ?? 0;
     if (
       elevation(item) >= elevation(other) + other.height ||
       elevation(other) >= elevation(item) + item.height

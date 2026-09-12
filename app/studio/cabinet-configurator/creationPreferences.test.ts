@@ -6,7 +6,7 @@ import {
   rememberCreationPreferences,
   saveCreationPreferences,
 } from './creationPreferences';
-import {createKitchenAppliance, type KitchenElement, type Room} from './model';
+import {createAppliance, type RoomElement, type Room} from './model';
 import {createOpenStorage} from './openStorage';
 
 const room: Room = {
@@ -16,7 +16,7 @@ const room: Room = {
   floor: 'oak',
   walls: 'plaster',
 };
-const cabinet = (kind: 'base' | 'wall-cabinet' | 'tall'): KitchenElement => ({
+const cabinet = (kind: 'base' | 'wall-cabinet' | 'tall'): RoomElement => ({
   id: `${kind}-1`,
   kind,
   width: 30,
@@ -173,7 +173,7 @@ describe('creation preferences', () => {
 
   it('scopes appliance and open-storage options to compatible types', () => {
     let preferences = rememberCreationPreferences(emptyCreationPreferences(), {
-      ...createKitchenAppliance('dishwasher', 'dishwasher-1'),
+      ...createAppliance('dishwasher', 'dishwasher-1'),
       width: 26,
       applianceFront: 'slab',
     });
@@ -185,13 +185,13 @@ describe('creation preferences', () => {
 
     expect(
       applyCreationPreferences(
-        createKitchenAppliance('dishwasher', 'new'),
+        createAppliance('dishwasher', 'new'),
         preferences,
         room,
       ),
     ).toMatchObject({width: 26, applianceFront: 'slab'});
     const refrigerator = applyCreationPreferences(
-      createKitchenAppliance('refrigerator', 'new'),
+      createAppliance('refrigerator', 'new'),
       preferences,
       room,
     );

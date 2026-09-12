@@ -1,3 +1,19 @@
+import {FixturePlan} from './FixturePlan';
+import {
+  FIXTURE_CATALOG,
+  createFixture,
+  showerGlassSides,
+  type FixtureKind,
+  type FixtureSide,
+} from './fixtures';
+import {fixtureGeometry} from './fixtureGeometry';
+import {
+  canAttachSink,
+  sinkAttachment,
+  createSink,
+  SINK_CATALOG,
+  type SinkKind,
+} from './sinkAttachments';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ChoiceImage, VisualSelect} from './VisualChoices';
@@ -52,7 +68,7 @@ import {
   roomFloorGeometry,
   openingGeometry,
   islandCountertop,
-} from './kitchenGeometry';
+} from './roomGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
@@ -62,7 +78,7 @@ import {
   type BaseConfiguration,
   aisleClearance,
   bounds,
-  createKitchenAppliance,
+  createAppliance,
   elementCenter,
   migrateElement,
   moveIsland,
@@ -71,7 +87,7 @@ import {
   wallToFloor,
   type Island,
   type ApplianceKind,
-  type KitchenElement,
+  type RoomElement,
   type Room,
   type Wall,
 } from './model';
@@ -90,7 +106,7 @@ export type Study = {
   version: 2;
   room: Room;
   openings: Opening[];
-  elements: KitchenElement[];
+  elements: RoomElement[];
   islands: Island[];
   selected: string | null;
   countertop: boolean;
@@ -214,20 +230,22 @@ function initialStudy(): Study {
   };
 }
 
-export const REFERENCE_KITCHEN_PRESET = 'warm-oak-farmhouse-kitchen';
+export const REFERENCE_ROOM_PRESET = 'warm-oak-farmhouse-room';
+// Compatibility for previously shared preset URLs.
+const LEGACY_REFERENCE_PRESET = 'warm-oak-farmhouse-kitchen';
 
-/** A shareable starting study modeled on the supplied warm-oak kitchen. */
-export function referenceKitchenStudy(): Study {
+/** A shareable starting study modeled on the supplied warm-oak room. */
+export function referenceRoomStudy(): Study {
   const face = 'vertical-slat' as const;
   const material = 'rift-white-oak' as const;
   const wallElement = (
     id: string,
-    kind: KitchenElement['kind'],
+    kind: RoomElement['kind'],
     wall: Wall,
     offset: number,
     width: number,
-    extras: Partial<KitchenElement> = {},
-  ): KitchenElement => ({
+    extras: Partial<RoomElement> = {},
+  ): RoomElement => ({
     id,
     kind,
     width,
@@ -243,7 +261,7 @@ export function referenceKitchenStudy(): Study {
     },
     ...extras,
   });
-  const islandBase = (id: string, x: number): KitchenElement => ({
+  const islandBase = (id: string, x: number): RoomElement => ({
     id,
     kind: 'base',
     width: 30,
@@ -305,7 +323,7 @@ export function referenceKitchenStudy(): Study {
         configuration: 'farmhouse-sink',
       }),
       {
-        ...createKitchenAppliance('dishwasher', 'reference-dishwasher'),
+        ...createAppliance('dishwasher', 'reference-dishwasher'),
         applianceFront: 'vertical-slat',
         material,
         placement: {mode: 'wall', wall: 'right', offset: 120, elevation: 0},
@@ -342,7 +360,7 @@ export function referenceKitchenStudy(): Study {
         configuration: 'door-drawer',
       }),
       {
-        ...createKitchenAppliance('range', 'reference-range'),
+        ...createAppliance('range', 'reference-range'),
         width: 36,
         rangeHood: true,
         placement: {mode: 'wall', wall: 'left', offset: 48, elevation: 0},
@@ -503,7 +521,7 @@ export function createDragUpdate(
     return next;
   };
 }
-function elementTransform(element: KitchenElement, room: Room) {
+function elementTransform(element: RoomElement, room: Room) {
   const center = elementCenter(element, room);
   const rotation =
     element.placement.mode === 'wall'
@@ -653,22 +671,25 @@ export function ThreeStudy({
       const depth = cabinet.depth * INCH;
       const height = cabinet.height * INCH;
       const isAppliance = cabinet.kind === 'appliance';
-      const body = isAppliance
-        ? applianceGeometry(
-            cabinet.applianceKind ?? 'dishwasher',
-            width,
-            height,
-            depth,
-            cabinet.applianceFront,
-            cabinet.rangeHood,
-            cabinetColor(cabinet),
-            study.countertop && !cabinet.islandId,
-          )
-        : cabinetGeometry(
-            cabinet,
-            study.countertop,
-            study.islands.some((i) => i.id === cabinet.islandId),
-          );
+      const body =
+        cabinet.kind === 'fixture'
+          ? fixtureGeometry(cabinet, study.room)
+          : isAppliance
+            ? applianceGeometry(
+                cabinet.applianceKind ?? 'dishwasher',
+                width,
+                height,
+                depth,
+                cabinet.applianceFront,
+                cabinet.rangeHood,
+                cabinetColor(cabinet),
+                study.countertop && !cabinet.islandId,
+              )
+            : cabinetGeometry(
+                cabinet,
+                study.countertop,
+                study.islands.some((i) => i.id === cabinet.islandId),
+              );
       body.userData.id = cabinet.id;
       const transform = elementTransform(cabinet, study.room);
       const elevation =
@@ -922,8 +943,8 @@ export function CabinetConfigurator({
     study,
     setStudy,
     (preset) =>
-      preset === REFERENCE_KITCHEN_PRESET
-        ? referenceKitchenStudy()
+      preset === REFERENCE_ROOM_PRESET || preset === LEGACY_REFERENCE_PRESET
+        ? referenceRoomStudy()
         : preset === 'blank'
           ? blankStudy()
           : initialStudy(),
@@ -940,6 +961,9 @@ export function CabinetConfigurator({
         setHistory((items) => [...items.slice(-29), clone(current)]);
         const next = clone(current);
         change(next);
+        for (const item of next.elements)
+          if (item.fixtureKind === 'glass-shower')
+            item.height = next.room.height;
         return next;
       }),
     [],
@@ -979,7 +1003,7 @@ export function CabinetConfigurator({
       (780 - pad * 2) / study.room.width,
       (560 - pad * 2) / study.room.depth,
     );
-  const placementContext = (item: KitchenElement, draft: Study) => ({
+  const placementContext = (item: RoomElement, draft: Study) => ({
     elementId:
       draft.selected &&
       (draft.islands.some((i) => i.id === draft.selected) ||
@@ -995,15 +1019,15 @@ export function CabinetConfigurator({
     wall: selectedWall,
   });
   const addElement = (
-    kind: KitchenElement['kind'],
+    kind: RoomElement['kind'],
     applianceKind?: ApplianceKind,
     configuration?: BaseConfiguration,
-    tallConfiguration?: KitchenElement['tallConfiguration'],
+    tallConfiguration?: RoomElement['tallConfiguration'],
   ) =>
     update((d) => {
       if (kind === 'appliance' && applianceKind) {
         const item = applyCreationPreferences(
-          createKitchenAppliance(applianceKind, makeId()),
+          createAppliance(applianceKind, makeId()),
           creationPreferences.current!,
           d.room,
         );
@@ -1013,7 +1037,7 @@ export function CabinetConfigurator({
         d.selected = item.id;
         return;
       }
-      const item: KitchenElement = {
+      const item: RoomElement = {
         configuration,
         tallConfiguration,
         id: makeId(),
@@ -1106,7 +1130,7 @@ export function CabinetConfigurator({
         Object.assign(target, next);
       } else Object.assign(target, {[key]: value});
     });
-  const plan = (e: KitchenElement) => {
+  const plan = (e: RoomElement) => {
     const t = elementTransform(e, study.room);
     return {
       x: pad + t.x * scale,
@@ -1116,10 +1140,7 @@ export function CabinetConfigurator({
       r: t.rotation,
     };
   };
-  const startDrag = (
-    ev: React.PointerEvent<SVGGElement>,
-    e: KitchenElement,
-  ) => {
+  const startDrag = (ev: React.PointerEvent<SVGGElement>, e: RoomElement) => {
     if (e.placement.mode === 'hosted') return;
     ev.currentTarget.setPointerCapture(ev.pointerId);
     setHistory((h) => [...h.slice(-29), clone(study)]);
@@ -1711,8 +1732,6 @@ export function CabinetConfigurator({
                         ['door-drawer', 'Door + upper drawer'],
                         ['three-drawer', 'Three drawers'],
                         ['microwave-drawer', 'Microwave drawer'],
-                        ['sink', 'Sink base'],
-                        ['farmhouse-sink', 'Farmhouse / apron-front sink base'],
                       ] as const
                     ).map(([configuration, label]) => (
                       <button
@@ -1811,8 +1830,29 @@ export function CabinetConfigurator({
               </div>
             </details>
             <details className="cc-add-menu">
-              <summary>+ Add appliance</summary>
+              <summary>+ Add fixture</summary>
               <div>
+                {(Object.keys(FIXTURE_CATALOG) as FixtureKind[]).map((kind) => (
+                  <button
+                    key={kind}
+                    onClick={() =>
+                      update((d) => {
+                        const item = createFixture(kind, makeId(), d.room);
+                        const placed = automaticallyPlaceElement(
+                          item,
+                          d,
+                          placementContext(item, d),
+                        );
+                        delete placed.islandId;
+                        d.elements.push(placed);
+                        d.selected = item.id;
+                      })
+                    }
+                  >
+                    {FIXTURE_CATALOG[kind].label}
+                  </button>
+                ))}
+
                 {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[])
                   .filter(
                     (kind) => !['wall-oven', 'coffee-maker'].includes(kind),
@@ -1844,11 +1884,13 @@ export function CabinetConfigurator({
               <div className="cc-fields">
                 <div className="cc-selected-heading">
                   <strong>
-                    {selected.storage
-                      ? OPEN_STORAGE[selected.storage.type]
-                      : selected.applianceKind
-                        ? APPLIANCE_CATALOG[selected.applianceKind].label
-                        : selected.kind}
+                    {selected.fixtureKind
+                      ? FIXTURE_CATALOG[selected.fixtureKind].label
+                      : selected.storage
+                        ? OPEN_STORAGE[selected.storage.type]
+                        : selected.applianceKind
+                          ? APPLIANCE_CATALOG[selected.applianceKind].label
+                          : selected.kind}
                   </strong>
                   <button
                     onClick={() =>
@@ -1863,6 +1905,135 @@ export function CabinetConfigurator({
                     Remove
                   </button>
                 </div>
+                {canAttachSink(selected) && (
+                  <>
+                    <label>
+                      Countertop sink
+                      <select
+                        value={sinkAttachment(selected)?.kind ?? ''}
+                        onChange={(event) => {
+                          const kind = event.currentTarget.value as
+                            | SinkKind
+                            | '';
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            )!;
+                            item.sink = kind ? createSink(kind) : null;
+                          });
+                        }}
+                      >
+                        <option value="">None</option>
+                        {(Object.keys(SINK_CATALOG) as SinkKind[]).map(
+                          (kind) => (
+                            <option key={kind} value={kind}>
+                              {SINK_CATALOG[kind].label}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                    {sinkAttachment(selected) && (
+                      <>
+                        {!study.countertop && (
+                          <p className="cc-inline-warning">
+                            Enable countertops to show the sink.
+                          </p>
+                        )}
+                        {(['x', 'width', 'depth'] as const).map((key) => (
+                          <label key={key}>
+                            {key === 'x'
+                              ? 'Sink horizontal offset from center (in)'
+                              : `Sink ${key} (in)`}
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={sinkAttachment(selected)![key]}
+                              onChange={(event) => {
+                                const value = Number(event.currentTarget.value);
+                                if (
+                                  !Number.isFinite(value) ||
+                                  (key !== 'x' &&
+                                    (value <= 0 || value > 120)) ||
+                                  Math.abs(value) > 10000
+                                )
+                                  return;
+                                update((d) => {
+                                  const item = d.elements.find(
+                                    (e) => e.id === selected.id,
+                                  )!;
+                                  item.sink = {
+                                    ...sinkAttachment(item)!,
+                                    [key]: value,
+                                  };
+                                });
+                              }}
+                            />
+                          </label>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+                {selected.fixtureKind === 'glass-shower' && (
+                  <>
+                    <p>
+                      Glass follows room-wall contact. Height follows the
+                      ceiling.
+                    </p>
+                    <label>
+                      Shower entry side
+                      <select
+                        value={
+                          showerGlassSides(selected, study.room).includes(
+                            selected.showerOpening?.side ?? 'front',
+                          )
+                            ? (selected.showerOpening?.side ?? 'front')
+                            : (showerGlassSides(selected, study.room)[0] ?? '')
+                        }
+                        onChange={(event) => {
+                          const side = event.currentTarget.value as FixtureSide;
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            )!;
+                            item.showerOpening = {
+                              side,
+                              style: item.showerOpening?.style ?? 'door',
+                            };
+                          });
+                        }}
+                      >
+                        {showerGlassSides(selected, study.room).map((side) => (
+                          <option key={side}>{side}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Shower entry
+                      <select
+                        value={selected.showerOpening?.style ?? 'door'}
+                        onChange={(event) => {
+                          const style = event.currentTarget.value as
+                            | 'door'
+                            | 'open';
+                          update((d) => {
+                            const item = d.elements.find(
+                              (e) => e.id === selected.id,
+                            )!;
+                            item.showerOpening = {
+                              side: item.showerOpening?.side ?? 'front',
+                              style,
+                            };
+                          });
+                        }}
+                      >
+                        <option value="door">Glass door</option>
+                        <option value="open">Open entry</option>
+                      </select>
+                    </label>
+                  </>
+                )}
                 {selected.applianceKind === 'range' && (
                   <label>
                     Range hood
@@ -1881,7 +2052,8 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {selected.kind === 'appliance' &&
+                {(selected.kind === 'appliance' ||
+                  selected.kind === 'fixture') &&
                   selected.placement.mode !== 'floor' && (
                     <label>
                       Rotation
@@ -1976,7 +2148,8 @@ export function CabinetConfigurator({
                     </small>
                   </>
                 )}
-                {selected.kind !== 'appliance' &&
+                {selected.kind !== 'fixture' &&
+                  selected.kind !== 'appliance' &&
                   (!selected.storage ||
                     selected.storage.doors ||
                     selected.storage.type === 'drawers') && (
@@ -1991,7 +2164,7 @@ export function CabinetConfigurator({
                         value={selected.face}
                         onChange={(event) => {
                           const face = event.currentTarget
-                            .value as KitchenElement['face'];
+                            .value as RoomElement['face'];
                           update((d) => {
                             const item = d.elements.find(
                               (e) => e.id === selected.id,
@@ -2014,7 +2187,8 @@ export function CabinetConfigurator({
                       </VisualSelect>
                     </div>
                   )}
-                {selected.kind !== 'appliance' &&
+                {selected.kind !== 'fixture' &&
+                  selected.kind !== 'appliance' &&
                   (!selected.storage || selected.storage.doors) &&
                   selected.width <= 30 &&
                   !(
@@ -2059,7 +2233,7 @@ export function CabinetConfigurator({
                         value={selected.applianceFront ?? 'stainless'}
                         onChange={(event) => {
                           const front = event.currentTarget
-                            .value as KitchenElement['applianceFront'];
+                            .value as RoomElement['applianceFront'];
                           update((d) => {
                             const item = d.elements.find(
                               (e) => e.id === selected.id,
@@ -2091,6 +2265,8 @@ export function CabinetConfigurator({
                 )}
                 {!selected.storage &&
                   (selected.kind === 'tall' ||
+                    (selected.kind === 'fixture' &&
+                      selected.fixtureKind !== 'glass-shower') ||
                     selected.kind === 'wall-cabinet') && (
                     <label>
                       Height (in)
@@ -2152,34 +2328,35 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {selected.placement.mode !== 'hosted' && (
-                  <div className="cc-fields">
-                    <label>
-                      Island
-                      <select
-                        value={selected.islandId ?? ''}
-                        onChange={(event) => {
-                          const id = event.currentTarget.value;
-                          update((d) => {
-                            const item = d.elements.find(
-                              (e) => e.id === selected.id,
-                            )!;
-                            const center = elementCenter(item, d.room);
-                            positionElement(item, center.x, center.z, d.room);
-                            item.islandId = id || undefined;
-                          });
-                        }}
-                      >
-                        <option value="">No island</option>
-                        {study.islands.map((i, index) => (
-                          <option key={i.id} value={i.id}>
-                            Island {index + 1}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                )}
+                {selected.kind !== 'fixture' &&
+                  selected.placement.mode !== 'hosted' && (
+                    <div className="cc-fields">
+                      <label>
+                        Island
+                        <select
+                          value={selected.islandId ?? ''}
+                          onChange={(event) => {
+                            const id = event.currentTarget.value;
+                            update((d) => {
+                              const item = d.elements.find(
+                                (e) => e.id === selected.id,
+                              )!;
+                              const center = elementCenter(item, d.room);
+                              positionElement(item, center.x, center.z, d.room);
+                              item.islandId = id || undefined;
+                            });
+                          }}
+                        >
+                          <option value="">No island</option>
+                          {study.islands.map((i, index) => (
+                            <option key={i.id} value={i.id}>
+                              Island {index + 1}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
                 {selected.placement.mode === 'floor' && (
                   <>
                     <label>
@@ -2221,6 +2398,8 @@ export function CabinetConfigurator({
                           if (
                             x &&
                             Number.isFinite(value) &&
+                            value > 0 &&
+                            value <= 10000 &&
                             (!x.storage || (value >= 12 && value <= 96))
                           )
                             x.width = value;
@@ -2231,7 +2410,8 @@ export function CabinetConfigurator({
                   </span>
                 </label>
                 {!selected.storage &&
-                  (selected.kind === 'base' ||
+                  (selected.kind === 'fixture' ||
+                    selected.kind === 'base' ||
                     selected.kind === 'wall-cabinet' ||
                     selected.applianceKind === 'refrigerator') && (
                     <label>
@@ -2240,14 +2420,21 @@ export function CabinetConfigurator({
                         <input
                           type="number"
                           min="4"
-                          max="60"
+                          max={
+                            selected.kind === 'fixture'
+                              ? Math.max(study.room.width, study.room.depth)
+                              : 60
+                          }
                           value={selected.depth}
                           onChange={(event) => {
                             const depth = Number(event.currentTarget.value);
                             if (
                               !Number.isFinite(depth) ||
                               depth < 4 ||
-                              depth > 60
+                              depth >
+                                (selected.kind === 'fixture'
+                                  ? Math.max(study.room.width, study.room.depth)
+                                  : 60)
                             )
                               return;
                             update((d) => {
@@ -2619,9 +2806,11 @@ export function CabinetConfigurator({
                         {e.configuration === 'corner' ? (
                           <path
                             style={
-                              hasMaterialFinish(e) && !warnings.has(e.id)
-                                ? {fill: cabinetColor(e)}
-                                : undefined
+                              e.kind === 'fixture'
+                                ? {fill: '#eeefeb'}
+                                : hasMaterialFinish(e) && !warnings.has(e.id)
+                                  ? {fill: cabinetColor(e)}
+                                  : undefined
                             }
                             d={(() => {
                               const a =
@@ -2636,9 +2825,11 @@ export function CabinetConfigurator({
                         ) : (
                           <rect
                             style={
-                              hasMaterialFinish(e) && !warnings.has(e.id)
-                                ? {fill: cabinetColor(e)}
-                                : undefined
+                              e.kind === 'fixture'
+                                ? {fill: '#eeefeb'}
+                                : hasMaterialFinish(e) && !warnings.has(e.id)
+                                  ? {fill: cabinetColor(e)}
+                                  : undefined
                             }
                             x={-b.w / 2}
                             y={-b.h / 2}
@@ -2646,18 +2837,48 @@ export function CabinetConfigurator({
                             height={b.h}
                           />
                         )}
-                        <line
-                          x1={-b.w / 2}
-                          y1={-b.h / 2}
-                          x2={b.w / 2}
-                          y2={b.h / 2}
-                        />
-                        <text y="4">
-                          {e.storage
-                            ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
-                            : e.applianceKind
-                              ? APPLIANCE_CATALOG[e.applianceKind].label
-                              : `${e.width}″`}
+                        {e.kind === 'fixture' && (
+                          <FixturePlan
+                            item={e}
+                            room={study.room}
+                            scale={scale}
+                          />
+                        )}
+                        {sinkAttachment(e) && (
+                          <ellipse
+                            cx={sinkAttachment(e)!.x * scale}
+                            cy={0}
+                            rx={(sinkAttachment(e)!.width * scale) / 2}
+                            ry={(sinkAttachment(e)!.depth * scale) / 2}
+                            style={{fill: '#edf0ed', stroke: '#6b7777'}}
+                          />
+                        )}
+                        {e.kind !== 'fixture' && !sinkAttachment(e) && (
+                          <line
+                            x1={-b.w / 2}
+                            y1={-b.h / 2}
+                            x2={b.w / 2}
+                            y2={b.h / 2}
+                          />
+                        )}
+                        <text
+                          y="4"
+                          style={
+                            e.kind === 'fixture' ? {fill: '#263b37'} : undefined
+                          }
+                        >
+                          {e.fixtureKind
+                            ? {
+                                'freestanding-tub': 'Tub',
+                                'alcove-tub': 'Alcove tub',
+                                'glass-shower': 'Shower',
+                                toilet: 'Toilet',
+                              }[e.fixtureKind]
+                            : e.storage
+                              ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
+                              : e.applianceKind
+                                ? APPLIANCE_CATALOG[e.applianceKind].label
+                                : `${e.width}″`}
                         </text>
                       </g>
                     );

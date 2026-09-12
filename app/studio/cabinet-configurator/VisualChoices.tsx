@@ -7,12 +7,12 @@ import {
   type ReactNode,
 } from 'react';
 import * as THREE from 'three';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {
-  createKitchenAppliance,
+  createAppliance,
   type ApplianceKind,
-  type KitchenElement,
+  type RoomElement,
 } from './model';
 import {createOpenStorage, type StorageKind} from './openStorage';
 import {
@@ -35,8 +35,8 @@ export type VisualCategory =
 export function previewElement(
   category: VisualCategory,
   value: string,
-): KitchenElement {
-  const item: KitchenElement = {
+): RoomElement {
+  const item: RoomElement = {
     id: 'preview',
     kind: 'base',
     width: 30,
@@ -48,37 +48,37 @@ export function previewElement(
   if (category === 'storage')
     return createOpenStorage(value as StorageKind, 'preview');
   if (category === 'appliance')
-    return createKitchenAppliance(value as ApplianceKind, 'preview');
+    return createAppliance(value as ApplianceKind, 'preview');
   if (category === 'cabinet') {
     if (value === 'corner') {
       item.configuration = 'corner';
       item.width = 36;
       item.depth = 36;
     } else {
-      item.kind = value as KitchenElement['kind'];
+      item.kind = value as RoomElement['kind'];
       item.height =
         value === 'tall' ? 84 : value === 'wall-cabinet' ? 30 : 34.5;
       item.depth = value === 'wall-cabinet' ? 12 : 24;
     }
   }
   if (category === 'base') {
-    item.configuration = value as KitchenElement['configuration'];
+    item.configuration = value as RoomElement['configuration'];
     if (value === 'farmhouse-sink' || value === 'corner') item.width = 36;
     if (value === 'corner') item.depth = 36;
   }
   if (category === 'tall') {
     item.kind = 'tall';
     item.height = 90;
-    item.tallConfiguration = value as KitchenElement['tallConfiguration'];
+    item.tallConfiguration = value as RoomElement['tallConfiguration'];
   }
   if (category === 'front') {
-    item.face = value as KitchenElement['face'];
+    item.face = value as RoomElement['face'];
     if (value === 'shaker-glass') item.kind = 'wall-cabinet';
   }
   if (category === 'appliance-front') {
     return {
-      ...createKitchenAppliance('dishwasher', 'preview'),
-      applianceFront: value as KitchenElement['applianceFront'],
+      ...createAppliance('dishwasher', 'preview'),
+      applianceFront: value as RoomElement['applianceFront'],
     };
   }
   if (category === 'material') item.material = value as CabinetMaterial;

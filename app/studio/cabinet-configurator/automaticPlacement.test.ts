@@ -7,9 +7,9 @@ import {
   validAutomaticPlacement,
   type PlacementLayout,
 } from './automaticPlacement';
-import {bounds, wallToFloor, type KitchenElement} from './model';
+import {bounds, wallToFloor, type RoomElement} from './model';
 import {presetOutline} from './roomOutline';
-const cabinet = (id = 'new'): KitchenElement => ({
+const cabinet = (id = 'new'): RoomElement => ({
   id,
   kind: 'base',
   width: 30,

@@ -21,7 +21,7 @@ export function hasMaterialFinish(item: {
   applianceFront?: string;
 }) {
   return (
-    item.kind !== 'appliance' ||
+    (item.kind !== 'appliance' && item.kind !== 'fixture') ||
     (['refrigerator', 'dishwasher'].includes(item.applianceKind ?? '') &&
       ['shaker', 'slab', 'vertical-slat'].includes(item.applianceFront ?? ''))
   );

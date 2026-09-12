@@ -1,13 +1,13 @@
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage, type OpenStorage} from './openStorage';
-import type {KitchenElement, Room} from './model';
+import type {RoomElement, Room} from './model';
 
 export const CREATION_PREFERENCES_KEY =
   'from-trees:configurator-creation-preferences';
 
 type Profile = Partial<
   Pick<
-    KitchenElement,
+    RoomElement,
     | 'width'
     | 'depth'
     | 'height'
@@ -33,7 +33,7 @@ export const emptyCreationPreferences = (): CreationPreferences => ({
   scopes: {},
 });
 
-function scopeFor(item: KitchenElement) {
+function scopeFor(item: RoomElement) {
   if (item.storage) return `storage:${item.storage.type}`;
   if (item.kind === 'appliance')
     return `appliance:${item.applianceKind ?? 'unknown'}`;
@@ -44,7 +44,7 @@ function scopeFor(item: KitchenElement) {
   return `cabinet:${item.kind}`;
 }
 
-const faces: KitchenElement['face'][] = [
+const faces: RoomElement['face'][] = [
   'shaker',
   'slab',
   'shaker-glass',
@@ -77,8 +77,9 @@ function validNumber(
 /** Capture editable defaults only; placement, ids and relationships never enter this store. */
 export function rememberCreationPreferences(
   preferences: CreationPreferences,
-  item: KitchenElement,
+  item: RoomElement,
 ): CreationPreferences {
+  if (item.kind === 'fixture') return preferences;
   const next: CreationPreferences = {
     version: 1,
     sharedCabinet: preferences.sharedCabinet,
@@ -124,14 +125,14 @@ export function rememberCreationPreferences(
 
 /** Apply only values that remain valid for the exact element scope and room. */
 export function applyCreationPreferences(
-  item: KitchenElement,
+  item: RoomElement,
   preferences: CreationPreferences,
   room: Room,
-): KitchenElement {
+): RoomElement {
   const scoped = preferences.scopes[scopeFor(item)] ?? {};
   const shared =
     item.kind === 'appliance' ? {} : (preferences.sharedCabinet ?? {});
-  const next: KitchenElement = {...item, placement: {...item.placement}};
+  const next: RoomElement = {...item, placement: {...item.placement}};
   const profile = {...shared, ...scoped};
 
   if (

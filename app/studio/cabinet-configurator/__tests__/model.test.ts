@@ -8,7 +8,7 @@ import {
   validateLayout,
   wallToFloor,
   type Island,
-  type KitchenElement,
+  type RoomElement,
   type Room,
 } from '../model';
 
@@ -19,7 +19,7 @@ const room: Room = {
   floor: 'oak',
   walls: 'white',
 };
-const base = (id: string, x = 50, z = 50): KitchenElement => ({
+const base = (id: string, x = 50, z = 50): RoomElement => ({
   id,
   kind: 'base',
   width: 30,

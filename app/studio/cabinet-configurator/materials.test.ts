@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {CABINET_MATERIALS, CABINET_PAINTS, cabinetColor} from './materials';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {hasMaterialFinish} from './materials';
 import {Mesh, MeshStandardMaterial} from 'three';

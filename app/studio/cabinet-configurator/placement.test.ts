@@ -11,7 +11,7 @@ import {createDragUpdate} from './CabinetConfigurator';
 import {
   bounds,
   validateLayout,
-  type KitchenElement,
+  type RoomElement,
   type Island,
   type Room,
 } from './model';
@@ -22,7 +22,7 @@ const room: Room = {
   floor: 'oak',
   walls: 'plaster',
 };
-const item = (id: string, x: number): KitchenElement => ({
+const item = (id: string, x: number): RoomElement => ({
   id,
   kind: 'base',
   width: 24,

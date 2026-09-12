@@ -15,7 +15,7 @@ import {
   wallToFloor,
   validateLayout,
   type Room,
-  type KitchenElement,
+  type RoomElement,
 } from './model';
 import {snapWall, snapRoomCorner} from './placement';
 import {reshapeStudy, type Study} from './CabinetConfigurator';
@@ -24,7 +24,7 @@ import {
   roomGeometry,
   roomFloorGeometry,
   openingGeometry,
-} from './kitchenGeometry';
+} from './roomGeometry';
 const room: Room = {
   width: 144,
   depth: 120,
@@ -32,7 +32,7 @@ const room: Room = {
   floor: 'oak',
   walls: 'plaster',
 };
-const base: KitchenElement = {
+const base: RoomElement = {
   id: 'base',
   kind: 'base',
   width: 24,
@@ -164,7 +164,7 @@ describe('editable orthogonal room outlines', () => {
   it('snaps to every segment facing inward and keeps openings on their chosen segment', () => {
     const r = reshapeStudy(sample, presetOutline(room, 'l-shape')).room;
     for (const s of roomSegments(r)) {
-      const e: KitchenElement = {
+      const e: RoomElement = {
         ...base,
         width: 12,
         depth: 12,
@@ -195,7 +195,7 @@ describe('editable orthogonal room outlines', () => {
         (s.z + (s.horizontal ? 0 : 12) - r.depth / 2) * 0.0254,
       );
     }
-    const e: KitchenElement = {
+    const e: RoomElement = {
       ...base,
       configuration: 'corner',
       placement: {mode: 'floor', x: 12, z: 108, rotation: 0},
