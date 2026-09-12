@@ -993,23 +993,15 @@ export function CustomUnitEditor({
               </div>
               <h3>Size</h3>
               <div className="cu-fields">
-                {lockEnvelope ? (
-                  <p>
-                    Cabinet size: {definition.width} × {definition.height} ×{' '}
-                    {definition.depth} in (width × height × depth). Change size
-                    in the configurator.
-                  </p>
-                ) : (
-                  (['width', 'height', 'depth'] as const).map((field) => (
-                    <Dimension
-                      key={field}
-                      label={`Part ${field}`}
-                      value={selected[field]}
-                      min={0.0625}
-                      onChange={(value) => patch({[field]: value})}
-                    />
-                  ))
-                )}
+                {(['width', 'height', 'depth'] as const).map((field) => (
+                  <Dimension
+                    key={field}
+                    label={`Part ${field}`}
+                    value={selected[field]}
+                    min={0.0625}
+                    onChange={(value) => patch({[field]: value})}
+                  />
+                ))}
               </div>
               <p className="cu-hint">
                 A positive setback recesses the part. For shelves and panels, it
