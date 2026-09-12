@@ -9,3 +9,5 @@
 - Keep server code compatible with the Oxygen worker runtime and web-standard APIs. Do not add a Node-only server dependency without proving Oxygen compatibility.
 - Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before proposing a change.
 - Never push directly to `main`, merge a pull request, or deploy from a Metis coding task. Pull-request merges are human-only, and production deployment must run through GitHub Actions after merge.
+- Run `npm run verify` to completion before proposing or pushing a change. Check the final exit status; never infer success from partial logs or chain required checks with `;`.
+- Do not bypass the pre-push hook. A local failure must be resolved before pushing; CI `Full validation` must pass before merge.
