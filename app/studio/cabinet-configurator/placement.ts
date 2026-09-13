@@ -142,9 +142,9 @@ export function positionElement(
   room: Room,
 ) {
   const elevation =
-    item.placement.mode === 'floor'
-      ? (item.placement.elevation ?? 0)
-      : item.placement.elevation;
+    item.kind === 'base' || item.kind === 'tall'
+      ? 0
+      : (item.placement.elevation ?? 0);
   if (item.fixtureKind === 'mirror') {
     const previous =
       item.placement.mode === 'wall'

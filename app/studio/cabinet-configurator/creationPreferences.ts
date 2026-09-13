@@ -185,6 +185,8 @@ export function applyCreationPreferences(
     validNumber(profile.elevation, 0, room.height - next.height)
   )
     next.placement.elevation = profile.elevation;
+  if (next.kind === 'base' || next.kind === 'tall')
+    next.placement.elevation = 0;
   return next;
 }
 

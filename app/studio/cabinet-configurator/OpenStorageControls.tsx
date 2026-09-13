@@ -1,13 +1,19 @@
-import type {RoomElement} from './model';
+import type {Room, RoomElement} from './model';
 import {storageLayout} from './openStorage';
 export function OpenStorageControls({
   item,
+  room,
   change,
 }: {
   item: RoomElement;
+  room?: Room;
   change: (patch: Partial<RoomElement>) => void;
 }) {
   const s = item.storage!;
+  const maxHeight = Math.min(
+    120,
+    (room?.height ?? 120) - (item.placement.elevation ?? 0),
+  );
   const storage = (key: keyof typeof s, value: number | boolean) =>
     change({storage: {...s, [key]: value}});
   const hanging = ['single-hang', 'double-hang', 'combination'].includes(
@@ -23,14 +29,14 @@ export function OpenStorageControls({
               aria-label={`Storage ${key}`}
               type="number"
               min={key === 'depth' ? 8 : 12}
-              max={key === 'depth' ? 36 : 120}
+              max={key === 'depth' ? 36 : maxHeight}
               value={item[key]}
               onChange={(event) => {
                 const value = Number(event.currentTarget.value);
                 if (
                   Number.isFinite(value) &&
                   value >= (key === 'depth' ? 8 : 12) &&
-                  value <= (key === 'depth' ? 36 : 120)
+                  value <= (key === 'depth' ? 36 : maxHeight)
                 )
                   change({[key]: value});
               }}
@@ -127,11 +133,11 @@ export function OpenStorageControls({
             </label>
           )}
           <p className="cc-muted">
-            Fitted layout: {storageLayout(item).shelfYs.length} shelves,{' '}
-            {storageLayout(item).drawers} drawers,{' '}
-            {storageLayout(item).rods.length} rods. Interior spacing adjusts to
-            fit the cabinet. Rod heights are measured from the unit bottom;
-            mounting height is added for wall-mounted units.
+            Fitted layout: {storageLayout(item, room).shelfYs.length} shelves,{' '}
+            {storageLayout(item, room).drawers} drawers,{' '}
+            {storageLayout(item, room).rods.length} rods. Interior spacing
+            adjusts to fit the cabinet. Rod heights are measured from the unit
+            bottom; mounting height is added for wall-mounted units.
           </p>
         </>
       )}

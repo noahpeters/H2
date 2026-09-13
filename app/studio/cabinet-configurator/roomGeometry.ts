@@ -1,6 +1,6 @@
 import {sinkAttachment} from './sinkAttachments';
 import {sinkGeometry, sinkCutout} from './fixtureGeometry';
-import {baseToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
+import {cabinetToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
 import {fitDefinition} from './custom-unit/designConfigurations';
 import {customUnitGeometry} from './custom-unit/geometry';
 import * as THREE from 'three';
@@ -104,7 +104,7 @@ export function cabinetGeometry(
   room?: Pick<Room, 'toeKick'>,
 ) {
   if (item.customCabinet) {
-    const toe = baseToeKick(item, room);
+    const toe = cabinetToeKick(item, room);
     const envelope = cabinetCompositionEnvelope(item, room);
     const definition = fitDefinition(item.customCabinet.definition, envelope);
     const group = new THREE.Group();
@@ -211,21 +211,10 @@ export function cabinetGeometry(
     }
     return group;
   }
-  const support = baseToeKick(item, room);
-  const toe =
-    item.kind === 'base'
-      ? support.height
-      : item.kind === 'wall-cabinet'
-        ? 0
-        : Math.min(4, h / 3);
+  const support = cabinetToeKick(item, room);
+  const toe = support.height;
   const bottom = -h / 2 + toe;
-  // Open carcass keeps the sink cavity visible; recessed plinth is four inches tall.
-  if (toe)
-    addToeKick(
-      group,
-      item,
-      item.kind === 'base' ? support : {height: toe, setback: 3},
-    );
+  if (toe) addToeKick(group, item, support);
   for (const side of [-1, 1])
     box(group, 0.75, h - toe, d, side * (w / 2 - 0.375), toe / 2, 0, wood);
   box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood);
@@ -365,7 +354,7 @@ export function cabinetGeometry(
   const usable = h - toe - 0.25;
   const config = item.configuration ?? 'single-door';
   if (item.storage) {
-    const layout = storageLayout(item);
+    const layout = storageLayout(item, room);
     const {
       shelfWidth,
       shelfX,

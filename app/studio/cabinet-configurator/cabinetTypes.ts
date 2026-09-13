@@ -5,13 +5,7 @@ import {
   type DesignConfiguration,
 } from './custom-unit/designConfigurations';
 import type {RoomElement, Room} from './model';
-export const CABINET_CATEGORIES = [
-  'Base',
-  'Wall',
-  'Tall',
-  'Corner',
-  'Open',
-] as const;
+export const CABINET_CATEGORIES = ['Base', 'Wall', 'Tall'] as const;
 export type CabinetCategory = (typeof CABINET_CATEGORIES)[number];
 export type CabinetTypeChoice = {
   id: string;
@@ -21,15 +15,11 @@ export type CabinetTypeChoice = {
   configuration?: DesignConfiguration;
 };
 export function cabinetCategory(item: RoomElement): CabinetCategory {
-  return item.storage
-    ? 'Open'
-    : item.configuration === 'corner'
-      ? 'Corner'
-      : item.kind === 'wall-cabinet'
-        ? 'Wall'
-        : item.kind === 'tall'
-          ? 'Tall'
-          : 'Base';
+  return item.kind === 'wall-cabinet'
+    ? 'Wall'
+    : item.kind === 'tall'
+      ? 'Tall'
+      : 'Base';
 }
 const base: RoomElement = {
   id: 'preview',
@@ -88,13 +78,15 @@ export function cabinetTypes(
     {
       id: 'corner',
       label: 'L-shaped corner base',
-      category: 'Corner',
+      category: 'Base',
       item: {...base, configuration: 'corner', width: 36, depth: 36},
     },
     ...Object.entries(OPEN_STORAGE).map(([kind, label]) => ({
       id: `open:${kind}`,
       label,
-      category: 'Open' as const,
+      category: cabinetCategory(
+        createOpenStorage(kind as StorageKind, 'preview'),
+      ),
       item: createOpenStorage(kind as StorageKind, 'preview'),
     })),
   ];
@@ -106,7 +98,7 @@ export function cabinetTypes(
           configuration.category ===
           (c.item.storage
             ? `${c.item.kind}:storage:${c.item.storage.type}`
-            : c.category === 'Corner'
+            : c.item.configuration === 'corner'
               ? 'base:corner'
               : c.item.kind),
       );
@@ -153,6 +145,8 @@ export function applyCabinetType(
   choice: CabinetTypeChoice,
   room: Room,
 ): RoomElement {
+  if (item.kind !== choice.item.kind)
+    throw new Error('Choose a type from the same cabinet category.');
   const next = {
     ...item,
     kind: choice.item.kind,

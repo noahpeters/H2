@@ -972,9 +972,12 @@ export function CabinetConfigurator({
         setHistory((items) => [...items.slice(-29), clone(current)]);
         const next = clone(current);
         change(next);
-        for (const item of next.elements)
+        for (const item of next.elements) {
+          if (item.kind === 'base' || item.kind === 'tall')
+            item.placement.elevation = 0;
           if (item.fixtureKind === 'glass-shower')
             item.height = next.room.height;
+        }
         return next;
       }),
     [],
@@ -1373,7 +1376,7 @@ export function CabinetConfigurator({
             <summary>Room</summary>
             <div className="cc-fields">
               <fieldset>
-                <legend>Base cabinet toe kicks</legend>
+                <legend>Base and tall cabinet toe kicks</legend>
                 {(['height', 'setback'] as const).map((field) => (
                   <label key={field}>
                     Toe-kick {field === 'setback' ? 'recess' : 'height'} (in)
@@ -2342,6 +2345,7 @@ export function CabinetConfigurator({
                 {selected.storage && (
                   <OpenStorageControls
                     item={selected}
+                    room={study.room}
                     change={(patch) =>
                       update((d) => {
                         const item = d.elements.find(
@@ -2368,7 +2372,8 @@ export function CabinetConfigurator({
                         }
                         max={
                           study.room.height -
-                          (selected.fixtureKind === 'mirror'
+                          (selected.fixtureKind === 'mirror' ||
+                          selected.kind === 'wall-cabinet'
                             ? (selected.placement.elevation ?? 0)
                             : 0)
                         }
@@ -2384,7 +2389,8 @@ export function CabinetConfigurator({
                                 : 12) ||
                             height >
                               study.room.height -
-                                (selected.fixtureKind === 'mirror'
+                                (selected.fixtureKind === 'mirror' ||
+                                selected.kind === 'wall-cabinet'
                                   ? (selected.placement.elevation ?? 0)
                                   : 0)
                           )
@@ -2483,6 +2489,7 @@ export function CabinetConfigurator({
                   ((selected.kind === 'fixture' &&
                     selected.fixtureKind !== 'mirror') ||
                     selected.kind === 'base' ||
+                    selected.kind === 'tall' ||
                     selected.kind === 'wall-cabinet' ||
                     selected.applianceKind === 'refrigerator') && (
                     <label>

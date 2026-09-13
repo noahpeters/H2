@@ -59,8 +59,8 @@ it.each(CABINET_CATEGORIES)(
     ).toBe(true);
   },
 );
-it('keeps all open-storage standards together while preserving each saved subtype', () => {
-  const standards = cabinetTypes().filter((c) => c.category === 'Open');
+it('organizes open storage by mounting category while preserving saved subtypes', () => {
+  const standards = cabinetTypes().filter((c) => c.item.storage);
   expect(standards).toHaveLength(8);
   for (const standard of standards) {
     const saved = saveConfiguration(
@@ -72,7 +72,11 @@ it('keeps all open-storage standards together while preserving each saved subtyp
     const custom = cabinetTypes(saved.configurations, [saved.item]).find(
       (c) => c.configuration,
     )!;
-    const switched = applyCabinetType(standards[0].item, custom, room);
+    const switched = applyCabinetType(
+      standards.find((c) => c.item.kind === custom.item.kind)!.item,
+      custom,
+      room,
+    );
     expect(switched.storage?.type).toBe(standard.item.storage?.type);
     expect(switched.kind).toBe(standard.item.kind);
   }
@@ -96,9 +100,22 @@ it('restores all seven original base types, including both distinct sink fitting
     'base:microwave-drawer',
     'base:sink',
     'base:farmhouse-sink',
+    'corner',
   ]);
   expect(
     sinkAttachment(base.find((c) => c.id === 'base:farmhouse-sink')!.item)
       ?.kind,
   ).toBe('farmhouse');
+});
+
+it('never offers or applies a cabinet type from another mounting category', () => {
+  const choices = cabinetTypes();
+  expect(CABINET_CATEGORIES).toEqual(['Base', 'Wall', 'Tall']);
+  for (const choice of choices) {
+    expect(choice.category).toBe(cabinetCategory(choice.item));
+    const different = choices.find((c) => c.item.kind !== choice.item.kind)!;
+    expect(() => applyCabinetType(choice.item, different, room)).toThrow(
+      'same cabinet category',
+    );
+  }
 });

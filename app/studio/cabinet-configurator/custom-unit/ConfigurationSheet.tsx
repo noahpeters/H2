@@ -4,7 +4,7 @@ import {useEffect, useRef, useState} from 'react';
 import {CustomUnitEditor} from './CustomUnitEditor';
 import {configurationTemplate} from './designConfigurations';
 import type {CustomUnitDefinition} from './model';
-import {baseToeKick} from '../cabinetEnvelope';
+import {cabinetToeKick} from '../cabinetEnvelope';
 import type {RoomElement, Room} from '../model';
 
 export function ConfigurationSheet({
@@ -45,11 +45,11 @@ export function ConfigurationSheet({
     >
       <div className="cc-configuration-actions">
         <h2>Customize this cabinet</h2>
-        {item.kind === 'base' && (
+        {(item.kind === 'base' || item.kind === 'tall') && (
           <p>
             Overall size: {item.width} × {item.height} × {item.depth} in. The
-            room provides a {baseToeKick(item, room).height} in toe kick below
-            the cabinet body. Toe-kick settings are in Room.
+            room provides a {cabinetToeKick(item, room).height} in toe kick
+            below the cabinet body. Toe-kick settings are in Room.
           </p>
         )}
         <p>
