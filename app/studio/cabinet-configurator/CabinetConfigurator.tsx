@@ -1,3 +1,10 @@
+import {
+  CABINET_CATEGORIES,
+  cabinetTypes,
+  cabinetCategory,
+  selectedCabinetType,
+  applyCabinetType,
+} from './cabinetTypes';
 import {FixturePlan} from './FixturePlan';
 import {
   FIXTURE_CATALOG,
@@ -11,8 +18,6 @@ import {sinkAttachment} from './sinkAttachments';
 import {DEFAULT_TOE_KICK} from './cabinetEnvelope';
 import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
 import {
-  applyConfiguration,
-  compatibleConfiguration,
   saveConfiguration,
   type DesignConfiguration,
 } from './custom-unit/designConfigurations';
@@ -23,7 +28,7 @@ import {ChoiceImage, VisualSelect} from './VisualChoices';
 import {ShareRoomForm} from './ShareRoomForm';
 import {StudyInquiryDialog} from '../StudyInquiryDialog';
 import {cabinetStudySummary} from '../studyInquiry';
-import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
+import {OPEN_STORAGE} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
 import {
   customCabinetElement,
@@ -1808,70 +1813,53 @@ export function CabinetConfigurator({
             <details className="cc-add-menu">
               <summary>+ Add cabinet</summary>
               <div className="cc-add-categories">
-                <details className="cc-add-category">
-                  <summary>Base</summary>
-                  <div>
-                    {(
-                      [
-                        ['single-door', 'Single door'],
-                        ['pullout', 'Full-height pullout'],
-                        ['door-drawer', 'Door + upper drawer'],
-                        ['three-drawer', 'Three drawers'],
-                        ['microwave-drawer', 'Microwave drawer'],
-                      ] as const
-                    ).map(([configuration, label]) => (
-                      <button
-                        key={configuration}
-                        onClick={() =>
-                          addElement('base', undefined, configuration)
-                        }
-                      >
-                        <ChoiceImage category="base" value={configuration} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </details>
-                <details className="cc-add-category">
-                  <summary>Wall</summary>
-                  <div>
-                    <button onClick={() => addElement('wall-cabinet')}>
-                      <ChoiceImage category="cabinet" value="wall-cabinet" />
-                      Standard wall cabinet
-                    </button>
-                  </div>
-                </details>
-                <details className="cc-add-category">
-                  <summary>Tall</summary>
-                  <div>
-                    {(
-                      [
-                        ['standard', 'Standard cabinet'],
-                        ['one-oven', '1 oven · drawers below'],
-                        ['two-oven', '2 ovens · drawers below'],
-                        ['coffee-maker', 'Coffee maker · counter height'],
-                      ] as const
-                    ).map(([configuration, label]) => (
-                      <button
-                        key={configuration}
-                        disabled={
-                          minimumTallHeight(configuration) > study.room.height
-                        }
-                        onClick={() =>
-                          addElement(
-                            'tall',
-                            undefined,
-                            undefined,
-                            configuration,
-                          )
-                        }
-                      >
-                        <ChoiceImage category="tall" value={configuration} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </details>
+                {CABINET_CATEGORIES.map((category) => (
+                  <details className="cc-add-category" key={category}>
+                    <summary>{category}</summary>
+                    <div>
+                      {cabinetTypes(study.configurations, study.elements)
+                        .filter((choice) => choice.category === category)
+                        .map((choice) => (
+                          <button
+                            key={choice.id}
+                            disabled={
+                              choice.item.kind === 'tall' &&
+                              minimumTallHeight(choice.item.tallConfiguration) >
+                                study.room.height
+                            }
+                            onClick={() =>
+                              update((d) => {
+                                const preferred = applyCreationPreferences(
+                                  {...choice.item, id: makeId()},
+                                  creationPreferences.current!,
+                                  d.room,
+                                );
+                                const item = applyCabinetType(
+                                  preferred,
+                                  choice,
+                                  d.room,
+                                );
+                                d.elements.push(
+                                  automaticallyPlaceElement(
+                                    item,
+                                    d,
+                                    placementContext(item, d),
+                                  ),
+                                );
+                                d.selected = item.id;
+                              })
+                            }
+                          >
+                            <ChoiceImage
+                              category="cabinet-type"
+                              value={JSON.stringify(choice.item)}
+                            />
+                            {choice.label}
+                          </button>
+                        ))}
+                    </div>
+                  </details>
+                ))}
                 {customCabinets.length > 0 && (
                   <details className="cc-add-category">
                     <summary>From Trees custom</summary>
@@ -1894,47 +1882,6 @@ export function CabinetConfigurator({
                     </div>
                   </details>
                 )}
-                <details className="cc-add-category">
-                  <summary>Corner</summary>
-                  <div>
-                    <button
-                      onClick={() => addElement('base', undefined, 'corner')}
-                    >
-                      <ChoiceImage category="cabinet" value="corner" />
-                      L-shaped corner base
-                    </button>
-                  </div>
-                </details>
-                <details className="cc-add-category">
-                  <summary>Open</summary>
-                  <div>
-                    {Object.entries(OPEN_STORAGE).map(([type, label]) => (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          update((d) => {
-                            const item = applyCreationPreferences(
-                              createOpenStorage(type as StorageKind, makeId()),
-                              creationPreferences.current!,
-                              d.room,
-                            );
-                            d.elements.push(
-                              automaticallyPlaceElement(
-                                item,
-                                d,
-                                placementContext(item, d),
-                              ),
-                            );
-                            d.selected = item.id;
-                          });
-                        }}
-                      >
-                        <ChoiceImage category="storage" value={type} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </details>
               </div>
             </details>
             <details className="cc-add-menu">
@@ -2103,60 +2050,31 @@ export function CabinetConfigurator({
                         Cabinet Type
                         <VisualSelect
                           category="cabinet"
-                          value={
-                            selected.customCabinet?.scope === 'design'
-                              ? selected.customCabinet.libraryId
-                              : selected.customCabinet
-                                ? 'global'
-                                : ''
-                          }
+                          value={selectedCabinetType(selected)}
                           renderImage={(value) => {
-                            const configuration = study.configurations?.find(
-                              (c) => c.id === value,
-                            );
-                            const item =
-                              value === 'global'
-                                ? selected
-                                : configuration
-                                  ? {
-                                      ...selected,
-                                      customCabinet: {
-                                        scope: 'design' as const,
-                                        libraryId: configuration.id,
-                                        libraryVersion: configuration.version,
-                                        definition: configuration.definition,
-                                      },
-                                    }
-                                  : {...selected, customCabinet: undefined};
+                            const choice = cabinetTypes(
+                              study.configurations,
+                              study.elements,
+                            ).find((c) => c.id === value);
                             return (
                               <ChoiceImage
                                 category="cabinet-type"
-                                value={JSON.stringify({
-                                  ...item,
-                                  id: 'preview',
-                                  placement: {
-                                    mode: 'wall',
-                                    wall: 'back',
-                                    offset: 0,
-                                    elevation: 0,
-                                  },
-                                })}
+                                value={JSON.stringify(choice?.item ?? selected)}
                               />
                             );
                           }}
                           onChange={(event) => {
-                            if (event.currentTarget.value === 'global') return;
-                            const configuration = study.configurations?.find(
-                              (c) => c.id === event.currentTarget.value,
-                            );
+                            const choice = cabinetTypes(
+                              study.configurations,
+                              study.elements,
+                            ).find((c) => c.id === event.currentTarget.value);
+                            if (!choice) return;
                             try {
-                              const next = configuration
-                                ? applyConfiguration(
-                                    selected,
-                                    configuration,
-                                    study.room,
-                                  )
-                                : {...selected, customCabinet: undefined};
+                              const next = applyCabinetType(
+                                selected,
+                                choice,
+                                study.room,
+                              );
                               update((d) => {
                                 d.elements = d.elements.map((e) =>
                                   e.id === selected.id ? next : e,
@@ -2167,23 +2085,34 @@ export function CabinetConfigurator({
                               setConfigurationError(
                                 cause instanceof Error
                                   ? cause.message
-                                  : 'Unable to apply configuration.',
+                                  : 'Unable to apply cabinet type.',
                               );
                             }
                           }}
                         >
-                          {selected.customCabinet &&
-                            selected.customCabinet.scope !== 'design' && (
-                              <option value="global">
+                          {selected.customCabinet?.scope !== 'design' &&
+                            selected.customCabinet && (
+                              <option value={selected.customCabinet.libraryId}>
                                 {selected.customCabinet.definition.name}
                               </option>
                             )}
-                          <option value="">Standard</option>
-                          {(study.configurations ?? [])
-                            .filter((c) => compatibleConfiguration(selected, c))
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
+                          {cabinetTypes(study.configurations, study.elements)
+                            .filter(
+                              (choice) =>
+                                choice.category === cabinetCategory(selected),
+                            )
+                            .map((choice) => (
+                              <option
+                                key={choice.id}
+                                value={choice.id}
+                                disabled={
+                                  choice.item.kind === 'tall' &&
+                                  minimumTallHeight(
+                                    choice.item.tallConfiguration,
+                                  ) > study.room.height
+                                }
+                              >
+                                {choice.label}
                               </option>
                             ))}
                         </VisualSelect>
