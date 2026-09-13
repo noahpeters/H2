@@ -703,3 +703,8 @@
 .cc-wall-tools .cc-add-menu {position: relative; margin: 0;}
 .cc-wall-tools .cc-add-menu > summary {padding: 7px 10px; font-size: 12px;}
 .cc-wall-tools .cc-add-menu > div {position: absolute; z-index: 5; top: 100%; left: 0; width: 250px; max-width: calc(100vw - 40px); grid-template-columns: 1fr; background: var(--cc-panel); box-shadow: 0 8px 20px #0002;}
+
+.cc-object-tools .cc-add-menu > div {
+  max-height: min(480px, 60vh);
+  overflow-y: auto;
+}

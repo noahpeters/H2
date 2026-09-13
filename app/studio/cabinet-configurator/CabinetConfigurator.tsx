@@ -1199,7 +1199,8 @@ export function CabinetConfigurator({
       );
       d.selected = remembered.id;
     });
-  const addIsland = () =>
+  const addIsland = () => {
+    if (!editingRoom) return;
     update((d) => {
       const island: Island = {
         id: makeId(),
@@ -1214,6 +1215,7 @@ export function CabinetConfigurator({
       d.islands.push(automaticallyPlaceIsland(island, d));
       d.selected = island.id;
     });
+  };
   const changeIsland = (
     island: Island,
     key: keyof Island,
@@ -1576,8 +1578,10 @@ export function CabinetConfigurator({
                 Room outline
                 <select
                   aria-label="Room outline preset"
+                  disabled={!editingRoom}
                   value=""
                   onChange={(e) => {
+                    if (!editingRoom) return;
                     const points = presetOutline(
                       study.room,
                       e.currentTarget.value as
@@ -1587,7 +1591,6 @@ export function CabinetConfigurator({
                     );
                     update((d) => Object.assign(d, reshapeStudy(d, points)));
                     setSelectedWall('back');
-                    setEditingRoom(true);
                     setOutlineError('');
                   }}
                 >
@@ -1681,107 +1684,6 @@ export function CabinetConfigurator({
                 </label>
               ))}
             </div>
-          </details>
-          <details className="cc-accordion" open>
-            <summary>Add to room</summary>
-            <button onClick={addIsland}>+ Island zone</button>
-            <details className="cc-add-menu">
-              <summary>+ Add cabinet</summary>
-              <div className="cc-add-categories">
-                {CABINET_CATEGORIES.map((category) => (
-                  <details className="cc-add-category" key={category}>
-                    <summary>{category}</summary>
-                    <div>
-                      {cabinetChoices
-                        .filter((choice) => choice.category === category)
-                        .map((choice) => (
-                          <button
-                            key={choice.id}
-                            disabled={
-                              choice.item.kind === 'tall' &&
-                              minimumTallHeight(choice.item.tallConfiguration) >
-                                study.room.height
-                            }
-                            onClick={() =>
-                              update((d) => {
-                                const preferred = applyCreationPreferences(
-                                  {...choice.item, id: makeId()},
-                                  creationPreferences.current!,
-                                  d.room,
-                                );
-                                const item = applyCabinetType(
-                                  preferred,
-                                  choice,
-                                  d.room,
-                                );
-                                d.elements.push(
-                                  automaticallyPlaceElement(
-                                    item,
-                                    d,
-                                    placementContext(item, d),
-                                  ),
-                                );
-                                d.selected = item.id;
-                              })
-                            }
-                          >
-                            <ChoiceImage
-                              category="cabinet-type"
-                              value={JSON.stringify(choice.item)}
-                            />
-                            {choice.label}
-                          </button>
-                        ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </details>
-            <details className="cc-add-menu">
-              <summary>+ Add fixture</summary>
-              <div>
-                {(Object.keys(FIXTURE_CATALOG) as FixtureKind[]).map((kind) => (
-                  <button
-                    key={kind}
-                    onClick={() =>
-                      update((d) => {
-                        const item = createFixture(kind, makeId(), d.room);
-                        const placed = automaticallyPlaceElement(
-                          item,
-                          d,
-                          placementContext(item, d),
-                        );
-                        delete placed.islandId;
-                        d.elements.push(placed);
-                        d.selected = item.id;
-                      })
-                    }
-                  >
-                    <ChoiceImage category="fixture" value={kind} />
-                    {FIXTURE_CATALOG[kind].label}
-                  </button>
-                ))}
-
-                {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[])
-                  .filter(
-                    (kind) => !['wall-oven', 'coffee-maker'].includes(kind),
-                  )
-                  .map((kind) => (
-                    <button
-                      key={kind}
-                      onClick={(event) => {
-                        addElement('appliance', kind);
-                        event.currentTarget
-                          .closest('details')
-                          ?.removeAttribute('open');
-                      }}
-                    >
-                      <ChoiceImage category="appliance" value={kind} />
-                      {APPLIANCE_CATALOG[kind].label}
-                    </button>
-                  ))}
-              </div>
-            </details>
           </details>
           <details
             className="cc-accordion cc-selection"
@@ -2586,8 +2488,125 @@ export function CabinetConfigurator({
                   onFit={() => setViewport({x: 0, y: 0, zoom: 1})}
                 />
               </div>
+              {!editingRoom && (
+                <div
+                  className="cc-wall-tools cc-object-tools"
+                  role="toolbar"
+                  aria-label="Add to room"
+                >
+                  <details className="cc-add-menu">
+                    <summary>+ Add cabinet</summary>
+                    <div className="cc-add-categories">
+                      {CABINET_CATEGORIES.map((category) => (
+                        <details className="cc-add-category" key={category}>
+                          <summary>{category}</summary>
+                          <div>
+                            {cabinetChoices
+                              .filter((choice) => choice.category === category)
+                              .map((choice) => (
+                                <button
+                                  key={choice.id}
+                                  disabled={
+                                    choice.item.kind === 'tall' &&
+                                    minimumTallHeight(
+                                      choice.item.tallConfiguration,
+                                    ) > study.room.height
+                                  }
+                                  onClick={() =>
+                                    update((d) => {
+                                      const preferred =
+                                        applyCreationPreferences(
+                                          {...choice.item, id: makeId()},
+                                          creationPreferences.current!,
+                                          d.room,
+                                        );
+                                      const item = applyCabinetType(
+                                        preferred,
+                                        choice,
+                                        d.room,
+                                      );
+                                      d.elements.push(
+                                        automaticallyPlaceElement(
+                                          item,
+                                          d,
+                                          placementContext(item, d),
+                                        ),
+                                      );
+                                      d.selected = item.id;
+                                    })
+                                  }
+                                >
+                                  <ChoiceImage
+                                    category="cabinet-type"
+                                    value={JSON.stringify(choice.item)}
+                                  />
+                                  {choice.label}
+                                </button>
+                              ))}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  </details>
+                  <details className="cc-add-menu">
+                    <summary>+ Add fixture</summary>
+                    <div>
+                      {(Object.keys(FIXTURE_CATALOG) as FixtureKind[]).map(
+                        (kind) => (
+                          <button
+                            key={kind}
+                            onClick={() =>
+                              update((d) => {
+                                const item = createFixture(
+                                  kind,
+                                  makeId(),
+                                  d.room,
+                                );
+                                const placed = automaticallyPlaceElement(
+                                  item,
+                                  d,
+                                  placementContext(item, d),
+                                );
+                                delete placed.islandId;
+                                d.elements.push(placed);
+                                d.selected = item.id;
+                              })
+                            }
+                          >
+                            <ChoiceImage category="fixture" value={kind} />
+                            {FIXTURE_CATALOG[kind].label}
+                          </button>
+                        ),
+                      )}
+
+                      {(Object.keys(APPLIANCE_CATALOG) as ApplianceKind[])
+                        .filter(
+                          (kind) =>
+                            !['wall-oven', 'coffee-maker'].includes(kind),
+                        )
+                        .map((kind) => (
+                          <button
+                            key={kind}
+                            onClick={(event) => {
+                              addElement('appliance', kind);
+                              event.currentTarget
+                                .closest('details')
+                                ?.removeAttribute('open');
+                            }}
+                          >
+                            <ChoiceImage category="appliance" value={kind} />
+                            {APPLIANCE_CATALOG[kind].label}
+                          </button>
+                        ))}
+                    </div>
+                  </details>
+                </div>
+              )}
               {editingRoom && (
                 <div className="cc-wall-tools">
+                  {!addingWall && (
+                    <button onClick={addIsland}>+ Island zone</button>
+                  )}
                   <button
                     aria-pressed={addingWall}
                     onClick={() => {
