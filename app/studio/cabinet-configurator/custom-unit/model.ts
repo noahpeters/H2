@@ -259,11 +259,8 @@ export function validateCustomUnit(value: unknown): string[] {
   const unit = value as Partial<CustomUnitDefinition>;
   const errors: string[] = [];
   if (
-    typeof value === 'object' &&
-    value &&
-    'cabinetCategory' in value &&
-    value.cabinetCategory !== undefined &&
-    !['base', 'wall-cabinet', 'tall'].includes(String(value.cabinetCategory))
+    unit.cabinetCategory !== undefined &&
+    !['base', 'wall-cabinet', 'tall'].includes(unit.cabinetCategory)
   )
     errors.push('Choose Base, Wall, or Tall for the cabinet category.');
   if (unit.version !== CUSTOM_UNIT_VERSION)

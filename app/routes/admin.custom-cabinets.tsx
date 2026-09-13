@@ -92,9 +92,14 @@ export default function CabinetAdmin() {
   const [selected, setSelected] = useState<CustomCabinetLibraryItem | null>(
     items[0] ?? null,
   );
-  const [definition, setDefinition] = useState<CustomUnitDefinition>(
-    selected?.definition ?? createCustomUnit(),
-  );
+  const [definition, setDefinition] = useState<CustomUnitDefinition>(() => {
+    const initial = selected?.definition ?? createCustomUnit();
+    return {
+      ...initial,
+      cabinetCategory:
+        initial.cabinetCategory ?? (initial.height > 48 ? 'tall' : 'base'),
+    };
+  });
   const [description, setDescription] = useState(selected?.description ?? '');
   const [tags, setTags] = useState(selected?.tags.join(', ') ?? '');
   const [status, setStatus] = useState<CabinetLifecycle>(
@@ -113,7 +118,11 @@ export default function CabinetAdmin() {
         }
       : source;
     setSelected(duplicate ? null : item);
-    setDefinition(next);
+    setDefinition({
+      ...next,
+      cabinetCategory:
+        next.cabinetCategory ?? (next.height > 48 ? 'tall' : 'base'),
+    });
     setDescription(item?.description ?? '');
     setTags(item?.tags.join(', ') ?? '');
     setStatus(duplicate ? 'draft' : (item?.status ?? 'draft'));
