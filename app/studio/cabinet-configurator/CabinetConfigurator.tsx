@@ -2095,10 +2095,14 @@ export function CabinetConfigurator({
                       <button onClick={() => setCustomizing(selected)}>
                         Customize this cabinet
                       </button>
-                      <label>
-                        Configuration in this design
-                        <select
-                          aria-label="Configuration in this design"
+                      <div
+                        className="cc-visual-field"
+                        role="group"
+                        aria-label="Cabinet Type"
+                      >
+                        Cabinet Type
+                        <VisualSelect
+                          category="cabinet"
                           value={
                             selected.customCabinet?.scope === 'design'
                               ? selected.customCabinet.libraryId
@@ -2106,10 +2110,44 @@ export function CabinetConfigurator({
                                 ? 'global'
                                 : ''
                           }
-                          onChange={(event) => {
-                            if (event.target.value === 'global') return;
+                          renderImage={(value) => {
                             const configuration = study.configurations?.find(
-                              (c) => c.id === event.target.value,
+                              (c) => c.id === value,
+                            );
+                            const item =
+                              value === 'global'
+                                ? selected
+                                : configuration
+                                  ? {
+                                      ...selected,
+                                      customCabinet: {
+                                        scope: 'design' as const,
+                                        libraryId: configuration.id,
+                                        libraryVersion: configuration.version,
+                                        definition: configuration.definition,
+                                      },
+                                    }
+                                  : {...selected, customCabinet: undefined};
+                            return (
+                              <ChoiceImage
+                                category="cabinet-type"
+                                value={JSON.stringify({
+                                  ...item,
+                                  id: 'preview',
+                                  placement: {
+                                    mode: 'wall',
+                                    wall: 'back',
+                                    offset: 0,
+                                    elevation: 0,
+                                  },
+                                })}
+                              />
+                            );
+                          }}
+                          onChange={(event) => {
+                            if (event.currentTarget.value === 'global') return;
+                            const configuration = study.configurations?.find(
+                              (c) => c.id === event.currentTarget.value,
                             );
                             try {
                               const next = configuration
@@ -2137,10 +2175,10 @@ export function CabinetConfigurator({
                           {selected.customCabinet &&
                             selected.customCabinet.scope !== 'design' && (
                               <option value="global">
-                                Global library configuration
+                                {selected.customCabinet.definition.name}
                               </option>
                             )}
-                          <option value="">Standard configuration</option>
+                          <option value="">Standard</option>
                           {(study.configurations ?? [])
                             .filter((c) => compatibleConfiguration(selected, c))
                             .map((c) => (
@@ -2148,50 +2186,8 @@ export function CabinetConfigurator({
                                 {c.name}
                               </option>
                             ))}
-                        </select>
-                      </label>
-                      {selected.customCabinet?.scope === 'design' && (
-                        <p>
-                          Applied: {selected.customCabinet.definition.name}{' '}
-                          (version {selected.customCabinet.libraryVersion})
-                        </p>
-                      )}
-                      {selected.customCabinet?.scope === 'design' &&
-                        study.configurations?.some(
-                          (c) =>
-                            c.id === selected.customCabinet?.libraryId &&
-                            c.version > selected.customCabinet.libraryVersion,
-                        ) && (
-                          <button
-                            onClick={() => {
-                              const configuration = study.configurations!.find(
-                                (c) =>
-                                  c.id === selected.customCabinet?.libraryId,
-                              )!;
-                              try {
-                                const next = applyConfiguration(
-                                  selected,
-                                  configuration,
-                                  study.room,
-                                );
-                                update((d) => {
-                                  d.elements = d.elements.map((e) =>
-                                    e.id === selected.id ? next : e,
-                                  );
-                                });
-                                setConfigurationError('');
-                              } catch (cause) {
-                                setConfigurationError(
-                                  cause instanceof Error
-                                    ? cause.message
-                                    : 'Unable to apply configuration.',
-                                );
-                              }
-                            }}
-                          >
-                            Apply latest saved version
-                          </button>
-                        )}
+                        </VisualSelect>
+                      </div>
                       {configurationError && (
                         <p role="alert">{configurationError}</p>
                       )}
