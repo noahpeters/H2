@@ -1,3 +1,4 @@
+import {analyticsSessionId} from './analyticsSession';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {Study} from './CabinetConfigurator';
 type SavedRoom = {
@@ -126,6 +127,7 @@ export function useSavedRooms(
   const create = useCallback(
     async (data: Study) => {
       const record = (await roomRequest('POST', undefined, {
+        analyticsSessionId: analyticsSessionId(),
         study: data,
       })) as SavedRoom;
       install(record, data);
@@ -295,6 +297,7 @@ export function useSavedRooms(
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         ...details,
+        analyticsSessionId: analyticsSessionId(),
         slug: record.slug,
         editKey: record.editKey,
         revision: record.revision,
@@ -313,6 +316,7 @@ export function useSavedRooms(
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         ...details,
+        analyticsSessionId: analyticsSessionId(),
         slug: record.slug,
         editKey: record.editKey,
         revision: record.revision,

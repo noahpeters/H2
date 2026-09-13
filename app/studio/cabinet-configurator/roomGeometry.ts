@@ -1,5 +1,8 @@
 import {sinkAttachment} from './sinkAttachments';
 import {sinkGeometry, sinkCutout} from './fixtureGeometry';
+import {baseToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
+import {fitDefinition} from './custom-unit/designConfigurations';
+import {customUnitGeometry} from './custom-unit/geometry';
 import * as THREE from 'three';
 import {cabinetColor} from './materials';
 import {storageLayout} from './openStorage';
@@ -78,11 +81,54 @@ function box(
   group.add(mesh);
   return mesh;
 }
+function addToeKick(
+  group: THREE.Group,
+  item: RoomElement,
+  toe: {height: number; setback: number},
+) {
+  return (box(
+    group,
+    item.width - 0.5,
+    toe.height,
+    item.depth - toe.setback,
+    0,
+    -item.height / 2 + toe.height / 2,
+    -toe.setback / 2,
+    new THREE.MeshStandardMaterial({color: cabinetColor(item), roughness: 0.6}),
+  ).name = 'room-toe-kick');
+}
 export function cabinetGeometry(
   item: RoomElement,
   countertop: boolean,
   sharedCountertop = false,
+  room?: Pick<Room, 'toeKick'>,
 ) {
+  if (item.customCabinet) {
+    const toe = baseToeKick(item, room);
+    const envelope = cabinetCompositionEnvelope(item, room);
+    const definition = fitDefinition(item.customCabinet.definition, envelope);
+    const group = new THREE.Group();
+    const body = customUnitGeometry(
+      definition,
+      {},
+      {
+        face: item.face,
+        material: item.material ?? 'rift-white-oak',
+        paintColor: item.paintColor,
+      },
+    );
+    // The definition is already fitted to the body envelope. Convert units only:
+    // bounds can include projecting fronts/end shelves or omit removed panels.
+    // Normalizing those bounds would distort exact part sizes and positions.
+    body.scale.set(inch, inch, -inch);
+    body.position.y = (-item.height / 2 + toe.height) * inch;
+    body.name = 'custom-cabinet-body';
+    group.add(body);
+    if (toe.height) addToeKick(group, item, toe);
+    if (countertop && item.kind === 'base')
+      addBaseCountertop(group, item, sharedCountertop);
+    return group;
+  }
   if (item.kind === 'base' && item.configuration === 'corner') {
     const group = new THREE.Group();
     const w = item.width,
@@ -91,12 +137,16 @@ export function cabinetGeometry(
     const back = cabinetGeometry(
       {...item, configuration: 'single-door', depth: arm},
       false,
+      false,
+      room,
     );
     back.position.z = (-d / 2 + arm / 2) * inch;
     group.add(back);
     const leg = cabinetGeometry(
       {...item, configuration: 'single-door', width: d - arm, depth: arm},
       false,
+      false,
+      room,
     );
     leg.rotation.y = Math.PI / 2;
     leg.position.set((-w / 2 + arm / 2) * inch, 0, (arm / 2) * inch);
@@ -147,10 +197,6 @@ export function cabinetGeometry(
     metalness: 0.65,
     roughness: 0.28,
   });
-  const stone = new THREE.MeshStandardMaterial({
-    color: 0xe0d9cc,
-    roughness: 0.35,
-  });
   if (item.storage?.type === 'floating-shelves') {
     const group = new THREE.Group();
     const count = Math.max(1, item.storage.shelves);
@@ -165,10 +211,21 @@ export function cabinetGeometry(
     }
     return group;
   }
-  const toe = item.kind === 'wall-cabinet' ? 0 : Math.min(4, h / 3);
+  const support = baseToeKick(item, room);
+  const toe =
+    item.kind === 'base'
+      ? support.height
+      : item.kind === 'wall-cabinet'
+        ? 0
+        : Math.min(4, h / 3);
   const bottom = -h / 2 + toe;
   // Open carcass keeps the sink cavity visible; recessed plinth is four inches tall.
-  if (toe) box(group, w - 0.5, toe, d - 3, 0, -h / 2 + toe / 2, -1.5, wood);
+  if (toe)
+    addToeKick(
+      group,
+      item,
+      item.kind === 'base' ? support : {height: toe, setback: 3},
+    );
   for (const side of [-1, 1])
     box(group, 0.75, h - toe, d, side * (w / 2 - 0.375), toe / 2, 0, wood);
   box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood);
@@ -545,36 +602,49 @@ export function cabinetGeometry(
       toe / 2,
       item.kind === 'base' && config === 'pullout',
     );
-  if (countertop && item.kind === 'base') {
-    const topY = h / 2 + 0.75;
-    const sink = sinkAttachment(item);
-    if (sink) {
-      if (!sharedCountertop) {
-        const shape = new THREE.Shape();
-        shape.moveTo((-(w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
-        shape.lineTo(((w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
-        shape.lineTo(((w + 2) / 2) * inch, ((d + 2) / 2) * inch);
-        shape.lineTo((-(w + 2) / 2) * inch, ((d + 2) / 2) * inch);
-        shape.closePath();
-        shape.holes.push(
-          new THREE.Path(sinkCutout(sink).map((p) => p.multiplyScalar(inch))),
-        );
-        const top = new THREE.Mesh(
-          new THREE.ExtrudeGeometry(shape, {
-            depth: 1.5 * inch,
-            bevelEnabled: false,
-          }),
-          stone,
-        );
-        top.rotation.x = Math.PI / 2;
-        top.position.y = (h / 2 + 1.5) * inch;
-        group.add(top);
-      }
-      group.add(sinkGeometry(sink, h, d));
-    } else if (!sharedCountertop)
-      box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
-  }
+  if (countertop && item.kind === 'base')
+    addBaseCountertop(group, item, sharedCountertop);
   return group;
+}
+
+/** Room countertop treatment is independent of the cabinet composition. */
+function addBaseCountertop(
+  group: THREE.Group,
+  item: RoomElement,
+  sharedCountertop: boolean,
+) {
+  const {width: w, height: h, depth: d} = item;
+  const stone = new THREE.MeshStandardMaterial({
+    color: 0xe0d9cc,
+    roughness: 0.35,
+  });
+  const topY = h / 2 + 0.75;
+  const sink = sinkAttachment(item);
+  if (sink) {
+    if (!sharedCountertop) {
+      const shape = new THREE.Shape();
+      shape.moveTo((-(w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
+      shape.lineTo(((w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
+      shape.lineTo(((w + 2) / 2) * inch, ((d + 2) / 2) * inch);
+      shape.lineTo((-(w + 2) / 2) * inch, ((d + 2) / 2) * inch);
+      shape.closePath();
+      shape.holes.push(
+        new THREE.Path(sinkCutout(sink).map((p) => p.multiplyScalar(inch))),
+      );
+      const top = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(shape, {
+          depth: 1.5 * inch,
+          bevelEnabled: false,
+        }),
+        stone,
+      );
+      top.rotation.x = Math.PI / 2;
+      top.position.y = (h / 2 + 1.5) * inch;
+      group.add(top);
+    }
+    group.add(sinkGeometry(sink, h, d));
+  } else if (!sharedCountertop)
+    box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
 }
 
 export function placeOnWall(

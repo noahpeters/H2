@@ -14,12 +14,27 @@ import {
   SINK_CATALOG,
   type SinkKind,
 } from './sinkAttachments';
+import {DEFAULT_TOE_KICK} from './cabinetEnvelope';
+import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
+import {
+  applyConfiguration,
+  compatibleConfiguration,
+  saveConfiguration,
+  type DesignConfiguration,
+} from './custom-unit/designConfigurations';
+import {createCabinetRenderer} from './sceneRenderer';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSavedRooms} from './useSavedRooms';
 import {ChoiceImage, VisualSelect} from './VisualChoices';
 import {ShareRoomForm} from './ShareRoomForm';
+import {StudyInquiryDialog} from '../StudyInquiryDialog';
+import {cabinetStudySummary} from '../studyInquiry';
 import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
+import {
+  customCabinetElement,
+  type CustomCabinetLibraryItem,
+} from './custom-unit/library';
 import {
   applyCreationPreferences,
   loadCreationPreferences,
@@ -103,6 +118,7 @@ type Opening = {
   sill?: number;
 };
 export type Study = {
+  configurations?: DesignConfiguration[];
   version: 2;
   room: Room;
   openings: Opening[];
@@ -613,15 +629,8 @@ export function ThreeStudy({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf4f2ec);
+    const {scene, renderer} = createCabinetRenderer(host);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
-    const renderer = new THREE.WebGLRenderer({antialias: true});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    host.append(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
     controls.mouseButtons.LEFT = panRef.current
@@ -636,11 +645,6 @@ export function ThreeStudy({
     controls.addEventListener('start', rememberNavigation);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2.02;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x5b5546, 2.2));
-    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
-    sun.position.set(-3, 5, 4);
-    sun.castShadow = true;
-    scene.add(sun);
 
     const roomWidth = study.room.width * INCH;
     const roomDepth = study.room.depth * INCH;
@@ -689,6 +693,7 @@ export function ThreeStudy({
                 cabinet,
                 study.countertop,
                 study.islands.some((i) => i.id === cabinet.islandId),
+                study.room,
               );
       body.userData.id = cabinet.id;
       const transform = elementTransform(cabinet, study.room);
@@ -858,7 +863,11 @@ export function ThreeStudy({
 
 export function CabinetConfigurator({
   turnstileSiteKey = '',
-}: {turnstileSiteKey?: string} = {}) {
+  customCabinets = [],
+}: {
+  turnstileSiteKey?: string;
+  customCabinets?: CustomCabinetLibraryItem[];
+} = {}) {
   const planSvg = useRef<SVGSVGElement>(null);
   const [viewport, setViewport] = useState({x: 0, y: 0, zoom: 1});
   const [panMode, setPanMode] = useState(false);
@@ -907,8 +916,11 @@ export function CabinetConfigurator({
     svg.addEventListener('wheel', wheel, {passive: false});
     return () => svg.removeEventListener('wheel', wheel);
   }, [zoomPlan]);
+  const [customizing, setCustomizing] = useState<RoomElement | null>(null);
+  const [configurationError, setConfigurationError] = useState('');
   const [sharing, setSharing] = useState(false);
   const [pricing, setPricing] = useState(false);
+  const [inquiring, setInquiring] = useState(false);
   const [editingRoom, setEditingRoom] = useState(false);
   const [selectedWall, setSelectedWall] = useState<Wall>('back');
   const [outlineError, setOutlineError] = useState('');
@@ -1112,6 +1124,17 @@ export function CabinetConfigurator({
       d.islands.push(automaticallyPlaceIsland(island, d));
       d.selected = island.id;
     });
+  const addCustomCabinet = (cabinet: CustomCabinetLibraryItem) =>
+    update((d) => {
+      const item = customCabinetElement(cabinet, makeId());
+      const placed = automaticallyPlaceElement(
+        item,
+        d,
+        placementContext(item, d),
+      );
+      d.elements.push(placed);
+      d.selected = placed.id;
+    });
   const changeIsland = (
     island: Island,
     key: keyof Island,
@@ -1208,6 +1231,32 @@ export function CabinetConfigurator({
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
   return (
     <div className="cabinet-app">
+      {customizing && (
+        <ConfigurationSheet
+          key={customizing.id}
+          item={customizing}
+          room={study.room}
+          onClose={() => setCustomizing(null)}
+          onSave={(definition) => {
+            const item = study.elements.find((e) => e.id === customizing.id);
+            if (!item)
+              throw new Error('This cabinet is no longer in the design.');
+            const result = saveConfiguration(
+              study.configurations ?? [],
+              item,
+              definition,
+              study.room,
+            );
+            update((d) => {
+              d.configurations = result.configurations;
+              d.elements = d.elements.map((e) =>
+                e.id === item.id ? result.item : e,
+              );
+            });
+            setCustomizing(null);
+          }}
+        />
+      )}
       <header className="cc-topbar">
         <a className="cc-brand" href="/">
           <span>from trees</span>
@@ -1256,6 +1305,12 @@ export function CabinetConfigurator({
           >
             Get price range
           </button>
+          <button
+            disabled={rooms.busy || !rooms.ready}
+            onClick={() => setInquiring(true)}
+          >
+            Send this study
+          </button>
           {pricing && (
             <ShareRoomForm
               purpose="price"
@@ -1300,6 +1355,14 @@ export function CabinetConfigurator({
           )}
         </div>
       </header>
+      {inquiring && (
+        <StudyInquiryDialog
+          source="cabinet"
+          summary={cabinetStudySummary(study)}
+          turnstileSiteKey={turnstileSiteKey}
+          onClose={() => setInquiring(false)}
+        />
+      )}
       <main
         className="cc-main"
         ref={(node) => {
@@ -1310,6 +1373,35 @@ export function CabinetConfigurator({
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
+              <fieldset>
+                <legend>Base cabinet toe kicks</legend>
+                {(['height', 'setback'] as const).map((field) => (
+                  <label key={field}>
+                    Toe-kick {field === 'setback' ? 'recess' : 'height'} (in)
+                    <input
+                      type="number"
+                      min={field === 'height' ? 0.5 : 0}
+                      max={12}
+                      step={0.25}
+                      value={(study.room.toeKick ?? DEFAULT_TOE_KICK)[field]}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (
+                          Number.isFinite(value) &&
+                          value >= (field === 'height' ? 0.5 : 0) &&
+                          value <= 12
+                        )
+                          update((d) => {
+                            d.room.toeKick = {
+                              ...(d.room.toeKick ?? DEFAULT_TOE_KICK),
+                              [field]: value,
+                            };
+                          });
+                      }}
+                    />
+                  </label>
+                ))}
+              </fieldset>
               <label>
                 Room outline
                 <select
@@ -1786,6 +1878,28 @@ export function CabinetConfigurator({
                     ))}
                   </div>
                 </details>
+                {customCabinets.length > 0 && (
+                  <details className="cc-add-category">
+                    <summary>From Trees custom</summary>
+                    <div>
+                      {customCabinets.map((cabinet) => (
+                        <button
+                          key={`${cabinet.id}-${cabinet.version}`}
+                          onClick={() => addCustomCabinet(cabinet)}
+                          title={cabinet.description}
+                        >
+                          {cabinet.name}
+                          <small>
+                            Version {cabinet.version}
+                            {cabinet.tags.length
+                              ? ` · ${cabinet.tags.join(', ')}`
+                              : ''}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 <details className="cc-add-category">
                   <summary>Corner</summary>
                   <div>
@@ -1904,6 +2018,22 @@ export function CabinetConfigurator({
                     }
                   >
                     Remove
+                  </button>
+                  <button
+                    onClick={() =>
+                      update((d) => {
+                        const copy = clone(selected);
+                        copy.id = makeId();
+                        if (copy.placement.mode === 'wall')
+                          copy.placement.offset += 3;
+                        else if (copy.placement.mode === 'floor')
+                          copy.placement.x += 3;
+                        d.elements.push(copy);
+                        d.selected = copy.id;
+                      })
+                    }
+                  >
+                    Duplicate
                   </button>
                 </div>
                 {canAttachSink(selected) && (
@@ -2036,6 +2166,114 @@ export function CabinetConfigurator({
                     </label>
                   </>
                 )}
+                {selected.kind !== 'appliance' &&
+                  selected.kind !== 'fixture' && (
+                    <>
+                      <button onClick={() => setCustomizing(selected)}>
+                        Customize this cabinet
+                      </button>
+                      <label>
+                        Configuration in this design
+                        <select
+                          aria-label="Configuration in this design"
+                          value={
+                            selected.customCabinet?.scope === 'design'
+                              ? selected.customCabinet.libraryId
+                              : selected.customCabinet
+                                ? 'global'
+                                : ''
+                          }
+                          onChange={(event) => {
+                            if (event.target.value === 'global') return;
+                            const configuration = study.configurations?.find(
+                              (c) => c.id === event.target.value,
+                            );
+                            try {
+                              const next = configuration
+                                ? applyConfiguration(
+                                    selected,
+                                    configuration,
+                                    study.room,
+                                  )
+                                : {...selected, customCabinet: undefined};
+                              update((d) => {
+                                d.elements = d.elements.map((e) =>
+                                  e.id === selected.id ? next : e,
+                                );
+                              });
+                              setConfigurationError('');
+                            } catch (cause) {
+                              setConfigurationError(
+                                cause instanceof Error
+                                  ? cause.message
+                                  : 'Unable to apply configuration.',
+                              );
+                            }
+                          }}
+                        >
+                          {selected.customCabinet &&
+                            selected.customCabinet.scope !== 'design' && (
+                              <option value="global">
+                                Global library configuration
+                              </option>
+                            )}
+                          <option value="">Standard configuration</option>
+                          {(study.configurations ?? [])
+                            .filter((c) => compatibleConfiguration(selected, c))
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      {selected.customCabinet?.scope === 'design' && (
+                        <p>
+                          Applied: {selected.customCabinet.definition.name}{' '}
+                          (version {selected.customCabinet.libraryVersion})
+                        </p>
+                      )}
+                      {selected.customCabinet?.scope === 'design' &&
+                        study.configurations?.some(
+                          (c) =>
+                            c.id === selected.customCabinet?.libraryId &&
+                            c.version > selected.customCabinet.libraryVersion,
+                        ) && (
+                          <button
+                            onClick={() => {
+                              const configuration = study.configurations!.find(
+                                (c) =>
+                                  c.id === selected.customCabinet?.libraryId,
+                              )!;
+                              try {
+                                const next = applyConfiguration(
+                                  selected,
+                                  configuration,
+                                  study.room,
+                                );
+                                update((d) => {
+                                  d.elements = d.elements.map((e) =>
+                                    e.id === selected.id ? next : e,
+                                  );
+                                });
+                                setConfigurationError('');
+                              } catch (cause) {
+                                setConfigurationError(
+                                  cause instanceof Error
+                                    ? cause.message
+                                    : 'Unable to apply configuration.',
+                                );
+                              }
+                            }}
+                          >
+                            Apply latest saved version
+                          </button>
+                        )}
+                      {configurationError && (
+                        <p role="alert">{configurationError}</p>
+                      )}
+                    </>
+                  )}
                 {selected.applianceKind === 'range' && (
                   <label>
                     Range hood

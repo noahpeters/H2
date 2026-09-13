@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+printf '%s\n' 'Checking lint and tests before push...'
+npm run lint && npm test -- --run

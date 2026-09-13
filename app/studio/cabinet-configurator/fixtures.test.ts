@@ -1,3 +1,8 @@
+import {
+  configurationTemplate,
+  saveConfiguration,
+  compatibleConfiguration,
+} from './custom-unit/designConfigurations';
 import {describe, it, expect} from 'vitest';
 import * as THREE from 'three';
 import {
@@ -45,7 +50,7 @@ const study = (elements: RoomElement[]) => ({
   countertop: true,
   view: 'plan',
 });
-describe('bathroom fixtures', () => {
+describe('room fixtures', () => {
   it.each(Object.keys(FIXTURE_CATALOG) as FixtureKind[])(
     'round trips and places %s without overlap',
     (kind) => {
@@ -279,4 +284,35 @@ it('places mirrors above base cabinets and preserves mounting height on reload',
   const size = new THREE.Box3().setFromObject(geo).getSize(new THREE.Vector3());
   expect(size.x / 0.0254).toBeCloseTo(40);
   expect(size.y / 0.0254).toBeCloseTo(48);
+});
+
+it('preserves sink attachments and room toe kicks on design-local custom cabinets', () => {
+  const customRoom = {...room, toeKick: {height: 6, setback: 2}};
+  const item = {...base, sink: {...createSink('vessel'), x: 3}};
+  const saved = saveConfiguration(
+    [],
+    item,
+    configurationTemplate(item, customRoom),
+    customRoom,
+  );
+  const data = {
+    ...study([saved.item, createFixture('mirror', 'mirror', customRoom)]),
+    room: customRoom,
+    configurations: saved.configurations,
+  };
+  expect(validStudy(JSON.parse(JSON.stringify(data)))).toBe(true);
+  const geometry = cabinetGeometry(saved.item, true, false, customRoom);
+  expect(geometry.getObjectByName('custom-cabinet-body')).toBeDefined();
+  expect(geometry.getObjectByName('room-toe-kick')).toBeDefined();
+  const sink = geometry.getObjectByName('sink-attachment')!;
+  expect(sink).toBeDefined();
+  expect(sink.position.x).toBeCloseTo(3 * 0.0254);
+  expect(saved.item.width).toBe(base.width);
+  expect(saved.item.sink).toEqual(item.sink);
+  expect(
+    compatibleConfiguration(createFixture('mirror', 'mirror', room), {
+      ...saved.configurations[0],
+      category: 'fixture',
+    }),
+  ).toBe(false);
 });

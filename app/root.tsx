@@ -1,3 +1,4 @@
+import {ConfiguratorAnalytics} from '~/components/ConfiguratorAnalytics';
 import {Analytics, getShopAnalytics, useNonce} from '@shopify/hydrogen';
 import {PageViewAnalytics} from '~/components/PageAnalyticsView';
 import {
@@ -20,22 +21,13 @@ import appStyles from '~/styles/app.css?url';
 import stylexStyles from '~/styles/stylex.css?url';
 import {PageLayout} from './components/PageLayout';
 import {useEffect} from 'react';
+import {MetaPixel} from '~/components/MetaPixel';
 
 declare global {
   interface Window {
     dataLayer: unknown[];
-    fbq?: FbqFn;
-    _fbq?: Window['fbq'];
-    __metaPixelInitialized?: boolean;
   }
 }
-
-type FbqFn = ((...args: unknown[]) => void) & {
-  callMethod?: (...args: unknown[]) => void;
-  queue?: unknown[][];
-  loaded?: boolean;
-  version?: string;
-};
 
 export type RootLoader = typeof loader;
 
@@ -100,9 +92,20 @@ export async function loader(args: Route.LoaderArgs) {
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
 
-  const {storefront, env} = args.context;
+  const {storefront, env, session} = args.context;
+  const storedReceipt = session.get('projectReceipt') as
+    | {eventId: string; kind: string}
+    | undefined;
+  const projectReceipt =
+    storedReceipt &&
+    typeof storedReceipt.eventId === 'string' &&
+    typeof storedReceipt.kind === 'string'
+      ? storedReceipt
+      : null;
+  if (storedReceipt) session.unset('projectReceipt');
 
   return {
+    projectReceipt,
     ...deferredData,
     ...criticalData,
     publicStoreDomain: env.PUBLIC_STORE_DOMAIN,
@@ -188,78 +191,9 @@ export function TawkToTag({nonce}: {nonce?: string}) {
   return null;
 }
 
-export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
-  useEffect(() => {
-    // avoid double-inject (HMR, client nav, etc.)
-    const existing = document.querySelector(
-      `script[src="https://www.googletagmanager.com/gtag/js?id=${id}"]`,
-    );
-    if (existing) return;
-
-    const s1 = document.createElement('script');
-    s1.async = true;
-    s1.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
-    if (nonce) s1.nonce = nonce;
-    document.head.appendChild(s1);
-
-    const s2 = document.createElement('script');
-    if (nonce) s2.nonce = nonce;
-    s2.text = `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){window.dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${id}');
-    `;
-    document.head.appendChild(s2);
-  }, [id, nonce]);
-
-  return null;
-}
-
-export function MetaPixel({nonce}: {nonce?: string}) {
-  useEffect(() => {
-    const pixelId = '4235923316621088';
-
-    if (!window.fbq) {
-      const fbq: FbqFn = (...args: unknown[]) => {
-        if (fbq.callMethod) {
-          fbq.callMethod(...args);
-        } else {
-          fbq.queue?.push(args);
-        }
-      };
-      fbq.queue = [];
-      fbq.loaded = true;
-      fbq.version = '2.0';
-      window.fbq = fbq;
-      window._fbq = fbq;
-    }
-
-    const existing = document.querySelector(
-      `script[src="https://connect.facebook.net/en_US/fbevents.js"]`,
-    );
-    if (!existing) {
-      const s = document.createElement('script');
-      s.async = true;
-      s.src = 'https://connect.facebook.net/en_US/fbevents.js';
-      if (nonce) s.nonce = nonce;
-      document.head.appendChild(s);
-    }
-
-    if (!window.__metaPixelInitialized && window.fbq) {
-      window.fbq('init', pixelId);
-      window.fbq('track', 'PageView');
-      window.__metaPixelInitialized = true;
-    }
-  }, [nonce]);
-
-  return null;
-}
-
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
   const location = useLocation();
-  const gtagId = 'GT-TXBKGK45';
   const studioOwned = isStudioOwnedPath(location.pathname);
 
   return (
@@ -291,7 +225,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <ClientErrorReporter />
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
-        <GoogleTag nonce={nonce} id={gtagId} />
+        <ConfiguratorAnalytics />
         {!studioOwned ? <TawkToTag nonce={nonce} /> : null}
         <MetaPixel nonce={nonce} />
       </body>
@@ -368,9 +302,12 @@ function isStudioOwnedPath(pathname: string) {
     pathname === '/' ||
     pathname === '/about' ||
     pathname === '/contact' ||
+    pathname.startsWith('/inquire/') ||
     pathname === '/configurator' ||
     pathname.startsWith('/configurator/') ||
     pathname === '/cabinet-configurator' ||
+    pathname === '/cabinet-configurator/custom-unit' ||
+    pathname === '/admin/custom-cabinets' ||
     pathname === '/collections/all' ||
     pathname.startsWith('/products/') ||
     pathname === '/cart' ||

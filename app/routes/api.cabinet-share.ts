@@ -104,6 +104,24 @@ export async function action({request, context}: ActionFunctionArgs) {
         {error: 'The email could not be sent. Please retry.'},
         502,
       );
+    // A provider-accepted email is different from a prepared share. This does not claim inbox delivery.
+    try {
+      await fetch(new URL('/analytics/email', env.CABINET_ROOMS_URL), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.CABINET_ROOMS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: body.requestId,
+          analyticsSessionId: (body as unknown as Record<string, unknown>)
+            .analyticsSessionId,
+        }),
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch {
+      /* Reporting must not prevent a successful share. */
+    }
     return jsonResponse({ok: true});
   } catch {
     return jsonResponse(

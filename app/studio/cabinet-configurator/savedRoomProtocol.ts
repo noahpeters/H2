@@ -1,8 +1,10 @@
 import {validSink, canAttachSink} from './sinkAttachments';
 import {FIXTURE_CATALOG} from './fixtures';
+import {configurationCategory} from './custom-unit/designConfigurations';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage} from './openStorage';
 import {validOutline, roomSegments} from './roomOutline';
+import {validateCustomUnit} from './custom-unit/model';
 export const ROOM_LIMIT = 200_000;
 export const SLUG = /^[a-f0-9]{32}$/;
 export const jsonResponse = (body: unknown, status = 200) =>
@@ -58,6 +60,17 @@ export function validStudy(value: any): boolean {
       ))
   )
     return false;
+  if (
+    value.room.toeKick !== undefined &&
+    (!value.room.toeKick ||
+      !num(value.room.toeKick.height) ||
+      value.room.toeKick.height < 0.5 ||
+      value.room.toeKick.height > 12 ||
+      !num(value.room.toeKick.setback) ||
+      value.room.toeKick.setback < 0 ||
+      value.room.toeKick.setback > 12)
+  )
+    return false;
   const walls = roomSegments(value.room).map((s) => s.id);
   if (
     !['oak', 'walnut', 'concrete'].includes(value.room.floor) ||
@@ -68,6 +81,27 @@ export function validStudy(value: any): boolean {
     !['elements', 'openings', 'islands'].every(
       (k) => Array.isArray(value[k]) && value[k].length <= 200,
     )
+  )
+    return false;
+  if (
+    value.configurations !== undefined &&
+    (!Array.isArray(value.configurations) ||
+      value.configurations.length > 200 ||
+      !value.configurations.every(
+        (c: any) =>
+          c &&
+          id(c.id) &&
+          Number.isInteger(c.version) &&
+          c.version > 0 &&
+          typeof c.name === 'string' &&
+          c.name.trim().length > 0 &&
+          c.name.length <= 100 &&
+          typeof c.category === 'string' &&
+          c.category.length < 100 &&
+          validateCustomUnit(c.definition).length === 0,
+      ) ||
+      new Set(value.configurations.map((c: any) => c.id)).size !==
+        value.configurations.length)
   )
     return false;
   const ids = [...value.elements, ...value.openings, ...value.islands].map(
@@ -97,6 +131,21 @@ export function validStudy(value: any): boolean {
             e.showerOpening &&
             ['front', 'back', 'left', 'right'].includes(e.showerOpening.side) &&
             ['open', 'door'].includes(e.showerOpening.style))) &&
+        (e.customCabinet === undefined ||
+          (e.customCabinet &&
+            typeof e.customCabinet.libraryId === 'string' &&
+            (e.customCabinet.scope === undefined ||
+              (e.customCabinet.scope === 'design' &&
+                e.kind !== 'appliance' &&
+                value.configurations?.some(
+                  (c: any) =>
+                    c.id === e.customCabinet.libraryId &&
+                    c.category === configurationCategory(e) &&
+                    c.version >= e.customCabinet.libraryVersion,
+                ))) &&
+            Number.isInteger(e.customCabinet.libraryVersion) &&
+            e.customCabinet.libraryVersion > 0 &&
+            validateCustomUnit(e.customCabinet.definition).length === 0)) &&
         (e.storage === undefined ||
           (validStorage(e.storage) &&
             e.kind ===

@@ -77,6 +77,7 @@ export type RoomElement = {
     style: 'open' | 'door';
   };
   sink?: import('./sinkAttachments').SinkAttachment | null;
+  customCabinet?: import('./custom-unit/library').CustomCabinetInstance;
   storage?: import('./openStorage').OpenStorage;
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
@@ -192,6 +193,7 @@ export type Island = {
   seatingSide: SeatingSide;
 };
 export type Room = {
+  toeKick?: {height: number; setback: number};
   outline?: RoomPoint[];
   width: number;
   depth: number;
@@ -218,7 +220,7 @@ export function migrateElement(
   if ('placement' in value)
     return {
       ...value,
-      sink: sinkAttachment(value),
+      ...(sinkAttachment(value) ? {sink: sinkAttachment(value)} : {}),
       placement: {...value.placement},
     };
   const {
@@ -233,7 +235,10 @@ export function migrateElement(
     kind: type === 'wall' ? 'wall-cabinet' : type,
     placement: {mode: 'wall', wall, offset, elevation},
   };
-  return {...element, sink: sinkAttachment(element)};
+  return {
+    ...element,
+    ...(sinkAttachment(element) ? {sink: sinkAttachment(element)} : {}),
+  };
 }
 
 export function wallToFloor(
