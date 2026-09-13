@@ -7,7 +7,7 @@ import {
 import {FACE_STYLES, type CabinetAppearance} from './facePreview';
 import {CABINET_MATERIALS, CABINET_PAINTS} from '../materials';
 import type {PlacementKind} from './openingPlacement';
-import {useState} from 'react';
+import {useState, type ReactNode} from 'react';
 import {
   CLOSET_EXAMPLE,
   VANITY_EXAMPLE,
@@ -96,7 +96,9 @@ export function CustomUnitEditor({
   onChange,
   lockEnvelope = false,
   initialAppearance,
+  attachmentControls,
 }: {
+  attachmentControls?: ReactNode;
   initialDefinition?: CustomUnitDefinition;
   lockEnvelope?: boolean;
   initialAppearance?: CabinetAppearance;
@@ -197,6 +199,7 @@ export function CustomUnitEditor({
       <div className="cu-workbench">
         <aside className="cu-panel cu-structure">
           <h2>01 / Cabinet</h2>
+          {attachmentControls}
           <label>
             {lockEnvelope ? 'Configuration name' : 'Name'}
             <input
