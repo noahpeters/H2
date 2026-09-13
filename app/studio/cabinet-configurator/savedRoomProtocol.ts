@@ -1,6 +1,7 @@
 import {validSink, canAttachSink} from './sinkAttachments';
 import {FIXTURE_CATALOG} from './fixtures';
 import {configurationCategory} from './custom-unit/designConfigurations';
+import {DOOR_TYPES} from './model';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage} from './openStorage';
 import {validOutline, roomSegments} from './roomOutline';
@@ -71,7 +72,27 @@ export function validStudy(value: any): boolean {
       value.room.toeKick.setback > 12)
   )
     return false;
+  if (
+    value.room.partitions !== undefined &&
+    (!Array.isArray(value.room.partitions) ||
+      value.room.partitions.length > 40 ||
+      value.room.partitions.some(
+        (p: any) =>
+          !p ||
+          !id(p.id) ||
+          !/^segment-[a-z0-9-]+$/.test(p.id) ||
+          (p.name !== undefined &&
+            (typeof p.name !== 'string' || p.name.length > 100)) ||
+          !num(p.x) ||
+          !num(p.z) ||
+          !dimension(p.length) ||
+          p.length < 6 ||
+          !['horizontal', 'vertical'].includes(p.orientation),
+      ))
+  )
+    return false;
   const walls = roomSegments(value.room).map((s) => s.id);
+  if (new Set(walls).size !== walls.length) return false;
   if (
     !['oak', 'walnut', 'concrete'].includes(value.room.floor) ||
     !['plaster', 'white', 'green'].includes(value.room.walls)
@@ -213,7 +234,10 @@ export function validStudy(value: any): boolean {
         num(o.offset) &&
         dimension(o.width) &&
         dimension(o.height) &&
-        (o.sill === undefined || num(o.sill)),
+        (o.sill === undefined || num(o.sill)) &&
+        (o.doorType === undefined ||
+          DOOR_TYPES.some(([type]) => type === o.doorType)) &&
+        (o.handing === undefined || ['left', 'right'].includes(o.handing)),
     ) &&
     value.islands.every(
       (i: any) =>

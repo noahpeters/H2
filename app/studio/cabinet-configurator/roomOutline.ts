@@ -12,8 +12,24 @@ export function roomPoints(room: Room): RoomPoint[] {
 }
 export function roomSegments(room: Room) {
   const points = roomPoints(room);
-  return points.map((a, index) => {
-    const b = points[(index + 1) % points.length];
+  const edges = points.map((a, index) => ({
+    a,
+    b: points[(index + 1) % points.length],
+    label: ['back', 'left', 'right', 'front'].includes(a.id)
+      ? a.id
+      : `Wall ${index + 1}`,
+  }));
+  for (const p of room.partitions ?? [])
+    edges.push({
+      a: {id: p.id, x: p.x, z: p.z},
+      b: {
+        id: p.id,
+        x: p.x + (p.orientation === 'horizontal' ? p.length : 0),
+        z: p.z + (p.orientation === 'vertical' ? p.length : 0),
+      },
+      label: `Interior wall ${(room.partitions ?? []).indexOf(p) + 1}`,
+    });
+  return edges.map(({a, b, label}) => {
     const dx = b.x - a.x,
       dz = b.z - a.z;
     const length = Math.hypot(dx, dz);
@@ -30,9 +46,7 @@ export function roomSegments(room: Room) {
       nx,
       nz,
       rotation: nz > 0 ? 0 : nx < 0 ? 90 : nz < 0 ? 180 : 270,
-      label: ['back', 'left', 'right', 'front'].includes(a.id)
-        ? a.id
-        : `Wall ${index + 1}`,
+      label,
     };
   });
 }

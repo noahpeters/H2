@@ -777,22 +777,51 @@ export function openingGeometry(opening: Opening, room: Room) {
     box(group, 1, h - 3, 1, 0, sill + h / 2, 0, trim);
     box(group, w - 3, 1, 1, 0, sill + h / 2, 0, trim);
   } else if (opening.kind === 'door') {
-    box(group, w - 3, h - 3, 0.8, 0, sill + h / 2, 0, leaf);
-    for (const side of [-1, 1])
-      for (const face of [-1, 1])
+    const type = opening.doorType ?? 'swing';
+    const count =
+      type === 'double-swing' ||
+      type === 'sliding-glass' ||
+      type === 'sliding-closet'
+        ? 2
+        : 1;
+    const panelWidth = (w - 3) / count;
+    for (let i = 0; i < count; i++) {
+      const center = -w / 2 + 1.5 + panelWidth * (i + 0.5);
+      const depth = type.startsWith('sliding') ? (i ? 0.6 : -0.6) : 0;
+      box(
+        group,
+        panelWidth - 0.2,
+        h - 3,
+        0.8,
+        center,
+        h / 2,
+        depth,
+        type === 'sliding-glass' || type === 'double-swing' ? glass : leaf,
+      );
+      for (const side of [-1, 1])
         box(
           group,
-          w - 8,
-          h * 0.35,
-          0.15,
-          0,
-          sill + h / 2 + side * h * 0.22,
-          face * 0.5,
+          1,
+          h - 3,
+          1,
+          center + side * (panelWidth / 2 - 0.5),
+          h / 2,
+          depth,
           trim,
         );
-    for (const face of [-1, 1])
-      box(group, 4, 0.5, 0.6, w / 2 - 5, 36, face * 0.9, metal);
+      box(
+        group,
+        0.6,
+        5,
+        1.2,
+        center + (opening.handing === 'right' ? -1 : 1) * (panelWidth / 2 - 3),
+        36,
+        depth,
+        metal,
+      );
+    }
   }
+
   placeOnWall(group, opening.wall, opening.offset + w / 2, room);
   group.userData.id = opening.id;
   return group;
