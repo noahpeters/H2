@@ -20,7 +20,25 @@ export type BaseConfiguration =
   | 'microwave-drawer'
   | 'sink'
   | 'farmhouse-sink';
+export const DOOR_TYPES = [
+  ['swing', 'Standard swing door'],
+  ['sliding-glass', 'Sliding glass door'],
+  ['pocket', 'Pocket door'],
+  ['sliding-closet', 'Sliding closet door'],
+  ['double-swing', 'Double swing door (French doors)'],
+] as const;
+export type DoorType = (typeof DOOR_TYPES)[number][0];
+export type Partition = {
+  id: Wall;
+  name?: string;
+  x: number;
+  z: number;
+  length: number;
+  orientation: 'horizontal' | 'vertical';
+};
 export type Opening = {
+  doorType?: DoorType;
+  handing?: 'left' | 'right';
   id: string;
   kind: 'door' | 'window' | 'opening';
   wall: Wall;
@@ -195,6 +213,7 @@ export type Island = {
 export type Room = {
   toeKick?: {height: number; setback: number};
   outline?: RoomPoint[];
+  partitions?: Partition[];
   width: number;
   depth: number;
   height: number;
@@ -363,6 +382,16 @@ export function validateLayout(elements: RoomElement[], room: Room) {
       );
     const box = bounds(element, room);
     if (!boxInRoom(room, box)) add(element.id, 'Outside room bounds');
+    for (const p of room.partitions ?? []) {
+      const horizontal = p.orientation === 'horizontal';
+      if (
+        box.left < p.x + (horizontal ? p.length : 0) &&
+        box.right > p.x &&
+        box.top < p.z + (horizontal ? 0 : p.length) &&
+        box.bottom > p.z
+      )
+        add(element.id, `Crosses ${p.name || 'an interior wall'}`);
+    }
     elements.slice(index + 1).forEach((other) => {
       const fixturePair =
         element.kind === 'fixture' || other.kind === 'fixture';
