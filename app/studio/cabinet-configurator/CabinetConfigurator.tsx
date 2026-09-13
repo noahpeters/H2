@@ -1849,6 +1849,7 @@ export function CabinetConfigurator({
                       })
                     }
                   >
+                    <ChoiceImage category="fixture" value={kind} />
                     {FIXTURE_CATALOG[kind].label}
                   </button>
                 ))}
@@ -1909,7 +1910,8 @@ export function CabinetConfigurator({
                   <>
                     <label>
                       Countertop sink
-                      <select
+                      <VisualSelect
+                        category="sink"
                         value={sinkAttachment(selected)?.kind ?? ''}
                         onChange={(event) => {
                           const kind = event.currentTarget.value as
@@ -1931,7 +1933,7 @@ export function CabinetConfigurator({
                             </option>
                           ),
                         )}
-                      </select>
+                      </VisualSelect>
                     </label>
                     {sinkAttachment(selected) && (
                       <>
