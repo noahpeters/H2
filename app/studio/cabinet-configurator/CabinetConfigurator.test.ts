@@ -40,10 +40,11 @@ const study = () => ({
 });
 
 describe('createDragUpdate', () => {
-  it('offers bathroom fixtures and moves sinks out of cabinet configuration choices', () => {
+  it('offers fixtures alongside the original standard sink cabinet choices', () => {
     const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
     expect(markup).toContain('<summary>Base</summary>');
-    expect(markup).not.toContain('Farmhouse / apron-front sink base');
+    expect(markup).toContain('Farmhouse / apron-front sink base');
+    expect(markup).toContain('Sink base');
     expect(markup).toContain('Freestanding bathtub');
     expect(markup).toContain('Toilet');
     expect(markup).toContain('+ Add fixture');
