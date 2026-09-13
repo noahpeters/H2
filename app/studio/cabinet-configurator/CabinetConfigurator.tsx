@@ -957,6 +957,7 @@ export function CabinetConfigurator({
     pointerId: number;
   } | null>(null);
   const roomControls = useRef<HTMLDetailsElement>(null);
+  const selectedControls = useRef<HTMLDetailsElement>(null);
   const openingDrag = useRef<{
     id: string;
     x: number;
@@ -1370,6 +1371,7 @@ export function CabinetConfigurator({
     setStudy(createDragUpdate(a, clientX, clientY, ss));
   };
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
+  const opening = study.openings.find((o) => o.id === study.selected);
   const selectedPartition = study.room.partitions?.find(
     (p) => p.id === selectedWall,
   );
@@ -1677,229 +1679,10 @@ export function CabinetConfigurator({
                 </label>
               ))}
             </div>
-            <details
-              className="cc-accordion"
-              key={
-                study.openings.some((o) => o.id === study.selected)
-                  ? study.selected
-                  : 'openings'
-              }
-              open={study.openings.some((o) => o.id === study.selected)}
-            >
-              <summary>
-                Openings <span>{study.openings.length}</span>
-              </summary>
-              {study.openings.map((opening) => (
-                <div key={opening.id} className="cc-fields">
-                  <button
-                    onClick={() =>
-                      setStudy((c) => ({...c, selected: opening.id}))
-                    }
-                  >
-                    {opening.kind} · {roomWall(study.room, opening.wall).label}{' '}
-                    wall
-                  </button>
-                  {study.selected === opening.id && (
-                    <>
-                      {warnings.get(opening.id)?.map((w) => (
-                        <p className="cc-inline-warning" key={w}>
-                          {w}
-                        </p>
-                      ))}
-                      {opening.kind === 'door' && (
-                        <>
-                          <label>
-                            Door type
-                            <select
-                              value={opening.doorType ?? 'swing'}
-                              onChange={(e) => {
-                                const doorType = e.currentTarget
-                                  .value as DoorType;
-                                update((d) => {
-                                  d.openings.find(
-                                    (o) => o.id === opening.id,
-                                  )!.doorType = doorType;
-                                });
-                              }}
-                            >
-                              {DOOR_TYPES.map(([value, label]) => (
-                                <option key={value} value={value}>
-                                  {label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            Hinge / pocket side
-                            <select
-                              value={opening.handing ?? 'left'}
-                              onChange={(e) => {
-                                const handing = e.currentTarget.value as
-                                  | 'left'
-                                  | 'right';
-                                update((d) => {
-                                  d.openings.find(
-                                    (o) => o.id === opening.id,
-                                  )!.handing = handing;
-                                });
-                              }}
-                            >
-                              <option value="left">Left</option>
-                              <option value="right">Right</option>
-                            </select>
-                          </label>
-                        </>
-                      )}
-                      <label>
-                        Wall
-                        <select
-                          value={opening.wall}
-                          onChange={(event) => {
-                            const wall = event.currentTarget.value as Wall;
-                            update((d) => {
-                              const o = d.openings.find(
-                                (o) => o.id === opening.id,
-                              )!;
-                              o.wall = wall;
-                              o.offset = Math.max(
-                                0,
-                                Math.min(
-                                  o.offset,
-                                  roomWall(d.room, wall).length - o.width,
-                                ),
-                              );
-                            });
-                          }}
-                        >
-                          {roomSegments(study.room).map((w) => (
-                            <option key={w.id} value={w.id}>
-                              {w.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {(
-                        [
-                          'offset',
-                          'width',
-                          'height',
-                          ...(opening.kind === 'window' ? ['sill'] : []),
-                        ] as Array<'offset' | 'width' | 'height' | 'sill'>
-                      ).map((key) => (
-                        <label key={key}>
-                          {key}
-                          <input
-                            type="number"
-                            min={key === 'offset' || key === 'sill' ? 0 : 1}
-                            value={opening[key] ?? 0}
-                            onChange={(event) => {
-                              const value = Number(event.currentTarget.value);
-                              if (
-                                !Number.isFinite(value) ||
-                                value <
-                                  (key === 'offset' || key === 'sill' ? 0 : 1)
-                              )
-                                return;
-                              update((d) => {
-                                d.openings.find((o) => o.id === opening.id)![
-                                  key
-                                ] = value;
-                              });
-                            }}
-                          />
-                        </label>
-                      ))}
-                      <button
-                        onClick={() =>
-                          update((d) => {
-                            d.openings = d.openings.filter(
-                              (o) => o.id !== opening.id,
-                            );
-                            d.selected = null;
-                          })
-                        }
-                      >
-                        Remove {opening.kind}
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </details>
-            <details
-              className="cc-accordion"
-              key={selectedIsland?.id ?? 'islands'}
-              open={!!selectedIsland}
-            >
-              <summary>
-                Islands <span>{study.islands.length}</span>
-              </summary>
-              <button onClick={addIsland}>+ Island zone</button>
-              {study.islands.map((i) => (
-                <div className="cc-island-fields" key={i.id}>
-                  <button
-                    className="cc-island-select"
-                    onClick={() => setStudy((c) => ({...c, selected: i.id}))}
-                  >
-                    Island{' '}
-                    {study.islands.findIndex((entry) => entry.id === i.id) + 1}{' '}
-                    · {i.width} × {i.depth}
-                  </button>
-                  {selectedIsland?.id === i.id && (
-                    <div className="cc-fields">
-                      {(['x', 'z', 'width', 'depth', 'overhang'] as const).map(
-                        (k) => (
-                          <label key={k}>
-                            {k}
-                            <span>
-                              <input
-                                type="number"
-                                value={i[k]}
-                                onChange={(e) =>
-                                  changeIsland(i, k, Number(e.target.value))
-                                }
-                              />{' '}
-                              in
-                            </span>
-                          </label>
-                        ),
-                      )}
-                      <label>
-                        Rotation
-                        <select
-                          value={i.rotation}
-                          onChange={(e) =>
-                            changeIsland(i, 'rotation', Number(e.target.value))
-                          }
-                        >
-                          {[0, 90, 180, 270].map((a) => (
-                            <option key={a}>{a}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        Seating side
-                        <select
-                          value={i.seatingSide}
-                          onChange={(e) =>
-                            changeIsland(i, 'seatingSide', e.target.value)
-                          }
-                        >
-                          {['none', 'north', 'south', 'east', 'west'].map(
-                            (x) => (
-                              <option key={x}>{x}</option>
-                            ),
-                          )}
-                        </select>
-                      </label>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </details>
           </details>
           <details className="cc-accordion" open>
             <summary>Add to room</summary>
+            <button onClick={addIsland}>+ Island zone</button>
             <details className="cc-add-menu">
               <summary>+ Add cabinet</summary>
               <div className="cc-add-categories">
@@ -2000,11 +1783,193 @@ export function CabinetConfigurator({
           </details>
           <details
             className="cc-accordion cc-selection"
-            key={selected?.id ?? 'selection'}
-            open={!!selected}
+            key={study.selected ?? 'selection'}
+            ref={selectedControls}
+            open={!!(selected || opening || selectedIsland)}
           >
             <summary>Selected object</summary>
-            {selected ? (
+            {opening ? (
+              <div className="cc-fields">
+                <strong>
+                  {opening.kind === 'opening'
+                    ? 'Doorless opening'
+                    : opening.kind}
+                </strong>
+                {warnings.get(opening.id)?.map((w) => (
+                  <p className="cc-inline-warning" key={w}>
+                    {w}
+                  </p>
+                ))}
+                {opening.kind === 'door' && (
+                  <>
+                    <label>
+                      Door type
+                      <select
+                        value={opening.doorType ?? 'swing'}
+                        onChange={(e) => {
+                          const doorType = e.currentTarget.value as DoorType;
+                          update((d) => {
+                            d.openings.find(
+                              (o) => o.id === opening.id,
+                            )!.doorType = doorType;
+                          });
+                        }}
+                      >
+                        {DOOR_TYPES.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Hinge / pocket side
+                      <select
+                        value={opening.handing ?? 'left'}
+                        onChange={(e) => {
+                          const handing = e.currentTarget.value as
+                            | 'left'
+                            | 'right';
+                          update((d) => {
+                            d.openings.find(
+                              (o) => o.id === opening.id,
+                            )!.handing = handing;
+                          });
+                        }}
+                      >
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </label>
+                  </>
+                )}
+                <label>
+                  Wall
+                  <select
+                    value={opening.wall}
+                    onChange={(event) => {
+                      const wall = event.currentTarget.value as Wall;
+                      update((d) => {
+                        const o = d.openings.find((o) => o.id === opening.id)!;
+                        o.wall = wall;
+                        o.offset = Math.max(
+                          0,
+                          Math.min(
+                            o.offset,
+                            roomWall(d.room, wall).length - o.width,
+                          ),
+                        );
+                      });
+                    }}
+                  >
+                    {roomSegments(study.room).map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {(
+                  [
+                    'offset',
+                    'width',
+                    'height',
+                    ...(opening.kind === 'window' ? ['sill'] : []),
+                  ] as Array<'offset' | 'width' | 'height' | 'sill'>
+                ).map((key) => (
+                  <label key={key}>
+                    {key}
+                    <input
+                      type="number"
+                      min={key === 'offset' || key === 'sill' ? 0 : 1}
+                      value={opening[key] ?? 0}
+                      onChange={(event) => {
+                        const value = Number(event.currentTarget.value);
+                        if (
+                          !Number.isFinite(value) ||
+                          value < (key === 'offset' || key === 'sill' ? 0 : 1)
+                        )
+                          return;
+                        update((d) => {
+                          d.openings.find((o) => o.id === opening.id)![key] =
+                            value;
+                        });
+                      }}
+                    />
+                  </label>
+                ))}
+                <button
+                  onClick={() =>
+                    update((d) => {
+                      d.openings = d.openings.filter(
+                        (o) => o.id !== opening.id,
+                      );
+                      d.selected = null;
+                    })
+                  }
+                >
+                  Remove {opening.kind}
+                </button>
+              </div>
+            ) : selectedIsland ? (
+              <div className="cc-fields">
+                {(['x', 'z', 'width', 'depth', 'overhang'] as const).map(
+                  (k) => (
+                    <label key={k}>
+                      {k}
+                      <span>
+                        <input
+                          type="number"
+                          value={selectedIsland[k]}
+                          onChange={(e) =>
+                            changeIsland(
+                              selectedIsland,
+                              k,
+                              Number(e.target.value),
+                            )
+                          }
+                        />{' '}
+                        in
+                      </span>
+                    </label>
+                  ),
+                )}
+                <label>
+                  Rotation
+                  <select
+                    value={selectedIsland.rotation}
+                    onChange={(e) =>
+                      changeIsland(
+                        selectedIsland,
+                        'rotation',
+                        Number(e.target.value),
+                      )
+                    }
+                  >
+                    {[0, 90, 180, 270].map((a) => (
+                      <option key={a}>{a}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Seating side
+                  <select
+                    value={selectedIsland.seatingSide}
+                    onChange={(e) =>
+                      changeIsland(
+                        selectedIsland,
+                        'seatingSide',
+                        e.target.value,
+                      )
+                    }
+                  >
+                    {['none', 'north', 'south', 'east', 'west'].map((x) => (
+                      <option key={x}>{x}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : selected ? (
               <div className="cc-fields">
                 <div className="cc-selected-heading">
                   <strong>
@@ -2591,7 +2556,7 @@ export function CabinetConfigurator({
                 ))}
               </div>
             ) : (
-              <p className="cc-muted">Select an element in plan or 3D.</p>
+              <p className="cc-muted">Select an object in plan or 3D.</p>
             )}
           </details>
         </aside>
@@ -2720,8 +2685,8 @@ export function CabinetConfigurator({
                               );
                               d.selected = id;
                             });
-                            if (roomControls.current)
-                              roomControls.current.open = true;
+                            if (selectedControls.current)
+                              selectedControls.current.open = true;
                             event.currentTarget
                               .closest('details')
                               ?.removeAttribute('open');
@@ -2976,8 +2941,8 @@ export function CabinetConfigurator({
                       }}
                       onClick={() => {
                         setStudy((c) => ({...c, selected: o.id}));
-                        if (roomControls.current)
-                          roomControls.current.open = true;
+                        if (selectedControls.current)
+                          selectedControls.current.open = true;
                       }}
                       onPointerDown={(event) => {
                         if (
@@ -3009,14 +2974,14 @@ export function CabinetConfigurator({
                         };
                         setHistory((h) => [...h.slice(-29), clone(study)]);
                         setStudy((c) => ({...c, selected: o.id}));
-                        if (roomControls.current)
-                          roomControls.current.open = true;
+                        if (selectedControls.current)
+                          selectedControls.current.open = true;
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           setStudy((c) => ({...c, selected: o.id}));
-                          if (roomControls.current)
-                            roomControls.current.open = true;
+                          if (selectedControls.current)
+                            selectedControls.current.open = true;
                         }
                       }}
                       transform={`translate(${x} ${y}) rotate(${horizontal ? 0 : 90}) scale(1 ${horizontal ? segment.nz : -segment.nx})`}
@@ -3064,10 +3029,21 @@ export function CabinetConfigurator({
                   return (
                     <g
                       className="cc-island"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Select island ${study.islands.findIndex((entry) => entry.id === i.id) + 1}`}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setStudy((c) => ({...c, selected: i.id}));
+                          if (selectedControls.current)
+                            selectedControls.current.open = true;
+                        }
+                      }}
                       onPointerDown={(event) => {
                         if (event.button !== 0) return;
-                        if (roomControls.current)
-                          roomControls.current.open = true;
+                        if (selectedControls.current)
+                          selectedControls.current.open = true;
                         event.currentTarget.setPointerCapture(event.pointerId);
                         setHistory((h) => [...h.slice(-29), clone(study)]);
                         drag.current = {

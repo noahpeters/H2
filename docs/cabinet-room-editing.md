@@ -33,7 +33,7 @@ lengths appear on the plan; no wall names or coordinate-entry form are needed.
 
 Use **+ Add opening** in the plan banner to add a door, window or doorless
 opening. All five door styles are available in that menu; existing openings
-can still be adjusted under Room → Openings. Supported types are standard swing, sliding glass, pocket,
+are edited by clicking them on the plan and using Selected Object. Supported types are standard swing, sliding glass, pocket,
 sliding closet and double swing (French doors). Existing doors default to
 standard swing. Hinge / pocket side controls the plan symbol. Pocket doors warn
 when their selected side lacks an uninterrupted wall section as wide as the door.
@@ -47,3 +47,7 @@ clearances.
 
 Optional partition and door fields preserve saved-room version 2, including
 older named-wall records. Release the frontend and room-service validator together.
+
+Openings and islands have no sidebar object lists. Select either directly on the
+plan to show its dimensions and settings in Selected Object. Create island
+zones with **+ Island zone** under Add to room.
