@@ -1,4 +1,13 @@
-import {createFixture} from '../../app/studio/cabinet-configurator/fixtures';
+import {
+  SINK_CATALOG,
+  createSink,
+  type SinkKind,
+} from '../../app/studio/cabinet-configurator/sinkAttachments';
+import {
+  FIXTURE_CATALOG,
+  createFixture,
+  type FixtureKind,
+} from '../../app/studio/cabinet-configurator/fixtures';
 // @vitest-environment node
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
@@ -13,9 +22,12 @@ import {
 import worker from './worker';
 import {createOpenStorage} from '../../app/studio/cabinet-configurator/openStorage';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
-import type {
-  BaseConfiguration,
-  RoomElement,
+import {
+  APPLIANCE_CATALOG,
+  createAppliance,
+  type BaseConfiguration,
+  type ApplianceKind,
+  type RoomElement,
 } from '../../app/studio/cabinet-configurator/model';
 const dbs: DatabaseSync[] = [];
 afterEach(() => {
@@ -362,4 +374,72 @@ it('excludes bathroom room fixtures from cabinetry pricing', () => {
   expect(projectSchedule(study([cabinet, fixture])).lines).toEqual(
     projectSchedule(study([cabinet])).lines,
   );
+});
+
+it('excludes all fixture bodies and sink attachments while retaining cabinet appliance panels', () => {
+  const {rates} = setup();
+  const baseline = estimateProject(study(), rates);
+  const fixtures: RoomElement[] = (
+    Object.keys(FIXTURE_CATALOG) as FixtureKind[]
+  ).map((kind) => createFixture(kind, kind, study().room));
+  for (const fixture of fixtures)
+    expect(estimateProject(study([cabinet, fixture]), rates)).toEqual(baseline);
+  for (const kind of Object.keys(APPLIANCE_CATALOG) as ApplianceKind[]) {
+    const appliance = createAppliance(kind, kind);
+    expect(estimateProject(study([cabinet, appliance]), rates)).toEqual(
+      baseline,
+    );
+    for (const applianceFront of ['shaker', 'slab', 'vertical-slat'] as const) {
+      const panel = {...appliance, applianceFront};
+      if (kind === 'refrigerator' || kind === 'dishwasher') {
+        expect(projectSchedule(study([panel])).lines).toEqual([
+          expect.objectContaining({
+            boxUnits: 0,
+            finishUnits: 1,
+            feet: 0,
+            drawers: 0,
+            hinges: 0,
+            endPanels: 0,
+          }),
+        ]);
+        expect(estimateProject(study([panel]), rates).pricedItemCount).toBe(1);
+      } else
+        expect(estimateProject(study([cabinet, panel]), rates)).toEqual(
+          baseline,
+        );
+    }
+  }
+  for (const kind of Object.keys(SINK_CATALOG) as SinkKind[])
+    expect(
+      estimateProject(
+        study([{...cabinet, sink: {...createSink(kind), x: 3}}]),
+        rates,
+      ),
+    ).toEqual(baseline);
+  expect(estimateProject(study(fixtures), rates)).toMatchObject({
+    pricedItemCount: 0,
+    range: {low: 0, high: 0},
+  });
+});
+it('prices only the appliance panel through the saved-design endpoint', async () => {
+  const {call, rates} = setup();
+  const panel = {
+    ...createAppliance('refrigerator', 'fridge'),
+    applianceFront: 'shaker' as const,
+  };
+  const saved = await call('/', 'POST', 'test', {
+    study: study([
+      panel,
+      createFixture('mirror', 'mirror', study().room),
+      createFixture('toilet', 'toilet', study().room),
+    ]),
+  });
+  expect(saved.status).toBe(201);
+  const record = (await saved.json()) as {slug: string};
+  const response = await call('/price?slug=' + record.slug);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    pricedItemCount: 1,
+    range: estimateProject(study([panel]), rates).range,
+  });
 });

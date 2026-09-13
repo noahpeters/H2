@@ -17,7 +17,7 @@ export const EXCLUSIONS = [
   'field work',
   'countertops',
   'glass',
-  'appliances (including sinks and range hoods)',
+  'fixtures and appliance bodies (including sinks, range hoods, tubs, showers, toilets and mirrors)',
   'decorative pulls',
   'plumbing',
   'electrical work',
