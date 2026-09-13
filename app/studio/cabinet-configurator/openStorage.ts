@@ -1,4 +1,5 @@
-import type {RoomElement} from './model';
+import {cabinetToeKick} from './cabinetEnvelope';
+import type {Room, RoomElement} from './model';
 export const OPEN_STORAGE = {
   shelving: 'Adjustable shelving',
   'single-hang': 'Single-hang wardrobe',
@@ -45,10 +46,7 @@ export function storageDefaults(type: StorageKind): OpenStorage {
     angled: type === 'shoes',
   };
 }
-export function createOpenStorage(
-  type: StorageKind,
-  id: string,
-): RoomElement {
+export function createOpenStorage(type: StorageKind, id: string): RoomElement {
   return {
     id,
     kind:
@@ -95,9 +93,9 @@ export function validStorage(value: unknown): value is OpenStorage {
   );
 }
 /** Shared physical layout, inches relative to the cabinet bottom. */
-export function storageLayout(item: RoomElement) {
+export function storageLayout(item: RoomElement, room?: Pick<Room, 'toeKick'>) {
   const s = item.storage!;
-  const toe = item.kind === 'wall-cabinet' ? 0 : 4;
+  const toe = cabinetToeKick(item, room).height;
   const low = toe + 0.75,
     high = item.height - 0.75;
   const usable = high - low;

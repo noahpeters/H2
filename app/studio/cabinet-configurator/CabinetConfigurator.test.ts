@@ -51,15 +51,16 @@ describe('createDragUpdate', () => {
     expect(markup).not.toContain('+ Add appliance');
     expect(markup).not.toContain('+ Add bathroom');
   });
-  it('offers corner base as its own cabinet instead of a base configuration', () => {
+  it('offers corner base as a design within Base', () => {
     const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
-    expect(markup).toContain('<summary>Corner</summary>');
+    expect(markup).not.toContain('<summary>Corner</summary>');
+    expect(markup).not.toContain('<summary>Open</summary>');
     expect(markup).toContain('L-shaped corner base');
     expect(markup).not.toContain('Corner (L-shaped)');
   });
   it('chooses cabinet category and configuration entirely in the add menu', () => {
     const markup = renderToStaticMarkup(createElement(CabinetConfigurator));
-    for (const category of ['Base', 'Wall', 'Tall', 'Corner', 'Open'])
+    for (const category of ['Base', 'Wall', 'Tall'])
       expect(markup).toContain(`<summary>${category}</summary>`);
     expect(markup).toContain('Three drawers');
     expect(markup).toContain('2 ovens · drawers below');

@@ -1,3 +1,4 @@
+import {cabinetToeKick} from '../../app/studio/cabinet-configurator/cabinetEnvelope';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import {minimumTallHeight} from '../../app/studio/cabinet-configurator/model';
 import {storageLayout} from '../../app/studio/cabinet-configurator/openStorage';
@@ -33,6 +34,7 @@ export type ScheduleLine = {
   material: string;
   boxUnits: number;
   feet: number;
+  toeKickHeight?: number;
   finishUnits: number;
   drawers: number;
   hinges: number;
@@ -71,7 +73,8 @@ export function projectSchedule(study: Study) {
       doors = e.width > 30 ? 2 : 1,
       frontCoverage = 1;
     const feet = e.kind === 'base' || e.kind === 'tall' ? 4 : 0;
-    const h = e.height - (feet ? 4 : 0);
+    const toeKickHeight = cabinetToeKick(e, study.room).height;
+    const h = e.height - toeKickHeight;
     if (e.kind === 'base') {
       const config = e.configuration ?? 'single-door';
       if (
@@ -149,7 +152,7 @@ export function projectSchedule(study: Study) {
       assumptions.add(
         'Two finished ends per cabinet are assumed conservatively; full finished backs are included for island-assigned cabinets. Verify actual exposure.',
       );
-    const storage = e.storage ? storageLayout(e) : undefined;
+    const storage = e.storage ? storageLayout(e, study.room) : undefined;
     if (storage) {
       drawers = storage.drawers;
       doors =
@@ -171,6 +174,7 @@ export function projectSchedule(study: Study) {
       material,
       boxUnits: panel ? 0 : 1,
       feet,
+      toeKickHeight,
       finishUnits: 1,
       drawers,
       hinges: panel
@@ -231,7 +235,7 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
   for (const c of lines) {
     const w = c.width,
       d = c.depth,
-      h = c.height - (c.feet ? 4 : 0),
+      h = c.height - (c.toeKickHeight ?? (c.feet ? 4 : 0)),
       iw = w - 1.5;
     const carcass =
       (c.boxUnits * (2 * d * h + iw * d + 4 * iw * 3)) / 144 +
@@ -240,7 +244,7 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       (c.finishUnits * w * h * c.frontCoverage +
         c.endPanels * d * h +
         c.finishUnits * w * h * c.finishedBack +
-        (c.feet ? c.boxUnits * w * 4 : 0)) /
+        (c.feet ? c.boxUnits * w * (c.toeKickHeight ?? 4) : 0)) /
       144;
     add('box_sheet', c.visibleBox ? 0 : carcass, 'box_waste');
     add(

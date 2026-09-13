@@ -221,7 +221,13 @@ export function migrateElement(
     return {
       ...value,
       ...(sinkAttachment(value) ? {sink: sinkAttachment(value)} : {}),
-      placement: {...value.placement},
+      placement: {
+        ...value.placement,
+        ...((value.kind === 'base' || value.kind === 'tall') &&
+        value.placement.elevation != null
+          ? {elevation: 0}
+          : {}),
+      },
     };
   const {
     type,
@@ -233,7 +239,12 @@ export function migrateElement(
   const element: RoomElement = {
     ...rest,
     kind: type === 'wall' ? 'wall-cabinet' : type,
-    placement: {mode: 'wall', wall, offset, elevation},
+    placement: {
+      mode: 'wall',
+      wall,
+      offset,
+      elevation: type === 'base' || type === 'tall' ? 0 : elevation,
+    },
   };
   return {
     ...element,

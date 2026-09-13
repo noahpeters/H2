@@ -2,12 +2,13 @@ import type {RoomElement, Room} from './model';
 
 export const DEFAULT_TOE_KICK = {height: 4, setback: 3} as const;
 
-/** Room-owned support space, outside every base cabinet's editable composition. */
-export function baseToeKick(
+/** Room-owned support space, outside every floor cabinet's editable composition. */
+export function cabinetToeKick(
   item: RoomElement,
   room?: Pick<Room, 'toeKick'>,
 ) {
-  if (item.kind !== 'base') return {height: 0, setback: 0};
+  if (item.kind !== 'base' && item.kind !== 'tall')
+    return {height: 0, setback: 0};
   const settings = room?.toeKick ?? DEFAULT_TOE_KICK;
   return {
     height: Math.min(settings.height, item.height / 3),
@@ -21,7 +22,7 @@ export function cabinetCompositionEnvelope(
 ) {
   return {
     width: item.width,
-    height: item.height - baseToeKick(item, room).height,
+    height: item.height - cabinetToeKick(item, room).height,
     depth: item.depth,
   };
 }

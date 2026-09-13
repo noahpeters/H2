@@ -447,3 +447,37 @@ it('prices only the appliance panel through the saved-design endpoint', async ()
     range: estimateProject(study([panel]), rates).range,
   });
 });
+
+it('uses room toe height for base and tall takeoffs while preserving default estimates', () => {
+  const {rates} = setup();
+  for (const kind of ['base', 'tall'] as const) {
+    const design = study([
+      {...cabinet, kind, height: kind === 'tall' ? 84 : 34.5},
+    ]);
+    const defaults = projectSchedule(design).lines;
+    const changed = projectSchedule({
+      ...design,
+      room: {...design.room, toeKick: {height: 6, setback: 5}},
+    }).lines;
+    expect(defaults[0].toeKickHeight).toBe(4);
+    expect(changed[0].toeKickHeight).toBe(6);
+    expect(changed[0].height).toBe(defaults[0].height);
+    expect(
+      calculatePrice(
+        Array.from({length: 20}, () => changed[0]),
+        rates,
+      ),
+    ).not.toEqual(
+      calculatePrice(
+        Array.from({length: 20}, () => defaults[0]),
+        rates,
+      ),
+    );
+    expect(
+      calculatePrice(
+        defaults.map(({toeKickHeight: _height, ...line}) => line),
+        rates,
+      ),
+    ).toEqual(calculatePrice(defaults, rates));
+  }
+});

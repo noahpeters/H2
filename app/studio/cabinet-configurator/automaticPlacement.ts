@@ -30,7 +30,8 @@ const overlaps = (a: ReturnType<typeof bounds>, b: ReturnType<typeof bounds>) =>
   a.bottom > b.top + 1e-7;
 const verticalOverlap = (a: number, ah: number, b: number, bh: number) =>
   a < b + bh - 1e-7 && a + ah > b + 1e-7;
-const elevation = (e: RoomElement) => e.placement.elevation ?? 0;
+const elevation = (e: RoomElement) =>
+  e.kind === 'base' || e.kind === 'tall' ? 0 : (e.placement.elevation ?? 0);
 const compatible = (a: RoomElement, b: RoomElement) =>
   (a.kind === 'wall-cabinet') === (b.kind === 'wall-cabinet') &&
   Math.abs(elevation(a) - elevation(b)) < 1;
