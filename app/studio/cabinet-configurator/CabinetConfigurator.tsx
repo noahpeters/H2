@@ -2498,35 +2498,6 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {selected.kind !== 'fixture' &&
-                  selected.placement.mode !== 'hosted' && (
-                    <div className="cc-fields">
-                      <label>
-                        Island
-                        <select
-                          value={selected.islandId ?? ''}
-                          onChange={(event) => {
-                            const id = event.currentTarget.value;
-                            update((d) => {
-                              const item = d.elements.find(
-                                (e) => e.id === selected.id,
-                              )!;
-                              const center = elementCenter(item, d.room);
-                              positionElement(item, center.x, center.z, d.room);
-                              item.islandId = id || undefined;
-                            });
-                          }}
-                        >
-                          <option value="">No island</option>
-                          {study.islands.map((i, index) => (
-                            <option key={i.id} value={i.id}>
-                              Island {index + 1}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  )}
                 {selected.placement.mode === 'floor' && (
                   <>
                     <label>
