@@ -1,3 +1,5 @@
+import {SinkControls} from '../SinkControls';
+import {sinkAttachment, type SinkAttachment} from '../sinkAttachments';
 import {useEffect, useRef, useState} from 'react';
 import {CustomUnitEditor} from './CustomUnitEditor';
 import {configurationTemplate} from './designConfigurations';
@@ -13,12 +15,16 @@ export function ConfigurationSheet({
 }: {
   item: RoomElement;
   room?: Pick<Room, 'toeKick'>;
-  onSave: (definition: CustomUnitDefinition) => void;
+  onSave: (
+    definition: CustomUnitDefinition,
+    sink: SinkAttachment | null,
+  ) => void;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [initial] = useState(() => configurationTemplate(item, room));
   const [definition, setDefinition] = useState(initial);
+  const [sink, setSink] = useState(() => sinkAttachment(item));
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -66,7 +72,7 @@ export function ConfigurationSheet({
         <button
           onClick={() => {
             try {
-              onSave(definition);
+              onSave(definition, sink);
             } catch (cause) {
               setError(
                 cause instanceof Error
@@ -83,6 +89,9 @@ export function ConfigurationSheet({
       {ready && (
         <CustomUnitEditor
           initialDefinition={initial}
+          attachmentControls={
+            <SinkControls item={item} value={sink} onChange={setSink} />
+          }
           lockEnvelope
           initialAppearance={{
             face: item.face,

@@ -7,13 +7,7 @@ import {
   type FixtureSide,
 } from './fixtures';
 import {fixtureGeometry} from './fixtureGeometry';
-import {
-  canAttachSink,
-  sinkAttachment,
-  createSink,
-  SINK_CATALOG,
-  type SinkKind,
-} from './sinkAttachments';
+import {sinkAttachment} from './sinkAttachments';
 import {DEFAULT_TOE_KICK} from './cabinetEnvelope';
 import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
 import {
@@ -1237,7 +1231,7 @@ export function CabinetConfigurator({
           item={customizing}
           room={study.room}
           onClose={() => setCustomizing(null)}
-          onSave={(definition) => {
+          onSave={(definition, sink) => {
             const item = study.elements.find((e) => e.id === customizing.id);
             if (!item)
               throw new Error('This cabinet is no longer in the design.');
@@ -1250,7 +1244,7 @@ export function CabinetConfigurator({
             update((d) => {
               d.configurations = result.configurations;
               d.elements = d.elements.map((e) =>
-                e.id === item.id ? result.item : e,
+                e.id === item.id ? {...result.item, sink} : e,
               );
             });
             setCustomizing(null);
@@ -2036,77 +2030,6 @@ export function CabinetConfigurator({
                     Duplicate
                   </button>
                 </div>
-                {canAttachSink(selected) && (
-                  <>
-                    <label>
-                      Countertop sink
-                      <VisualSelect
-                        category="sink"
-                        value={sinkAttachment(selected)?.kind ?? ''}
-                        onChange={(event) => {
-                          const kind = event.currentTarget.value as
-                            | SinkKind
-                            | '';
-                          update((d) => {
-                            const item = d.elements.find(
-                              (e) => e.id === selected.id,
-                            )!;
-                            item.sink = kind ? createSink(kind) : null;
-                          });
-                        }}
-                      >
-                        <option value="">None</option>
-                        {(Object.keys(SINK_CATALOG) as SinkKind[]).map(
-                          (kind) => (
-                            <option key={kind} value={kind}>
-                              {SINK_CATALOG[kind].label}
-                            </option>
-                          ),
-                        )}
-                      </VisualSelect>
-                    </label>
-                    {sinkAttachment(selected) && (
-                      <>
-                        {!study.countertop && (
-                          <p className="cc-inline-warning">
-                            Enable countertops to show the sink.
-                          </p>
-                        )}
-                        {(['x', 'width', 'depth'] as const).map((key) => (
-                          <label key={key}>
-                            {key === 'x'
-                              ? 'Sink horizontal offset from center (in)'
-                              : `Sink ${key} (in)`}
-                            <input
-                              type="number"
-                              step="0.5"
-                              value={sinkAttachment(selected)![key]}
-                              onChange={(event) => {
-                                const value = Number(event.currentTarget.value);
-                                if (
-                                  !Number.isFinite(value) ||
-                                  (key !== 'x' &&
-                                    (value <= 0 || value > 120)) ||
-                                  Math.abs(value) > 10000
-                                )
-                                  return;
-                                update((d) => {
-                                  const item = d.elements.find(
-                                    (e) => e.id === selected.id,
-                                  )!;
-                                  item.sink = {
-                                    ...sinkAttachment(item)!,
-                                    [key]: value,
-                                  };
-                                });
-                              }}
-                            />
-                          </label>
-                        ))}
-                      </>
-                    )}
-                  </>
-                )}
                 {selected.fixtureKind === 'glass-shower' && (
                   <>
                     <p>
@@ -2172,10 +2095,14 @@ export function CabinetConfigurator({
                       <button onClick={() => setCustomizing(selected)}>
                         Customize this cabinet
                       </button>
-                      <label>
-                        Configuration in this design
-                        <select
-                          aria-label="Configuration in this design"
+                      <div
+                        className="cc-visual-field"
+                        role="group"
+                        aria-label="Cabinet Type"
+                      >
+                        Cabinet Type
+                        <VisualSelect
+                          category="cabinet"
                           value={
                             selected.customCabinet?.scope === 'design'
                               ? selected.customCabinet.libraryId
@@ -2183,10 +2110,44 @@ export function CabinetConfigurator({
                                 ? 'global'
                                 : ''
                           }
-                          onChange={(event) => {
-                            if (event.target.value === 'global') return;
+                          renderImage={(value) => {
                             const configuration = study.configurations?.find(
-                              (c) => c.id === event.target.value,
+                              (c) => c.id === value,
+                            );
+                            const item =
+                              value === 'global'
+                                ? selected
+                                : configuration
+                                  ? {
+                                      ...selected,
+                                      customCabinet: {
+                                        scope: 'design' as const,
+                                        libraryId: configuration.id,
+                                        libraryVersion: configuration.version,
+                                        definition: configuration.definition,
+                                      },
+                                    }
+                                  : {...selected, customCabinet: undefined};
+                            return (
+                              <ChoiceImage
+                                category="cabinet-type"
+                                value={JSON.stringify({
+                                  ...item,
+                                  id: 'preview',
+                                  placement: {
+                                    mode: 'wall',
+                                    wall: 'back',
+                                    offset: 0,
+                                    elevation: 0,
+                                  },
+                                })}
+                              />
+                            );
+                          }}
+                          onChange={(event) => {
+                            if (event.currentTarget.value === 'global') return;
+                            const configuration = study.configurations?.find(
+                              (c) => c.id === event.currentTarget.value,
                             );
                             try {
                               const next = configuration
@@ -2214,10 +2175,10 @@ export function CabinetConfigurator({
                           {selected.customCabinet &&
                             selected.customCabinet.scope !== 'design' && (
                               <option value="global">
-                                Global library configuration
+                                {selected.customCabinet.definition.name}
                               </option>
                             )}
-                          <option value="">Standard configuration</option>
+                          <option value="">Standard</option>
                           {(study.configurations ?? [])
                             .filter((c) => compatibleConfiguration(selected, c))
                             .map((c) => (
@@ -2225,50 +2186,8 @@ export function CabinetConfigurator({
                                 {c.name}
                               </option>
                             ))}
-                        </select>
-                      </label>
-                      {selected.customCabinet?.scope === 'design' && (
-                        <p>
-                          Applied: {selected.customCabinet.definition.name}{' '}
-                          (version {selected.customCabinet.libraryVersion})
-                        </p>
-                      )}
-                      {selected.customCabinet?.scope === 'design' &&
-                        study.configurations?.some(
-                          (c) =>
-                            c.id === selected.customCabinet?.libraryId &&
-                            c.version > selected.customCabinet.libraryVersion,
-                        ) && (
-                          <button
-                            onClick={() => {
-                              const configuration = study.configurations!.find(
-                                (c) =>
-                                  c.id === selected.customCabinet?.libraryId,
-                              )!;
-                              try {
-                                const next = applyConfiguration(
-                                  selected,
-                                  configuration,
-                                  study.room,
-                                );
-                                update((d) => {
-                                  d.elements = d.elements.map((e) =>
-                                    e.id === selected.id ? next : e,
-                                  );
-                                });
-                                setConfigurationError('');
-                              } catch (cause) {
-                                setConfigurationError(
-                                  cause instanceof Error
-                                    ? cause.message
-                                    : 'Unable to apply configuration.',
-                                );
-                              }
-                            }}
-                          >
-                            Apply latest saved version
-                          </button>
-                        )}
+                        </VisualSelect>
+                      </div>
                       {configurationError && (
                         <p role="alert">{configurationError}</p>
                       )}
@@ -2579,35 +2498,6 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {selected.kind !== 'fixture' &&
-                  selected.placement.mode !== 'hosted' && (
-                    <div className="cc-fields">
-                      <label>
-                        Island
-                        <select
-                          value={selected.islandId ?? ''}
-                          onChange={(event) => {
-                            const id = event.currentTarget.value;
-                            update((d) => {
-                              const item = d.elements.find(
-                                (e) => e.id === selected.id,
-                              )!;
-                              const center = elementCenter(item, d.room);
-                              positionElement(item, center.x, center.z, d.room);
-                              item.islandId = id || undefined;
-                            });
-                          }}
-                        >
-                          <option value="">No island</option>
-                          {study.islands.map((i, index) => (
-                            <option key={i.id} value={i.id}>
-                              Island {index + 1}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  )}
                 {selected.placement.mode === 'floor' && (
                   <>
                     <label>

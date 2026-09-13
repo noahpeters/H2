@@ -21,6 +21,7 @@ import {
 } from './materials';
 
 export type VisualCategory =
+  | 'cabinet-type'
   | 'fixture'
   | 'sink'
   | 'cabinet'
@@ -37,6 +38,7 @@ export function previewElement(
   category: VisualCategory,
   value: string,
 ): RoomElement {
+  if (category === 'cabinet-type') return JSON.parse(value) as RoomElement;
   const item: RoomElement = {
     id: 'preview',
     kind: 'base',
@@ -183,6 +185,7 @@ function thumbnail(category: VisualCategory, value: string) {
     // Store immutable pixels instead of hidden canvas backing stores, which
     // browsers can discard when option groups are collapsed or off screen.
     const image = renderer.domElement.toDataURL('image/png');
+    if (images.size >= 128) images.delete(images.keys().next().value!);
     images.set(key, image);
     return image;
   } finally {
@@ -260,11 +263,13 @@ export function VisualSelect({
   value,
   onChange,
   children,
+  renderImage,
 }: {
   category: VisualCategory;
   value: string;
   onChange: (event: {currentTarget: {value: string}}) => void;
   children: ReactNode;
+  renderImage?: (value: string) => ReactNode;
 }) {
   const dropdown = useRef<HTMLDetailsElement>(null);
   const options = Children.toArray(children).filter(isValidElement);
@@ -280,7 +285,11 @@ export function VisualSelect({
   return (
     <details className="cc-visual-dropdown" ref={dropdown}>
       <summary onKeyDown={closeOnEscape}>
-        <ChoiceImage category={category} value={value} />
+        {renderImage ? (
+          renderImage(value)
+        ) : (
+          <ChoiceImage category={category} value={value} />
+        )}
         <span>
           {selected
             ? (selected.props as {children: ReactNode}).children
@@ -311,7 +320,11 @@ export function VisualSelect({
                 }
               }}
             >
-              <ChoiceImage category={category} value={option.value} />
+              {renderImage ? (
+                renderImage(option.value)
+              ) : (
+                <ChoiceImage category={category} value={option.value} />
+              )}
               <span>{option.children}</span>
             </button>
           );

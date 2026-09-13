@@ -278,6 +278,7 @@ it('saves the sheet draft only on Save configuration and discards canceled edits
       height: 30.5,
       depth: 24,
     }),
+    null,
   );
   onSave.mockClear();
   fireEvent.change(screen.getByLabelText('Configuration name'), {
