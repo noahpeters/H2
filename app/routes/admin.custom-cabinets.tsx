@@ -150,6 +150,28 @@ export default function CabinetAdmin() {
       </div>
       <section className="cu-metadata">
         <label>
+          Cabinet category
+          <select
+            value={
+              definition.cabinetCategory ??
+              (definition.height > 48 ? 'tall' : 'base')
+            }
+            onChange={(e) =>
+              setDefinition({
+                ...definition,
+                cabinetCategory: e.currentTarget.value as
+                  | 'base'
+                  | 'wall-cabinet'
+                  | 'tall',
+              })
+            }
+          >
+            <option value="base">Base</option>
+            <option value="wall-cabinet">Wall</option>
+            <option value="tall">Tall</option>
+          </select>
+        </label>
+        <label>
           Description
           <textarea
             value={description}

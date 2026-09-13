@@ -98,7 +98,18 @@ export function validStudy(value: any): boolean {
           c.name.length <= 100 &&
           typeof c.category === 'string' &&
           c.category.length < 100 &&
-          validateCustomUnit(c.definition).length === 0,
+          validateCustomUnit(c.definition).length === 0 &&
+          (c.template === undefined ||
+            (c.template &&
+              !c.template.customCabinet &&
+              configurationCategory(c.template) === c.category &&
+              validStudy({
+                ...value,
+                configurations: [],
+                elements: [c.template],
+                islands: [],
+                openings: [],
+              }))),
       ) ||
       new Set(value.configurations.map((c: any) => c.id)).size !==
         value.configurations.length)

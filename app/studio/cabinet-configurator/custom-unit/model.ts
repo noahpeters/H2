@@ -77,6 +77,7 @@ export type CabinetPart = {
 };
 
 export type CustomUnitDefinition = {
+  cabinetCategory?: 'base' | 'wall-cabinet' | 'tall';
   version: typeof CUSTOM_UNIT_VERSION;
   id: string;
   name: string;
@@ -257,6 +258,14 @@ export function validateCustomUnit(value: unknown): string[] {
     return ['Definition must be an object'];
   const unit = value as Partial<CustomUnitDefinition>;
   const errors: string[] = [];
+  if (
+    typeof value === 'object' &&
+    value &&
+    'cabinetCategory' in value &&
+    value.cabinetCategory !== undefined &&
+    !['base', 'wall-cabinet', 'tall'].includes(String(value.cabinetCategory))
+  )
+    errors.push('Choose Base, Wall, or Tall for the cabinet category.');
   if (unit.version !== CUSTOM_UNIT_VERSION)
     errors.push(`Unsupported custom-unit version: ${String(unit.version)}`);
   if (!unit.id || typeof unit.id !== 'string')

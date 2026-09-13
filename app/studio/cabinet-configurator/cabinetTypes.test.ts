@@ -1,3 +1,5 @@
+import {createCustomUnit} from './custom-unit/model';
+import {createSink} from './sinkAttachments';
 import type {Room} from './model';
 import {expect, it} from 'vitest';
 import {
@@ -119,3 +121,66 @@ it('never offers or applies a cabinet type from another mounting category', () =
     );
   }
 });
+
+it('keeps saved designs and their sinks available after the last instance is removed', () => {
+  const standard = cabinetTypes().find((c) => c.id === 'base:single-door')!;
+  const item = {...standard.item, sink: createSink('vessel')};
+  const saved = saveConfiguration(
+    [],
+    item,
+    configurationTemplate(item, room),
+    room,
+  );
+  const choices = cabinetTypes(saved.configurations, []);
+  const choice = choices.find((c) => c.configuration)!;
+  expect(choice.item.sink).toEqual(item.sink);
+  expect(applyCabinetType(standard.item, choice, room).sink).toEqual(item.sink);
+  expect(
+    validStudy({
+      version: 2,
+      room,
+      elements: [],
+      islands: [],
+      openings: [],
+      countertop: true,
+      view: 'split',
+      configurations: saved.configurations,
+    }),
+  ).toBe(true);
+});
+it.each(['base', 'wall-cabinet', 'tall'] as const)(
+  'offers published %s designs in the same catalog and preserves instance dimensions',
+  (kind) => {
+    const library = {
+      id: `custom-${kind}`,
+      version: 1,
+      name: `Custom ${kind}`,
+      description: '',
+      tags: [],
+      status: 'published' as const,
+      updatedAt: '',
+      definition: createCustomUnit({cabinetCategory: kind, height: 30}),
+    };
+    const choices = cabinetTypes([], [], [library]);
+    const custom = choices.find((c) => c.id === `library:${library.id}`)!;
+    expect(custom.item.kind).toBe(kind);
+    const standard = choices.find((c) => c.item.kind === kind)!;
+    const replaced = applyCabinetType(
+      {...standard.item, width: 36},
+      custom,
+      room,
+    );
+    expect(replaced.width).toBe(36);
+    expect(replaced.height).toBe(standard.item.height);
+    expect(replaced.customCabinet?.libraryId).toBe(library.id);
+    expect(selectedCabinetType(replaced)).toBe(custom.id);
+    expect(
+      cabinetTypes([], [replaced], []).find((c) => c.id === custom.id),
+    ).toBeDefined();
+    expect(
+      cabinetTypes([], [], [{...library, status: 'draft'}]).some(
+        (c) => c.id === custom.id,
+      ),
+    ).toBe(false);
+  },
+);
