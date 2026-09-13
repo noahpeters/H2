@@ -87,6 +87,11 @@ export function validStudy(value: any): boolean {
           (Object.hasOwn(FIXTURE_CATALOG, e.fixtureKind) &&
             e.placement?.mode !== 'hosted' &&
             !e.islandId)) &&
+        (e.fixtureKind !== 'mirror' ||
+          (e.placement?.mode === 'wall' &&
+            dimension(e.height) &&
+            num(e.placement.elevation) &&
+            e.placement.elevation >= 0)) &&
         (e.showerOpening === undefined ||
           (e.fixtureKind === 'glass-shower' &&
             e.showerOpening &&

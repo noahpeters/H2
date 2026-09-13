@@ -193,3 +193,25 @@ describe('placement tools', () => {
     expect(next.elements[1].placement).toMatchObject({x: 160, z: 60});
   });
 });
+
+it('keeps mirrors wall mounted when dragged across the room', () => {
+  const mirror: RoomElement = {
+    id: 'mirror',
+    kind: 'fixture',
+    fixtureKind: 'mirror',
+    width: 30,
+    height: 36,
+    depth: 1,
+    face: 'slab',
+    placement: {mode: 'wall', wall: 'back', offset: 0, elevation: 42},
+  };
+  positionElement(mirror, room.width, 60, room);
+  expect(mirror.placement).toMatchObject({
+    mode: 'wall',
+    wall: 'right',
+    elevation: 42,
+  });
+  positionElement(mirror, 70, 60, room);
+  expect(mirror.placement.mode).toBe('wall');
+  expect(mirror.placement.elevation).toBe(42);
+});

@@ -1,6 +1,7 @@
 import {elementCenter, wallToFloor, type RoomElement, type Room} from './model';
 import {roomSegments} from './roomOutline';
 export const FIXTURE_CATALOG = {
+  mirror: {label: 'Mirror', width: 30, depth: 1, height: 36},
   toilet: {label: 'Toilet', width: 20, depth: 29, height: 30},
   'freestanding-tub': {
     label: 'Freestanding bathtub',
@@ -37,12 +38,20 @@ export function createFixture(
     depth,
     height: kind === 'glass-shower' ? room.height : height,
     face: 'slab',
-    placement: {
-      mode: 'floor',
-      x: room.width / 2,
-      z: room.depth / 2,
-      rotation: 0,
-    },
+    placement:
+      kind === 'mirror'
+        ? {
+            mode: 'wall',
+            wall: 'back',
+            offset: 0,
+            elevation: Math.max(0, Math.min(42, room.height - height)),
+          }
+        : {
+            mode: 'floor',
+            x: room.width / 2,
+            z: room.depth / 2,
+            rotation: 0,
+          },
   };
 }
 /** Omit glass only when the entire side touches a real room-wall segment. */

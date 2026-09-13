@@ -246,3 +246,37 @@ it('checks a ceiling-height fixture against overhead cabinetry', () => {
   const tub = {...shower, fixtureKind: 'alcove-tub' as const, height: 22};
   expect(validateLayout([upper, tub], room).get(tub.id)).toBeUndefined();
 });
+
+it('places mirrors above base cabinets and preserves mounting height on reload', () => {
+  const mirror = createFixture('mirror', 'mirror', room);
+  expect(mirror).toMatchObject({
+    width: 30,
+    height: 36,
+    depth: 1,
+    placement: {mode: 'wall', elevation: 42},
+  });
+  const placed = automaticallyPlaceElement(
+    mirror,
+    study([
+      {
+        ...base,
+        placement: {mode: 'wall', wall: 'back', offset: 0, elevation: 0},
+      },
+    ]),
+    {},
+  );
+  expect(placed.placement.mode).toBe('wall');
+  expect(validStudy(JSON.parse(JSON.stringify(study([placed]))))).toBe(true);
+  expect(
+    validStudy(
+      study([
+        {...mirror, placement: {mode: 'floor', x: 30, z: 30, rotation: 0}},
+      ]),
+    ),
+  ).toBe(false);
+  const geo = fixtureGeometry({...mirror, width: 40, height: 48}, room);
+  expect(geo.getObjectByName('mirror-glass')).toBeDefined();
+  const size = new THREE.Box3().setFromObject(geo).getSize(new THREE.Vector3());
+  expect(size.x / 0.0254).toBeCloseTo(40);
+  expect(size.y / 0.0254).toBeCloseTo(48);
+});

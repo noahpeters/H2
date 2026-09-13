@@ -12,6 +12,16 @@ export function FixturePlan({
 }) {
   const w = item.width * scale,
     d = item.depth * scale;
+  if (item.fixtureKind === 'mirror')
+    return (
+      <rect
+        x={-w / 2}
+        y={-d / 2}
+        width={w}
+        height={Math.max(d, 2)}
+        style={{fill: '#c5dce2', stroke: '#657a80'}}
+      />
+    );
   if (item.fixtureKind === 'glass-shower') {
     const sides = showerGlassSides(item, room);
     const opening = sides.includes(item.showerOpening?.side ?? 'front')

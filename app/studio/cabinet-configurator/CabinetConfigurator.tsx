@@ -2053,7 +2053,8 @@ export function CabinetConfigurator({
                   </label>
                 )}
                 {(selected.kind === 'appliance' ||
-                  selected.kind === 'fixture') &&
+                  (selected.kind === 'fixture' &&
+                    selected.fixtureKind !== 'mirror')) &&
                   selected.placement.mode !== 'floor' && (
                     <label>
                       Rotation
@@ -2277,7 +2278,12 @@ export function CabinetConfigurator({
                             ? minimumTallHeight(selected.tallConfiguration)
                             : 12
                         }
-                        max={study.room.height}
+                        max={
+                          study.room.height -
+                          (selected.fixtureKind === 'mirror'
+                            ? (selected.placement.elevation ?? 0)
+                            : 0)
+                        }
                         step="1"
                         value={selected.height}
                         onChange={(event) => {
@@ -2288,7 +2294,11 @@ export function CabinetConfigurator({
                               (selected.kind === 'tall'
                                 ? minimumTallHeight(selected.tallConfiguration)
                                 : 12) ||
-                            height > study.room.height
+                            height >
+                              study.room.height -
+                                (selected.fixtureKind === 'mirror'
+                                  ? (selected.placement.elevation ?? 0)
+                                  : 0)
                           )
                             return;
                           update((d) => {
@@ -2301,7 +2311,8 @@ export function CabinetConfigurator({
                       />
                     </label>
                   )}
-                {selected.kind === 'wall-cabinet' && (
+                {(selected.kind === 'wall-cabinet' ||
+                  selected.fixtureKind === 'mirror') && (
                   <label>
                     Bottom height above floor (in)
                     <input
@@ -2410,7 +2421,8 @@ export function CabinetConfigurator({
                   </span>
                 </label>
                 {!selected.storage &&
-                  (selected.kind === 'fixture' ||
+                  ((selected.kind === 'fixture' &&
+                    selected.fixtureKind !== 'mirror') ||
                     selected.kind === 'base' ||
                     selected.kind === 'wall-cabinet' ||
                     selected.applianceKind === 'refrigerator') && (
@@ -2869,6 +2881,7 @@ export function CabinetConfigurator({
                         >
                           {e.fixtureKind
                             ? {
+                                mirror: 'Mirror',
                                 'freestanding-tub': 'Tub',
                                 'alcove-tub': 'Alcove tub',
                                 'glass-shower': 'Shower',

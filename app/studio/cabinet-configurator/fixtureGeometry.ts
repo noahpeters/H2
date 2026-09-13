@@ -62,7 +62,32 @@ export function fixtureGeometry(item: RoomElement, room: Room) {
     d = item.depth;
   const h = item.fixtureKind === 'glass-shower' ? room.height : item.height;
   const bottom = -item.height / 2;
-  if (item.fixtureKind === 'freestanding-tub') {
+  if (item.fixtureKind === 'mirror') {
+    const frame = new THREE.MeshStandardMaterial({
+      color: 0x666d6e,
+      metalness: 0.65,
+      roughness: 0.3,
+    });
+    const silver = new THREE.MeshStandardMaterial({
+      color: 0xc5dce2,
+      metalness: 0.3,
+      roughness: 0.08,
+      emissive: 0xc5dce2,
+      emissiveIntensity: 0.2,
+    });
+    box(group, w, h, d, 0, 0, 0, frame, 'mirror-frame');
+    box(
+      group,
+      Math.max(0.1, w - 0.75),
+      Math.max(0.1, h - 0.75),
+      0.08,
+      0,
+      0,
+      d / 2 + 0.04,
+      silver,
+      'mirror-glass',
+    );
+  } else if (item.fixtureKind === 'freestanding-tub') {
     const basin = ovalBasin(w, d, h);
     basin.position.y = bottom * inch;
     group.add(basin);

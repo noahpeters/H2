@@ -73,6 +73,8 @@ export function validAutomaticPlacement(
   layout: PlacementLayout,
   inRoom = true,
 ) {
+  if (item.fixtureKind === 'mirror' && item.placement.mode !== 'wall')
+    return false;
   const box = bounds(item, layout.room);
   if (item.islandId) {
     if (item.kind === 'fixture') return false;
@@ -325,6 +327,8 @@ export function automaticallyPlaceElement(
 ): RoomElement {
   const candidate = elementPlacementCandidates(item, layout, context)[0];
   if (candidate) return candidate.element;
+  // Keep wall-mounted fixtures on their wall when no clear placement exists.
+  if (item.fixtureKind === 'mirror') return item;
   // A physically full/undersized room cannot contain another object. Stage it
   // outside the room with a visible bounds warning, never overlap the design.
   const right = Math.max(

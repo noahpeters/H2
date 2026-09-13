@@ -1,3 +1,4 @@
+import {placeOpening} from './openingPlacement';
 import {
   bounds,
   elementCenter,
@@ -9,11 +10,7 @@ import {
 } from './model';
 import {roomSegments, roomPoints, boxInRoom} from './roomOutline';
 /** Corner footprints sit flush against both walls; the notch points inward. */
-export function snapRoomCorner(
-  item: RoomElement,
-  room: Room,
-  threshold = 3,
-) {
+export function snapRoomCorner(item: RoomElement, room: Room, threshold = 3) {
   if (
     item.kind !== 'base' ||
     item.configuration !== 'corner' ||
@@ -148,6 +145,18 @@ export function positionElement(
     item.placement.mode === 'floor'
       ? (item.placement.elevation ?? 0)
       : item.placement.elevation;
+  if (item.fixtureKind === 'mirror') {
+    const previous =
+      item.placement.mode === 'wall'
+        ? item.placement
+        : {wall: 'back' as const, offset: 0};
+    item.placement = {
+      mode: 'wall',
+      ...placeOpening(room, {...previous, width: item.width}, x, z),
+      elevation: elevation ?? 42,
+    };
+    return;
+  }
   item.placement = {...wallToFloor(item, room), mode: 'floor', x, z, elevation};
 }
 /** Snap the footprint inside an island boundary, in the island's local axes. */
