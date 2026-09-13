@@ -1,3 +1,4 @@
+import {sinkAttachment, sinkFits} from './sinkAttachments';
 import type {CabinetMaterial, CabinetPaint} from './materials';
 import {
   roomWall,
@@ -29,7 +30,12 @@ export type Opening = {
   sill?: number;
 };
 export type PlacementMode = 'wall' | 'floor' | 'hosted';
-export type ElementKind = 'base' | 'wall-cabinet' | 'tall' | 'appliance';
+export type ElementKind =
+  | 'base'
+  | 'wall-cabinet'
+  | 'tall'
+  | 'appliance'
+  | 'fixture';
 export type ApplianceKind =
   | 'refrigerator'
   | 'dishwasher'
@@ -64,7 +70,13 @@ export type Placement =
       rotation: number;
     };
 
-export type KitchenElement = {
+export type RoomElement = {
+  fixtureKind?: import('./fixtures').FixtureKind;
+  showerOpening?: {
+    side: import('./fixtures').FixtureSide;
+    style: 'open' | 'door';
+  };
+  sink?: import('./sinkAttachments').SinkAttachment | null;
   customCabinet?: import('./custom-unit/library').CustomCabinetInstance;
   storage?: import('./openStorage').OpenStorage;
   material?: CabinetMaterial;
@@ -86,7 +98,7 @@ export type KitchenElement = {
 };
 
 export function minimumTallHeight(
-  configuration: KitchenElement['tallConfiguration'],
+  configuration: RoomElement['tallConfiguration'],
 ) {
   return configuration === 'two-oven'
     ? 84
@@ -99,7 +111,7 @@ export function minimumTallHeight(
 
 export const APPLIANCE_CATALOG: Record<
   ApplianceKind,
-  Pick<KitchenElement, 'width' | 'depth' | 'height'> & {
+  Pick<RoomElement, 'width' | 'depth' | 'height'> & {
     label: string;
     elevation: number;
   }
@@ -148,10 +160,10 @@ export const APPLIANCE_CATALOG: Record<
   },
 };
 
-export function createKitchenAppliance(
+export function createAppliance(
   applianceKind: ApplianceKind,
   id: string,
-): KitchenElement {
+): RoomElement {
   const appliance = APPLIANCE_CATALOG[applianceKind];
   return {
     id,
@@ -190,7 +202,7 @@ export type Room = {
   walls: 'plaster' | 'white' | 'green';
 };
 
-export type LegacyCabinet = Omit<KitchenElement, 'kind' | 'placement'> & {
+export type LegacyCabinet = Omit<RoomElement, 'kind' | 'placement'> & {
   type: 'base' | 'wall' | 'tall';
   wall: Wall;
   offset: number;
@@ -203,9 +215,14 @@ export function snapAngle(value: number) {
 }
 
 export function migrateElement(
-  value: KitchenElement | LegacyCabinet,
-): KitchenElement {
-  if ('placement' in value) return {...value, placement: {...value.placement}};
+  value: RoomElement | LegacyCabinet,
+): RoomElement {
+  if ('placement' in value)
+    return {
+      ...value,
+      ...(sinkAttachment(value) ? {sink: sinkAttachment(value)} : {}),
+      placement: {...value.placement},
+    };
   const {
     type,
     wall,
@@ -213,15 +230,19 @@ export function migrateElement(
     elevation = type === 'wall' ? 54 : 0,
     ...rest
   } = value;
-  return {
+  const element: RoomElement = {
     ...rest,
     kind: type === 'wall' ? 'wall-cabinet' : type,
     placement: {mode: 'wall', wall, offset, elevation},
   };
+  return {
+    ...element,
+    ...(sinkAttachment(element) ? {sink: sinkAttachment(element)} : {}),
+  };
 }
 
 export function wallToFloor(
-  element: KitchenElement,
+  element: RoomElement,
   room: Room,
 ): Extract<Placement, {mode: 'floor'}> {
   if (element.placement.mode !== 'wall')
@@ -273,7 +294,7 @@ export function wallToFloor(
   };
 }
 
-export function rotatedSize(element: KitchenElement, room?: Room) {
+export function rotatedSize(element: RoomElement, room?: Room) {
   const rotation =
     element.placement.mode === 'wall'
       ? (element.placement.rotation ??
@@ -301,13 +322,13 @@ export function rotatedSize(element: KitchenElement, room?: Room) {
   };
 }
 
-export function elementCenter(element: KitchenElement, room: Room) {
+export function elementCenter(element: RoomElement, room: Room) {
   if (element.placement.mode !== 'wall')
     return {x: element.placement.x, z: element.placement.z};
   return wallToFloor(element, room);
 }
 
-export function bounds(element: KitchenElement, room: Room) {
+export function bounds(element: RoomElement, room: Room) {
   const center = elementCenter(element, room);
   const size = rotatedSize(element, room);
   return {
@@ -318,15 +339,33 @@ export function bounds(element: KitchenElement, room: Room) {
   };
 }
 
-export function validateLayout(elements: KitchenElement[], room: Room) {
+export function validateLayout(elements: RoomElement[], room: Room) {
   const warnings = new Map<string, string[]>();
   const add = (id: string, message: string) =>
     warnings.set(id, [...(warnings.get(id) ?? []), message]);
   elements.forEach((element, index) => {
+    const sink = sinkAttachment(element);
+    if (sink && !sinkFits(element, sink))
+      add(
+        element.id,
+        'Sink extends beyond the countertop clearance; adjust sink size or position.',
+      );
     const box = bounds(element, room);
     if (!boxInRoom(room, box)) add(element.id, 'Outside room bounds');
     elements.slice(index + 1).forEach((other) => {
+      const fixturePair =
+        element.kind === 'fixture' || other.kind === 'fixture';
+      if (fixturePair) {
+        const bottom = element.placement.elevation ?? 0;
+        const otherBottom = other.placement.elevation ?? 0;
+        if (
+          bottom >= otherBottom + other.height ||
+          otherBottom >= bottom + element.height
+        )
+          return;
+      }
       if (
+        !fixturePair &&
         element.placement.mode === 'wall' &&
         other.placement.mode === 'wall' &&
         (element.kind === 'wall-cabinet') !== (other.kind === 'wall-cabinet')
@@ -349,7 +388,7 @@ export function validateLayout(elements: KitchenElement[], room: Room) {
 
 export function moveIsland(
   island: Island,
-  elements: KitchenElement[],
+  elements: RoomElement[],
   next: Pick<Island, 'x' | 'z' | 'rotation'>,
 ) {
   const delta = ((next.rotation - island.rotation) * Math.PI) / 180;

@@ -17,7 +17,7 @@ export const EXCLUSIONS = [
   'field work',
   'countertops',
   'glass',
-  'appliances (including sinks and range hoods)',
+  'fixtures and appliance bodies (including sinks, range hoods, tubs, showers, toilets and mirrors)',
   'decorative pulls',
   'plumbing',
   'electrical work',
@@ -59,7 +59,7 @@ export function projectSchedule(study: Study) {
       ['shaker', 'slab', 'vertical-slat'].includes(
         e.applianceFront ?? 'stainless',
       );
-    if (e.kind === 'appliance' && !panel) continue;
+    if (e.kind === 'fixture' || (e.kind === 'appliance' && !panel)) continue;
     if (e.width <= 1.5 || e.depth <= 3 || e.height <= 4)
       throw new PricingError('unsupported_configuration', [e.id]);
     const material = e.material ?? 'rift-white-oak';

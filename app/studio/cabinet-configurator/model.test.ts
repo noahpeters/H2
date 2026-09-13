@@ -4,13 +4,13 @@ import {snapWall} from './placement';
 import {
   APPLIANCE_CATALOG,
   bounds,
-  createKitchenAppliance,
+  createAppliance,
   moveIsland,
   snapAngle,
   validateLayout,
   wallToFloor,
   type Island,
-  type KitchenElement,
+  type RoomElement,
   type Room,
 } from './model';
 
@@ -32,7 +32,7 @@ describe('unified cabinet, appliance, and island model', () => {
         ['back', 72, 12, 0, 1],
         ['front', 72, 108, 0, -1],
       ] as const) {
-        const item: KitchenElement = {
+        const item: RoomElement = {
           id: 'orientation',
           kind,
           width: 30,
@@ -68,7 +68,7 @@ describe('unified cabinet, appliance, and island model', () => {
       'microwave',
       'coffee-maker',
     ]);
-    expect(createKitchenAppliance('refrigerator', 'fridge')).toMatchObject({
+    expect(createAppliance('refrigerator', 'fridge')).toMatchObject({
       kind: 'appliance',
       applianceKind: 'refrigerator',
       width: 36,
@@ -78,7 +78,7 @@ describe('unified cabinet, appliance, and island model', () => {
   });
 
   it('converts wall placement to equivalent floor coordinates', () => {
-    const element: KitchenElement = {
+    const element: RoomElement = {
       id: 'cabinet',
       kind: 'base',
       width: 30,
@@ -107,8 +107,8 @@ describe('unified cabinet, appliance, and island model', () => {
       overhang: 12,
       seatingSide: 'south',
     };
-    const appliance: KitchenElement = {
-      ...createKitchenAppliance('dishwasher', 'dishwasher'),
+    const appliance: RoomElement = {
+      ...createAppliance('dishwasher', 'dishwasher'),
       islandId: island.id,
       placement: {mode: 'floor', x: 84, z: 60, rotation: 0},
     };
@@ -119,12 +119,12 @@ describe('unified cabinet, appliance, and island model', () => {
   });
 
   it('reports room-bound and collision warnings for free-floating elements', () => {
-    const first: KitchenElement = {
-      ...createKitchenAppliance('range', 'range'),
+    const first: RoomElement = {
+      ...createAppliance('range', 'range'),
       placement: {mode: 'floor', x: 8, z: 8, rotation: 0},
     };
-    const second: KitchenElement = {
-      ...createKitchenAppliance('dishwasher', 'dishwasher'),
+    const second: RoomElement = {
+      ...createAppliance('dishwasher', 'dishwasher'),
       placement: {mode: 'floor', x: 8, z: 8, rotation: 0},
     };
     expect(bounds(first, room).left).toBeLessThan(0);

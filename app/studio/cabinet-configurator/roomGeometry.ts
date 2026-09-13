@@ -1,3 +1,5 @@
+import {sinkAttachment} from './sinkAttachments';
+import {sinkGeometry, sinkCutout} from './fixtureGeometry';
 import {baseToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
 import {fitDefinition} from './custom-unit/designConfigurations';
 import {customUnitGeometry} from './custom-unit/geometry';
@@ -7,14 +9,14 @@ import {storageLayout} from './openStorage';
 import {applianceGeometry} from './applianceGeometry';
 import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
 import {
-  type KitchenElement,
+  type RoomElement,
   type Opening,
   type Room,
   type Wall,
   type Island,
 } from './model';
 const inch = 0.0254;
-export function islandCountertop(island: Island, elements: KitchenElement[]) {
+export function islandCountertop(island: Island, elements: RoomElement[]) {
   const shape = new THREE.Shape();
   const w = (island.width / 2 + island.overhang) * inch,
     d = (island.depth / 2 + island.overhang) * inch;
@@ -26,7 +28,7 @@ export function islandCountertop(island: Island, elements: KitchenElement[]) {
   for (const item of elements) {
     if (
       item.islandId !== island.id ||
-      !['sink', 'farmhouse-sink'].includes(item.configuration ?? '') ||
+      !sinkAttachment(item) ||
       item.placement.mode !== 'floor'
     )
       continue;
@@ -37,15 +39,8 @@ export function islandCountertop(island: Island, elements: KitchenElement[]) {
       z = dx * Math.sin(angle) + dz * Math.cos(angle);
     const rotation =
       ((item.placement.rotation - island.rotation) * Math.PI) / 180;
-    const sw = Math.min(22, item.width * 0.7) / 2,
-      sd = Math.min(16, item.depth * 0.65) / 2;
-    const points = [
-      [-sw, -sd],
-      [-sw, sd],
-      [sw, sd],
-      [sw, -sd],
-    ].map(
-      ([a, b]) =>
+    const points = sinkCutout(sinkAttachment(item)!).map(
+      ({x: a, y: b}) =>
         new THREE.Vector2(
           (x + a * Math.cos(rotation) - b * Math.sin(rotation)) * inch,
           (z + a * Math.sin(rotation) + b * Math.cos(rotation)) * inch,
@@ -88,7 +83,7 @@ function box(
 }
 function addToeKick(
   group: THREE.Group,
-  item: KitchenElement,
+  item: RoomElement,
   toe: {height: number; setback: number},
 ) {
   return (box(
@@ -103,7 +98,7 @@ function addToeKick(
   ).name = 'room-toe-kick');
 }
 export function cabinetGeometry(
-  item: KitchenElement,
+  item: RoomElement,
   countertop: boolean,
   sharedCountertop = false,
   room?: Pick<Room, 'toeKick'>,
@@ -615,60 +610,39 @@ export function cabinetGeometry(
 /** Room countertop treatment is independent of the cabinet composition. */
 function addBaseCountertop(
   group: THREE.Group,
-  item: KitchenElement,
+  item: RoomElement,
   sharedCountertop: boolean,
 ) {
   const {width: w, height: h, depth: d} = item;
-  const config = item.configuration ?? 'single-door';
-  const steel = new THREE.MeshStandardMaterial({
-    color: 0xb9c0c4,
-    metalness: 0.65,
-    roughness: 0.28,
-  });
   const stone = new THREE.MeshStandardMaterial({
     color: 0xe0d9cc,
     roughness: 0.35,
   });
   const topY = h / 2 + 0.75;
-  if (config === 'sink' || config === 'farmhouse-sink') {
-    const sw = Math.min(22, w * 0.7),
-      sd = Math.min(16, d * 0.65);
-    // Four countertop strips surround a true opening, with an open basin below.
-    for (const side of [-1, 1]) {
-      if (!sharedCountertop) {
-        box(
-          group,
-          (w + 2 - sw) / 2,
-          1.5,
-          d + 2,
-          side * (sw / 2 + (w + 2 - sw) / 4),
-          topY,
-          0,
-          stone,
-        );
-        box(
-          group,
-          sw,
-          1.5,
-          (d + 2 - sd) / 2,
-          0,
-          topY,
-          side * (sd / 2 + (d + 2 - sd) / 4),
-          stone,
-        );
-      }
-      box(group, 0.3, 7, sd, side * (sw / 2 - 0.15), h / 2 - 2, 0, steel);
-      box(group, sw, 7, 0.3, 0, h / 2 - 2, side * (sd / 2 - 0.15), steel);
-      box(group, 0.7, 0.18, sd + 0.7, (side * sw) / 2, h / 2 + 1.6, 0, steel);
-      box(group, sw + 0.7, 0.18, 0.7, 0, h / 2 + 1.6, (side * sd) / 2, steel);
+  const sink = sinkAttachment(item);
+  if (sink) {
+    if (!sharedCountertop) {
+      const shape = new THREE.Shape();
+      shape.moveTo((-(w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
+      shape.lineTo(((w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
+      shape.lineTo(((w + 2) / 2) * inch, ((d + 2) / 2) * inch);
+      shape.lineTo((-(w + 2) / 2) * inch, ((d + 2) / 2) * inch);
+      shape.closePath();
+      shape.holes.push(
+        new THREE.Path(sinkCutout(sink).map((p) => p.multiplyScalar(inch))),
+      );
+      const top = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(shape, {
+          depth: 1.5 * inch,
+          bevelEnabled: false,
+        }),
+        stone,
+      );
+      top.rotation.x = Math.PI / 2;
+      top.position.y = (h / 2 + 1.5) * inch;
+      group.add(top);
     }
-    box(group, sw, 0.3, sd, 0, h / 2 - 5.5, 0, steel);
-    box(group, 1, 8, 1, 0, h / 2 + 5.5, -sd / 2 - 1, steel);
-    box(group, 1, 1, 6, 0, h / 2 + 9, -sd / 2 + 1.5, steel);
-    box(group, 1, 2, 1, 0, h / 2 + 8, -sd / 2 + 4, steel);
-    if (config === 'farmhouse-sink')
-      box(group, sw + 1.5, 9, 1.5, 0, h / 2 - 3.5, d / 2 + 0.75, steel).name =
-        'farmhouse-sink-apron';
+    group.add(sinkGeometry(sink, h, d));
   } else if (!sharedCountertop)
     box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
 }

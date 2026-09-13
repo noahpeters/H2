@@ -1,3 +1,5 @@
+import {validSink, canAttachSink} from './sinkAttachments';
+import {FIXTURE_CATALOG} from './fixtures';
 import {configurationCategory} from './custom-unit/designConfigurations';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage} from './openStorage';
@@ -110,7 +112,25 @@ export function validStudy(value: any): boolean {
     value.elements.every(
       (e: any) =>
         e &&
-        ['base', 'wall-cabinet', 'tall', 'appliance'].includes(e.kind) &&
+        ['base', 'wall-cabinet', 'tall', 'appliance', 'fixture'].includes(
+          e.kind,
+        ) &&
+        validSink(e.sink) &&
+        (e.sink == null || canAttachSink(e)) &&
+        (e.kind !== 'fixture' ||
+          (Object.hasOwn(FIXTURE_CATALOG, e.fixtureKind) &&
+            e.placement?.mode !== 'hosted' &&
+            !e.islandId)) &&
+        (e.fixtureKind !== 'mirror' ||
+          (e.placement?.mode === 'wall' &&
+            dimension(e.height) &&
+            num(e.placement.elevation) &&
+            e.placement.elevation >= 0)) &&
+        (e.showerOpening === undefined ||
+          (e.fixtureKind === 'glass-shower' &&
+            e.showerOpening &&
+            ['front', 'back', 'left', 'right'].includes(e.showerOpening.side) &&
+            ['open', 'door'].includes(e.showerOpening.style))) &&
         (e.customCabinet === undefined ||
           (e.customCabinet &&
             typeof e.customCabinet.libraryId === 'string' &&

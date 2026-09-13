@@ -1,4 +1,4 @@
-import type {KitchenElement} from './model';
+import type {RoomElement} from './model';
 export const OPEN_STORAGE = {
   shelving: 'Adjustable shelving',
   'single-hang': 'Single-hang wardrobe',
@@ -48,7 +48,7 @@ export function storageDefaults(type: StorageKind): OpenStorage {
 export function createOpenStorage(
   type: StorageKind,
   id: string,
-): KitchenElement {
+): RoomElement {
   return {
     id,
     kind:
@@ -95,7 +95,7 @@ export function validStorage(value: unknown): value is OpenStorage {
   );
 }
 /** Shared physical layout, inches relative to the cabinet bottom. */
-export function storageLayout(item: KitchenElement) {
+export function storageLayout(item: RoomElement) {
   const s = item.storage!;
   const toe = item.kind === 'wall-cabinet' ? 0 : 4;
   const low = toe + 0.75,

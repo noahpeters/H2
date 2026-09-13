@@ -3,7 +3,7 @@ import {CustomUnitEditor} from './CustomUnitEditor';
 import {configurationTemplate} from './designConfigurations';
 import type {CustomUnitDefinition} from './model';
 import {baseToeKick} from '../cabinetEnvelope';
-import type {KitchenElement, Room} from '../model';
+import type {RoomElement, Room} from '../model';
 
 export function ConfigurationSheet({
   item,
@@ -11,7 +11,7 @@ export function ConfigurationSheet({
   onSave,
   onClose,
 }: {
-  item: KitchenElement;
+  item: RoomElement;
   room?: Pick<Room, 'toeKick'>;
   onSave: (definition: CustomUnitDefinition) => void;
   onClose: () => void;

@@ -5,7 +5,7 @@ import {
 import {
   wallToFloor,
   type Room,
-  type KitchenElement,
+  type RoomElement,
 } from '../../app/studio/cabinet-configurator/model';
 
 export interface AnalyticsDB {
@@ -72,7 +72,7 @@ export async function recordVisit(request: Request, db: AnalyticsDB) {
 
 function preview(data: string) {
   try {
-    const study = JSON.parse(data) as {room: Room; elements: KitchenElement[]};
+    const study = JSON.parse(data) as {room: Room; elements: RoomElement[]};
     return {
       width: study.room.width,
       depth: study.room.depth,

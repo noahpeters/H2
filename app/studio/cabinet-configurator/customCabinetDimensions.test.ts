@@ -1,13 +1,13 @@
 import {describe, expect, it} from 'vitest';
 import * as THREE from 'three';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {
   configurationTemplate,
   saveConfiguration,
 } from './custom-unit/designConfigurations';
-import type {KitchenElement} from './model';
+import type {RoomElement} from './model';
 const inch = 0.0254;
-const base: KitchenElement = {
+const base: RoomElement = {
   id: 'base',
   kind: 'base',
   width: 36,

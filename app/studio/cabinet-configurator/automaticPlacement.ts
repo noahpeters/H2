@@ -1,7 +1,7 @@
 import {
   bounds,
   elementCenter,
-  type KitchenElement,
+  type RoomElement,
   type Room,
   type Opening,
   type Island,
@@ -12,14 +12,14 @@ import {snapRoomCorner} from './placement';
 
 export type PlacementLayout = {
   room: Room;
-  elements: KitchenElement[];
+  elements: RoomElement[];
   openings: Opening[];
   islands: Island[];
 };
 /** Ephemeral IDs only. The caller clears this context when switching designs. */
 export type PlacementContext = {elementId?: string | null; wall?: Wall};
 export type PlacementCandidate = {
-  element: KitchenElement;
+  element: RoomElement;
   score: number;
   reason: 'run' | 'wall' | 'corner' | 'island' | 'space';
 };
@@ -30,13 +30,13 @@ const overlaps = (a: ReturnType<typeof bounds>, b: ReturnType<typeof bounds>) =>
   a.bottom > b.top + 1e-7;
 const verticalOverlap = (a: number, ah: number, b: number, bh: number) =>
   a < b + bh - 1e-7 && a + ah > b + 1e-7;
-const elevation = (e: KitchenElement) => e.placement.elevation ?? 0;
-const compatible = (a: KitchenElement, b: KitchenElement) =>
+const elevation = (e: RoomElement) => e.placement.elevation ?? 0;
+const compatible = (a: RoomElement, b: RoomElement) =>
   (a.kind === 'wall-cabinet') === (b.kind === 'wall-cabinet') &&
   Math.abs(elevation(a) - elevation(b)) < 1;
 
 /** Reserve the wall aperture's volume, including perpendicular/floor cabinets. */
-function openingVolume(opening: Opening): KitchenElement {
+function openingVolume(opening: Opening): RoomElement {
   return {
     id: opening.id,
     kind: 'appliance',
@@ -52,7 +52,7 @@ function openingVolume(opening: Opening): KitchenElement {
     },
   };
 }
-function islandVolume(island: Island): KitchenElement {
+function islandVolume(island: Island): RoomElement {
   return {
     id: island.id,
     kind: 'base',
@@ -69,12 +69,15 @@ function islandVolume(island: Island): KitchenElement {
   };
 }
 export function validAutomaticPlacement(
-  item: KitchenElement,
+  item: RoomElement,
   layout: PlacementLayout,
   inRoom = true,
 ) {
+  if (item.fixtureKind === 'mirror' && item.placement.mode !== 'wall')
+    return false;
   const box = bounds(item, layout.room);
   if (item.islandId) {
+    if (item.kind === 'fixture') return false;
     const island = layout.islands.find((i) => i.id === item.islandId);
     if (
       !island ||
@@ -144,7 +147,7 @@ export function validAutomaticPlacement(
  * Stable insertion order breaks ties so identical input always gives identical output.
  */
 export function elementPlacementCandidates(
-  item: KitchenElement,
+  item: RoomElement,
   layout: PlacementLayout,
   context: PlacementContext = {},
   freeSpaceOnly = false,
@@ -159,7 +162,7 @@ export function elementPlacementCandidates(
   const wallIndex = walls.findIndex((w) => w.id === activeWall);
   const result: PlacementCandidate[] = [];
   const add = (
-    element: KitchenElement,
+    element: RoomElement,
     score: number,
     reason: PlacementCandidate['reason'],
   ) => {
@@ -178,7 +181,7 @@ export function elementPlacementCandidates(
     z: number,
     rotation: number,
     islandId?: string,
-  ): KitchenElement => ({
+  ): RoomElement => ({
     ...item,
     islandId,
     placement: {mode: 'floor', x, z, rotation, elevation: elevation(item)},
@@ -318,12 +321,14 @@ export function elementPlacementCandidates(
   return result.sort((a, b) => b.score - a.score);
 }
 export function automaticallyPlaceElement(
-  item: KitchenElement,
+  item: RoomElement,
   layout: PlacementLayout,
   context: PlacementContext = {},
-): KitchenElement {
+): RoomElement {
   const candidate = elementPlacementCandidates(item, layout, context)[0];
   if (candidate) return candidate.element;
+  // Keep wall-mounted fixtures on their wall when no clear placement exists.
+  if (item.fixtureKind === 'mirror') return item;
   // A physically full/undersized room cannot contain another object. Stage it
   // outside the room with a visible bounds warning, never overlap the design.
   const right = Math.max(

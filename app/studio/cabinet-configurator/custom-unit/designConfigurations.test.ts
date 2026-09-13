@@ -7,9 +7,9 @@ import {
 import {validStudy} from '../savedRoomProtocol';
 import {blankStudy, migrateStudy} from '../CabinetConfigurator';
 import {createOpenStorage} from '../openStorage';
-import type {KitchenElement} from '../model';
+import type {RoomElement} from '../model';
 import {withDrawerArrays} from './drawerArrayEditing';
-const cabinet: KitchenElement = {
+const cabinet: RoomElement = {
   id: 'cabinet',
   kind: 'base',
   width: 36,

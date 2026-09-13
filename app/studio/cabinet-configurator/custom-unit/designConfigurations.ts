@@ -1,7 +1,7 @@
 import {reflowDrawerArrays} from './drawerArrayEditing';
 import {refitDrawerArray} from './drawerArrays';
 import {cabinetCompositionEnvelope} from '../cabinetEnvelope';
-import type {KitchenElement, Room} from '../model';
+import type {RoomElement, Room} from '../model';
 import {
   createCustomUnit,
   customUnitId,
@@ -18,18 +18,19 @@ export type DesignConfiguration = {
   category: string;
   definition: CustomUnitDefinition;
 };
-export const configurationCategory = (item: KitchenElement) =>
+export const configurationCategory = (item: RoomElement) =>
   item.storage
     ? `${item.kind}:storage:${item.storage.type}`
     : item.kind === 'base' && item.configuration === 'corner'
       ? 'base:corner'
       : item.kind;
 export function compatibleConfiguration(
-  item: KitchenElement,
+  item: RoomElement,
   configuration: DesignConfiguration,
 ) {
   return (
     item.kind !== 'appliance' &&
+    item.kind !== 'fixture' &&
     configurationCategory(item) === configuration.category
   );
 }
@@ -37,7 +38,7 @@ export function compatibleConfiguration(
 /** Fit composition to an instance without changing the instance envelope. */
 export function fitDefinition(
   source: CustomUnitDefinition,
-  envelope: Pick<KitchenElement, 'width' | 'height' | 'depth'>,
+  envelope: Pick<RoomElement, 'width' | 'height' | 'depth'>,
 ): CustomUnitDefinition {
   const result = structuredClone(source);
   for (const [field, axis] of [
@@ -75,7 +76,7 @@ const section = (
   properties,
 });
 export function configurationTemplate(
-  item: KitchenElement,
+  item: RoomElement,
   room?: Pick<Room, 'toeKick'>,
 ): CustomUnitDefinition {
   const envelope = cabinetCompositionEnvelope(item, room);
@@ -122,10 +123,10 @@ export function configurationTemplate(
   });
 }
 export function applyConfiguration(
-  item: KitchenElement,
+  item: RoomElement,
   configuration: DesignConfiguration,
   room?: Pick<Room, 'toeKick'>,
-): KitchenElement {
+): RoomElement {
   if (!compatibleConfiguration(item, configuration))
     throw new Error(
       'This configuration is not compatible with this cabinet category.',
@@ -148,7 +149,7 @@ export function applyConfiguration(
 }
 export function saveConfiguration(
   configurations: DesignConfiguration[],
-  item: KitchenElement,
+  item: RoomElement,
   definition: CustomUnitDefinition,
   room?: Pick<Room, 'toeKick'>,
 ) {

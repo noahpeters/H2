@@ -1,3 +1,6 @@
+import {createFixture, type FixtureKind} from './fixtures';
+import {fixtureGeometry} from './fixtureGeometry';
+import {createSink, type SinkKind} from './sinkAttachments';
 import {
   Children,
   isValidElement,
@@ -7,13 +10,9 @@ import {
   type ReactNode,
 } from 'react';
 import * as THREE from 'three';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {applianceGeometry} from './applianceGeometry';
-import {
-  createKitchenAppliance,
-  type ApplianceKind,
-  type KitchenElement,
-} from './model';
+import {createAppliance, type ApplianceKind, type RoomElement} from './model';
 import {createOpenStorage, type StorageKind} from './openStorage';
 import {
   cabinetColor,
@@ -22,6 +21,8 @@ import {
 } from './materials';
 
 export type VisualCategory =
+  | 'fixture'
+  | 'sink'
   | 'cabinet'
   | 'base'
   | 'tall'
@@ -35,8 +36,8 @@ export type VisualCategory =
 export function previewElement(
   category: VisualCategory,
   value: string,
-): KitchenElement {
-  const item: KitchenElement = {
+): RoomElement {
+  const item: RoomElement = {
     id: 'preview',
     kind: 'base',
     width: 30,
@@ -45,40 +46,46 @@ export function previewElement(
     face: 'shaker',
     placement: {mode: 'wall', wall: 'back', offset: 0, elevation: 0},
   };
+  if (category === 'fixture')
+    return createFixture(value as FixtureKind, 'preview', previewRoom);
+  if (category === 'sink') {
+    item.width = 36;
+    item.sink = value ? createSink(value as SinkKind) : null;
+  }
   if (category === 'storage')
     return createOpenStorage(value as StorageKind, 'preview');
   if (category === 'appliance')
-    return createKitchenAppliance(value as ApplianceKind, 'preview');
+    return createAppliance(value as ApplianceKind, 'preview');
   if (category === 'cabinet') {
     if (value === 'corner') {
       item.configuration = 'corner';
       item.width = 36;
       item.depth = 36;
     } else {
-      item.kind = value as KitchenElement['kind'];
+      item.kind = value as RoomElement['kind'];
       item.height =
         value === 'tall' ? 84 : value === 'wall-cabinet' ? 30 : 34.5;
       item.depth = value === 'wall-cabinet' ? 12 : 24;
     }
   }
   if (category === 'base') {
-    item.configuration = value as KitchenElement['configuration'];
+    item.configuration = value as RoomElement['configuration'];
     if (value === 'farmhouse-sink' || value === 'corner') item.width = 36;
     if (value === 'corner') item.depth = 36;
   }
   if (category === 'tall') {
     item.kind = 'tall';
     item.height = 90;
-    item.tallConfiguration = value as KitchenElement['tallConfiguration'];
+    item.tallConfiguration = value as RoomElement['tallConfiguration'];
   }
   if (category === 'front') {
-    item.face = value as KitchenElement['face'];
+    item.face = value as RoomElement['face'];
     if (value === 'shaker-glass') item.kind = 'wall-cabinet';
   }
   if (category === 'appliance-front') {
     return {
-      ...createKitchenAppliance('dishwasher', 'preview'),
-      applianceFront: value as KitchenElement['applianceFront'],
+      ...createAppliance('dishwasher', 'preview'),
+      applianceFront: value as RoomElement['applianceFront'],
     };
   }
   if (category === 'material') item.material = value as CabinetMaterial;
@@ -88,6 +95,14 @@ export function previewElement(
   }
   return item;
 }
+
+const previewRoom = {
+  width: 144,
+  depth: 120,
+  height: 96,
+  floor: 'oak' as const,
+  walls: 'plaster' as const,
+};
 
 // One renderer, reused for static images: no animation loops or WebGL context per tile.
 let renderer: THREE.WebGLRenderer | undefined;
@@ -111,18 +126,20 @@ function thumbnail(category: VisualCategory, value: string) {
   scene.background = new THREE.Color('#f4f2ec');
   const item = previewElement(category, value);
   const body =
-    item.kind === 'appliance'
-      ? applianceGeometry(
-          item.applianceKind!,
-          item.width * 0.0254,
-          item.height * 0.0254,
-          item.depth * 0.0254,
-          item.applianceFront,
-          false,
-          cabinetColor(item),
-          item.applianceKind === 'dishwasher',
-        )
-      : cabinetGeometry(item, true, false);
+    item.kind === 'fixture'
+      ? fixtureGeometry(item, previewRoom)
+      : item.kind === 'appliance'
+        ? applianceGeometry(
+            item.applianceKind!,
+            item.width * 0.0254,
+            item.height * 0.0254,
+            item.depth * 0.0254,
+            item.applianceFront,
+            false,
+            cabinetColor(item),
+            item.applianceKind === 'dishwasher',
+          )
+        : cabinetGeometry(item, true, false);
   scene.add(body, new THREE.HemisphereLight(0xffffff, 0x5b5546, 2.2));
   // Light construction lines keep shallow frame details readable at tile size.
   const meshes: THREE.Mesh[] = [];

@@ -1,10 +1,10 @@
-import type {KitchenElement, Room} from './model';
+import type {RoomElement, Room} from './model';
 
 export const DEFAULT_TOE_KICK = {height: 4, setback: 3} as const;
 
 /** Room-owned support space, outside every base cabinet's editable composition. */
 export function baseToeKick(
-  item: KitchenElement,
+  item: RoomElement,
   room?: Pick<Room, 'toeKick'>,
 ) {
   if (item.kind !== 'base') return {height: 0, setback: 0};
@@ -16,7 +16,7 @@ export function baseToeKick(
 }
 
 export function cabinetCompositionEnvelope(
-  item: KitchenElement,
+  item: RoomElement,
   room?: Pick<Room, 'toeKick'>,
 ) {
   return {

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type {KitchenElement} from '../model';
+import type {RoomElement} from '../model';
 import type {CabinetMaterial, CabinetPaint} from '../materials';
 export type CabinetAppearance = {
-  face: KitchenElement['face'];
+  face: RoomElement['face'];
   material: CabinetMaterial;
   paintColor?: CabinetPaint;
 };
@@ -19,7 +19,7 @@ export function facePreviewGeometry(
   w: number,
   h: number,
   d: number,
-  style: KitchenElement['face'],
+  style: RoomElement['face'],
   segmented: boolean,
 ) {
   const pieces: THREE.BufferGeometry[] = [];

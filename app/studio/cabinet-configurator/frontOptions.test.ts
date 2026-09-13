@@ -1,8 +1,8 @@
 import {describe, it, expect} from 'vitest';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {applianceGeometry} from './applianceGeometry';
-import {APPLIANCE_FRONT_OPTIONS, type KitchenElement} from './model';
-const cabinet = (width: number): KitchenElement => ({
+import {APPLIANCE_FRONT_OPTIONS, type RoomElement} from './model';
+const cabinet = (width: number): RoomElement => ({
   id: 'test',
   kind: 'base',
   width,

@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import * as THREE from 'three';
 import {baseToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
-import {cabinetGeometry} from './kitchenGeometry';
+import {cabinetGeometry} from './roomGeometry';
 import {
   configurationTemplate,
   saveConfiguration,
@@ -9,8 +9,8 @@ import {
 } from './custom-unit/designConfigurations';
 import {blankStudy, migrateStudy} from './CabinetConfigurator';
 import {validStudy} from './savedRoomProtocol';
-import type {KitchenElement} from './model';
-const base: KitchenElement = {
+import type {RoomElement} from './model';
+const base: RoomElement = {
   id: 'base',
   kind: 'base',
   configuration: 'three-drawer',
