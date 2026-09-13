@@ -53,7 +53,9 @@ export function customCabinetElement(
   const bounds = customUnitBounds(item.definition);
   return {
     id,
-    kind: item.definition.height > 48 ? ('tall' as const) : ('base' as const),
+    kind:
+      item.definition.cabinetCategory ??
+      (item.definition.height > 48 ? ('tall' as const) : ('base' as const)),
     ...bounds,
     face: 'slab' as const,
     customCabinet: {
@@ -65,7 +67,7 @@ export function customCabinetElement(
       mode: 'wall' as const,
       wall: 'back' as const,
       offset: 0,
-      elevation: 0,
+      elevation: item.definition.cabinetCategory === 'wall-cabinet' ? 54 : 0,
     },
   };
 }

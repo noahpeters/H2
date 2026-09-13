@@ -17,6 +17,8 @@ export type DesignConfiguration = {
   name: string;
   category: string;
   definition: CustomUnitDefinition;
+  /** Catalog template independent of any placed instance. */
+  template?: RoomElement;
 };
 export const configurationCategory = (item: RoomElement) =>
   item.storage
@@ -147,6 +149,21 @@ export function applyConfiguration(
     },
   };
 }
+export function cabinetTypeTemplate(item: RoomElement): RoomElement {
+  return {
+    ...structuredClone(item),
+    id: 'preview',
+    customCabinet: undefined,
+    islandId: undefined,
+    placement: {
+      mode: 'wall',
+      wall: 'back',
+      offset: 0,
+      elevation:
+        item.kind === 'wall-cabinet' ? (item.placement.elevation ?? 54) : 0,
+    },
+  };
+}
 export function saveConfiguration(
   configurations: DesignConfiguration[],
   item: RoomElement,
@@ -172,6 +189,7 @@ export function saveConfiguration(
     name,
     category: configurationCategory(item),
     definition: fitted,
+    template: cabinetTypeTemplate(item),
   };
   return {
     configurations: [

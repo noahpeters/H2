@@ -19,6 +19,7 @@ import {DEFAULT_TOE_KICK} from './cabinetEnvelope';
 import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
 import {
   saveConfiguration,
+  cabinetTypeTemplate,
   type DesignConfiguration,
 } from './custom-unit/designConfigurations';
 import {createCabinetRenderer} from './sceneRenderer';
@@ -30,10 +31,7 @@ import {StudyInquiryDialog} from '../StudyInquiryDialog';
 import {cabinetStudySummary} from '../studyInquiry';
 import {OPEN_STORAGE} from './openStorage';
 import {OpenStorageControls} from './OpenStorageControls';
-import {
-  customCabinetElement,
-  type CustomCabinetLibraryItem,
-} from './custom-unit/library';
+import {type CustomCabinetLibraryItem} from './custom-unit/library';
 import {
   applyCreationPreferences,
   loadCreationPreferences,
@@ -456,6 +454,16 @@ export function migrateStudy(raw: unknown): Study {
     view: 'split',
     room: {...fallback.room, ...value.room},
     elements: [...elements, ...migratedAppliances],
+    configurations: value.configurations?.map((configuration) => {
+      const source = elements.find(
+        (e) =>
+          e.customCabinet?.scope === 'design' &&
+          e.customCabinet.libraryId === configuration.id,
+      );
+      return configuration.template || !source
+        ? configuration
+        : {...configuration, template: cabinetTypeTemplate(source)};
+    }),
     islands: value.islands ?? [],
   };
 }
@@ -982,6 +990,10 @@ export function CabinetConfigurator({
       }),
     [],
   );
+  const cabinetChoices = useMemo(
+    () => cabinetTypes(study.configurations, study.elements, customCabinets),
+    [study.configurations, study.elements, customCabinets],
+  );
   const selected = study.elements.find((item) => item.id === study.selected);
   useEffect(() => {
     if (selected)
@@ -1126,17 +1138,6 @@ export function CabinetConfigurator({
       d.islands.push(automaticallyPlaceIsland(island, d));
       d.selected = island.id;
     });
-  const addCustomCabinet = (cabinet: CustomCabinetLibraryItem) =>
-    update((d) => {
-      const item = customCabinetElement(cabinet, makeId());
-      const placed = automaticallyPlaceElement(
-        item,
-        d,
-        placementContext(item, d),
-      );
-      d.elements.push(placed);
-      d.selected = placed.id;
-    });
   const changeIsland = (
     island: Island,
     key: keyof Island,
@@ -1245,7 +1246,7 @@ export function CabinetConfigurator({
               throw new Error('This cabinet is no longer in the design.');
             const result = saveConfiguration(
               study.configurations ?? [],
-              item,
+              {...item, sink},
               definition,
               study.room,
             );
@@ -1820,7 +1821,7 @@ export function CabinetConfigurator({
                   <details className="cc-add-category" key={category}>
                     <summary>{category}</summary>
                     <div>
-                      {cabinetTypes(study.configurations, study.elements)
+                      {cabinetChoices
                         .filter((choice) => choice.category === category)
                         .map((choice) => (
                           <button
@@ -1863,28 +1864,6 @@ export function CabinetConfigurator({
                     </div>
                   </details>
                 ))}
-                {customCabinets.length > 0 && (
-                  <details className="cc-add-category">
-                    <summary>From Trees custom</summary>
-                    <div>
-                      {customCabinets.map((cabinet) => (
-                        <button
-                          key={`${cabinet.id}-${cabinet.version}`}
-                          onClick={() => addCustomCabinet(cabinet)}
-                          title={cabinet.description}
-                        >
-                          {cabinet.name}
-                          <small>
-                            Version {cabinet.version}
-                            {cabinet.tags.length
-                              ? ` · ${cabinet.tags.join(', ')}`
-                              : ''}
-                          </small>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                )}
               </div>
             </details>
             <details className="cc-add-menu">
@@ -2055,10 +2034,9 @@ export function CabinetConfigurator({
                           category="cabinet"
                           value={selectedCabinetType(selected)}
                           renderImage={(value) => {
-                            const choice = cabinetTypes(
-                              study.configurations,
-                              study.elements,
-                            ).find((c) => c.id === value);
+                            const choice = cabinetChoices.find(
+                              (c) => c.id === value,
+                            );
                             return (
                               <ChoiceImage
                                 category="cabinet-type"
@@ -2067,10 +2045,9 @@ export function CabinetConfigurator({
                             );
                           }}
                           onChange={(event) => {
-                            const choice = cabinetTypes(
-                              study.configurations,
-                              study.elements,
-                            ).find((c) => c.id === event.currentTarget.value);
+                            const choice = cabinetChoices.find(
+                              (c) => c.id === event.currentTarget.value,
+                            );
                             if (!choice) return;
                             try {
                               const next = applyCabinetType(
@@ -2093,13 +2070,7 @@ export function CabinetConfigurator({
                             }
                           }}
                         >
-                          {selected.customCabinet?.scope !== 'design' &&
-                            selected.customCabinet && (
-                              <option value={selected.customCabinet.libraryId}>
-                                {selected.customCabinet.definition.name}
-                              </option>
-                            )}
-                          {cabinetTypes(study.configurations, study.elements)
+                          {cabinetChoices
                             .filter(
                               (choice) =>
                                 choice.category === cabinetCategory(selected),
