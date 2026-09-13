@@ -1603,6 +1603,8 @@ export function CabinetConfigurator({
                 aria-pressed={editingRoom}
                 onClick={() => {
                   setEditingRoom((v) => !v);
+                  setAddingWall(false);
+                  setWallPreview(null);
                   if (!editingRoom && study.view === 'three')
                     setStudy((c) => ({...c, view: 'split'}));
                 }}
@@ -2584,128 +2586,130 @@ export function CabinetConfigurator({
                   onFit={() => setViewport({x: 0, y: 0, zoom: 1})}
                 />
               </div>
-              <div className="cc-wall-tools">
-                <button
-                  aria-pressed={addingWall}
-                  onClick={() => {
-                    if (addingWall) {
-                      setAddingWall(false);
-                      setWallPreview(null);
-                    } else beginWall();
-                  }}
-                >
-                  {addingWall ? 'Cancel wall' : '+ Add wall'}
-                </button>
-                {!addingWall && !selectedPartition && (
-                  <>
-                    {[false, true].map((outward) => (
-                      <button
-                        key={String(outward)}
-                        disabled={
-                          roomWall(study.room, selectedWall).length < 36
-                        }
-                        onClick={() => {
-                          const points = addRoomRecess(
-                            study.room,
-                            selectedWall,
-                            makeId(),
-                            outward,
-                          );
-                          if (points) {
-                            update((d) =>
-                              Object.assign(d, reshapeStudy(d, points)),
-                            );
-                            setOutlineError('');
-                          } else
-                            setOutlineError(
-                              'There is not enough space here for a recess. Choose a longer wall.',
-                            );
-                        }}
-                      >
-                        {outward ? '+ Add alcove' : '+ Add recess'}
-                      </button>
-                    ))}
-                  </>
-                )}
-                {!addingWall && selectedPartition && (
-                  <>
-                    <button onClick={removePartition}>Remove wall</button>
-                  </>
-                )}
-                {!addingWall && (
-                  <details className="cc-add-menu">
-                    <summary>+ Add opening</summary>
-                    <div>
-                      {[
-                        ...DOOR_TYPES.map(([doorType, label]) => ({
-                          kind: 'door' as const,
-                          doorType,
-                          label,
-                        })),
-                        {
-                          kind: 'window' as const,
-                          doorType: undefined,
-                          label: 'Window',
-                        },
-                        {
-                          kind: 'opening' as const,
-                          doorType: undefined,
-                          label: 'Doorless opening',
-                        },
-                      ].map(({kind, doorType, label}) => (
+              {editingRoom && (
+                <div className="cc-wall-tools">
+                  <button
+                    aria-pressed={addingWall}
+                    onClick={() => {
+                      if (addingWall) {
+                        setAddingWall(false);
+                        setWallPreview(null);
+                      } else beginWall();
+                    }}
+                  >
+                    {addingWall ? 'Cancel wall' : '+ Add wall'}
+                  </button>
+                  {!addingWall && !selectedPartition && (
+                    <>
+                      {[false, true].map((outward) => (
                         <button
-                          key={doorType ?? kind}
-                          onClick={(event) => {
-                            update((d) => {
-                              const id = makeId();
-                              d.openings.push(
-                                automaticallyPlaceOpening(
-                                  {
-                                    id,
-                                    kind,
-                                    doorType,
-                                    wall: selectedWall,
-                                    offset: doorType === 'pocket' ? 30 : 12,
-                                    width:
-                                      kind === 'opening'
-                                        ? 96
-                                        : kind === 'door'
-                                          ? doorType === 'double-swing' ||
-                                            doorType === 'sliding-glass' ||
-                                            doorType === 'sliding-closet'
-                                            ? 72
-                                            : 30
-                                          : 42,
-                                    height: kind === 'window' ? 38 : 80,
-                                    sill: 42,
-                                  },
-                                  d,
-                                  {wall: selectedWall},
-                                ),
+                          key={String(outward)}
+                          disabled={
+                            roomWall(study.room, selectedWall).length < 36
+                          }
+                          onClick={() => {
+                            const points = addRoomRecess(
+                              study.room,
+                              selectedWall,
+                              makeId(),
+                              outward,
+                            );
+                            if (points) {
+                              update((d) =>
+                                Object.assign(d, reshapeStudy(d, points)),
                               );
-                              d.selected = id;
-                            });
-                            if (selectedControls.current)
-                              selectedControls.current.open = true;
-                            event.currentTarget
-                              .closest('details')
-                              ?.removeAttribute('open');
+                              setOutlineError('');
+                            } else
+                              setOutlineError(
+                                'There is not enough space here for a recess. Choose a longer wall.',
+                              );
                           }}
                         >
-                          {label}
+                          {outward ? '+ Add alcove' : '+ Add recess'}
                         </button>
                       ))}
-                    </div>
-                  </details>
-                )}
-                <span role="status">
-                  {addingWall
-                    ? 'Move over the room · click to place · Esc to cancel'
-                    : selectedPartition
-                      ? 'Drag wall to move · drag square ends to shorten or connect'
-                      : `Drag the selected ${roomWall(study.room, selectedWall).label} wall to move it, or add a recess or alcove`}
-                </span>
-              </div>
+                    </>
+                  )}
+                  {!addingWall && selectedPartition && (
+                    <>
+                      <button onClick={removePartition}>Remove wall</button>
+                    </>
+                  )}
+                  {!addingWall && (
+                    <details className="cc-add-menu">
+                      <summary>+ Add opening</summary>
+                      <div>
+                        {[
+                          ...DOOR_TYPES.map(([doorType, label]) => ({
+                            kind: 'door' as const,
+                            doorType,
+                            label,
+                          })),
+                          {
+                            kind: 'window' as const,
+                            doorType: undefined,
+                            label: 'Window',
+                          },
+                          {
+                            kind: 'opening' as const,
+                            doorType: undefined,
+                            label: 'Doorless opening',
+                          },
+                        ].map(({kind, doorType, label}) => (
+                          <button
+                            key={doorType ?? kind}
+                            onClick={(event) => {
+                              update((d) => {
+                                const id = makeId();
+                                d.openings.push(
+                                  automaticallyPlaceOpening(
+                                    {
+                                      id,
+                                      kind,
+                                      doorType,
+                                      wall: selectedWall,
+                                      offset: doorType === 'pocket' ? 30 : 12,
+                                      width:
+                                        kind === 'opening'
+                                          ? 96
+                                          : kind === 'door'
+                                            ? doorType === 'double-swing' ||
+                                              doorType === 'sliding-glass' ||
+                                              doorType === 'sliding-closet'
+                                              ? 72
+                                              : 30
+                                            : 42,
+                                      height: kind === 'window' ? 38 : 80,
+                                      sill: 42,
+                                    },
+                                    d,
+                                    {wall: selectedWall},
+                                  ),
+                                );
+                                d.selected = id;
+                              });
+                              if (selectedControls.current)
+                                selectedControls.current.open = true;
+                              event.currentTarget
+                                .closest('details')
+                                ?.removeAttribute('open');
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  <span role="status">
+                    {addingWall
+                      ? 'Move over the room · click to place · Esc to cancel'
+                      : selectedPartition
+                        ? 'Drag wall to move · drag square ends to shorten or connect'
+                        : `Drag the selected ${roomWall(study.room, selectedWall).label} wall to move it, or add a recess or alcove`}
+                  </span>
+                </div>
+              )}
               {outlineError && (
                 <p role="alert" className="cc-inline-warning">
                   {outlineError}
