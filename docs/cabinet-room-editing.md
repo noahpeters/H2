@@ -21,14 +21,19 @@ on each side, dividing that part of the room. Click to place; Escape or
 **Cancel wall** cancels without creating a wall. Existing interior walls also
 bound the preview, so smaller closets and pantries can be divided independently.
 
+Select a perimeter wall on the plan to anchor **+ Add recess** or **+ Add alcove**
+to it. These actions appear alongside **+ Add wall** in the plan banner, with
+helper text below the buttons.
+
 Select an interior wall directly on the plan. Drag its line perpendicular to
 itself to move it. Drag either square end handle along the wall to shorten or
 extend that end. Ends snap to nearby walls; pulling them away creates a detached
 or entirely free-standing wall. The handles also support arrow keys. Wall
 lengths appear on the plan; no wall names or coordinate-entry form are needed.
 
-Use **+ Door** for the selected interior wall, then choose the door style in
-Room → Openings. Supported types are standard swing, sliding glass, pocket,
+Use **+ Add opening** in the plan banner to add a door, window or doorless
+opening. All five door styles are available in that menu; existing openings
+can still be adjusted under Room → Openings. Supported types are standard swing, sliding glass, pocket,
 sliding closet and double swing (French doors). Existing doors default to
 standard swing. Hinge / pocket side controls the plan symbol. Pocket doors warn
 when their selected side lacks an uninterrupted wall section as wide as the door.

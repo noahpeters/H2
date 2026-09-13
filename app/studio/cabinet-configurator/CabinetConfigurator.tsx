@@ -1396,23 +1396,7 @@ export function CabinetConfigurator({
     });
     setSelectedWall('back');
   };
-  const addPartitionDoor = () => {
-    if (!selectedPartition) return;
-    update((d) => {
-      const id = makeId();
-      d.openings.push({
-        id,
-        kind: 'door',
-        doorType: 'pocket',
-        wall: selectedWall,
-        offset: Math.min(30, selectedPartition.length / 2),
-        width: Math.min(30, selectedPartition.length / 2),
-        height: 80,
-      });
-      d.selected = id;
-    });
-    if (roomControls.current) roomControls.current.open = true;
-  };
+
   return (
     <div className="cabinet-app">
       {customizing && (
@@ -1633,32 +1617,6 @@ export function CabinetConfigurator({
                     changes may leave existing objects outside the room; review
                     warnings or Undo.
                   </p>
-                  <div className="cc-button-grid">
-                    {[false, true].map((outward) => (
-                      <button
-                        key={String(outward)}
-                        onClick={() => {
-                          const points = addRoomRecess(
-                            study.room,
-                            selectedWall,
-                            makeId(),
-                            outward,
-                          );
-                          if (points) {
-                            update((d) =>
-                              Object.assign(d, reshapeStudy(d, points)),
-                            );
-                            setOutlineError('');
-                          } else
-                            setOutlineError(
-                              'There is not enough space here for a recess. Choose a longer wall.',
-                            );
-                        }}
-                      >
-                        {outward ? 'Add alcove' : 'Add inward recess'}
-                      </button>
-                    ))}
-                  </div>
                   <button
                     disabled={!removeRoomRecess(study.room, selectedWall)}
                     onClick={() => {
@@ -1677,11 +1635,6 @@ export function CabinetConfigurator({
                     place; openings move to the nearest remaining wall. Review
                     the layout afterward, or Undo.
                   </p>
-                  {outlineError && (
-                    <p role="alert" className="cc-inline-warning">
-                      {outlineError}
-                    </p>
-                  )}
                 </>
               )}
               {(['width', 'depth', 'height'] as const).map((k) => (
@@ -1724,52 +1677,6 @@ export function CabinetConfigurator({
                 </label>
               ))}
             </div>
-            <button onClick={beginWall}>Add interior wall on plan</button>
-            <details className="cc-add-menu">
-              <summary>+ Add opening</summary>
-              <div>
-                {(['door', 'window', 'opening'] as const).map((kind) => (
-                  <button
-                    key={kind}
-                    onClick={(event) => {
-                      update((d) => {
-                        const id = makeId();
-                        d.openings.push(
-                          automaticallyPlaceOpening(
-                            {
-                              id,
-                              kind,
-                              wall: roomSegments(d.room)[0].id,
-                              offset: 12,
-                              width:
-                                kind === 'opening'
-                                  ? 96
-                                  : kind === 'door'
-                                    ? 32
-                                    : 42,
-                              height: kind === 'window' ? 38 : 80,
-                              sill: 42,
-                            },
-                            d,
-                            {elementId: d.selected, wall: selectedWall},
-                          ),
-                        );
-                        d.selected = id;
-                      });
-                      event.currentTarget
-                        .closest('details')
-                        ?.removeAttribute('open');
-                    }}
-                  >
-                    {kind === 'opening'
-                      ? 'Doorless opening'
-                      : kind === 'door'
-                        ? 'Door'
-                        : 'Window'}
-                  </button>
-                ))}
-              </div>
-            </details>
             <details
               className="cc-accordion"
               key={
@@ -2724,20 +2631,121 @@ export function CabinetConfigurator({
                 >
                   {addingWall ? 'Cancel wall' : '+ Add wall'}
                 </button>
+                {!addingWall && !selectedPartition && (
+                  <>
+                    {[false, true].map((outward) => (
+                      <button
+                        key={String(outward)}
+                        disabled={
+                          roomWall(study.room, selectedWall).length < 36
+                        }
+                        onClick={() => {
+                          const points = addRoomRecess(
+                            study.room,
+                            selectedWall,
+                            makeId(),
+                            outward,
+                          );
+                          if (points) {
+                            update((d) =>
+                              Object.assign(d, reshapeStudy(d, points)),
+                            );
+                            setOutlineError('');
+                          } else
+                            setOutlineError(
+                              'There is not enough space here for a recess. Choose a longer wall.',
+                            );
+                        }}
+                      >
+                        {outward ? '+ Add alcove' : '+ Add recess'}
+                      </button>
+                    ))}
+                  </>
+                )}
                 {!addingWall && selectedPartition && (
                   <>
-                    <button onClick={addPartitionDoor}>+ Door</button>
                     <button onClick={removePartition}>Remove wall</button>
                   </>
+                )}
+                {!addingWall && (
+                  <details className="cc-add-menu">
+                    <summary>+ Add opening</summary>
+                    <div>
+                      {[
+                        ...DOOR_TYPES.map(([doorType, label]) => ({
+                          kind: 'door' as const,
+                          doorType,
+                          label,
+                        })),
+                        {
+                          kind: 'window' as const,
+                          doorType: undefined,
+                          label: 'Window',
+                        },
+                        {
+                          kind: 'opening' as const,
+                          doorType: undefined,
+                          label: 'Doorless opening',
+                        },
+                      ].map(({kind, doorType, label}) => (
+                        <button
+                          key={doorType ?? kind}
+                          onClick={(event) => {
+                            update((d) => {
+                              const id = makeId();
+                              d.openings.push(
+                                automaticallyPlaceOpening(
+                                  {
+                                    id,
+                                    kind,
+                                    doorType,
+                                    wall: selectedWall,
+                                    offset: doorType === 'pocket' ? 30 : 12,
+                                    width:
+                                      kind === 'opening'
+                                        ? 96
+                                        : kind === 'door'
+                                          ? doorType === 'double-swing' ||
+                                            doorType === 'sliding-glass' ||
+                                            doorType === 'sliding-closet'
+                                            ? 72
+                                            : 30
+                                          : 42,
+                                    height: kind === 'window' ? 38 : 80,
+                                    sill: 42,
+                                  },
+                                  d,
+                                  {wall: selectedWall},
+                                ),
+                              );
+                              d.selected = id;
+                            });
+                            if (roomControls.current)
+                              roomControls.current.open = true;
+                            event.currentTarget
+                              .closest('details')
+                              ?.removeAttribute('open');
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
                 )}
                 <span role="status">
                   {addingWall
                     ? 'Move over the room · click to place · Esc to cancel'
                     : selectedPartition
                       ? 'Drag wall to move · drag square ends to shorten or connect'
-                      : 'Select a wall on the plan to edit it'}
+                      : `Drag the selected ${roomWall(study.room, selectedWall).label} wall to move it, or add a recess or alcove`}
                 </span>
               </div>
+              {outlineError && (
+                <p role="alert" className="cc-inline-warning">
+                  {outlineError}
+                </p>
+              )}
               {selectedPartition &&
                 warnings.get(selectedPartition.id)?.map((message) => (
                   <p className="cc-inline-warning" key={message}>
@@ -2897,59 +2905,57 @@ export function CabinetConfigurator({
                       x2={pad + s.b.x * scale}
                       y2={pad + s.b.z * scale}
                     />
-                    {(editingRoom ||
-                      study.room.partitions?.some((p) => p.id === s.id)) && (
-                      <>
-                        <line
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Edit ${s.label}, ${Math.round(s.length)} inches`}
-                          x1={pad + s.a.x * scale}
-                          y1={pad + s.a.z * scale}
-                          x2={pad + s.b.x * scale}
-                          y2={pad + s.b.z * scale}
-                          stroke={
-                            selectedWall === s.id ? '#b57d45' : 'transparent'
-                          }
-                          strokeWidth="14"
-                          strokeOpacity="0.5"
-                          style={{
-                            cursor: s.horizontal ? 'ns-resize' : 'ew-resize',
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') setSelectedWall(s.id);
-                          }}
-                          onPointerDown={(e) => {
-                            if (e.button !== 0) return;
-                            e.stopPropagation();
-                            e.currentTarget.setPointerCapture(e.pointerId);
-                            setStudy((c) => ({...c, selected: null}));
-                            setSelectedWall(s.id);
-                            setHistory((h) => [...h.slice(-29), clone(study)]);
-                            const screenScale =
-                              e.currentTarget.ownerSVGElement!.getScreenCTM()
-                                ?.a ?? 1;
-                            roomDrag.current = {
-                              study: clone(study),
-                              id: s.id,
-                              pointer: s.horizontal ? e.clientY : e.clientX,
-                              position: s.horizontal ? s.z : s.x,
-                              scale: scale * screenScale,
-                              horizontal: s.horizontal,
-                            };
-                          }}
-                        />
-                        <text
-                          pointerEvents="none"
-                          x={pad + ((s.a.x + s.b.x) / 2) * scale + s.nx * 14}
-                          y={pad + ((s.a.z + s.b.z) / 2) * scale + s.nz * 14}
-                          fontSize="10"
-                          textAnchor="middle"
-                        >
-                          {Math.round(s.length)}″
-                        </text>
-                      </>
-                    )}
+                    <>
+                      <line
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Edit ${s.label}, ${Math.round(s.length)} inches`}
+                        x1={pad + s.a.x * scale}
+                        y1={pad + s.a.z * scale}
+                        x2={pad + s.b.x * scale}
+                        y2={pad + s.b.z * scale}
+                        stroke={
+                          selectedWall === s.id ? '#b57d45' : 'transparent'
+                        }
+                        strokeWidth="14"
+                        strokeOpacity="0.5"
+                        style={{
+                          cursor: s.horizontal ? 'ns-resize' : 'ew-resize',
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') setSelectedWall(s.id);
+                        }}
+                        onPointerDown={(e) => {
+                          if (e.button !== 0) return;
+                          e.stopPropagation();
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                          setStudy((c) => ({...c, selected: null}));
+                          setSelectedWall(s.id);
+                          setOutlineError('');
+                          setHistory((h) => [...h.slice(-29), clone(study)]);
+                          const screenScale =
+                            e.currentTarget.ownerSVGElement!.getScreenCTM()
+                              ?.a ?? 1;
+                          roomDrag.current = {
+                            study: clone(study),
+                            id: s.id,
+                            pointer: s.horizontal ? e.clientY : e.clientX,
+                            position: s.horizontal ? s.z : s.x,
+                            scale: scale * screenScale,
+                            horizontal: s.horizontal,
+                          };
+                        }}
+                      />
+                      <text
+                        pointerEvents="none"
+                        x={pad + ((s.a.x + s.b.x) / 2) * scale + s.nx * 14}
+                        y={pad + ((s.a.z + s.b.z) / 2) * scale + s.nz * 14}
+                        fontSize="10"
+                        textAnchor="middle"
+                      >
+                        {Math.round(s.length)}″
+                      </text>
+                    </>
                   </g>
                 ))}
                 {study.openings.map((o) => {
