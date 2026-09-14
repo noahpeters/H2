@@ -16,14 +16,18 @@ vi.mock('./CabinetConfigurator', async (original) => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-test('reads three examples without creating or modifying rooms and offers four starting links', async () => {
+test('reads four examples without creating or modifying rooms and offers five starting links', async () => {
   const fetcher = vi
     .fn()
     .mockResolvedValue({ok: true, json: async () => ({study: blankStudy()})});
   vi.stubGlobal('fetch', fetcher);
   render(<CabinetStartSheet />);
-  await waitFor(() => expect(screen.getAllByTestId('preview')).toHaveLength(4));
-  expect(fetcher).toHaveBeenCalledTimes(3);
+  await waitFor(() => expect(screen.getAllByTestId('preview')).toHaveLength(5));
+  expect(fetcher).toHaveBeenCalledTimes(4);
+  expect(screen.getAllByRole('link', {name: /^Start here:/})[0]).toHaveAttribute(
+    'href',
+    '/cabinet-configurator?design=7fb2aaf356daa31b5fabc3cf4a6a4471',
+  );
   STARTER_DESIGNS.forEach(({slug, title}) => {
     expect(fetcher).toHaveBeenCalledWith(
       `/api/cabinet-rooms?slug=${slug}`,

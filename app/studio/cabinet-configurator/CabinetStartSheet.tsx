@@ -8,9 +8,10 @@ import {
 import {roomRequest} from './useSavedRooms';
 
 export const STARTER_DESIGNS = [
-  {slug: 'c1ffb4a1ae48f831b2c0c0096f88d606', title: 'Example one'},
-  {slug: 'cb6ffbf973edae6b7bdaea75f704219e', title: 'Example two'},
-  {slug: 'e0e91340643e5575b73ee6f8a6ba9771', title: 'Example three'},
+  {slug: '7fb2aaf356daa31b5fabc3cf4a6a4471', title: 'Example one'},
+  {slug: 'c1ffb4a1ae48f831b2c0c0096f88d606', title: 'Example two'},
+  {slug: 'cb6ffbf973edae6b7bdaea75f704219e', title: 'Example three'},
+  {slug: 'e0e91340643e5575b73ee6f8a6ba9771', title: 'Example four'},
 ];
 
 function StarterCard({slug, title}: {slug?: string; title: string}) {
