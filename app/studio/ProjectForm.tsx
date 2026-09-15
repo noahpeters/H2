@@ -1,3 +1,4 @@
+import type {ChangeEvent} from 'react';
 import {Form, useFetcher, useNavigation} from 'react-router';
 import {ProjectVerification} from './ProjectVerification';
 
@@ -10,6 +11,8 @@ export function ProjectForm({
   formError,
   configuratorSource,
   inPlace = false,
+  values,
+  onValuesChange,
 }: {
   turnstileSiteKey: string;
   project?: string;
@@ -19,6 +22,8 @@ export function ProjectForm({
   formError?: string;
   configuratorSource?: 'table' | 'cabinet';
   inPlace?: boolean;
+  values?: Record<string, string>;
+  onValuesChange?: (field: string, value: string) => void;
 }) {
   const fetcher = useFetcher<{
     ok: boolean;
@@ -44,6 +49,18 @@ export function ProjectForm({
         {currentFieldErrors[field]}
       </span>
     ) : null;
+  // Only inquiry landing pages opt into shared, controlled field values.
+  const field = (name: string, initial = '') =>
+    values && onValuesChange
+      ? {
+          value: values[name] ?? initial,
+          onChange: (
+            event: ChangeEvent<
+              HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+            >,
+          ) => onValuesChange(name, event.currentTarget.value),
+        }
+      : {defaultValue: initial};
   const contents = (
     <>
       <input type="hidden" name="submissionId" value={submissionId} />
@@ -68,21 +85,36 @@ export function ProjectForm({
       <div className="project-form-grid">
         <label>
           Name
-          <input name="name" autoComplete="name" required />
+          <input name="name" {...field('name')} autoComplete="name" required />
           {error('name')}
         </label>
         <label>
           Email
-          <input name="email" type="email" autoComplete="email" required />
+          <input
+            name="email"
+            {...field('email')}
+            type="email"
+            autoComplete="email"
+            required
+          />
           {error('email')}
         </label>
         <label>
           Phone <span aria-hidden="true">(optional)</span>
-          <input name="phone" type="tel" autoComplete="tel" />
+          <input
+            name="phone"
+            {...field('phone')}
+            type="tel"
+            autoComplete="tel"
+          />
         </label>
         <label>
           Project type
-          <select name="projectType" required defaultValue={defaultProjectType}>
+          <select
+            name="projectType"
+            required
+            {...field('projectType', defaultProjectType)}
+          >
             <option value="" disabled>
               Select one
             </option>
@@ -99,6 +131,7 @@ export function ProjectForm({
           Project location
           <input
             name="location"
+            {...field('location')}
             autoComplete="postal-code"
             placeholder="City or ZIP code"
             required
@@ -107,7 +140,7 @@ export function ProjectForm({
         </label>
         <label>
           Approximate timeline <span aria-hidden="true">(optional)</span>
-          <select name="timeline" defaultValue="">
+          <select name="timeline" {...field('timeline')}>
             <option value="">Not sure yet</option>
             <option>As soon as practical</option>
             <option>Within 3 months</option>
@@ -120,12 +153,13 @@ export function ProjectForm({
           General budget range <span aria-hidden="true">(optional)</span>
           <input
             name="budget"
+            {...field('budget')}
             placeholder="A range is helpful, but not required"
           />
         </label>
         <label className="form-wide">
           Tell us about your project
-          <textarea name="message" defaultValue={project} required />
+          <textarea name="message" {...field('message', project)} required />
           {error('message')}
         </label>
       </div>

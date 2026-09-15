@@ -81,19 +81,19 @@
 .ad-page figure {
   margin: 0;
 }
-.ad-hero figure {
+.ad-hero-image figure {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.ad-hero figure img {
+.ad-hero-image figure img {
   height: 100%;
   min-height: 0;
   max-height: 800px;
   object-fit: cover;
   flex: 1;
 }
-.ad-designers .ad-hero figure img {
+.ad-designers .ad-hero-image figure img {
   object-fit: contain;
   background: #e9e3d6;
 }
@@ -228,7 +228,7 @@
     font-size: 48px;
     margin: 25px 0;
   }
-  .ad-hero figure img {
+  .ad-hero-image figure img {
     height: auto;
     max-height: 580px;
     flex: none;
@@ -254,4 +254,146 @@
   html {
     scroll-behavior: auto;
   }
+}
+
+/* The primary form stays beside the story on desktop and precedes it on mobile. */
+.ad-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr);
+  align-items: start;
+}
+.ad-hero {
+  grid-column: 1;
+  grid-row: 1;
+  display: block;
+  min-height: 0;
+}
+.ad-hero-copy {
+  padding: 48px 4vw;
+}
+.ad-page h1 {
+  font-size: clamp(42px, 4.5vw, 72px);
+  margin: 20px 0;
+}
+.ad-intro {
+  margin-bottom: 20px;
+}
+.ad-story {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+.ad-hero-image img {
+  width: 100%;
+}
+.ad-detail,
+.ad-process {
+  grid-template-columns: 1fr;
+  padding: 48px 4vw;
+  gap: 28px;
+}
+.ad-inquiry-primary {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  display: block;
+  padding: 24px 32px;
+  scroll-margin-top: 16px;
+}
+.ad-inquiry-primary h2 {
+  font-size: 32px;
+  margin: 10px 0;
+}
+.ad-inquiry-primary > div > p {
+  max-width: none;
+  margin: 0 0 12px;
+}
+.ad-inquiry-primary .project-form {
+  padding-top: 16px;
+}
+.ad-inquiry-primary .project-form-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+.ad-inquiry-primary .project-form input,
+.ad-inquiry-primary .project-form select,
+.ad-inquiry-primary .project-form textarea {
+  margin-top: 5px;
+  padding: 10px 0;
+  font-size: 16px;
+}
+.ad-inquiry-primary .project-form textarea {
+  min-height: 80px;
+}
+.ad-inquiry-primary .turnstile-wrap {
+  margin: 16px 0;
+}
+.ad-inquiry-repeat {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .ad-layout {
+    display: block;
+  }
+  .ad-hero-copy {
+    padding: 30px 6vw;
+  }
+  .ad-page h1 {
+    font-size: clamp(36px, 8vw, 54px);
+    margin: 16px 0;
+  }
+  .ad-intro {
+    font-size: 16px;
+    margin: 0;
+    max-width: 600px;
+  }
+  .ad-hero .ad-button {
+    display: none;
+  }
+  .ad-inquiry-primary {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding: 30px 6vw 40px;
+  }
+  .ad-inquiry-repeat {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 40px 6vw;
+    gap: 24px;
+  }
+  .ad-inquiry-repeat .ad-next {
+    margin: 18px 0;
+  }
+  .ad-page .project-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ad-page .project-form .form-wide {
+    grid-column: 1 / -1;
+  }
+  .ad-page .project-form input,
+  .ad-page .project-form select,
+  .ad-page .project-form textarea {
+    font-size: 16px;
+  }
+}
+@media (max-width: 480px) {
+  .ad-page .project-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ad-story-next {
+  max-width: none;
+  margin: 0;
+  padding: 40px 4vw;
+}
+.ad-story-next h2 {
+  font-size: 28px;
+}
+.ad-story-next a {
+  text-decoration: underline;
 }
