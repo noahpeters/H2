@@ -1,3 +1,4 @@
+import type {Overlay} from '../overlay';
 import type {CabinetPart, CustomUnitDefinition} from './model';
 
 type Opening = NonNullable<CabinetPart['drawerArray']>['opening'];
@@ -9,6 +10,7 @@ export function drawerBounds(
   unit: CustomUnitDefinition,
   opening: Opening,
   face: Face,
+  behavior: Overlay = 'full-overlay',
 ) {
   const r = unit.reveal;
   const overlay = (
@@ -50,11 +52,13 @@ export function drawerBounds(
           'height',
         )
       : [0, 0];
+  const coverage =
+    behavior === 'inset' ? 0 : behavior === 'partial-overlay' ? 0.5 : 1;
   return {
-    x: opening.x - left + r,
-    y: opening.y - bottom + r,
-    width: opening.width + left + right - 2 * r,
-    height: opening.height + bottom + top - 2 * r,
+    x: opening.x - left * coverage + r,
+    y: opening.y - bottom * coverage + r,
+    width: opening.width + (left + right) * coverage - 2 * r,
+    height: opening.height + (bottom + top) * coverage - 2 * r,
   };
 }
 

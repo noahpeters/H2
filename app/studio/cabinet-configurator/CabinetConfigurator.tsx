@@ -1,3 +1,4 @@
+import {migrateFrontStyles, roomOverlay, type Overlay} from './overlay';
 import {
   CABINET_CATEGORIES,
   cabinetTypes,
@@ -203,7 +204,14 @@ export function blankStudy(): Study {
 function initialStudy(): Study {
   return {
     version: 2,
-    room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
+    room: {
+      overlay: 'full-overlay',
+      width: 144,
+      depth: 120,
+      height: 96,
+      floor: 'oak',
+      walls: 'plaster',
+    },
     openings: [
       {
         id: 'starter-front-opening',
@@ -295,6 +303,7 @@ export function referenceRoomStudy(): Study {
   return {
     version: 2,
     room: {
+      overlay: 'full-overlay',
       width: 300,
       depth: 240,
       height: 144,
@@ -414,7 +423,7 @@ function clone<T>(value: T): T {
 export function migrateStudy(raw: unknown): Study {
   const fallback = initialStudy();
   if (!raw || typeof raw !== 'object') return fallback;
-  const value = raw as Partial<Study> & {
+  const value = migrateFrontStyles(raw) as Partial<Study> & {
     cabinets?: Parameters<typeof migrateElement>[0][];
     appliances?: Array<{
       id: string;
@@ -458,7 +467,11 @@ export function migrateStudy(raw: unknown): Study {
     ...value,
     version: 2,
     view: 'split',
-    room: {...fallback.room, ...value.room},
+    room: {
+      ...fallback.room,
+      ...value.room,
+      overlay: roomOverlay(value.room?.overlay),
+    },
     elements: [...elements, ...migratedAppliances],
     configurations: value.configurations?.map((configuration) => {
       const source = elements.find(
@@ -1545,6 +1558,22 @@ export function CabinetConfigurator({
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
+              <label>
+                Front overlay
+                <select
+                  value={study.room.overlay ?? 'full-overlay'}
+                  onChange={(event) => {
+                    const overlay = event.currentTarget.value as Overlay;
+                    update((d) => {
+                      d.room.overlay = overlay;
+                    });
+                  }}
+                >
+                  <option value="full-overlay">Full-overlay</option>
+                  <option value="partial-overlay">Partial-overlay</option>
+                  <option value="inset">Inset</option>
+                </select>
+              </label>
               <fieldset>
                 <legend>Base and tall cabinet toe kicks</legend>
                 {(['height', 'setback'] as const).map((field) => (
@@ -2192,9 +2221,6 @@ export function CabinetConfigurator({
                         }}
                       >
                         <option value="shaker">Shaker</option>
-                        <option value="inset-shaker">
-                          Inset shaker with face frame
-                        </option>
                         <option value="slab">Slab</option>
                         <option value="vertical-slat">
                           Vertical slat panel

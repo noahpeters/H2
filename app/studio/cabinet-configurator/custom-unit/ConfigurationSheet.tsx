@@ -14,7 +14,7 @@ export function ConfigurationSheet({
   onClose,
 }: {
   item: RoomElement;
-  room?: Pick<Room, 'toeKick'>;
+  room?: Pick<Room, 'toeKick' | 'overlay'>;
   onSave: (
     definition: CustomUnitDefinition,
     sink: SinkAttachment | null,
@@ -95,6 +95,7 @@ export function ConfigurationSheet({
           lockEnvelope
           initialAppearance={{
             face: item.face,
+            overlay: room?.overlay,
             material: item.material ?? 'rift-white-oak',
             paintColor: item.paintColor,
           }}

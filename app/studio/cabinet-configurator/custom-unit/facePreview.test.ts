@@ -72,7 +72,7 @@ it('honors saved part styles over the cabinet appearance and round trips them', 
   const rendered = customUnitGeometry(
     unit,
     {},
-    {face: 'inset-shaker', material: 'walnut'},
+    {face: 'shaker', material: 'walnut'},
   );
   const door = rendered.children[0].children[0] as THREE.Mesh;
   const drawer = rendered.children[1].children[0] as THREE.Mesh;

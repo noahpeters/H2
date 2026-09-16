@@ -1,3 +1,5 @@
+import {roomFrontParts} from './frontLayout';
+import {migrateFrontStyles} from '../overlay';
 import {expandDrawerArray} from './drawerArrays';
 import {facePreviewGeometry, type CabinetAppearance} from './facePreview';
 import {cabinetColor} from '../materials';
@@ -201,9 +203,15 @@ export function customUnitGeometry(
   openings: Record<string, number> = {},
   appearance?: CabinetAppearance,
 ): THREE.Group {
+  definition = migrateFrontStyles(definition);
+  const layout = customUnitLayoutParts(definition) as CabinetPart[];
+  const parts = roomFrontParts(
+    {...definition, parts: layout},
+    appearance?.overlay ?? 'full-overlay',
+  );
   const group = new THREE.Group();
   group.name = `custom-unit:${definition.id}`;
-  for (const part of customUnitParts(definition)) {
+  for (const part of parts) {
     const followsProfile =
       part.profileMode !== 'independent' &&
       Boolean(definition.profile || definition.curve);

@@ -2,7 +2,7 @@ import {act, renderHook, waitFor, cleanup} from '@testing-library/react';
 import {useState} from 'react';
 import {beforeEach, afterEach, describe, it, expect, vi} from 'vitest';
 import {useSavedRooms} from './useSavedRooms';
-import type {Study} from './CabinetConfigurator';
+import {migrateStudy, type Study} from './CabinetConfigurator';
 const sample = (): Study => ({
   version: 2,
   room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
@@ -13,21 +13,28 @@ const sample = (): Study => ({
   countertop: true,
   view: 'split',
 });
-function useHarness() {
+function useHarness(migrate: (study: Study) => Study = (s) => s) {
   const [study, setStudy] = useState(sample);
   return {
     study,
     setStudy,
-    ...useSavedRooms(
-      study,
-      setStudy,
-      sample,
-      (s) => s,
-      () => {},
-    ),
+    ...useSavedRooms(study, setStudy, sample, migrate, () => {}),
   };
 }
 describe('saved room lifecycle', () => {
+  it('migrates recovery drafts when switching rooms through History', async () => {
+    const {result} = renderHook(() => useHarness(migrateStudy));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    const original = result.current.recent[0];
+    await act(async () => {
+      await result.current.switchRoom('new');
+    });
+    await act(async () => {
+      await result.current.switchRoom({...original, draft: sample()});
+    });
+    expect(result.current.study.room.overlay).toBe('full-overlay');
+  });
+
   it('restores the most recent owned room on a clean-URL reload without creating a copy', async () => {
     const first = renderHook(useHarness);
     await waitFor(() => expect(first.result.current.ready).toBe(true));

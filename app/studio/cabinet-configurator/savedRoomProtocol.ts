@@ -1,3 +1,4 @@
+import {OVERLAY_OPTIONS} from './overlay';
 import {validSink, canAttachSink} from './sinkAttachments';
 import {FIXTURE_CATALOG} from './fixtures';
 import {configurationCategory} from './custom-unit/designConfigurations';
@@ -89,6 +90,11 @@ export function validStudy(value: any): boolean {
           p.length < 6 ||
           !['horizontal', 'vertical'].includes(p.orientation),
       ))
+  )
+    return false;
+  if (
+    value.room.overlay !== undefined &&
+    !OVERLAY_OPTIONS.includes(value.room.overlay)
   )
     return false;
   const walls = roomSegments(value.room).map((s) => s.id);
