@@ -1,3 +1,4 @@
+import {migrateFrontStyles} from './overlay';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validStorage, type OpenStorage} from './openStorage';
 import type {RoomElement, Room} from './model';
@@ -48,7 +49,6 @@ const faces: RoomElement['face'][] = [
   'shaker',
   'slab',
   'shaker-glass',
-  'inset-shaker',
   'vertical-slat',
 ];
 const baseConfigurations = [
@@ -205,7 +205,7 @@ export function loadCreationPreferences(
       (parsed as CreationPreferences).scopes &&
       typeof (parsed as CreationPreferences).scopes === 'object'
     )
-      return parsed as CreationPreferences;
+      return migrateFrontStyles(parsed) as CreationPreferences;
   } catch {
     // Invalid or unavailable browser storage simply restores catalog defaults.
   }

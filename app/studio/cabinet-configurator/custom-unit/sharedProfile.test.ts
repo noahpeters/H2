@@ -61,7 +61,12 @@ describe('shared cabinet profile', () => {
     expect(frontEdge(meshes[0])).toEqual(frontEdge(meshes[2]));
     expect(frontEdge(meshes[0]).get(48)).toBeCloseTo(12);
     expect(frontEdge(meshes[3]).get(48)).toBeCloseTo(12);
-    expect(frontEdge(meshes[4]).get(48)).toBeCloseTo(11.25);
+    const front = frontEdge(meshes[4]);
+    const right = Math.max(...front.keys());
+    expect(right).toBeCloseTo(48 - unit.reveal);
+    expect(front.get(right)).toBeCloseTo(
+      cabinetProfilePoint(unit, parts[4], right, -0.75)[1],
+    );
   });
   it('keeps independent front setbacks, thickness, and shelf rear edges', () => {
     const shelf = {...parts[2], z: 0.5, depth: 22.75};

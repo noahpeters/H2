@@ -1,3 +1,4 @@
+import {migrateFrontStyles} from '../overlay';
 import {customUnitBounds} from './geometry';
 import {validateCustomUnit, type CustomUnitDefinition} from './model';
 
@@ -61,7 +62,7 @@ export function customCabinetElement(
     customCabinet: {
       libraryId: item.id,
       libraryVersion: item.version,
-      definition: structuredClone(item.definition),
+      definition: migrateFrontStyles(structuredClone(item.definition)),
     },
     placement: {
       mode: 'wall' as const,

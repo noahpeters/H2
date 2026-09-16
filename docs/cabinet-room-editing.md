@@ -51,3 +51,12 @@ older named-wall records. Release the frontend and room-service validator togeth
 Openings and islands have no sidebar object lists. Select either directly on the
 plan to show its dimensions and settings in Selected Object. Create island
 zones with **+ Island zone** under Add to room.
+
+
+## Room front overlay
+
+Room → Front overlay applies to every exterior cabinet door and drawer, including custom configurations and their workshop preview. New rooms and rooms without an overlay setting use `full-overlay`; `partial-overlay` exposes more of the supporting frame, and `inset` places fronts inside the opening, flush with the carcass front. Internal drawers and tambour mechanisms retain their operating clearances.
+
+Front style is independent: shaker, slab, slatted, and eligible glass fronts can use any room overlay. Legacy `inset-shaker` values become `shaker` when loading rooms, reusable configurations, imported definitions, or creation preferences. The old per-front face frame is intentionally discarded. Existing version-2 rooms remain readable; new saves persist `room.overlay`. Unknown explicit overlay settings fail saved-room validation.
+
+Custom composition dimensions remain canonical. The renderer derives exterior front bounds from their openings and supporting boards: full coverage, half coverage, or no coverage, followed by the definition's reveal. Door and drawer edges share this calculation. Room changes do not rewrite library templates, drawer proportions, or the cabinet envelope.

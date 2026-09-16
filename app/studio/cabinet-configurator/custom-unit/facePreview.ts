@@ -1,8 +1,10 @@
+import type {Overlay} from '../overlay';
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type {RoomElement} from '../model';
 import type {CabinetMaterial, CabinetPaint} from '../materials';
 export type CabinetAppearance = {
+  overlay?: Overlay;
   face: RoomElement['face'];
   material: CabinetMaterial;
   paintColor?: CabinetPaint;
@@ -10,7 +12,6 @@ export type CabinetAppearance = {
 export const FACE_STYLES = {
   slab: 'Slab',
   shaker: 'Shaker',
-  'inset-shaker': 'Inset shaker',
   'vertical-slat': 'Slatted',
   'shaker-glass': 'Shaker + glass',
 } as const;
@@ -54,12 +55,6 @@ export function facePreviewGeometry(
       box(width - rail * 2, rail, depth, 0, (side * (height - rail)) / 2, z);
     }
   };
-  if (style === 'inset-shaker') {
-    const rail = Math.min(1.5, w / 8, h / 8);
-    frame(w, h, rail, d, 0);
-    w -= 2 * rail + Math.min(0.25, w / 20);
-    h -= 2 * rail + Math.min(0.25, h / 20);
-  }
   if (style === 'vertical-slat') {
     box(w, h, d / 2, 0, 0, d / 4);
     const count = Math.max(2, Math.ceil(w / 2));

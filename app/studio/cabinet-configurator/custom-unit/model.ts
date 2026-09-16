@@ -1,3 +1,4 @@
+import {migrateFrontStyles} from '../overlay';
 import {drawerArrayErrors} from './drawerArrays';
 import type {DoorMechanism} from './doorGeometry';
 import type {CabinetCurve} from './curves';
@@ -41,12 +42,7 @@ export type CabinetPart = {
   id: string;
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
   name?: string;
-  faceStyle?:
-    | 'slab'
-    | 'shaker'
-    | 'inset-shaker'
-    | 'vertical-slat'
-    | 'shaker-glass';
+  faceStyle?: 'slab' | 'shaker' | 'vertical-slat' | 'shaker-glass';
   door?: {
     mechanism: DoorMechanism;
     side: 'left' | 'right';
@@ -180,7 +176,7 @@ export function deserializeCustomUnit(value: string): CustomUnitDefinition {
   const parsed: unknown = JSON.parse(value);
   const errors = validateCustomUnit(parsed);
   if (errors.length) throw new Error(errors.join('\n'));
-  return parsed as CustomUnitDefinition;
+  return migrateFrontStyles(parsed) as CustomUnitDefinition;
 }
 
 function validateNode(node: unknown, path: string, errors: string[]) {

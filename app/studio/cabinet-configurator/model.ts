@@ -1,3 +1,4 @@
+import {migrateFrontStyles, type Overlay} from './overlay';
 import {sinkAttachment, sinkFits} from './sinkAttachments';
 import type {CabinetMaterial, CabinetPaint} from './materials';
 import {
@@ -104,7 +105,7 @@ export type RoomElement = {
   width: number;
   depth: number;
   height: number;
-  face: 'shaker' | 'slab' | 'shaker-glass' | 'inset-shaker' | 'vertical-slat';
+  face: 'shaker' | 'slab' | 'shaker-glass' | 'vertical-slat';
   hinge?: 'left' | 'right';
   applianceFront?: ApplianceFront;
   rangeHood?: boolean;
@@ -211,6 +212,7 @@ export type Island = {
   seatingSide: SeatingSide;
 };
 export type Room = {
+  overlay?: Overlay;
   toeKick?: {height: number; setback: number};
   outline?: RoomPoint[];
   partitions?: Partition[];
@@ -236,6 +238,7 @@ export function snapAngle(value: number) {
 export function migrateElement(
   value: RoomElement | LegacyCabinet,
 ): RoomElement {
+  value = migrateFrontStyles(value);
   if ('placement' in value)
     return {
       ...value,

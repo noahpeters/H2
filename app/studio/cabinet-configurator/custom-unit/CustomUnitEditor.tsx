@@ -1,3 +1,4 @@
+import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
   drawerBounds,
@@ -105,7 +106,7 @@ export function CustomUnitEditor({
   onChange?: (definition: CustomUnitDefinition) => void;
 }) {
   const [definition, setDefinition] = useState(() =>
-    withDrawerArrays(initialDefinition),
+    withDrawerArrays(migrateFrontStyles(initialDefinition)),
   );
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'3d' | 'front' | 'side' | 'top'>('3d');

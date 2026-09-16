@@ -51,7 +51,7 @@ describe('four wall room geometry', () => {
     'places upper door handles near the bottom for %s cabinets',
     (tallConfiguration) => {
       for (const width of [30, 36])
-        for (const face of ['shaker', 'slab', 'inset-shaker'] as const) {
+        for (const face of ['shaker', 'slab'] as const) {
           const group = cabinetGeometry(
             {...base, kind: 'tall', height: 84, width, face, tallConfiguration},
             false,
@@ -84,8 +84,10 @@ describe('four wall room geometry', () => {
     (kind) => {
       for (const width of [30, 36]) {
         const group = cabinetGeometry(
-          {...base, kind, width, face: 'inset-shaker'},
+          {...base, kind, width, face: 'shaker'},
           false,
+          false,
+          {...room, overlay: 'inset'},
         );
         group.updateMatrixWorld(true);
         const frames = group.children.filter(

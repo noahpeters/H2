@@ -101,7 +101,7 @@ export function cabinetGeometry(
   item: RoomElement,
   countertop: boolean,
   sharedCountertop = false,
-  room?: Pick<Room, 'toeKick'>,
+  room?: Pick<Room, 'toeKick' | 'overlay'>,
 ) {
   if (item.customCabinet) {
     const toe = cabinetToeKick(item, room);
@@ -113,6 +113,7 @@ export function cabinetGeometry(
       {},
       {
         face: item.face,
+        overlay: room?.overlay,
         material: item.material ?? 'rift-white-oak',
         paintColor: item.paintColor,
       },
@@ -230,10 +231,12 @@ export function cabinetGeometry(
     y: number,
     drawer: boolean,
   ) => {
-    const inset = item.face === 'inset-shaker';
+    const inset = room?.overlay === 'inset';
+    const partial = room?.overlay === 'partial-overlay';
     const faceZ = inset ? d / 2 - 0.375 : d / 2;
-    if (inset) {
-      const frame = Math.min(1.5, width / 6, height / 6);
+    if (inset || partial) {
+      const frame = Math.min(1.5, width / 6);
+      const horizontalFrame = Math.min(1.5, height / 6);
       for (const side of [-1, 1]) {
         box(
           group,
@@ -242,23 +245,23 @@ export function cabinetGeometry(
           0.75,
           x + (side * (width - frame)) / 2,
           y,
-          faceZ,
+          d / 2 - 0.375,
           wood,
         ).name = 'cabinet-face-frame';
         box(
           group,
           width - 2 * frame,
-          frame,
+          horizontalFrame,
           0.75,
           x,
-          y + (side * (height - frame)) / 2,
-          faceZ,
+          y + (side * (height - horizontalFrame)) / 2,
+          d / 2 - 0.375,
           wood,
         ).name = 'cabinet-face-frame';
       }
       // One-eighth-inch reveal around each door or drawer, inside the frame.
-      width -= 2 * frame + 0.25;
-      height -= 2 * frame + 0.25;
+      width -= (inset ? 2 : 1) * frame + 0.25;
+      height -= (inset ? 2 : 1) * horizontalFrame + 0.25;
     }
     const glass = item.face === 'shaker-glass' && item.kind === 'wall-cabinet';
     const frontPanel = box(
@@ -295,7 +298,7 @@ export function cabinetGeometry(
           dark,
         ).name = 'vertical-slat-groove';
     }
-    if (item.face === 'shaker' || inset || glass) {
+    if (item.face === 'shaker' || glass) {
       const rail = Math.min(2, width / 5, height / 4);
       for (const side of [-1, 1]) {
         box(

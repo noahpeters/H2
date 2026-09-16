@@ -1,3 +1,4 @@
+import {migrateFrontStyles} from '../overlay';
 import {reflowDrawerArrays} from './drawerArrayEditing';
 import {refitDrawerArray} from './drawerArrays';
 import {cabinetCompositionEnvelope} from '../cabinetEnvelope';
@@ -42,7 +43,7 @@ export function fitDefinition(
   source: CustomUnitDefinition,
   envelope: Pick<RoomElement, 'width' | 'height' | 'depth'>,
 ): CustomUnitDefinition {
-  const result = structuredClone(source);
+  const result = migrateFrontStyles(structuredClone(source));
   for (const [field, axis] of [
     ['width', 'x'],
     ['height', 'y'],
