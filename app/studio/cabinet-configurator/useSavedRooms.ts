@@ -275,8 +275,8 @@ export function useSavedRooms(
         if (draft) {
           // Retain the draft's original revision so a stale local draft cannot overwrite a newer tab.
           active.current!.revision = mode.revision;
-          latest.current = draft;
-          callbacks.current.setStudy(draft);
+          latest.current = callbacks.current.migrate(draft);
+          callbacks.current.setStudy(latest.current);
         }
       }
     } catch (e) {
