@@ -20,6 +20,7 @@ import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import stylexStyles from '~/styles/stylex.css?url';
 import {PageLayout} from './components/PageLayout';
+import {StudioNotFound} from './studio/StudioNotFound';
 import {useEffect} from 'react';
 import {MetaPixel} from '~/components/MetaPixel';
 
@@ -325,6 +326,9 @@ function isStudioOwnedPath(pathname: string) {
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 404) {
+    return <StudioNotFound />;
+  }
   let errorMessage = 'Unknown error';
   let errorStatus = 500;
 
