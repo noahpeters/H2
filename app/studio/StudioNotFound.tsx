@@ -39,14 +39,14 @@ export function StudioNotFound() {
         </section>
         <figure className="not-found-image">
           <img
-            src="/studio/images/studio-cabinetry.webp"
-            alt="Custom From Trees cabinetry, thoughtfully fitted to a California home"
-            width="1000"
-            height="1200"
+            src="/studio/images/off-trail-dog.png"
+            alt="A golden retriever in a green bandana pauses at a winding trail beside a delightfully unhelpful signpost"
+            width="1254"
+            height="1254"
           />
           <figcaption>
-            <span className="eyebrow">A place for everything.</span>
-            <span>Even a fresh start.</span>
+            <span className="eyebrow">Good things ahead.</span>
+            <span>Let’s find your way home.</span>
           </figcaption>
         </figure>
         <nav className="not-found-explore" aria-label="Explore From Trees">
