@@ -3,6 +3,7 @@ import type {Route} from './+types/[sitemap.custom.xml]';
 export const CANONICAL_ORIGIN = 'https://from-trees.com';
 
 export const CORE_SITEMAP_PATHS = [
+  '/cutting-boards',
   '/',
   '/about',
   '/contact',

@@ -24,9 +24,11 @@ function StudioCartLink() {
 export function StudioHeader({
   links,
   home = false,
+  showConsultation = true,
 }: {
   links: StudioHeaderLink[];
   home?: boolean;
+  showConsultation?: boolean;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuId = useId();
@@ -104,13 +106,15 @@ export function StudioHeader({
             {link.label}
           </Link>
         ))}
-        <a
-          className="studio-consultation-link"
-          href={CONSULTATION_URL}
-          onClick={closeMobileMenu}
-        >
-          Book A Free Home Consultation
-        </a>
+        {showConsultation ? (
+          <a
+            className="studio-consultation-link"
+            href={CONSULTATION_URL}
+            onClick={closeMobileMenu}
+          >
+            Book A Free Home Consultation
+          </a>
+        ) : null}
         {rootData?.cart ? (
           <Suspense fallback={null}>
             <Await resolve={rootData.cart}>
