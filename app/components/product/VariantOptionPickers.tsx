@@ -14,11 +14,15 @@ import {buildUrlWithParams, getUrlOrigin} from '~/lib/url';
 
 const SIZE_OPTION_NAME = 'seating capacity';
 
-function normalizeOptionUrl(to: string | null | undefined, origin: string) {
+export function normalizeOptionUrl(
+  to: string | null | undefined,
+  origin: string,
+  basePath?: string,
+) {
   if (!to) return undefined;
   const url = new URL(to, origin);
   return buildUrlWithParams({
-    basePath: url.pathname,
+    basePath: basePath ?? url.pathname,
     origin,
     params: url.searchParams,
   });
@@ -26,12 +30,14 @@ function normalizeOptionUrl(to: string | null | undefined, origin: string) {
 
 type VariantOptionPickersProps = {
   product: ProductFragment;
+  basePath?: string;
   presentationMap?: Record<string, OptionPresentation>;
 };
 
 export function VariantOptionPickers({
   product,
   presentationMap,
+  basePath,
 }: VariantOptionPickersProps) {
   const origin = getUrlOrigin();
 
@@ -54,6 +60,7 @@ export function VariantOptionPickers({
               option={option}
               presentationMap={presentationMap}
               origin={origin}
+              basePath={basePath}
             />
           );
         }
@@ -63,7 +70,7 @@ export function VariantOptionPickers({
           selected: value.isActive,
           available: value.isAvailable,
           disabled: !value.isAvailable,
-          to: normalizeOptionUrl(value.to, origin),
+          to: normalizeOptionUrl(value.to, origin, basePath),
           exists: true,
           swatch: value.optionValue?.swatch as OptionPickerValue['swatch'],
         }));
@@ -94,10 +101,12 @@ function SizeOptionPicker({
   option,
   presentationMap,
   origin,
+  basePath,
 }: {
   option: VariantOption;
   presentationMap?: Record<string, OptionPresentation>;
   origin: string;
+  basePath?: string;
 }) {
   const parsedEntries = option.values
     .map((value) => {
@@ -113,7 +122,7 @@ function SizeOptionPicker({
       selected: value.isActive,
       available: value.isAvailable,
       disabled: !value.isAvailable,
-      to: normalizeOptionUrl(value.to, origin),
+      to: normalizeOptionUrl(value.to, origin, basePath),
       exists: true,
       swatch: value.optionValue?.swatch as OptionPickerValue['swatch'],
     }));
@@ -129,9 +138,7 @@ function SizeOptionPicker({
 
   const baseOrder: string[] = [];
   const baseSet = new Set<string>();
-  const valueMap = new Map(
-    option.values.map((value) => [value.value, value]),
-  );
+  const valueMap = new Map(option.values.map((value) => [value.value, value]));
 
   for (const entry of parsedEntries) {
     if (!baseSet.has(entry.base)) {
@@ -191,7 +198,7 @@ function SizeOptionPicker({
       selected: selectedBase === base,
       available: hasAvailable,
       disabled: !hasAvailable,
-      to: normalizeOptionUrl(targetValue?.to, origin),
+      to: normalizeOptionUrl(targetValue?.to, origin, basePath),
       exists: hasAny,
       swatch: getBaseSwatch(base) as OptionPickerValue['swatch'],
     };
@@ -208,9 +215,10 @@ function SizeOptionPicker({
           selected: selectedExt ? selectedExt === ext : ext === 'none',
           available: targetValue?.isAvailable ?? false,
           disabled: !targetValue?.isAvailable,
-          to: normalizeOptionUrl(targetValue?.to, origin),
+          to: normalizeOptionUrl(targetValue?.to, origin, basePath),
           exists,
-          swatch: targetValue?.optionValue?.swatch as OptionPickerValue['swatch'],
+          swatch: targetValue?.optionValue
+            ?.swatch as OptionPickerValue['swatch'],
         };
       })
     : [];

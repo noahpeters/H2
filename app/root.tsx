@@ -240,7 +240,9 @@ export default function App() {
   const hasCheckoutDomain = Boolean(data?.consent?.checkoutDomain);
   const studioOwned = isStudioOwnedPath(location.pathname);
   const needsStudioPageLayout =
-    location.pathname.startsWith('/products/') || location.pathname === '/cart';
+    location.pathname.startsWith('/products/') ||
+    location.pathname === '/cutting-boards' ||
+    location.pathname === '/cart';
 
   if (!data) {
     return <Outlet />;
@@ -309,6 +311,7 @@ function isStudioOwnedPath(pathname: string) {
     pathname === '/cabinet-configurator/custom-unit' ||
     pathname === '/admin/custom-cabinets' ||
     pathname === '/collections/all' ||
+    pathname === '/cutting-boards' ||
     pathname.startsWith('/products/') ||
     pathname === '/cart' ||
     pathname === '/policies' ||
