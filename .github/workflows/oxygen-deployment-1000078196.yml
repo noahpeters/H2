@@ -8,8 +8,14 @@ permissions:
 jobs:
   validate:
     uses: ./.github/workflows/ci.yml
-  deploy:
+  intake-service:
     needs: validate
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/cabinet-rooms.yml
+    secrets: inherit
+  deploy:
+    needs: [validate, intake-service]
+    if: ${{ always() && needs.validate.result == 'success' && (needs.intake-service.result == 'success' || needs.intake-service.result == 'skipped') }}
     name: Deploy to Oxygen
     timeout-minutes: 30
     runs-on: ubuntu-latest

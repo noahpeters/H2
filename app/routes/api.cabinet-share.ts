@@ -1,3 +1,4 @@
+import {acceptIntake, cabinetIntake} from '~/lib/intake/intake.server';
 import type {ActionFunctionArgs} from 'react-router';
 import {Resend} from 'resend';
 import {
@@ -76,6 +77,7 @@ export async function action({request, context}: ActionFunctionArgs) {
       );
     if (!data.shareSlug || !/^[a-f0-9]{32}$/.test(data.shareSlug))
       throw new Error('Invalid share response');
+    await acceptIntake(cabinetIntake(body, request, 'share'), env);
     const link = `${url.origin}/cabinet-configurator?design=${data.shareSlug}`;
     const escape = (s: string) =>
       s.replace(

@@ -1,5 +1,6 @@
-import type {ChangeEvent} from 'react';
-import {Form, useFetcher, useNavigation} from 'react-router';
+import {useRef, type ChangeEvent} from 'react';
+import {MARKETING_DISCLOSURE} from '~/lib/intake/protocol';
+import {Form, useFetcher, useNavigation, useLocation} from 'react-router';
 import {ProjectVerification} from './ProjectVerification';
 
 export function ProjectForm({
@@ -25,12 +26,15 @@ export function ProjectForm({
   values?: Record<string, string>;
   onValuesChange?: (field: string, value: string) => void;
 }) {
+  // Keep fetcher and submission identities stable across loader revalidation.
+  const stableId = useRef(submissionId);
   const fetcher = useFetcher<{
     ok: boolean;
     fieldErrors?: Record<string, string>;
     formError?: string;
-  }>();
+  }>({key: `project-${stableId.current}`});
   const navigation = useNavigation();
+  const location = useLocation();
   const response = inPlace ? fetcher.data : undefined;
   const busy = inPlace ? fetcher.state !== 'idle' : navigation.state !== 'idle';
   if (inPlace && response?.ok)
@@ -63,7 +67,11 @@ export function ProjectForm({
       : {defaultValue: initial};
   const contents = (
     <>
-      <input type="hidden" name="submissionId" value={submissionId} />
+      <input type="hidden" name="submissionId" value={stableId.current} />
+      <input type="hidden" name="sourceQuery" value={location.search} />
+      {configuratorSource && (
+        <input type="hidden" name="studySummary" value={project} />
+      )}
       {configuratorSource ? (
         <input
           type="hidden"
@@ -85,12 +93,19 @@ export function ProjectForm({
       <div className="project-form-grid">
         <label>
           Name
-          <input name="name" {...field('name')} autoComplete="name" required />
+          <input
+            maxLength={2000}
+            name="name"
+            {...field('name')}
+            autoComplete="name"
+            required
+          />
           {error('name')}
         </label>
         <label>
           Email
           <input
+            maxLength={254}
             name="email"
             {...field('email')}
             type="email"
@@ -159,10 +174,34 @@ export function ProjectForm({
         </label>
         <label className="form-wide">
           Tell us about your project
-          <textarea name="message" {...field('message', project)} required />
+          <textarea
+            maxLength={10000}
+            name="message"
+            {...field('message', project)}
+            required
+          />
           {error('message')}
         </label>
       </div>
+      <label className="marketing-consent">
+        <input
+          type="checkbox"
+          name="marketingConsent"
+          value="granted"
+          {...(values && onValuesChange
+            ? {
+                checked: values.marketingConsent === 'granted',
+                onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                  onValuesChange(
+                    'marketingConsent',
+                    event.currentTarget.checked ? 'granted' : 'not_provided',
+                  ),
+              }
+            : {})}
+        />
+        <span>{MARKETING_DISCLOSURE}</span>
+      </label>
+      {error('submissionId')}
       <div className="turnstile-wrap">
         <ProjectVerification
           siteKey={turnstileSiteKey}

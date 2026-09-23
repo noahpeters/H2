@@ -1,3 +1,4 @@
+import {UTM_KEYS} from '~/lib/intake/protocol';
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
@@ -174,7 +175,10 @@ export default function Configurator({turnstileSiteKey = ""}: {turnstileSiteKey?
       ? [shape, timber.slug, String(diameter), edge, baseUrlSlug(selectedBase.slug), chair]
       : [shape, timber.slug, String(length), String(width), edge, baseUrlSlug(selectedBase.slug), chair];
     const overrides = featureOverrideSuffix(new URLSearchParams(window.location.search));
-    window.history.replaceState(null, "", `/configurator?${parts.join("--")}${overrides}`);
+    const query = new URLSearchParams(window.location.search);
+    const utm = new URLSearchParams();
+    UTM_KEYS.forEach((key) => { const value = query.get(key); if (value) utm.set(key, value.slice(0, 200)); });
+    window.history.replaceState(null, "", `/configurator?${parts.join("--")}${overrides}${utm.size ? `&${utm}` : ''}`);
   }, [urlReady, shape, timber.slug, diameter, length, width, edge, selectedBase.slug, chair]);
 
   const chairName = chairs.find((item) => item.slug === chair)?.name ?? "None";

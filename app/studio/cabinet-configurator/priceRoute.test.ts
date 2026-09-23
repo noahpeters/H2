@@ -56,7 +56,13 @@ it('allows opt-out pricing, strips phone and forwards only after challenge succe
         action: 'cabinet-price',
       }),
     )
-    .mockResolvedValueOnce(Response.json({range: {low: 5500, high: 6500}}));
+    .mockResolvedValueOnce(Response.json({range: {low: 5500, high: 6500}}))
+    .mockResolvedValueOnce(
+      Response.json(
+        {accepted: true, submissionId: body.requestId},
+        {status: 202},
+      ),
+    );
   vi.stubGlobal('fetch', fetcher);
   const response = await call();
   expect(response.status).toBe(200);
