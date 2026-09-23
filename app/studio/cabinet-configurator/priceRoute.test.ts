@@ -24,6 +24,7 @@ function call(data: unknown = body, origin = 'https://from-trees.com') {
         CABINET_ROOMS_URL: 'https://rooms.test',
         CABINET_ROOMS_TOKEN: 'secret',
         TURNSTILE_SECRET_KEY: 'challenge-secret',
+        RESEND_API_KEY: 'test',
       },
     },
   } as any);
@@ -59,8 +60,8 @@ it('allows opt-out pricing, strips phone and forwards only after challenge succe
     .mockResolvedValueOnce(Response.json({range: {low: 5500, high: 6500}}))
     .mockResolvedValueOnce(
       Response.json(
-        {accepted: true, submissionId: body.requestId},
-        {status: 202},
+        {object: 'event', event: 'inquiry.received'},
+        {status: 200},
       ),
     );
   vi.stubGlobal('fetch', fetcher);

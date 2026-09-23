@@ -1,6 +1,7 @@
 name: Cabinet rooms API
 on:
-  workflow_call:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

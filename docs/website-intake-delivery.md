@@ -1,235 +1,70 @@
 # Website inquiry delivery
 
-H2 accepts a generic intake through its authenticated Cloudflare service and durably
-stores it in D1 before reporting success. Each immutable event has independent Resend
-and ftops delivery rows. The existing worker runs a one-minute scheduled drain, calling the authenticated
-Oxygen `/api/intake-delivery` route using its existing service token. Resend and ftops
-credentials remain exclusively in Oxygen. Independent failures
-in either destination cannot erase the inquiry or prevent the other delivery.
+All public intake routes send directly from Oxygen, using the existing Oxygen
+`RESEND_API_KEY`, `FTOPS_INTAKE_URL`, and `FTOPS_INTAKE_TOKEN` settings. There is no
+Cloudflare intake-service call, durable queue, callback, or automatic retry in the
+submission path. The existing cabinet service remains responsible for cabinet designs,
+sharing and pricing only.
 
-## Contracts
+## Behavior
 
-The ftops contract was inspected in noahpeters/ftops PR #11 at
-`da4174af4cbf56da45da4d0a2a672f5cea852225`, particularly
-`apps/api/src/routes/websiteIntake.ts` and `docs/website-intake.md`.
-PR #11 was confirmed merged at 2026-09-23 06:10:35 UTC. Per the requested rollout
-assumption, ftops deployment precedes this H2 release.
+1. Validate the form and Turnstile.
+2. Send one `inquiry.received` event directly to Resend from Oxygen. The top-level
+   email is the customer's email. A rejected or invalid Resend receipt returns a form error.
+3. After Resend accepts, attempt ftops once with a two-second timeout. A missing
+   setting, failed request or invalid receipt logs `ftops_intake_failed` with the
+   submission ID and a sanitized reason. It does not fail the form submission.
 
-- `POST /website-intake/:integrationId`, `Authorization: Bearer <intakeToken>`.
-- H2 sends `externalEventId` equal to its submission/request ID. ftops resolves the
-  tenant from its integration credential; H2 sends no workspace, customer or contact ID,
-  and never calls CRM CRUD endpoints.
-- Only fields permitted by the strict ftops schema are sent. The schema has no UTM,
-  configurator, disclosure-text or extensible metadata field. These values are preserved
-  losslessly in its **message string as a JSON envelope** (`format: h2-inquiry-v1`),
-  together with the original message and structured details. ftops does not automatically
-  index these as first-class metadata columns. No schema extension is assumed.
-- ftops consent is `granted` or `not_provided`, with disclosure version and the original
-  server capture time. H2 never interprets an unchecked control as `revoked`.
-- Unknown/unchecked marketing controls never change an existing preference.
+No provider keys are copied to GitHub or the cabinet worker. Fetch uses Oxygen-supported
+`redirect: manual`; redirects are not followed. The submission ID is used for both
+provider idempotency keys and ftops `externalEventId`. Resend Events does not document
+an exactly-once guarantee; there is no application queue or automatic replay.
 
-Resend uses the documented REST Events API, `POST https://api.resend.com/events/send`.
-The installed SDK predates this API, so the adapter uses worker-compatible `fetch` rather
-than upgrading unrelated email behavior. Event: `inquiry.received`; top-level email:
-**the sender/customer**. The payload has the 19 agreed flat fields plus `customer_email`, because the live
-configured internal-notification template binds `event.customer_email`. The customer
-address remains the top-level `email` too.
-See https://resend.com/docs/api-reference/events/send-event.
-The Resend Automation owns acknowledgement and internal inquiry-notification emails.
+## Contracts and consent
 
-## Covered surfaces
+Uses the strict contract inspected in merged ftops PR #11:
+`POST /website-intake/:integrationId`, `Authorization: Bearer <intakeToken>`.
+H2 sends no authoritative workspace ID and never calls customer CRUD APIs. The strict
+ftops schema has no extensible source metadata field, so source kind, configurator,
+UTM values, disclosure text and structured details are preserved in its message as a
+JSON envelope with `format: h2-inquiry-v1`, alongside the original customer message.
 
-| Surface | Action | source_path | source_kind | configurator_source |
-| --- | --- | --- | --- | --- |
-| General contact | `/contact` | `/contact` | `contact` | empty |
-| Furniture landing, both placements | `/inquire/furniture` | same | `furniture` | empty |
-| Cabinetry landing, both placements | `/inquire/cabinetry` | same | `cabinetry` | empty |
-| Designer landing, both placements | `/inquire/designers` | same | `designers` | empty |
-| Table study dialog | `/contact` | `/configurator` | `table_study` | `table` |
-| Cabinet study dialog | `/contact` | `/cabinet-configurator` | `cabinet_study` | `cabinet` |
-| Cabinet price request | `/api/cabinet-price` | `/cabinet-configurator` | `cabinet_price` | `cabinet` |
-| Cabinet share sender | `/api/cabinet-share` | `/cabinet-configurator` | `cabinet_share` | `cabinet` |
+The Resend payload contains all 19 agreed flat fields plus `customer_email`, which
+the configured internal-notification template references. Marketing consent is
+optional and initially unchecked. It sends `granted` or `not_provided`, never revocation,
+with `website-inquiry-v1` and captured timestamp. Cabinet project-contact permission
+remains separate; sharing recipients are not added as leads. The separate design
+invitation email remains unchanged.
 
-Every actual intake form has optional, initially unchecked marketing consent, with the
-same disclosure text and `website-inquiry-v1` version. The two landing placements share
-consent state. The cabinet project-contact checkbox remains a separate permission;
-phone is forwarded only when that permission is granted. The disclosure now explains
-that the request itself is retained regardless of optional follow-up/marketing choices.
-The sharing recipient is never enrolled or added to ftops. The existing idempotent
-`emails.send()` invitation to that recipient remains; it is not the removed internal
-inquiry notification.
+## Covered submission paths
 
-Study summaries are retained independently of the editable message. Cabinet pricing
-and sharing retain a design reference/revision, not private edit credentials. Room
-snapshots/price-request records remain in the existing H2 room service; the intake
-contract does not transfer a complete cabinet CAD document to ftops.
+- `/contact`: general inquiry.
+- `/inquire/furniture`, `/inquire/cabinetry`, `/inquire/designers`: both form placements.
+- `/configurator`: table study dialog.
+- `/cabinet-configurator`: cabinet study dialog.
+- `/api/cabinet-price`: cabinet pricing sender intake.
+- `/api/cabinet-share`: cabinet sharing sender intake.
 
-## Idempotency, failure isolation and limits
+All call the shared Oxygen `acceptIntake` adapter. General inquiries and study dialogs
+no longer require cabinet-service credentials. Actual cabinet saving/pricing/sharing
+retains its pre-existing cabinet-service dependency.
 
-The event insert and both delivery rows are one atomic D1 statement via a trigger.
-Identical retries reuse the original server timestamp, payload and states. Key order
-is canonicalized for comparison. A changed payload with the same ID returns 409;
-reload/reopen the form to begin a genuinely new inquiry. Forms keep their ID during
-loader revalidation. Completed delivery rows are never automatically resent.
+## Deployment and validation
 
-ftops network failures, 429 and 5xx responses retry with exponential delay, capped at
-one hour, without an automatic attempt limit. The exact original payload is reused.
-A 4xx contract/auth/conflict failure goes to `review`. Crashed ftops sends recover
-from a two-minute lease and safely repeat using ftops's documented idempotency.
+The storefront deployment depends only on its normal validation job. It does not
+wait for the separate cabinet worker deployment or read provider secrets from GitHub.
+Every required test must be executable and pass before merge is attempted. Do not
+introduce tests or readiness gates that run only during deployment.
 
-**Resend Events does not document idempotency guarantees.** The adapter supplies an
-`Idempotency-Key`, but correctness does not assume it is honored. Durable atomic claims
-prevent concurrent/known duplicates. Explicit 429 rejections retry. Ambiguous timeouts,
-network failures, interrupted sends and other rejected/invalid receipts go to `review`
-rather than risk sending a second acknowledgement. This is an explicit limitation:
-exactly-once external side effects cannot be guaranteed after an ambiguous provider
-response without provider deduplication. The full inquiry remains safely stored and
-ftops proceeds independently. Operators must reconcile these cases with Resend logs.
+Run `npm run verify` and the local browser harness `node scripts/intake-e2e/server.mjs`.
+The harness uses actual forms/actions, provider test doubles and a local cabinet worker
+for cabinet-specific functions. It never loads production secrets. `/__failure` can
+simulate ftops failure; accepted submissions must still show success.
 
-A missing downstream credential leaves delivery pending and logs `not_configured`.
-A failed D1 acceptance returns a form error, never a false success. A customer may see
-success while delivery is pending; success means **received durably**, not delivered
-into an email inbox. Normal dispatch starts on the next one-minute tick.
+## Superseded outbox
 
-Evidence that exceeds ftops's 16,000-character message or 64-KiB request limit is
-rejected before acceptance; nothing is silently truncated. User messages are limited
-to 10,000 characters to leave space for metadata. Source UTM values retain the existing
-200-character bounds.
-
-## Required deployment configuration
-
-| Location | Setting | Purpose |
-| --- | --- | --- |
-| Oxygen server environment | `CABINET_ROOMS_URL` | Existing H2 worker origin, now serving `/intake` too |
-| Oxygen server secret | `CABINET_ROOMS_TOKEN` | Existing H2-to-worker integration credential |
-| Oxygen | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Existing form verification |
-| Oxygen | `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` | Still needed for design-sharing invitations |
-| Oxygen runtime secret | `RESEND_API_KEY` | Existing Events API key for the configured automation |
-| Oxygen runtime setting | `FTOPS_INTAKE_URL` | Exact HTTPS URL ending `/website-intake/<provisioned integration ID>` |
-| Oxygen runtime secret | `FTOPS_INTAKE_TOKEN` | ftops website integration's `intakeToken` |
-| GitHub/worker | Existing Cloudflare account/token, database ID and `CABINET_ROOMS_TOKEN` | Unchanged service deployment requirements |
-
-GitHub Actions does not read, validate or upload the three provider settings. The
-worker calls `INTAKE_DELIVERY_URL` (a non-secret URL configured in wrangler.jsonc) with
-its existing `SERVICE_TOKEN`, matching Oxygen's `CABINET_ROOMS_TOKEN`. The provider
-keys are never sent to the worker or stored in the outbox. Oxygen performs only the
-claimed provider request; the worker retains all idempotency and retry decisions. The ftops URL and credential must be provisioned through ftops's website
-integration setup; the selector is not a workspace ID. Edge access must admit this
-server call to the exact intake route. Redirects are rejected to prevent credential
-forwarding and avoid treating a login page as a receipt.
-
-The production Oxygen workflow now calls the cabinet-service deployment first. That
-workflow applies migration `0009_intake_outbox.sql` and deploys the worker/cron before
-Oxygen publishes the new forms. Provider settings and Resend automation status are not
-GitHub deployment prerequisites. Verify delivery runtime configuration and the intended
-internal/customer recipient routing separately. Branch previews do not deploy the production worker; to test them
-before merge, point Oxygen preview settings at a separately prepared test worker.
-No infrastructure or credentials are provisioned merely by opening the PR.
-
-`CONTACT_TO_EMAIL` is no longer needed for inquiry handling. Keep old Oxygen secrets
-through the rollback window. Do not automatically fall back to direct notification
-email on an uncertain event result: it can duplicate messages.
-
-## Operations and rollback
-
-Worker observability is enabled. `intake_delivery_failed` records only submission ID,
-destination, reason and review status; it does not log contact details or credentials.
-Each drain logs `intake_delivery_review_required` when held rows exist. Review these
-logs and the outbox; no alert destination is configured by this PR.
-
-Read backlog with authenticated Cloudflare administrative access:
-
-```sql
-SELECT event_id,destination,state,attempts,next_attempt,last_error,receipt
-FROM intake_deliveries WHERE state != 'sent' ORDER BY next_attempt;
-```
-
-After correcting a rejected ftops credential/schema issue, reset its reviewed row to
-`pending` with `next_attempt=0`, keeping the event ID/payload. For Resend, first inspect
-provider logs/automation runs using `submission_id`: mark the row `sent` if accepted,
-or reset to `pending` only when confirmed not accepted. Do not blindly replay unknown
-outcomes. Stored inquiries and delivery state survive a worker restart.
-
-Rollback the storefront to the previous release while leaving the additive migration
-and this worker running to drain accepted events. Do not drop the outbox or mass-replay
-rows. The previous storefront uses its retained direct-email secrets. New submissions
-during that rollback use the old behavior; forward integration resumes after restoring
-this release. Existing accepted events continue delivering from their original state.
-
-## Reproducible tests
-
-`npm run verify` runs the complete repository checks, including SQLite-backed tests
-that traverse the real route actions, authenticated service, atomic inserts and both
-provider adapters. All eight paths are exercised with `granted` and `not_provided`,
-then retried with the same ID. Additional cases cover concurrent drains, conflicts,
-crashed leases, lost ftops responses, ftops failure after Resend acceptance, Resend 429,
-ambiguous Resend acceptance, invalid input, missing authorization and failed storage.
-
-For browser testing on Node 22+:
-
-```sh
-node scripts/intake-e2e/server.mjs
-```
-
-Open `http://127.0.0.1:4179`. The harness renders the real routes/components and calls
-real server actions and the real room/intake worker using a freshly migrated in-memory
-SQLite database. Only Turnstile and external providers are doubled. It loads no `.env`,
-binds loopback only, and rejects unknown server outbound requests. `GET /__drain` runs
-the scheduled dispatcher; `/__status` exposes test-only receipts; `/__failure?destination=ftops`
-or `resend` simulates an outage (empty destination clears it). Restarting clears all
-local test records. These helpers are not in the deployed app or worker.
-
-Live Resend automation execution, live ftops authentication/edge access and
-production D1/cron remain deployment smoke tests. Local fixtures are not claimed to be
-production provider records. No production email or CRM record was created during this
-validation.
-
-## Live readiness check (2026-09-23 UTC)
-
-A read-only check using H2's existing Resend key confirmed event `inquiry.received`
-(`01a0ccc2-ecaf-775e-833b-7653bb586322`) has all agreed fields plus `customer_email`.
-The internal notification binds that extra field, so the H2 payload includes it.
-Both automations currently report **draining**, not enabled:
-
-- H2 — Internal inquiry notification: `01a0ccd1-74c7-71eb-9f7b-9221747970ee`.
-- H2 — Inquiry notification and acknowledgement: `01a0cc92-4e5c-721d-bad6-7c2f7b1ed25c`.
-
-Do not cut over until the intended automations are enabled and their customer/internal
-recipient routing is verified with controlled test data. No Resend configuration was
-changed and no live event was sent. Template execution/routing is not proven by the
-read-only schema check.
-
-H2 already has `RESEND_API_KEY` in its deployment environment; the existing key was
-successfully used for the read-only Resend check above. The inspected GitHub repository
-and `cabinet-rooms-production` setting lists did not list `RESEND_API_KEY`,
-`FTOPS_INTAKE_URL`, or `FTOPS_INTAKE_TOKEN`. This does **not** establish that these are
-absent from the deployed worker: its secret names could not be inspected because this
-session lacks Cloudflare authentication. Worker secret presence is **UNVERIFIED**.
-
-The deployment workflow no longer consumes or uploads these provider settings. The
-deploy-only Resend readiness script has been removed.
-
-The production worker now uses the authenticated Oxygen delivery route, so the
-existing Oxygen provider settings are sufficient. Direct worker-provider delivery
-remains available for isolated tests/other environments without a relay URL. Missing
-Oxygen provider configuration keeps that destination pending. During worker-first
-rollout, a 404/405 from the not-yet-deployed Oxygen route safely retries without marking
-Resend ambiguous. Unknown transport outcomes still follow the documented review policy.
-
-## Validation before merge
-
-Every required test must be executable and verified before merge is attempted. Do not
-introduce tests or readiness gates that can run only during deployment. Run repository
-checks on the pull request and perform any required live integration verification
-before requesting merge, using an appropriate existing runtime or test environment.
-If a required check cannot run, report it as a pre-merge blocker rather than defer it
-to deployment or claim validation is complete. Deployment applies the validated
-artifact and migrations; it must not introduce a new test gate after merge.
-
-## Production transport regression
-
-Oxygen rejects fetch `redirect: "error"` before making the request. Intake acceptance
-and provider delivery use `redirect: "manual"` and reject redirect responses; credentials
-are never forwarded to a redirect target. Regression tests cover these modes and both
-provider deliveries through the real Oxygen action with no provider secrets in the
-worker. A workerd runtime check also verifies successful acceptance and redirect rejection.
+The previous release introduced an intake outbox in the cabinet worker. Its historical
+tables and records are preserved rather than deleted during this emergency correction.
+The new Oxygen submission path does not read or write them. Previously queued entries
+must be reconciled separately; do not claim they were delivered merely because new
+submissions succeed. No data deletion or provider-secret provisioning is part of this fix.

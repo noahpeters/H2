@@ -58,8 +58,8 @@ describe('cabinet share email endpoint', () => {
         .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)}))
         .mockResolvedValueOnce(
           Response.json(
-            {accepted: true, submissionId: details.requestId},
-            {status: 202},
+            {object: 'event', event: 'inquiry.received'},
+            {status: 200},
           ),
         ),
     );
@@ -102,8 +102,8 @@ describe('cabinet share email endpoint', () => {
         .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)}))
         .mockResolvedValueOnce(
           Response.json(
-            {accepted: true, submissionId: details.requestId},
-            {status: 202},
+            {object: 'event', event: 'inquiry.received'},
+            {status: 200},
           ),
         ),
     );
