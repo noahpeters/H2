@@ -202,11 +202,20 @@ absent from the deployed worker: its secret names could not be inspected because
 session lacks Cloudflare authentication. Worker secret presence is **UNVERIFIED**.
 
 The deployment workflow no longer consumes or uploads these provider settings. The
-optional `scripts/check-resend-inquiry.mjs` check can be run manually in an environment
-that already has the key; it is not a release gate.
+deploy-only Resend readiness script has been removed.
 
 The current scheduled delivery implementation still reads provider settings from the
 Cloudflare worker runtime. Removing the GitHub check does not make Oxygen variables
 available to that worker. If the worker lacks them, inquiries remain durably pending
 and log `not_configured`; successful deployment alone does not prove delivery. No
 secrets were copied or changed as part of removing the deployment checks.
+
+## Validation before merge
+
+Every required test must be executable and verified before merge is attempted. Do not
+introduce tests or readiness gates that can run only during deployment. Run repository
+checks on the pull request and perform any required live integration verification
+before requesting merge, using an appropriate existing runtime or test environment.
+If a required check cannot run, report it as a pre-merge blocker rather than defer it
+to deployment or claim validation is complete. Deployment applies the validated
+artifact and migrations; it must not introduce a new test gate after merge.
