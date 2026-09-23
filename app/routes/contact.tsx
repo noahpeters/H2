@@ -133,11 +133,7 @@ export async function action({
   if (Object.keys(fieldErrors).length) return {ok: false, fieldErrors};
 
   const env = context.env as Env;
-  if (
-    !env.CABINET_ROOMS_URL ||
-    !env.CABINET_ROOMS_TOKEN ||
-    !env.TURNSTILE_SECRET_KEY
-  ) {
+  if (!env.RESEND_API_KEY || !env.TURNSTILE_SECRET_KEY) {
     console.error('Missing env vars for contact form');
     return {
       ok: false,
@@ -219,9 +215,7 @@ export async function action({
       ok: false,
       fieldErrors: {},
       formError:
-        error instanceof Error && error.message === 'intake_conflict'
-          ? 'This submission was already received with different details. Reload the page to start a new inquiry.'
-          : 'Something went wrong sending your project details. Please try again or email us directly.',
+        'Something went wrong sending your project details. Please try again or email us directly.',
     };
   }
 }

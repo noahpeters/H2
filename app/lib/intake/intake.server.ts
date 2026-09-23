@@ -1,41 +1,81 @@
 import {
   attribution,
+  resendEvent,
+  ftopsEvent,
+  type StoredIntake,
   MARKETING_DISCLOSURE,
   MARKETING_VERSION,
   type Intake,
 } from './protocol';
 export type IntakeEnv = {
-  CABINET_ROOMS_URL?: string;
-  CABINET_ROOMS_TOKEN?: string;
+  RESEND_API_KEY?: string;
+  FTOPS_INTAKE_URL?: string;
+  FTOPS_INTAKE_TOKEN?: string;
 };
-/** Acceptance means the complete immutable event is durably committed, not merely queued in memory. */
+/** Sends from Oxygen. Resend acceptance determines success; ftops is best effort. */
 export async function acceptIntake(intake: Intake, env: IntakeEnv) {
-  if (!env.CABINET_ROOMS_URL || !env.CABINET_ROOMS_TOKEN)
-    throw new Error('intake_not_configured');
-  const response = await fetch(new URL('/intake', env.CABINET_ROOMS_URL), {
+  if (!env.RESEND_API_KEY) throw new Error('resend_not_configured');
+  const event: StoredIntake = {
+    ...intake,
+    submittedAt: new Date().toISOString(),
+  };
+  const response = await fetch('https://api.resend.com/events/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.CABINET_ROOMS_TOKEN}`,
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Idempotency-Key': `inquiry-${intake.submissionId}`,
     },
-    body: JSON.stringify(intake),
-    signal: AbortSignal.timeout(20000),
+    body: JSON.stringify(resendEvent(event)),
+    signal: AbortSignal.timeout(10000),
     redirect: 'manual',
   });
-  // Oxygen supports manual/follow only. Reject before parsing an HTML redirect body.
-  if (response.status >= 300 && response.status < 400)
-    throw new Error(`intake_redirect_rejected:${response.status}`);
-  const receipt = (await response.json()) as {
-    accepted?: boolean;
-    submissionId?: string;
-  };
-  if (response.status === 409) throw new Error('intake_conflict');
-  if (
-    !response.ok ||
-    !receipt.accepted ||
-    receipt.submissionId !== intake.submissionId
-  )
-    throw new Error(`intake_not_accepted:${response.status}`);
+  if (!response.ok) throw new Error(`resend_not_accepted:${response.status}`);
+  const receipt = (await response.json()) as {object?: string; event?: string};
+  if (receipt.object !== 'event' || receipt.event !== 'inquiry.received')
+    throw new Error('resend_invalid_receipt');
+
+  // One bounded attempt, no queue and no automatic retry. Never undo Resend success.
+  try {
+    if (!env.FTOPS_INTAKE_URL || !env.FTOPS_INTAKE_TOKEN)
+      throw new Error('not_configured');
+    if (
+      !/^https:\/\/[^/?#]+\/website-intake\/[^/?#]+$/.test(env.FTOPS_INTAKE_URL)
+    )
+      throw new Error('invalid_endpoint');
+    const result = await fetch(env.FTOPS_INTAKE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${env.FTOPS_INTAKE_TOKEN}`,
+        'Idempotency-Key': `inquiry-${intake.submissionId}`,
+      },
+      body: JSON.stringify(ftopsEvent(event)),
+      signal: AbortSignal.timeout(2000),
+      redirect: 'manual',
+    });
+    if (!result.ok) throw new Error(`http_${result.status}`);
+    const received = (await result.json()) as {
+      submissionId?: string;
+      status?: string;
+    };
+    if (
+      !received.submissionId ||
+      !['linked', 'needs_review'].includes(received.status || '')
+    )
+      throw new Error('invalid_receipt');
+  } catch (error) {
+    console.error('ftops_intake_failed', {
+      submissionId: intake.submissionId,
+      reason:
+        error instanceof Error &&
+        /^(not_configured|invalid_endpoint|http_\d{3}|invalid_receipt)$/.test(
+          error.message,
+        )
+          ? error.message
+          : 'network_or_timeout',
+    });
+  }
 }
 export function cabinetIntake(
   body: {

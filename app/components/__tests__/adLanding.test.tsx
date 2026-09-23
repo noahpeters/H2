@@ -109,6 +109,7 @@ function args(overrides: Record<string, string> = {}) {
       env: {
         CABINET_ROOMS_URL: 'https://rooms.test',
         CABINET_ROOMS_TOKEN: 'test',
+        RESEND_API_KEY: 'test',
         CONTACT_TO_EMAIL: 'test@example.com',
         CONTACT_FROM_EMAIL: 'test@example.com',
         TURNSTILE_SECRET_KEY: 'test',

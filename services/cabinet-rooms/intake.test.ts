@@ -298,142 +298,135 @@ const paths = [
   '/api/cabinet-price',
   '/api/cabinet-share',
 ];
-describe.each(paths)(
-  'real route → durable service → provider adapters: %s',
-  (path) => {
-    it.each(['granted', 'not_provided'] as const)(
-      'accepts and delivers exactly one logical intake with %s consent, including retry',
-      async (consent) => {
-        const {env, events, intakes, db} = setup();
-        const context = {
-          env: {
-            CABINET_ROOMS_URL: 'https://rooms.test',
-            CABINET_ROOMS_TOKEN: 'test',
-            TURNSTILE_SECRET_KEY: 'test',
-            RESEND_API_KEY: 'test',
-            CONTACT_FROM_EMAIL: 'test@example.invalid',
-          },
-          session: {set: vi.fn()},
-        };
-        const query =
-          '?utm_source=test&utm_medium=e2e&utm_campaign=intake&utm_content=control&utm_term=table';
-        const args = () => {
-          if (path.startsWith('/api/'))
-            return {
-              request: new Request(`https://from-trees.com${path}`, {
-                method: 'POST',
-                headers: {
-                  Origin: 'https://from-trees.com',
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  requestId: sample.submissionId,
-                  senderName: sample.name,
-                  senderEmail: sample.email,
-                  senderPhone: '5555555555',
-                  recipientName: 'Test recipient',
-                  recipientEmail: 'recipient@example.invalid',
-                  consent: false,
-                  marketingConsent: consent,
-                  sourceQuery: query,
-                  slug: 'a'.repeat(32),
-                  editKey: 'NEVER_FORWARD',
-                  revision: 1,
-                  turnstileToken: path.endsWith('price')
-                    ? 'cabinet-price'
-                    : 'cabinet-share',
-                }),
-              }),
-              context,
-              params: {},
-            } as any;
-          const source =
-            path === '/configurator'
-              ? 'table'
-              : path === '/cabinet-configurator'
-                ? 'cabinet'
-                : '';
-          const form = new FormData();
-          Object.entries({
-            submissionId: sample.submissionId,
-            name: sample.name,
-            email: sample.email,
-            projectType: sample.projectType,
-            location: sample.location,
-            message: sample.message,
-            marketingConsent: consent,
-            configuratorSource: source,
-            sourceQuery: query,
-            studySummary: source ? 'Full original study' : '',
-            'cf-turnstile-response': 'test',
-          }).forEach(([k, v]) => form.set(k, v));
+describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
+  it.each(['granted', 'not_provided'] as const)(
+    'sends one event and intake with %s consent',
+    async (consent) => {
+      const {env, events, intakes} = setup();
+      const context = {
+        env: {
+          CABINET_ROOMS_URL: 'https://rooms.test',
+          CABINET_ROOMS_TOKEN: 'test',
+          TURNSTILE_SECRET_KEY: 'test',
+          RESEND_API_KEY: 'test',
+          FTOPS_INTAKE_URL: env.FTOPS_INTAKE_URL,
+          FTOPS_INTAKE_TOKEN: env.FTOPS_INTAKE_TOKEN,
+          CONTACT_FROM_EMAIL: 'test@example.invalid',
+        },
+        session: {set: vi.fn()},
+      };
+      const query =
+        '?utm_source=test&utm_medium=e2e&utm_campaign=intake&utm_content=control&utm_term=table';
+      const args = () => {
+        if (path.startsWith('/api/'))
           return {
-            request: new Request(
-              `https://from-trees.com${source ? '/contact' : path}${query}`,
-              {method: 'POST', body: form},
-            ),
+            request: new Request(`https://from-trees.com${path}`, {
+              method: 'POST',
+              headers: {
+                Origin: 'https://from-trees.com',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                requestId: sample.submissionId,
+                senderName: sample.name,
+                senderEmail: sample.email,
+                senderPhone: '5555555555',
+                recipientName: 'Test recipient',
+                recipientEmail: 'recipient@example.invalid',
+                consent: false,
+                marketingConsent: consent,
+                sourceQuery: query,
+                slug: 'a'.repeat(32),
+                editKey: 'NEVER_FORWARD',
+                revision: 1,
+                turnstileToken: path.endsWith('price')
+                  ? 'cabinet-price'
+                  : 'cabinet-share',
+              }),
+            }),
             context,
-            params: {kind: path.split('/').pop()},
+            params: {},
           } as any;
-        };
-        const route = path.endsWith('price')
-          ? price
-          : path.endsWith('share')
-            ? share
-            : path.startsWith('/inquire/')
-              ? inquiry
-              : contact;
-        for (let i = 0; i < 2; i++) {
-          const result = await route(args());
-          if (result instanceof Response)
-            expect(result.status).toBe(
-              path.startsWith('/inquire/') ? 303 : 200,
-            );
-          else expect(result).toMatchObject({ok: true});
-          await drainIntake(env as any);
-        }
-        expect(events).toHaveLength(1);
-        expect(intakes.size).toBe(1);
-        const event = events[0];
-        const intake = [...intakes.values()][0];
-        expect(event.email).toBe(sample.email);
-        expect(event.payload.submission_id).toBe(sample.submissionId);
-        expect(event.payload.marketing_email_consent).toBe(consent);
-        expect(event.payload.utm_source).toBe('test');
-        expect(event.payload.utm_content).toBe('control');
-        expect(intake.marketingConsent).toEqual({
-          state: consent,
-          disclosureVersion: MARKETING_VERSION,
-          capturedAt: event.payload.submitted_at,
-        });
-        expect(intake.externalEventId).toBe(sample.submissionId);
-        expect(Object.keys(intake).sort()).toEqual(
-          [
-            'externalEventId',
-            'email',
-            'name',
-            'phone',
-            'projectType',
-            'location',
-            'timeline',
-            'budget',
-            'sourcePath',
-            'message',
-            'marketingConsent',
-          ].sort(),
-        );
-        const metadata = JSON.parse(intake.message) as any;
-        expect(metadata.marketing_disclosure).toBe(MARKETING_DISCLOSURE);
-        expect(metadata.utm_term).toBe('table');
-        expect(JSON.stringify(intake)).not.toContain('NEVER_FORWARD');
-        expect(JSON.stringify(intake)).not.toContain(
-          'recipient@example.invalid',
-        );
-        expect(db.prepare('SELECT * FROM intake_events').all()).toHaveLength(1);
-      },
-    );
-  },
-);
+        const source =
+          path === '/configurator'
+            ? 'table'
+            : path === '/cabinet-configurator'
+              ? 'cabinet'
+              : '';
+        const form = new FormData();
+        Object.entries({
+          submissionId: sample.submissionId,
+          name: sample.name,
+          email: sample.email,
+          projectType: sample.projectType,
+          location: sample.location,
+          message: sample.message,
+          marketingConsent: consent,
+          configuratorSource: source,
+          sourceQuery: query,
+          studySummary: source ? 'Full original study' : '',
+          'cf-turnstile-response': 'test',
+        }).forEach(([k, v]) => form.set(k, v));
+        return {
+          request: new Request(
+            `https://from-trees.com${source ? '/contact' : path}${query}`,
+            {method: 'POST', body: form},
+          ),
+          context,
+          params: {kind: path.split('/').pop()},
+        } as any;
+      };
+      const route = path.endsWith('price')
+        ? price
+        : path.endsWith('share')
+          ? share
+          : path.startsWith('/inquire/')
+            ? inquiry
+            : contact;
+      for (let i = 0; i < 1; i++) {
+        const result = await route(args());
+        if (result instanceof Response)
+          expect(result.status).toBe(path.startsWith('/inquire/') ? 303 : 200);
+        else expect(result).toMatchObject({ok: true});
+      }
+      expect(events).toHaveLength(1);
+      expect(intakes.size).toBe(1);
+      const event = events[0];
+      const intake = [...intakes.values()][0];
+      expect(event.email).toBe(sample.email);
+      expect(event.payload.submission_id).toBe(sample.submissionId);
+      expect(event.payload.marketing_email_consent).toBe(consent);
+      expect(event.payload.utm_source).toBe('test');
+      expect(event.payload.utm_content).toBe('control');
+      expect(intake.marketingConsent).toEqual({
+        state: consent,
+        disclosureVersion: MARKETING_VERSION,
+        capturedAt: event.payload.submitted_at,
+      });
+      expect(intake.externalEventId).toBe(sample.submissionId);
+      expect(Object.keys(intake).sort()).toEqual(
+        [
+          'externalEventId',
+          'email',
+          'name',
+          'phone',
+          'projectType',
+          'location',
+          'timeline',
+          'budget',
+          'sourcePath',
+          'message',
+          'marketingConsent',
+        ].sort(),
+      );
+      const metadata = JSON.parse(intake.message) as any;
+      expect(metadata.marketing_disclosure).toBe(MARKETING_DISCLOSURE);
+      expect(metadata.utm_term).toBe('table');
+      expect(JSON.stringify(intake)).not.toContain('NEVER_FORWARD');
+      expect(JSON.stringify(intake)).not.toContain('recipient@example.invalid');
+    },
+  );
+});
 it('builds the agreed flat Resend fields plus the live template email binding and a compatible ftops envelope', () => {
   const stored = {...sample, submittedAt: '2026-09-22T10:00:00.000Z'};
   expect(Object.keys(resendEvent(stored).payload).sort()).toEqual(
@@ -446,24 +439,70 @@ it('builds the agreed flat Resend fields plus the live template email binding an
   );
 });
 
-describe('Oxygen intake transport', () => {
-  const env = {CABINET_ROOMS_URL: 'https://rooms.test', CABINET_ROOMS_TOKEN: 'test'};
-  it('uses Oxygen-compatible manual redirects and accepts a durable receipt', async () => {
-    const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
-      if (init?.redirect === 'error') throw new TypeError('Unsupported Oxygen redirect mode');
+describe('direct Oxygen intake delivery', () => {
+  it.each([401, 429, 500, 503, 302])(
+    'logs ftops %s without failing the accepted submission',
+    async (status) => {
+      const {env, fetcher, events} = setup();
+      const normal = fetcher.getMockImplementation()!;
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      fetcher.mockImplementation(async (url, init) =>
+        String(url) === env.FTOPS_INTAKE_URL
+          ? new Response('', {status})
+          : normal(url, init),
+      );
+      await expect(acceptIntake(sample, env)).resolves.toBeUndefined();
+      expect(events).toHaveLength(1);
+      expect(log).toHaveBeenCalledWith('ftops_intake_failed', {
+        submissionId: sample.submissionId,
+        reason: `http_${status}`,
+      });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    },
+  );
+  it('uses only Oxygen credentials and supported redirects, with stable provider idempotency keys', async () => {
+    const {env, fetcher, events, intakes} = setup();
+    await acceptIntake(sample, env);
+    expect(events).toHaveLength(1);
+    expect(intakes.size).toBe(1);
+    for (const [url, init] of fetcher.mock.calls) {
+      expect(String(url)).not.toContain('rooms.test');
       expect(init?.redirect).toBe('manual');
-      return Response.json({accepted: true, submissionId: sample.submissionId}, {status: 202});
+      expect(new Headers(init?.headers).get('Idempotency-Key')).toBe(
+        `inquiry-${sample.submissionId}`,
+      );
+    }
+  });
+  it('logs network failure and missing ftops settings without failing success', async () => {
+    const {env, fetcher} = setup();
+    const normal = fetcher.getMockImplementation()!;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fetcher.mockImplementation(async (url, init) => {
+      if (String(url) === env.FTOPS_INTAKE_URL) throw new Error('timeout');
+      return normal(url, init);
     });
-    vi.stubGlobal('fetch', fetcher);
     await expect(acceptIntake(sample, env)).resolves.toBeUndefined();
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    await expect(
+      acceptIntake(sample, {...env, FTOPS_INTAKE_TOKEN: undefined}),
+    ).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith('ftops_intake_failed', {
+      submissionId: sample.submissionId,
+      reason: 'network_or_timeout',
+    });
+    expect(log).toHaveBeenCalledWith('ftops_intake_failed', {
+      submissionId: sample.submissionId,
+      reason: 'not_configured',
+    });
   });
-  it.each([301, 302, 303, 307, 308])('rejects %s without forwarding credentials or parsing HTML', async (status) => {
-    const fetcher = vi.fn(async () => new Response('<html>redirect</html>', {
-      status, headers: {Location: 'https://other.test'},
-    }));
-    vi.stubGlobal('fetch', fetcher);
-    await expect(acceptIntake(sample, env)).rejects.toThrow(`intake_redirect_rejected:${status}`);
-    expect(fetcher).toHaveBeenCalledTimes(1);
-  });
+  it.each([302, 401, 429, 500])(
+    'rejects Resend %s and makes no ftops call',
+    async (status) => {
+      const {env, fetcher} = setup();
+      fetcher.mockImplementation(async () => new Response('', {status}));
+      await expect(acceptIntake(sample, env)).rejects.toThrow(
+        `resend_not_accepted:${status}`,
+      );
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    },
+  );
 });
