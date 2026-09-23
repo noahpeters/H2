@@ -102,22 +102,22 @@ to 10,000 characters to leave space for metadata. Source UTM values retain the e
 | Oxygen server secret | `CABINET_ROOMS_TOKEN` | Existing H2-to-worker integration credential |
 | Oxygen | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Existing form verification |
 | Oxygen | `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` | Still needed for design-sharing invitations |
-| GitHub `cabinet-rooms-production` secret | `RESEND_API_KEY` | Worker Events API key for the configured automation |
-| GitHub `cabinet-rooms-production` variable | `FTOPS_INTAKE_URL` | Exact HTTPS URL ending `/website-intake/<provisioned integration ID>` |
-| GitHub `cabinet-rooms-production` secret | `FTOPS_INTAKE_TOKEN` | ftops website integration's `intakeToken` |
+| Delivery worker runtime secret | `RESEND_API_KEY` | Worker Events API key for the configured automation |
+| Delivery worker runtime setting | `FTOPS_INTAKE_URL` | Exact HTTPS URL ending `/website-intake/<provisioned integration ID>` |
+| Delivery worker runtime secret | `FTOPS_INTAKE_TOKEN` | ftops website integration's `intakeToken` |
 | GitHub/worker | Existing Cloudflare account/token, database ID and `CABINET_ROOMS_TOKEN` | Unchanged service deployment requirements |
 
-The deployment action maps the three new provider settings to worker secrets with the
-same names. The ftops URL and credential must be provisioned through ftops's website
+GitHub Actions does not read, validate or upload the three provider settings. Existing
+worker secrets are managed separately from the deployment workflow. The ftops URL and credential must be provisioned through ftops's website
 integration setup; the selector is not a workspace ID. Edge access must admit this
 server call to the exact intake route. Redirects are rejected to prevent credential
 forwarding and avoid treating a login page as a receipt.
 
 The production Oxygen workflow now calls the cabinet-service deployment first. That
-workflow verifies provider settings and an enabled `inquiry.received` automation, applies migration `0009_intake_outbox.sql`, and
-deploys the worker/cron before Oxygen publishes the new forms. Missing settings or no enabled matching automation block
-production cutover. This read-only guard does not replace testing the intended
-internal/customer recipient routing. Branch previews do not deploy the production worker; to test them
+workflow applies migration `0009_intake_outbox.sql` and deploys the worker/cron before
+Oxygen publishes the new forms. Provider settings and Resend automation status are not
+GitHub deployment prerequisites. Verify delivery runtime configuration and the intended
+internal/customer recipient routing separately. Branch previews do not deploy the production worker; to test them
 before merge, point Oxygen preview settings at a separately prepared test worker.
 No infrastructure or credentials are provisioned merely by opening the PR.
 
@@ -201,9 +201,21 @@ and `cabinet-rooms-production` setting lists did not list `RESEND_API_KEY`,
 absent from the deployed worker: its secret names could not be inspected because this
 session lacks Cloudflare authentication. Worker secret presence is **UNVERIFIED**.
 
-This PR's worker deployment and read-only readiness guard consume these settings from
-the GitHub `cabinet-rooms-production` environment (repository secrets are also inherited).
-Ensure that deployment job can access them before merging; an existing Oxygen secret
-is not automatically available to a separate GitHub job or Cloudflare worker. No keys
-were changed. Live ftops access could not be tested without an available integration
-endpoint/credential.
+The deployment workflow no longer consumes or uploads these provider settings. The
+deploy-only Resend readiness script has been removed.
+
+The current scheduled delivery implementation still reads provider settings from the
+Cloudflare worker runtime. Removing the GitHub check does not make Oxygen variables
+available to that worker. If the worker lacks them, inquiries remain durably pending
+and log `not_configured`; successful deployment alone does not prove delivery. No
+secrets were copied or changed as part of removing the deployment checks.
+
+## Validation before merge
+
+Every required test must be executable and verified before merge is attempted. Do not
+introduce tests or readiness gates that can run only during deployment. Run repository
+checks on the pull request and perform any required live integration verification
+before requesting merge, using an appropriate existing runtime or test environment.
+If a required check cannot run, report it as a pre-merge blocker rather than defer it
+to deployment or claim validation is complete. Deployment applies the validated
+artifact and migrations; it must not introduce a new test gate after merge.

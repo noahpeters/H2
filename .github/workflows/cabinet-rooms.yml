@@ -21,19 +21,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - name: Verify intake delivery configuration
-        env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          FTOPS_INTAKE_URL: ${{ vars.FTOPS_INTAKE_URL }}
-          FTOPS_INTAKE_TOKEN: ${{ secrets.FTOPS_INTAKE_TOKEN }}
-        run: |
-          for name in RESEND_API_KEY FTOPS_INTAKE_URL FTOPS_INTAKE_TOKEN; do
-            if [ -z "${!name}" ]; then echo "Missing required intake setting: $name"; exit 1; fi
-          done
-      - name: Verify Resend inquiry automation is enabled
-        env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: node scripts/check-resend-inquiry.mjs
       - name: Configure database binding
         env:
           DATABASE_ID: ${{ vars.CABINET_ROOMS_DATABASE_ID }}
@@ -56,15 +43,9 @@ jobs:
           secrets: |
             SERVICE_TOKEN
             ADMIN_TOKEN
-            RESEND_API_KEY
-            FTOPS_INTAKE_URL
-            FTOPS_INTAKE_TOKEN
         env:
           SERVICE_TOKEN: ${{ secrets.CABINET_ROOMS_TOKEN }}
           ADMIN_TOKEN: ${{ secrets.CABINET_ROOMS_TOKEN }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          FTOPS_INTAKE_URL: ${{ vars.FTOPS_INTAKE_URL }}
-          FTOPS_INTAKE_TOKEN: ${{ secrets.FTOPS_INTAKE_TOKEN }}
 
       - name: Configure optional reporting access
         env:
