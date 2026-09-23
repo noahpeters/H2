@@ -1,3 +1,4 @@
+import {intake, drainIntake, type IntakeServiceEnv} from './intake';
 import {
   dashboard,
   designPreview,
@@ -25,7 +26,7 @@ interface Statement {
   all<T>(): Promise<{results: T[]}>;
   run(): Promise<{meta: {changes: number}}>;
 }
-interface Env {
+interface Env extends IntakeServiceEnv {
   DB: {prepare(sql: string): Statement};
   SERVICE_TOKEN: string;
   ANALYTICS_READ_TOKEN?: string;
@@ -90,6 +91,9 @@ async function projectEstimate(
   }
 }
 export default {
+  async scheduled(_event: unknown, env: Env) {
+    await drainIntake(env);
+  },
   async fetch(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (path === '/admin/dashboard' || path === '/admin/design') {
@@ -117,6 +121,7 @@ export default {
     if (slug && !SLUG.test(slug))
       return jsonResponse({error: 'Invalid room link'}, 400);
     try {
+      if (path === '/intake') return await intake(request, env);
       if (new URL(request.url).pathname === '/custom-cabinets') {
         const admin =
           !!env.ADMIN_TOKEN &&

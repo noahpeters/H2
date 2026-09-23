@@ -6,11 +6,7 @@ const state = vi.hoisted(() => ({
   receipt: null as null | {eventId: string; kind: string},
 }));
 const send = vi.hoisted(() => vi.fn());
-vi.mock('resend', () => ({
-  Resend: class {
-    emails = {send};
-  },
-}));
+vi.mock('~/lib/intake/intake.server', () => ({acceptIntake: send}));
 vi.mock('react-router', async (original) => ({
   ...(await original<typeof import('react-router')>()),
   useLocation: () => ({pathname: state.path}),
@@ -111,7 +107,8 @@ function args(overrides: Record<string, string> = {}) {
     params: {kind: 'furniture'},
     context: {
       env: {
-        RESEND_API_KEY: 'test',
+        CABINET_ROOMS_URL: 'https://rooms.test',
+        CABINET_ROOMS_TOKEN: 'test',
         CONTACT_TO_EMAIL: 'test@example.com',
         CONTACT_FROM_EMAIL: 'test@example.com',
         TURNSTILE_SECRET_KEY: 'test',
@@ -143,7 +140,7 @@ describe('submission receipt', () => {
         kind: 'contact',
       },
     );
-    expect(send.mock.calls[0][0].text).toContain('Configurator source: table');
+    expect(send.mock.calls[0][0].configuratorSource).toBe('table');
     state.path = '/contact';
     state.receipt = {eventId: submissionId, kind: 'contact'};
     const view = render(<MetaPixel />);
@@ -160,7 +157,7 @@ describe('submission receipt', () => {
       ],
     ]);
   });
-  it('redirects to home only after email acceptance and stores a non-PII receipt', async () => {
+  it('redirects to home only after durable acceptance and stores a non-PII receipt', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(new Response('{"success":true}')),
@@ -178,16 +175,14 @@ describe('submission receipt', () => {
         kind: 'furniture',
       },
     );
-    expect(send.mock.calls[0][1]).toEqual({
-      idempotencyKey: `project-${submissionId}`,
-    });
+    expect(send.mock.calls[0][0].submissionId).toBe(submissionId);
   });
-  it('does not mark a Resend error response as success', async () => {
+  it('does not mark a durable intake failure as success', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(new Response('{"success":true}')),
     );
-    send.mockResolvedValue({data: null, error: {message: 'rejected'}});
+    send.mockRejectedValue(new Error('durable intake unavailable'));
     const input = args();
     const result = await action(input);
     expect(result).not.toBeInstanceOf(Response);

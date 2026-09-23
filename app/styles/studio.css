@@ -320,3 +320,6 @@ footer>div:first-child>a span { color:#e88756; margin-left:15px; }
   .geometry-intro { padding:60px 20px 45px; }.geometry-workbench { margin:0 0 70px; border-left:0; border-right:0; }.geometry-board { padding:22px 14px; }.spatial-canvas { aspect-ratio:.92; }.geometry-controls { padding:38px 20px; }
 }
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } * { transition:none!important; } }
+
+.project-form .marketing-consent { display: flex; align-items: flex-start; gap: 0.65rem; font-size: 0.85rem; line-height: 1.5; }
+.project-form .marketing-consent input[type="checkbox"] { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; padding: 0; accent-color: var(--ink); }

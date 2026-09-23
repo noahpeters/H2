@@ -39,6 +39,12 @@ it('requires the price form but not contact consent and only shows the range aft
     />,
   );
   expect(options.action).toBe('cabinet-price');
+  expect(
+    screen.getByRole('checkbox', {name: /Email me occasional/}),
+  ).not.toBeChecked();
+  expect(
+    screen.getByRole('checkbox', {name: /Email me occasional/}),
+  ).not.toBeRequired();
   expect(screen.queryByText(/\$5,500/)).toBeNull();
   expect(screen.queryByLabelText('Recipient name')).toBeNull();
   expect(screen.getByLabelText('Your name')).toBeRequired();
@@ -49,7 +55,7 @@ it('requires the price form but not contact consent and only shows the range aft
   fireEvent.change(screen.getByLabelText('Your email'), {
     target: {value: 'example@example.com'},
   });
-  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('checkbox', {name: /may contact me/}));
   act(() => {
     options.callback('verified');
   });
@@ -59,6 +65,7 @@ it('requires the price form but not contact consent and only shows the range aft
   expect(send.mock.calls[0][0]).toMatchObject({
     senderName: 'Example',
     consent: false,
+    marketingConsent: 'not_provided',
   });
   expect(send.mock.calls[0][0]).not.toHaveProperty('recipientEmail');
   expect(send.mock.calls[0][0]).not.toHaveProperty('senderPhone');
@@ -139,7 +146,7 @@ it('only submits a phone number while contact consent is checked', () => {
   fireEvent.change(screen.getByLabelText('Phone number (optional)'), {
     target: {value: '+1 555 123 4567'},
   });
-  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('checkbox', {name: /may contact me/}));
   expect(screen.queryByLabelText('Phone number (optional)')).toBeNull();
   fireEvent.submit(container.querySelector('form')!);
   expect(send).toHaveBeenCalledWith(expect.objectContaining({consent: false}));

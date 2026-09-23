@@ -1,3 +1,4 @@
+import {acceptIntake, cabinetIntake} from '~/lib/intake/intake.server';
 import type {ActionFunctionArgs} from 'react-router';
 import {
   jsonResponse,
@@ -65,6 +66,8 @@ export async function action({request, context}: ActionFunctionArgs) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
+    if (response.ok)
+      await acceptIntake(cabinetIntake(body, request, 'price'), env);
     return new Response(response.body, {
       status: response.status,
       headers: {

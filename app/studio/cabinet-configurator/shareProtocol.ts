@@ -7,6 +7,8 @@ export type ShareDetails = {
   recipientName: string;
   recipientEmail: string;
   consent: boolean;
+  marketingConsent?: 'granted' | 'not_provided';
+  sourceQuery?: string;
   requestId: string;
   slug: string;
   editKey: string;
@@ -29,6 +31,11 @@ export function validShare(value: any): value is ShareDetails {
     email(value.senderEmail) &&
     email(value.recipientEmail) &&
     typeof value.consent === 'boolean' &&
+    (value.marketingConsent === undefined ||
+      ['granted', 'not_provided'].includes(value.marketingConsent)) &&
+    (value.sourceQuery === undefined ||
+      (typeof value.sourceQuery === 'string' &&
+        value.sourceQuery.length <= 4000)) &&
     (!value.consent ||
       value.senderPhone === undefined ||
       (typeof value.senderPhone === 'string' &&

@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
+import {MARKETING_DISCLOSURE} from '~/lib/intake/protocol';
 import {useNonce} from '@shopify/hydrogen';
 import {CONTACT_CONSENT} from './shareProtocol';
 import type {PriceEstimate} from './priceProtocol';
@@ -180,6 +181,11 @@ export function ShareRoomForm({
                   }
                 : {}),
               consent: form.get('consent') === 'on',
+              marketingConsent:
+                form.get('marketingConsent') === 'granted'
+                  ? 'granted'
+                  : 'not_provided',
+              sourceQuery: window.location.search,
               ...(form.get('consent') === 'on' && form.get('senderPhone')
                 ? {senderPhone: String(form.get('senderPhone')).trim()}
                 : {}),
@@ -253,11 +259,13 @@ export function ShareRoomForm({
               </label>
             )}
             <p>
-              Your details are saved as a lead only if this is checked.{' '}
-              {purpose === 'price'
-                ? 'You can view your price either way. We keep a record of the design and when its price was requested.'
-                : 'Sharing works either way.'}
+              We save your request and design reference and email an
+              acknowledgement. Project follow-up and marketing are optional.
             </p>
+            <label className="cc-share-consent">
+              <input type="checkbox" name="marketingConsent" value="granted" />
+              {MARKETING_DISCLOSURE}
+            </label>
           </fieldset>
           {purpose === 'share' && (
             <fieldset disabled={busy}>

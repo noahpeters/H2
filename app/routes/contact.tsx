@@ -1,7 +1,13 @@
 import {Link, useActionData, useLoaderData} from 'react-router';
 import type {Route} from './+types/contact';
 import {ProjectForm} from '~/studio/ProjectForm';
-import {Resend} from 'resend';
+import {acceptIntake, type IntakeEnv} from '~/lib/intake/intake.server';
+import {
+  attribution,
+  MARKETING_DISCLOSURE,
+  MARKETING_VERSION,
+  UUID,
+} from '~/lib/intake/protocol';
 import studioStyles from '~/styles/studio.css?url';
 import {StudioFooter} from '~/studio/StudioFooter';
 import {StudioHeader} from '~/studio/StudioHeader';
@@ -11,11 +17,8 @@ type LoaderData = {
   project: string;
   submissionId: string;
 };
-interface Env {
+interface Env extends IntakeEnv {
   TURNSTILE_SITE_KEY?: string;
-  RESEND_API_KEY?: string;
-  CONTACT_TO_EMAIL?: string;
-  CONTACT_FROM_EMAIL?: string;
   TURNSTILE_SECRET_KEY?: string;
 }
 type ActionData =
@@ -25,6 +28,10 @@ type ActionData =
 export const links: Route.LinksFunction = () => [
   {rel: 'stylesheet', href: studioStyles},
 ];
+export const headers: Route.HeadersFunction = () => ({
+  'Cache-Control': 'private, no-store',
+});
+
 export const meta: Route.MetaFunction = () => [
   {title: 'Start a Project — From Trees'},
   {
@@ -66,7 +73,7 @@ async function verifyTurnstile({
   if (ip) body.set('remoteip', ip);
   const response = await fetch(
     'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-    {method: 'POST', body},
+    {method: 'POST', body, signal: AbortSignal.timeout(10000)},
   );
   if (!response.ok) return false;
   return !!((await response.json()) as {success?: boolean}).success;
@@ -76,6 +83,14 @@ export async function action({
   request,
   context,
 }: Pick<Route.ActionArgs, 'context' | 'request'>): Promise<ActionData> {
+  if (request.method !== 'POST')
+    return {ok: false, fieldErrors: {}, formError: 'Method not allowed.'};
+  const url = new URL(request.url);
+  if (
+    request.headers.get('Origin') &&
+    request.headers.get('Origin') !== url.origin
+  )
+    return {ok: false, fieldErrors: {}, formError: 'Invalid origin.'};
   const form = await request.formData();
   if (String(form.get('company') || '')) return {ok: true};
   const value = (name: string) => String(form.get(name) || '').trim();
@@ -90,10 +105,23 @@ export async function action({
   const configuratorSource = value('configuratorSource');
   const token = value('cf-turnstile-response');
   const submissionId = value('submissionId');
-  const eventId = /^[a-f0-9-]{36}$/.test(submissionId)
-    ? submissionId
-    : crypto.randomUUID();
+  const eventId = submissionId;
   const fieldErrors: Record<string, string> = {};
+  if (!UUID.test(submissionId))
+    fieldErrors.submissionId = 'Please reload the form and try again.';
+  for (const key of [
+    'name',
+    'phone',
+    'projectType',
+    'location',
+    'timeline',
+    'budget',
+  ])
+    if (value(key).length > 2000)
+      fieldErrors[key] = 'Please use fewer than 2,000 characters.';
+  if (message.length > 10000)
+    fieldErrors.message = 'Please use fewer than 10,000 characters.';
+  if (email.length > 254) fieldErrors.email = 'Please enter a valid email.';
   if (!name) fieldErrors.name = 'Please enter your name.';
   if (!email || !isValidEmail(email))
     fieldErrors.email = 'Please enter a valid email.';
@@ -106,9 +134,8 @@ export async function action({
 
   const env = context.env as Env;
   if (
-    !env.RESEND_API_KEY ||
-    !env.CONTACT_TO_EMAIL ||
-    !env.CONTACT_FROM_EMAIL ||
+    !env.CABINET_ROOMS_URL ||
+    !env.CABINET_ROOMS_TOKEN ||
     !env.TURNSTILE_SECRET_KEY
   ) {
     console.error('Missing env vars for contact form');
@@ -140,55 +167,61 @@ export async function action({
     };
   }
   try {
-    const result = await new Resend(env.RESEND_API_KEY).emails.send(
+    const source =
+      configuratorSource === 'table' || configuratorSource === 'cabinet'
+        ? configuratorSource
+        : '';
+    const sourcePath =
+      source === 'table'
+        ? '/configurator'
+        : source === 'cabinet'
+          ? '/cabinet-configurator'
+          : url.pathname;
+    const sourceUrl = new URL(sourcePath, url);
+    sourceUrl.search = source ? value('sourceQuery') : url.search;
+    await acceptIntake(
       {
-        from: env.CONTACT_FROM_EMAIL,
-        to: env.CONTACT_TO_EMAIL,
-        replyTo: email,
-        subject: `Project inquiry: ${projectType} — ${name}`,
-        text: [
-          `Source: ${new URL(request.url).pathname}`,
-          ...[
-            'utm_source',
-            'utm_medium',
-            'utm_campaign',
-            'utm_content',
-            'utm_term',
-          ].map(
-            (key) =>
-              `${key}: ${(new URL(request.url).searchParams.get(key) || '').slice(0, 200)}`,
-          ),
-          `Name: ${name}`,
-          `Email: ${email}`,
-          `Phone: ${phone || 'Not provided'}`,
-          `Project type: ${projectType}`,
-          `Project location: ${location}`,
-          `Timeline: ${timeline || 'Not provided'}`,
-          `Budget: ${budget || 'Not provided'}`,
-          `Configurator source: ${
-            configuratorSource === 'table' || configuratorSource === 'cabinet'
-              ? configuratorSource
-              : 'Not provided'
-          }`,
-          '',
-          message,
-        ].join('\n'),
+        submissionId: eventId,
+        name,
+        email: email.toLowerCase(),
+        phone,
+        projectType,
+        location,
+        timeline,
+        budget,
+        message,
+        sourcePath,
+        sourceKind: source
+          ? `${source}_study`
+          : url.pathname.startsWith('/inquire/')
+            ? url.pathname.split('/').pop()!
+            : 'contact',
+        configuratorSource: source,
+        utm: attribution(sourceUrl),
+        marketingConsent:
+          value('marketingConsent') === 'granted' ? 'granted' : 'not_provided',
+        marketingVersion: MARKETING_VERSION,
+        marketingDisclosure: MARKETING_DISCLOSURE,
+        details: {studySummary: source ? value('studySummary') : ''},
       },
-      {idempotencyKey: `project-${eventId}`},
+      env,
     );
-    if (result.error || !result.data?.id)
-      throw new Error('Email provider did not accept inquiry');
     // Root revalidation consumes this receipt and tracks the accepted lead.
     // Targeted landing actions replace the kind before redirecting home.
     context.session.set('projectReceipt', {eventId, kind: 'contact'});
     return {ok: true, eventId};
   } catch (error) {
-    console.error('Contact email send failed', error);
+    console.error('Contact intake acceptance failed', {
+      submissionId: eventId,
+      error: error instanceof Error ? error.message : 'unknown',
+    });
     return {
       ok: false,
       fieldErrors: {},
       formError:
-        'Something went wrong sending your project details. Please try again or email us directly.',
+        error instanceof Error && error.message === 'intake_conflict'
+          ? 'This submission was already received with different details. Reload the page to start a new inquiry.'
+          : 'Something went wrong sending your project details. Please try again or email us directly.',
     };
   }
 }

@@ -55,7 +55,13 @@ describe('cabinet share email endpoint', () => {
             action: 'cabinet-share',
           }),
         )
-        .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)})),
+        .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)}))
+        .mockResolvedValueOnce(
+          Response.json(
+            {accepted: true, submissionId: details.requestId},
+            {status: 202},
+          ),
+        ),
     );
     send.mockResolvedValue({data: {id: 'email-1'}, error: null});
     expect((await call()).status).toBe(200);
@@ -93,7 +99,13 @@ describe('cabinet share email endpoint', () => {
             action: 'cabinet-share',
           }),
         )
-        .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)})),
+        .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)}))
+        .mockResolvedValueOnce(
+          Response.json(
+            {accepted: true, submissionId: details.requestId},
+            {status: 202},
+          ),
+        ),
     );
     send.mockResolvedValue({error: {message: 'rejected'}});
     expect((await call()).status).toBe(502);
