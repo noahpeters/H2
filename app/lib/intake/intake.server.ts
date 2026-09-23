@@ -9,16 +9,22 @@ import {
 } from './protocol';
 export type IntakeEnv = {
   RESEND_API_KEY?: string;
+  CONTACT_TO_EMAIL?: string;
+  CONTACT_FROM_EMAIL?: string;
   FTOPS_INTAKE_URL?: string;
   FTOPS_INTAKE_TOKEN?: string;
 };
-/** Sends from Oxygen. Resend acceptance determines success; ftops is best effort. */
+/** Sends from Oxygen. The shop email and event must both be accepted; ftops is best effort. */
 export async function acceptIntake(intake: Intake, env: IntakeEnv) {
   if (!env.RESEND_API_KEY) throw new Error('resend_not_configured');
   const event: StoredIntake = {
     ...intake,
     submittedAt: new Date().toISOString(),
   };
+  // Restore the direct owner notification. It is addressed independently of
+  // Resend Automations, whose email step always targets the event contact.
+  await sendInquiryEmail(event, env);
+
   const response = await fetch('https://api.resend.com/events/send', {
     method: 'POST',
     headers: {
@@ -76,6 +82,55 @@ export async function acceptIntake(intake: Intake, env: IntakeEnv) {
           : 'network_or_timeout',
     });
   }
+}
+
+async function sendInquiryEmail(intake: StoredIntake, env: IntakeEnv) {
+  if (!env.CONTACT_TO_EMAIL || !env.CONTACT_FROM_EMAIL)
+    throw new Error('contact_email_not_configured');
+  const subjectField = (value: string) =>
+    value
+      .replace(/[\r\n]+/g, ' ')
+      .trim()
+      .slice(0, 160);
+  const text = [
+    `Source: ${intake.sourcePath}`,
+    ...Object.entries(intake.utm).map(([key, value]) => `${key}: ${value}`),
+    `Name: ${intake.name}`,
+    `Email: ${intake.email}`,
+    `Phone: ${intake.phone || 'Not provided'}`,
+    `Project type: ${intake.projectType}`,
+    `Project location: ${intake.location}`,
+    `Timeline: ${intake.timeline || 'Not provided'}`,
+    `Budget: ${intake.budget || 'Not provided'}`,
+    `Configurator source: ${intake.configuratorSource || 'Not provided'}`,
+    `Source kind: ${intake.sourceKind}`,
+    `Submission ID: ${intake.submissionId}`,
+    `Submitted at: ${intake.submittedAt}`,
+    `Marketing email consent: ${intake.marketingConsent}`,
+    '',
+    intake.message,
+  ].join('\n');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Idempotency-Key': `project-${intake.submissionId}`,
+    },
+    body: JSON.stringify({
+      from: env.CONTACT_FROM_EMAIL,
+      to: env.CONTACT_TO_EMAIL,
+      reply_to: intake.email,
+      subject: `Project inquiry: ${subjectField(intake.projectType)} — ${subjectField(intake.name)}`,
+      text,
+    }),
+    signal: AbortSignal.timeout(10000),
+    redirect: 'manual',
+  });
+  if (!response.ok)
+    throw new Error(`contact_email_not_accepted:${response.status}`);
+  const receipt = (await response.json()) as {id?: string};
+  if (!receipt.id) throw new Error('contact_email_invalid_receipt');
 }
 export function cabinetIntake(
   body: {

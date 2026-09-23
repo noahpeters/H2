@@ -23,6 +23,7 @@ const details = {
 const env = {
   RESEND_API_KEY: 'test',
   CONTACT_FROM_EMAIL: 'test@example.com',
+  CONTACT_TO_EMAIL: 'owner@example.com',
   TURNSTILE_SECRET_KEY: 'test',
   CABINET_ROOMS_URL: 'https://api.test',
   CABINET_ROOMS_TOKEN: 'test',
@@ -56,6 +57,7 @@ describe('cabinet share email endpoint', () => {
           }),
         )
         .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)}))
+        .mockResolvedValueOnce(Response.json({id: 'owner-email-1'}))
         .mockResolvedValueOnce(
           Response.json(
             {object: 'event', event: 'inquiry.received'},
@@ -100,6 +102,7 @@ describe('cabinet share email endpoint', () => {
           }),
         )
         .mockResolvedValueOnce(Response.json({shareSlug: 'b'.repeat(32)}))
+        .mockResolvedValueOnce(Response.json({id: 'owner-email-1'}))
         .mockResolvedValueOnce(
           Response.json(
             {object: 'event', event: 'inquiry.received'},
