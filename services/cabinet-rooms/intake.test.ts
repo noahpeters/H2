@@ -60,6 +60,8 @@ function setup() {
   const env = {
     SERVICE_TOKEN: 'test',
     RESEND_API_KEY: 'test',
+    CONTACT_TO_EMAIL: 'owner@example.invalid',
+    CONTACT_FROM_EMAIL: 'sender@example.invalid',
     FTOPS_INTAKE_URL: 'https://ftops.test/website-intake/test',
     FTOPS_INTAKE_TOKEN: 'test-integration',
     DB: {
@@ -105,6 +107,7 @@ function setup() {
       )
       .all();
   const events: any[] = [];
+  const ownerEmails: any[] = [];
   const intakes = new Map<string, any>();
   const fetcher = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -124,6 +127,10 @@ function setup() {
       if (url === 'https://rooms.test/analytics/email')
         return Response.json({ok: true});
       const body = JSON.parse(init?.body as string) as any;
+      if (url === 'https://api.resend.com/emails') {
+        ownerEmails.push(body);
+        return Response.json({id: 'test-owner-email'});
+      }
       if (url === 'https://api.resend.com/events/send') {
         events.push(body);
         return Response.json({object: 'event', event: body.event});
@@ -152,7 +159,7 @@ function setup() {
     },
   );
   vi.stubGlobal('fetch', fetcher);
-  return {db, env, call, status, events, intakes, fetcher};
+  return {db, env, call, status, events, ownerEmails, intakes, fetcher};
 }
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -302,7 +309,7 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
   it.each(['granted', 'not_provided'] as const)(
     'sends one event and intake with %s consent',
     async (consent) => {
-      const {env, events, intakes} = setup();
+      const {env, events, ownerEmails, intakes} = setup();
       const context = {
         env: {
           CABINET_ROOMS_URL: 'https://rooms.test',
@@ -312,6 +319,7 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
           FTOPS_INTAKE_URL: env.FTOPS_INTAKE_URL,
           FTOPS_INTAKE_TOKEN: env.FTOPS_INTAKE_TOKEN,
           CONTACT_FROM_EMAIL: 'test@example.invalid',
+          CONTACT_TO_EMAIL: 'owner@example.invalid',
         },
         session: {set: vi.fn()},
       };
@@ -390,6 +398,11 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
         else expect(result).toMatchObject({ok: true});
       }
       expect(events).toHaveLength(1);
+      expect(ownerEmails).toHaveLength(1);
+      expect(ownerEmails[0]).toMatchObject({
+        to: 'owner@example.invalid',
+        reply_to: sample.email,
+      });
       expect(intakes.size).toBe(1);
       const event = events[0];
       const intake = [...intakes.values()][0];
@@ -457,7 +470,7 @@ describe('direct Oxygen intake delivery', () => {
         submissionId: sample.submissionId,
         reason: `http_${status}`,
       });
-      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(fetcher).toHaveBeenCalledTimes(3);
     },
   );
   it('uses only Oxygen credentials and supported redirects, with stable provider idempotency keys', async () => {
@@ -469,9 +482,23 @@ describe('direct Oxygen intake delivery', () => {
       expect(String(url)).not.toContain('rooms.test');
       expect(init?.redirect).toBe('manual');
       expect(new Headers(init?.headers).get('Idempotency-Key')).toBe(
-        `inquiry-${sample.submissionId}`,
+        `${String(url).endsWith('/emails') ? 'project' : 'inquiry'}-${sample.submissionId}`,
       );
     }
+    const direct = fetcher.mock.calls.find(([url]) =>
+      String(url).endsWith('/emails'),
+    )!;
+    const message = JSON.parse(direct[1]!.body as string) as {
+      text: string;
+      [key: string]: string;
+    };
+    expect(message).toMatchObject({
+      to: 'owner@example.invalid',
+      from: 'sender@example.invalid',
+      reply_to: sample.email,
+    });
+    expect(message.text).toContain(sample.message);
+    expect(events[0].email).toBe(sample.email);
   });
   it('logs network failure and missing ftops settings without failing success', async () => {
     const {env, fetcher} = setup();
@@ -495,14 +522,28 @@ describe('direct Oxygen intake delivery', () => {
     });
   });
   it.each([302, 401, 429, 500])(
-    'rejects Resend %s and makes no ftops call',
+    'rejects direct email %s and makes no event or ftops call',
     async (status) => {
       const {env, fetcher} = setup();
       fetcher.mockImplementation(async () => new Response('', {status}));
       await expect(acceptIntake(sample, env)).rejects.toThrow(
-        `resend_not_accepted:${status}`,
+        `contact_email_not_accepted:${status}`,
       );
       expect(fetcher).toHaveBeenCalledTimes(1);
     },
   );
+  it('reports an event rejection after the direct owner email without sending to ftops', async () => {
+    const {env, fetcher, ownerEmails} = setup();
+    const normal = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (url, init) =>
+      String(url).endsWith('/events/send')
+        ? Response.json({}, {status: 429})
+        : normal(url, init),
+    );
+    await expect(acceptIntake(sample, env)).rejects.toThrow(
+      'resend_not_accepted:429',
+    );
+    expect(ownerEmails).toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
 });

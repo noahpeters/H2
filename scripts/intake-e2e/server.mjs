@@ -25,6 +25,7 @@ const env = {
   SERVICE_TOKEN: 'local-test-only',
   RESEND_API_KEY: 'local-test-only',
   CONTACT_FROM_EMAIL: 'test@example.invalid',
+  CONTACT_TO_EMAIL: 'owner@example.invalid',
   FTOPS_INTAKE_URL: 'https://ftops.test/website-intake/local-test',
   FTOPS_INTAKE_TOKEN: 'local-test-only',
   CABINET_ROOMS_URL: 'https://rooms.test',

@@ -1,7 +1,8 @@
 # Website inquiry delivery
 
 All public intake routes send directly from Oxygen, using the existing Oxygen
-`RESEND_API_KEY`, `FTOPS_INTAKE_URL`, and `FTOPS_INTAKE_TOKEN` settings. There is no
+`RESEND_API_KEY`, `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL`, `FTOPS_INTAKE_URL`,
+and `FTOPS_INTAKE_TOKEN` settings. There is no
 Cloudflare intake-service call, durable queue, callback, or automatic retry in the
 submission path. The existing cabinet service remains responsible for cabinet designs,
 sharing and pricing only.
@@ -9,9 +10,14 @@ sharing and pricing only.
 ## Behavior
 
 1. Validate the form and Turnstile.
-2. Send one `inquiry.received` event directly to Resend from Oxygen. The top-level
-   email is the customer's email. A rejected or invalid Resend receipt returns a form error.
-3. After Resend accepts, attempt ftops once with a two-second timeout. A missing
+2. Send a direct inquiry email to `CONTACT_TO_EMAIL` from `CONTACT_FROM_EMAIL`,
+   with the customer's address as Reply-To. A rejected or invalid email receipt
+   returns a form error. The `project-<submissionId>` idempotency key limits
+   duplicate owner notifications on retries.
+3. Send one `inquiry.received` event directly to Resend from Oxygen. The top-level
+   email is the customer's email so the customer acknowledgement automation
+   addresses the customer. A rejected or invalid event receipt returns a form error.
+4. After both Resend calls succeed, attempt ftops once with a two-second timeout. A missing
    setting, failed request or invalid receipt logs `ftops_intake_failed` with the
    submission ID and a sanitized reason. It does not fail the form submission.
 
@@ -29,8 +35,8 @@ ftops schema has no extensible source metadata field, so source kind, configurat
 UTM values, disclosure text and structured details are preserved in its message as a
 JSON envelope with `format: h2-inquiry-v1`, alongside the original customer message.
 
-The Resend payload contains all 19 agreed flat fields plus `customer_email`, which
-the configured internal-notification template references. Marketing consent is
+The Resend event payload contains all 19 agreed flat fields plus `customer_email`.
+The internal notification is a separate direct email, independent of automations. Marketing consent is
 optional and initially unchecked. It sends `granted` or `not_provided`, never revocation,
 with `website-inquiry-v1` and captured timestamp. Cabinet project-contact permission
 remains separate; sharing recipients are not added as leads. The separate design
