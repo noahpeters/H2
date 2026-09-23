@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import worker from './worker';
 import {drainIntake} from './intake';
+import {acceptIntake} from '../../app/lib/intake/intake.server';
 import {
   ftopsEvent,
   MARKETING_DISCLOSURE,
@@ -443,4 +444,26 @@ it('builds the agreed flat Resend fields plus the live template email binding an
   expect((JSON.parse(ftopsEvent(stored).message) as any).details).toEqual(
     sample.details,
   );
+});
+
+describe('Oxygen intake transport', () => {
+  const env = {CABINET_ROOMS_URL: 'https://rooms.test', CABINET_ROOMS_TOKEN: 'test'};
+  it('uses Oxygen-compatible manual redirects and accepts a durable receipt', async () => {
+    const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      if (init?.redirect === 'error') throw new TypeError('Unsupported Oxygen redirect mode');
+      expect(init?.redirect).toBe('manual');
+      return Response.json({accepted: true, submissionId: sample.submissionId}, {status: 202});
+    });
+    vi.stubGlobal('fetch', fetcher);
+    await expect(acceptIntake(sample, env)).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it.each([301, 302, 303, 307, 308])('rejects %s without forwarding credentials or parsing HTML', async (status) => {
+    const fetcher = vi.fn(async () => new Response('<html>redirect</html>', {
+      status, headers: {Location: 'https://other.test'},
+    }));
+    vi.stubGlobal('fetch', fetcher);
+    await expect(acceptIntake(sample, env)).rejects.toThrow(`intake_redirect_rejected:${status}`);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
 });

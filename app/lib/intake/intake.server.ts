@@ -20,8 +20,11 @@ export async function acceptIntake(intake: Intake, env: IntakeEnv) {
     },
     body: JSON.stringify(intake),
     signal: AbortSignal.timeout(20000),
-    redirect: 'error',
+    redirect: 'manual',
   });
+  // Oxygen supports manual/follow only. Reject before parsing an HTML redirect body.
+  if (response.status >= 300 && response.status < 400)
+    throw new Error(`intake_redirect_rejected:${response.status}`);
   const receipt = (await response.json()) as {
     accepted?: boolean;
     submissionId?: string;
