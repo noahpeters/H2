@@ -5,6 +5,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import worker from './worker';
 import {drainIntake} from './intake';
 import {acceptIntake} from '../../app/lib/intake/intake.server';
+import {action as oxygenDelivery} from '../../app/routes/api.intake-delivery';
 import {
   ftopsEvent,
   MARKETING_DISCLOSURE,
@@ -447,23 +448,148 @@ it('builds the agreed flat Resend fields plus the live template email binding an
 });
 
 describe('Oxygen intake transport', () => {
-  const env = {CABINET_ROOMS_URL: 'https://rooms.test', CABINET_ROOMS_TOKEN: 'test'};
+  const env = {
+    CABINET_ROOMS_URL: 'https://rooms.test',
+    CABINET_ROOMS_TOKEN: 'test',
+  };
   it('uses Oxygen-compatible manual redirects and accepts a durable receipt', async () => {
     const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
-      if (init?.redirect === 'error') throw new TypeError('Unsupported Oxygen redirect mode');
+      if (init?.redirect === 'error')
+        throw new TypeError('Unsupported Oxygen redirect mode');
       expect(init?.redirect).toBe('manual');
-      return Response.json({accepted: true, submissionId: sample.submissionId}, {status: 202});
+      return Response.json(
+        {accepted: true, submissionId: sample.submissionId},
+        {status: 202},
+      );
     });
     vi.stubGlobal('fetch', fetcher);
     await expect(acceptIntake(sample, env)).resolves.toBeUndefined();
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
-  it.each([301, 302, 303, 307, 308])('rejects %s without forwarding credentials or parsing HTML', async (status) => {
-    const fetcher = vi.fn(async () => new Response('<html>redirect</html>', {
-      status, headers: {Location: 'https://other.test'},
-    }));
+  it.each([301, 302, 303, 307, 308])(
+    'rejects %s without forwarding credentials or parsing HTML',
+    async (status) => {
+      const fetcher = vi.fn(
+        async () =>
+          new Response('<html>redirect</html>', {
+            status,
+            headers: {Location: 'https://other.test'},
+          }),
+      );
+      vi.stubGlobal('fetch', fetcher);
+      await expect(acceptIntake(sample, env)).rejects.toThrow(
+        `intake_redirect_rejected:${status}`,
+      );
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
+describe('delivery through Oxygen runtime', () => {
+  function relaySetup() {
+    const test = setup();
+    const providerFetch = test.fetcher;
+    const oxygenEnv = {
+      CABINET_ROOMS_TOKEN: 'test',
+      RESEND_API_KEY: 'oxygen-only-key',
+      FTOPS_INTAKE_TOKEN: 'test-integration',
+      FTOPS_INTAKE_URL: test.env.FTOPS_INTAKE_URL,
+    };
+    const workerEnv = {
+      ...test.env,
+      RESEND_API_KEY: undefined,
+      FTOPS_INTAKE_TOKEN: undefined,
+      FTOPS_INTAKE_URL: undefined,
+      INTAKE_DELIVERY_URL: 'https://oxygen.test/api/intake-delivery',
+    };
+    const fetcher = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        expect(init?.redirect).not.toBe('error');
+        if (String(input) === workerEnv.INTAKE_DELIVERY_URL) {
+          expect(JSON.stringify(init)).not.toContain('oxygen-only-key');
+          expect(JSON.stringify(init)).not.toContain('test-integration');
+          return oxygenDelivery({
+            request: new Request(String(input), init),
+            context: {env: oxygenEnv},
+          } as any);
+        }
+        return providerFetch(input, init);
+      },
+    );
     vi.stubGlobal('fetch', fetcher);
-    await expect(acceptIntake(sample, env)).rejects.toThrow(`intake_redirect_rejected:${status}`);
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    return {...test, workerEnv, oxygenEnv, fetcher};
+  }
+  it('delivers both destinations using only Oxygen credentials and never stores keys', async () => {
+    const {call, workerEnv, db, status, events, intakes} = relaySetup();
+    expect((await call(sample)).status).toBe(202);
+    await drainIntake(workerEnv as any);
+    await drainIntake(workerEnv as any);
+    expect(events).toHaveLength(1);
+    expect(intakes.size).toBe(1);
+    expect(status().every((row) => row.state === 'sent')).toBe(true);
+    const stored = JSON.stringify(
+      db.prepare('SELECT * FROM intake_events').all(),
+    );
+    expect(stored).not.toContain('oxygen-only-key');
+    expect(stored).not.toContain('test-integration');
+  });
+  it('rejects unauthenticated relay requests without contacting providers', async () => {
+    const {oxygenEnv, fetcher} = relaySetup();
+    const response = await oxygenDelivery({
+      request: new Request('https://oxygen.test/api/intake-delivery', {
+        method: 'POST',
+        body: '{}',
+      }),
+      context: {env: oxygenEnv},
+    } as any);
+    expect(response.status).toBe(401);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('keeps known unsent work pending when the relay is not deployed yet', async () => {
+    const {call, workerEnv, status} = relaySetup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('Not found', {status: 404})),
+    );
+    await call(sample);
+    await drainIntake(workerEnv as any);
+    expect(status().every((row) => row.state === 'pending')).toBe(true);
+  });
+  it('isolates missing ftops configuration from successful Resend delivery', async () => {
+    const {call, workerEnv, oxygenEnv, status, events} = relaySetup();
+    oxygenEnv.FTOPS_INTAKE_TOKEN = '';
+    await call(sample);
+    await drainIntake(workerEnv as any);
+    expect(events).toHaveLength(1);
+    expect(status()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({destination: 'resend', state: 'sent'}),
+        expect.objectContaining({
+          destination: 'ftops',
+          state: 'pending',
+          last_error: 'not_configured',
+        }),
+      ]),
+    );
+  });
+  it('preserves ambiguous provider outcomes for Resend review and ftops retry', async () => {
+    const {call, workerEnv, status, fetcher} = relaySetup();
+    const routeFetch = fetcher.getMockImplementation()!;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === workerEnv.INTAKE_DELIVERY_URL)
+          return routeFetch(input, init);
+        throw new Error('provider timeout');
+      }),
+    );
+    await call(sample);
+    await drainIntake(workerEnv as any);
+    expect(status()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({destination: 'resend', state: 'review'}),
+        expect.objectContaining({destination: 'ftops', state: 'pending'}),
+      ]),
+    );
   });
 });

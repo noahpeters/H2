@@ -2,7 +2,9 @@
 
 H2 accepts a generic intake through its authenticated Cloudflare service and durably
 stores it in D1 before reporting success. Each immutable event has independent Resend
-and ftops delivery rows. The existing worker runs a one-minute scheduled drain; failures
+and ftops delivery rows. The existing worker runs a one-minute scheduled drain, calling the authenticated
+Oxygen `/api/intake-delivery` route using its existing service token. Resend and ftops
+credentials remain exclusively in Oxygen. Independent failures
 in either destination cannot erase the inquiry or prevent the other delivery.
 
 ## Contracts
@@ -102,13 +104,16 @@ to 10,000 characters to leave space for metadata. Source UTM values retain the e
 | Oxygen server secret | `CABINET_ROOMS_TOKEN` | Existing H2-to-worker integration credential |
 | Oxygen | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Existing form verification |
 | Oxygen | `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` | Still needed for design-sharing invitations |
-| Delivery worker runtime secret | `RESEND_API_KEY` | Worker Events API key for the configured automation |
-| Delivery worker runtime setting | `FTOPS_INTAKE_URL` | Exact HTTPS URL ending `/website-intake/<provisioned integration ID>` |
-| Delivery worker runtime secret | `FTOPS_INTAKE_TOKEN` | ftops website integration's `intakeToken` |
+| Oxygen runtime secret | `RESEND_API_KEY` | Existing Events API key for the configured automation |
+| Oxygen runtime setting | `FTOPS_INTAKE_URL` | Exact HTTPS URL ending `/website-intake/<provisioned integration ID>` |
+| Oxygen runtime secret | `FTOPS_INTAKE_TOKEN` | ftops website integration's `intakeToken` |
 | GitHub/worker | Existing Cloudflare account/token, database ID and `CABINET_ROOMS_TOKEN` | Unchanged service deployment requirements |
 
-GitHub Actions does not read, validate or upload the three provider settings. Existing
-worker secrets are managed separately from the deployment workflow. The ftops URL and credential must be provisioned through ftops's website
+GitHub Actions does not read, validate or upload the three provider settings. The
+worker calls `INTAKE_DELIVERY_URL` (a non-secret URL configured in wrangler.jsonc) with
+its existing `SERVICE_TOKEN`, matching Oxygen's `CABINET_ROOMS_TOKEN`. The provider
+keys are never sent to the worker or stored in the outbox. Oxygen performs only the
+claimed provider request; the worker retains all idempotency and retry decisions. The ftops URL and credential must be provisioned through ftops's website
 integration setup; the selector is not a workspace ID. Edge access must admit this
 server call to the exact intake route. Redirects are rejected to prevent credential
 forwarding and avoid treating a login page as a receipt.
@@ -204,11 +209,12 @@ session lacks Cloudflare authentication. Worker secret presence is **UNVERIFIED*
 The deployment workflow no longer consumes or uploads these provider settings. The
 deploy-only Resend readiness script has been removed.
 
-The current scheduled delivery implementation still reads provider settings from the
-Cloudflare worker runtime. Removing the GitHub check does not make Oxygen variables
-available to that worker. If the worker lacks them, inquiries remain durably pending
-and log `not_configured`; successful deployment alone does not prove delivery. No
-secrets were copied or changed as part of removing the deployment checks.
+The production worker now uses the authenticated Oxygen delivery route, so the
+existing Oxygen provider settings are sufficient. Direct worker-provider delivery
+remains available for isolated tests/other environments without a relay URL. Missing
+Oxygen provider configuration keeps that destination pending. During worker-first
+rollout, a 404/405 from the not-yet-deployed Oxygen route safely retries without marking
+Resend ambiguous. Unknown transport outcomes still follow the documented review policy.
 
 ## Validation before merge
 
@@ -219,3 +225,11 @@ before requesting merge, using an appropriate existing runtime or test environme
 If a required check cannot run, report it as a pre-merge blocker rather than defer it
 to deployment or claim validation is complete. Deployment applies the validated
 artifact and migrations; it must not introduce a new test gate after merge.
+
+## Production transport regression
+
+Oxygen rejects fetch `redirect: "error"` before making the request. Intake acceptance
+and provider delivery use `redirect: "manual"` and reject redirect responses; credentials
+are never forwarded to a redirect target. Regression tests cover these modes and both
+provider deliveries through the real Oxygen action with no provider secrets in the
+worker. A workerd runtime check also verifies successful acceptance and redirect rejection.

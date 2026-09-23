@@ -16,6 +16,8 @@ interface Statement {
 }
 export interface IntakeServiceEnv {
   DB: {prepare(sql: string): Statement};
+  SERVICE_TOKEN?: string;
+  INTAKE_DELIVERY_URL?: string;
   RESEND_API_KEY?: string;
   FTOPS_INTAKE_URL?: string;
   FTOPS_INTAKE_TOKEN?: string;
@@ -130,13 +132,15 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
     .bind(Date.now() + 120000, row.event_id, d, Date.now())
     .first();
   if (!claimed) return;
-  if (!key || !endpoint) {
+  const relay = env.INTAKE_DELIVERY_URL;
+  if (!relay && (!key || !endpoint)) {
     await retry('not_configured');
     return;
   }
   if (
+    !relay &&
     d === 'ftops' &&
-    !/^https:\/\/[^/?#]+\/website-intake\/[^/?#]+$/.test(endpoint)
+    !/^https:\/\/[^/?#]+\/website-intake\/[^/?#]+$/.test(endpoint || '')
   ) {
     await retry('invalid_ftops_endpoint', true);
     return;
@@ -144,19 +148,75 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
   const event = JSON.parse(row.payload) as StoredIntake;
   let response: Response;
   try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': `inquiry-${row.event_id}`,
-      },
-      body: JSON.stringify(
-        d === 'resend' ? resendEvent(event) : ftopsEvent(event),
-      ),
-      signal: AbortSignal.timeout(10000),
-      redirect: 'error',
-    });
+    if (relay) {
+      if (
+        !env.SERVICE_TOKEN ||
+        !/^https:\/\/[^/?#]+\/api\/intake-delivery$/.test(relay)
+      ) {
+        await retry('invalid_delivery_relay', true);
+        return;
+      }
+      const result = await fetch(relay, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.SERVICE_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({destination: d, event}),
+        signal: AbortSignal.timeout(15000),
+        redirect: 'manual',
+      });
+      if ([401, 403, 404, 405].includes(result.status)) {
+        // Rejected before provider execution, including worker-first rollout ordering.
+        await retry(`delivery_relay_unavailable:${result.status}`);
+        return;
+      }
+      if (!result.ok) throw new Error('Unknown relay outcome');
+      const envelope = (await result.json()) as {
+        outcome?: string;
+        reason?: string;
+        status?: number;
+        receipt?: unknown;
+      };
+      if (envelope.outcome === 'not_sent') {
+        await retry(
+          envelope.reason === 'invalid_ftops_endpoint'
+            ? 'invalid_ftops_endpoint'
+            : 'not_configured',
+          envelope.reason === 'invalid_ftops_endpoint',
+        );
+        return;
+      }
+      if (
+        envelope.outcome !== 'response' ||
+        !Number.isInteger(envelope.status) ||
+        envelope.status! < 200 ||
+        envelope.status! > 599
+      )
+        throw new Error('Unknown relay outcome');
+      response = new Response(JSON.stringify(envelope.receipt), {
+        status:
+          envelope.status === 204 ||
+          envelope.status === 205 ||
+          envelope.status === 304
+            ? 502
+            : envelope.status,
+      });
+    } else {
+      response = await fetch(endpoint!, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `inquiry-${row.event_id}`,
+        },
+        body: JSON.stringify(
+          d === 'resend' ? resendEvent(event) : ftopsEvent(event),
+        ),
+        signal: AbortSignal.timeout(10000),
+        redirect: 'manual',
+      });
+    }
   } catch {
     await retry('network_or_timeout', d === 'resend');
     return;
