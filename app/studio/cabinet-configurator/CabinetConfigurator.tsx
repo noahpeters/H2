@@ -2310,6 +2310,8 @@ export function CabinetConfigurator({
                 )}
                 {!selected.storage &&
                   (selected.kind === 'tall' ||
+                    (selected.kind === 'appliance' &&
+                      selected.applianceKind === 'refrigerator') ||
                     (selected.kind === 'fixture' &&
                       selected.fixtureKind !== 'glass-shower') ||
                     selected.kind === 'wall-cabinet') && (
