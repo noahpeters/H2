@@ -28,7 +28,7 @@ Always excluded: installation, delivery, tax, field work, countertops, glass, ap
 
 Migration `0004_pricing.sql` seeds individually configurable rates in `cabinet_pricing_rates`; `0005_price_requests.sql` adds request records and lead source. Both run through the existing GitHub Actions deployment migration step on merge, before Worker deployment. Do not deploy locally.
 
-Face-stock defaults approved by the owner: rift white oak and walnut $250 per 32-sq-ft sheet; maple and cherry $200; paint grade $187.50. These are independent editable amounts, not ongoing percentage relationships. Other rates follow the pricing skill. Axilo feet default to the miscellaneous allowance. NULL labor rate means derive from weekly cost/productive hours; NULL profit cap means uncapped. Other missing required values fail closed, not free material.
+Face-stock defaults approved by the owner: rift white oak and walnut $250 per 32-sq-ft sheet; maple and cherry $200; paint grade $187.50. These are independent editable amounts, not ongoing percentage relationships. Plain-sawn white oak uses the current maple rate (`face_maple`), including future rate changes, while retaining its own material purchase pool. Other rates follow the pricing skill. Axilo feet default to the miscellaneous allowance. NULL labor rate means derive from weekly cost/productive hours; NULL profit cap means uncapped. Other missing required values fail closed, not free material.
 
 Use authorized D1 administration to inspect `SELECT key, value, unit, description, updated_at FROM cabinet_pricing_rates ORDER BY key`. For example, change walnut sheet cost with:
 

@@ -1,5 +1,6 @@
 export const CABINET_MATERIALS = {
   'rift-white-oak': {label: 'Rift-sawn white oak', color: '#c4aa80'},
+  'plain-white-oak': {label: 'Plain-sawn white oak', color: '#c4aa80'},
   walnut: {label: 'Walnut', color: '#72513d'},
   maple: {label: 'Maple', color: '#dfcba4'},
   cherry: {label: 'Cherry', color: '#ad7150'},
