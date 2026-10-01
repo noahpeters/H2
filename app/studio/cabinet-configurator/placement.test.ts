@@ -7,7 +7,7 @@ import {
   snapIslandEdges,
   snapRoomCorner,
 } from './placement';
-import {createDragUpdate} from './CabinetConfigurator';
+import {createDragUpdate, type Study} from './CabinetConfigurator';
 import {
   bounds,
   validateLayout,
@@ -214,4 +214,127 @@ it('keeps mirrors wall mounted when dragged across the room', () => {
   positionElement(mirror, 70, 60, room);
   expect(mirror.placement.mode).toBe('wall');
   expect(mirror.placement.elevation).toBe(42);
+});
+
+describe('Option-drag precision near snap targets', () => {
+  it.each(['base', 'appliance'] as const)(
+    'preserves small gaps for %s elements at every zoom',
+    (kind) => {
+      for (const scale of [0.5, 1, 4]) {
+        for (const gap of [0, 1, 2, 3]) {
+          for (const target of [
+            'neighbor',
+            'wall',
+            'island',
+            'corner',
+          ] as const) {
+            const moving: RoomElement = {
+              ...item('moving', 36),
+              kind,
+              ...(kind === 'appliance'
+                ? {applianceKind: 'dishwasher' as const}
+                : {}),
+              ...(target === 'corner' && kind === 'base'
+                ? {configuration: 'corner' as const}
+                : {}),
+            };
+            const z = target === 'wall' || target === 'corner' ? 12 : 60;
+            const x = target === 'corner' ? 12 : target === 'island' ? 84 : 36;
+            moving.placement = {mode: 'floor', x, z, rotation: 0};
+            const original: Study = {
+              version: 2,
+              room,
+              openings: [],
+              elements:
+                target === 'neighbor'
+                  ? [moving, item('neighbor', 60)]
+                  : [moving],
+              islands:
+                target === 'island'
+                  ? [{...island, rotation: 0, depth: 48}]
+                  : [],
+              selected: moving.id,
+              countertop: true,
+              view: 'plan',
+            };
+            const dx = target === 'neighbor' || target === 'island' ? -gap : 0;
+            const dz = target === 'wall' || target === 'corner' ? gap : 0;
+            const moved = createDragUpdate(
+              {id: moving.id, mode: 'floor', x, z, clientX: 0, clientY: 0},
+              dx * scale,
+              dz * scale,
+              scale,
+              true,
+            )(original);
+            expect(bounds(moved.elements[0], room)).toEqual({
+              left: x + dx - 12,
+              right: x + dx + 12,
+              top: z + dz - 12,
+              bottom: z + dz + 12,
+            });
+            expect(original.elements[0].placement).toEqual(moving.placement);
+          }
+        }
+      }
+    },
+  );
+  it('resumes adjacency snapping when Option is released during a drag', () => {
+    const moving = item('moving', 36);
+    const original: Study = {
+      version: 2,
+      room,
+      openings: [],
+      elements: [moving, item('neighbor', 60)],
+      islands: [],
+      selected: moving.id,
+      countertop: true,
+      view: 'plan',
+    };
+    const drag = {
+      id: moving.id,
+      mode: 'floor' as const,
+      x: 36,
+      z: 60,
+      clientX: 0,
+      clientY: 0,
+    };
+    const precise = createDragUpdate(drag, -1, 0, 1, true)(original);
+    expect(precise.elements[0].placement).toMatchObject({x: 35});
+    const snapped = createDragUpdate(drag, -1, 0, 1, false)(precise);
+    expect(snapped.elements[0].placement).toMatchObject({x: 36});
+  });
+  it.each(['back', 'front', 'left', 'right'] as const)(
+    'preserves one-inch gaps along the %s wall',
+    (wall) => {
+      for (const gap of [0, 1, 2, 3]) {
+        const moving = item('moving', 36);
+        moving.placement = {mode: 'wall', wall, offset: 24, elevation: 0};
+        const neighbor = item('neighbor', 60);
+        neighbor.placement = {mode: 'wall', wall, offset: 48, elevation: 0};
+        const original: Study = {
+          version: 2,
+          room,
+          openings: [],
+          elements: [moving, neighbor],
+          islands: [],
+          selected: moving.id,
+          countertop: true,
+          view: 'plan',
+        };
+        const horizontal = wall === 'back' || wall === 'front';
+        const moved = createDragUpdate(
+          {id: moving.id, mode: 'wall', wall, offset: 24, pointer: 0},
+          horizontal ? -gap * 2 : 0,
+          horizontal ? 0 : -gap * 2,
+          2,
+          true,
+        )(original);
+        expect(moved.elements[0].placement).toMatchObject({
+          mode: 'wall',
+          wall,
+          offset: 24 - gap,
+        });
+      }
+    },
+  );
 });

@@ -513,6 +513,7 @@ export function createDragUpdate(
   clientX: number,
   clientY: number,
   screenScale: number,
+  bypassSnapping = false,
 ) {
   return (current: Study): Study => {
     const next = clone(current);
@@ -542,8 +543,9 @@ export function createDragUpdate(
         Math.round(active.z + (clientY - active.clientY) / screenScale),
         next.room,
       );
-      if (snapRoomCorner(element, next.room)) return next;
-      snapWall(element, next.room);
+      if (!bypassSnapping && snapRoomCorner(element, next.room)) return next;
+      // Keep exact wall attachment without attracting nearby one-inch gaps.
+      snapWall(element, next.room, bypassSnapping ? 0 : 3);
     } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
       const pointer = roomWall(next.room, active.wall).horizontal
         ? clientX
@@ -556,7 +558,7 @@ export function createDragUpdate(
         ),
       );
     }
-    if (element) {
+    if (element && !bypassSnapping) {
       snapAdjacent(element, next.elements, next.room);
       snapIslandEdges(element, next.islands, next.room);
     }
@@ -1382,8 +1384,8 @@ export function CabinetConfigurator({
     if (!drag.current) return;
     const a = drag.current,
       ss = scale * (ev.currentTarget.getScreenCTM()?.a ?? 1);
-    const {clientX, clientY} = ev;
-    setStudy(createDragUpdate(a, clientX, clientY, ss));
+    const {clientX, clientY, altKey} = ev;
+    setStudy(createDragUpdate(a, clientX, clientY, ss, altKey));
   };
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
   const opening = study.openings.find((o) => o.id === study.selected);
@@ -2506,6 +2508,10 @@ export function CabinetConfigurator({
           </div>
           <div className={`cc-canvas-grid cc-${study.view}`}>
             <div className="cc-panel cc-plan-panel">
+              <p className="cc-muted">
+                Hold Option (Alt) while dragging cabinets or appliances to move
+                in one-inch steps without snapping.
+              </p>
               <div className="cc-panel-label">
                 <span>Dimensioned plan</span>
                 <ViewControls
