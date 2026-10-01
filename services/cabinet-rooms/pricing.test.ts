@@ -118,6 +118,30 @@ function study(elements: RoomElement[] = [cabinet]): Study {
   };
 }
 describe('bottom-up cabinet pricing', () => {
+  it('saves plain-sawn white oak and prices it at the current maple rate', async () => {
+    const {call, rates} = setup();
+    const oakStudy = study([{...cabinet, material: 'plain-white-oak'}]);
+    const saved = await call('/', 'POST', 'test', {study: oakStudy});
+    expect(saved.status).toBe(201);
+    const {slug} = (await saved.json()) as {slug: string};
+    const response = await call(`/price?slug=${slug}`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject(
+      estimateProject(study([{...cabinet, material: 'maple'}]), rates),
+    );
+    for (const mapleRate of [200, 275]) {
+      const updatedRates = {...rates, face_maple: mapleRate};
+      const oak = calculatePrice(projectSchedule(oakStudy).lines, updatedRates);
+      const maple = calculatePrice(
+        projectSchedule(study([{...cabinet, material: 'maple'}])).lines,
+        updatedRates,
+      );
+      expect(oak.price).toBe(maple.price);
+      expect(oak.purchases['face_plain-white-oak']).toBeGreaterThan(0);
+      expect(oak.purchases.face_maple).toBeUndefined();
+    }
+  });
+
   it('accepts and prices a saved open-storage room through the Worker', async () => {
     const {call} = setup();
     const saved = await call('/', 'POST', 'test', {

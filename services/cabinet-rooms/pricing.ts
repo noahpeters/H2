@@ -213,9 +213,11 @@ export function projectSchedule(study: Study) {
 /** Internal-only result, never serialize this object in an HTTP response. */
 export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
   const rate = (key: string) => {
-    const value = rates[key];
+    // Plain-sawn white oak follows maple pricing; purchase pools stay separate.
+    const rateKey = key === 'face_plain-white-oak' ? 'face_maple' : key;
+    const value = rates[rateKey];
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
-      throw new PricingError('pricing_not_configured', [key]);
+      throw new PricingError('pricing_not_configured', [rateKey]);
     return value;
   };
   const pools = new Map<

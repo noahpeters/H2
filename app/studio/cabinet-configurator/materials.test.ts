@@ -71,8 +71,8 @@ describe('cabinet materials', () => {
       ).toBeUndefined();
     },
   );
-  it('provides five materials and five original paint colors', () => {
-    expect(Object.keys(CABINET_MATERIALS)).toHaveLength(5);
+  it('provides six materials and five original paint colors', () => {
+    expect(Object.keys(CABINET_MATERIALS)).toHaveLength(6);
     expect(Object.keys(CABINET_PAINTS)).toHaveLength(5);
     expect(cabinetColor({})).toBe(CABINET_MATERIALS['rift-white-oak'].color);
   });
