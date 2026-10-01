@@ -1,3 +1,4 @@
+import {islandOutline, islandOverlapsElement} from './islandFootprint';
 import {migrateFrontStyles, roomOverlay, type Overlay} from './overlay';
 import {
   CABINET_CATEGORIES,
@@ -542,8 +543,11 @@ export function createDragUpdate(
         Math.round(active.z + (clientY - active.clientY) / screenScale),
         next.room,
       );
-      if (snapRoomCorner(element, next.room)) return next;
-      snapWall(element, next.room);
+      const island = next.islands.find((i) => i.id === element.islandId);
+      if (!island || !islandOverlapsElement(element, island)) {
+        if (snapRoomCorner(element, next.room)) return next;
+        snapWall(element, next.room);
+      }
     } else if (active.mode === 'wall' && element?.placement.mode === 'wall') {
       const pointer = roomWall(next.room, active.wall).horizontal
         ? clientX
@@ -563,6 +567,16 @@ export function createDragUpdate(
     return next;
   };
 }
+export function createDragEndUpdate(id: string) {
+  return (current: Study): Study => {
+    const next = clone(current);
+    const item = next.elements.find((e) => e.id === id);
+    if (item?.placement.mode === 'floor')
+      item.islandId = islandAt(item, next.islands, next.room);
+    return next;
+  };
+}
+
 function elementTransform(element: RoomElement, room: Room) {
   const center = elementCenter(element, room);
   const rotation =
@@ -2868,13 +2882,7 @@ export function CabinetConfigurator({
                   const active = drag.current;
                   drag.current = null;
                   if (!active || active.mode === 'island') return;
-                  setStudy((current) => {
-                    const next = clone(current);
-                    const item = next.elements.find((e) => e.id === active.id);
-                    if (item?.placement.mode === 'floor')
-                      item.islandId = islandAt(item, next.islands, next.room);
-                    return next;
-                  });
+                  setStudy(createDragEndUpdate(active.id));
                 }}
                 onPointerCancel={() => {
                   panDrag.current = null;
@@ -3077,6 +3085,7 @@ export function CabinetConfigurator({
                 })}
                 {study.islands.map((i) => {
                   const c = aisleClearance(i, study.room);
+                  const outline = islandOutline(i);
                   return (
                     <g
                       className="cc-island"
@@ -3112,10 +3121,10 @@ export function CabinetConfigurator({
                       onClick={() => setStudy((x) => ({...x, selected: i.id}))}
                     >
                       <rect
-                        x={-(i.width / 2 + i.overhang) * scale}
-                        y={-(i.depth / 2 + i.overhang) * scale}
-                        width={(i.width + i.overhang * 2) * scale}
-                        height={(i.depth + i.overhang * 2) * scale}
+                        x={outline.left * scale}
+                        y={outline.top * scale}
+                        width={(outline.right - outline.left) * scale}
+                        height={(outline.bottom - outline.top) * scale}
                       />
                       <text y="4">
                         ISLAND · aisles{' '}
@@ -3124,10 +3133,32 @@ export function CabinetConfigurator({
                       {i.seatingSide !== 'none' && (
                         <rect
                           className="cc-seating"
-                          x={(-i.width / 2) * scale}
-                          y={(i.depth / 2) * scale}
-                          width={i.width * scale}
-                          height={18 * scale}
+                          x={
+                            (i.seatingSide === 'west'
+                              ? outline.left - 18
+                              : i.seatingSide === 'east'
+                                ? outline.right
+                                : -i.width / 2) * scale
+                          }
+                          y={
+                            (i.seatingSide === 'north'
+                              ? outline.top - 18
+                              : i.seatingSide === 'south'
+                                ? outline.bottom
+                                : -i.depth / 2) * scale
+                          }
+                          width={
+                            (i.seatingSide === 'west' ||
+                            i.seatingSide === 'east'
+                              ? 18
+                              : i.width) * scale
+                          }
+                          height={
+                            (i.seatingSide === 'north' ||
+                            i.seatingSide === 'south'
+                              ? 18
+                              : i.depth) * scale
+                          }
                         />
                       )}
                     </g>
