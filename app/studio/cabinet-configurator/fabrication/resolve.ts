@@ -1,3 +1,4 @@
+import {cabinetFaceFrame} from '../faceFrame';
 import {wallToFloor, type RoomElement, type Room} from '../model';
 import {cabinetToeKick, cabinetCompositionEnvelope} from '../cabinetEnvelope';
 import {storageLayout} from '../openStorage';
@@ -728,80 +729,120 @@ export function resolveFabrication(
       } else if (item.configuration === 'pullout')
         addFront('drawer', w - 0.25, usable, 0.125, 0.125);
       else paired(0.125, usable);
-      for (const entry of fronts) {
-        const part = {...entry.part};
-        let opening = {x: t, y: part.y, width: inner, height: part.height};
-        if (design.room.overlay && design.room.overlay !== 'full-overlay') {
-          const f = Math.min(1.5, part.width / 6),
-            rail = Math.min(1.5, part.height / 6);
-          const z = -t / 2,
-            joint = Math.min(j, f / 2);
-          const frame: FabricationPart[] = [];
-          for (const right of [false, true]) {
-            const stile = add(
+      const framed =
+        fronts.length > 0 &&
+        (design.room.overlay === 'inset' ||
+          design.room.overlay === 'partial-overlay');
+      const frame = cabinetFaceFrame(
+        fronts.map((e) => e.part),
+        {x: 0, y: 0, width: w, height: h},
+      );
+      if (framed) {
+        const boards: FabricationPart[] = [];
+        const joint = Math.min(j, frame.width / 2);
+        for (const r of frame.stiles)
+          boards.push(
+            add(
               'Face frame stile',
-              [part.x + (right ? part.width - f : 0), z, part.y],
-              [f, t, part.height],
+              [r.x, -t / 2, r.y],
+              [r.width, t, r.height],
               'solid',
               material,
               2,
+            ),
+          );
+        for (const r of frame.rails)
+          boards.push(
+            add(
+              'Face frame rail',
+              [r.x, -t / 2, r.y],
+              [r.width, t, r.height],
+              'solid',
+              material,
+              0,
+            ),
+          );
+        // Extend each member into its receiving neighbor and machine the shared volume.
+        for (const donor of boards)
+          for (const receiver of boards) {
+            if (donor === receiver) continue;
+            const horizontal =
+              donor.name === 'Face frame rail' &&
+              receiver.name === 'Face frame stile';
+            const vertical =
+              donor.name === 'Face frame stile' &&
+              receiver.name === 'Face frame rail';
+            if (!horizontal && !vertical) continue;
+            const a = horizontal ? 0 : 2,
+              other = horizontal ? 2 : 0;
+            if (
+              donor.origin[other] >=
+                receiver.origin[other] + receiver.size[other] ||
+              donor.origin[other] + donor.size[other] <= receiver.origin[other]
+            )
+              continue;
+            if (
+              Math.abs(donor.origin[a] + donor.size[a] - receiver.origin[a]) <
+              EPS
+            )
+              donor.size[a] += joint;
+            else if (
+              Math.abs(
+                donor.origin[a] - receiver.origin[a] - receiver.size[a],
+              ) < EPS
+            ) {
+              donor.origin[a] -= joint;
+              donor.size[a] += joint;
+            } else continue;
+          }
+        // Compute pockets only after all tenons have reached their final size.
+        for (let i = 0; i < boards.length; i++)
+          for (let k = i + 1; k < boards.length; k++) {
+            const a = boards[i],
+              b = boards[k],
+              shared = intersect(a, b);
+            if (!shared) continue;
+            const stile = a.name === 'Face frame stile' ? a : b;
+            const rail = stile === a ? b : a;
+            const receiver =
+              Math.abs(stile.origin[0]) < EPS ||
+              Math.abs(stile.origin[0] + stile.size[0] - w) < EPS
+                ? stile
+                : rail;
+            pocket(
+              receiver,
+              shared.origin.map((v, a) => v - receiver.origin[a]) as Vec3,
+              shared.size,
+              'rabbet',
             );
-            for (const top of [false, true])
+          }
+        for (const board of boards)
+          for (const carcass of local.filter((p) => p.stockType === 'sheet')) {
+            const shared = intersect(board, carcass);
+            if (shared)
               pocket(
-                stile,
-                [right ? 0 : f - joint, 0, top ? part.height - rail : 0],
-                [joint, t, rail],
+                board,
+                shared.origin.map((v, a) => v - board.origin[a]) as Vec3,
+                shared.size,
                 'rabbet',
               );
-            frame.push(stile);
           }
-          for (const top of [false, true])
-            frame.push(
-              add(
-                'Face frame rail',
-                [
-                  part.x + f - joint,
-                  z,
-                  part.y + (top ? part.height - rail : 0),
-                ],
-                [part.width - 2 * f + 2 * joint, t, rail],
-                'solid',
-                material,
-                0,
-              ),
-            );
-          // Back rabbets receive the projecting carcass edges, retaining a
-          // half-thickness face rather than overlapping or butt-jointing them.
-          for (const board of frame)
-            for (const carcass of local.filter(
-              (p) => !frame.includes(p) && p.stockType === 'sheet',
-            )) {
-              const shared = intersect(board, carcass);
-              if (shared)
-                pocket(
-                  board,
-                  shared.origin.map((v, a) => v - board.origin[a]) as Vec3,
-                  shared.size,
-                  'rabbet',
-                );
-            }
-          opening = {
-            x: part.x + f,
-            y: part.y + rail,
-            width: part.width - 2 * f,
-            height: part.height - 2 * rail,
-          };
+      }
+      fronts.forEach((entry, i) => {
+        const part = {...entry.part};
+        let opening = {x: t, y: part.y, width: inner, height: part.height};
+        if (framed) {
+          opening = frame.openings[i];
           const inset = design.room.overlay === 'inset';
-          const horizontalInset = ((inset ? 2 : 1) * f + 0.25) / 2;
-          const verticalInset = ((inset ? 2 : 1) * rail + 0.25) / 2;
-          part.x += horizontalInset;
-          part.width -= 2 * horizontalInset;
-          part.y += verticalInset;
-          part.height -= 2 * verticalInset;
-          part.z = inset ? z : z - t;
+          const overlap = inset ? 0 : frame.width / 2;
+          part.x = opening.x - overlap + 0.125;
+          part.y = opening.y - overlap + 0.125;
+          part.width = opening.width + 2 * overlap - 0.25;
+          part.height = opening.height + 2 * overlap - 0.25;
+          part.z = inset ? -t / 2 : -t * 1.5;
         }
         front(part, part.kind === 'drawer' && entry.box, opening);
-      }
+      });
     }
     if (toe.height > 0)
       add(

@@ -1,3 +1,4 @@
+import {cabinetFaceFrame} from './faceFrame';
 import {islandOutline} from './islandFootprint';
 import {sinkAttachment} from './sinkAttachments';
 import {sinkGeometry, sinkCutout} from './fixtureGeometry';
@@ -259,6 +260,13 @@ export function cabinetGeometry(
       'cabinet-top';
   if (!item.storage || item.storage.back)
     box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
+  const frontCells: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+    drawer: boolean;
+  }[] = [];
   const front = (
     width: number,
     height: number,
@@ -266,40 +274,17 @@ export function cabinetGeometry(
     y: number,
     drawer: boolean,
   ) => {
+    frontCells.push({width, height, x, y, drawer});
+  };
+  const drawFront = (
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+    drawer: boolean,
+  ) => {
     const inset = room?.overlay === 'inset';
-    const partial = room?.overlay === 'partial-overlay';
     const faceZ = inset ? d / 2 - 0.375 : d / 2;
-    if (inset || partial) {
-      const frame = Math.min(1.5, width / 6);
-      const horizontalFrame = Math.min(1.5, height / 6);
-      for (const side of [-1, 1]) {
-        box(
-          group,
-          frame,
-          height,
-          0.75,
-          x + (side * (width - frame)) / 2,
-          y,
-          d / 2 - 0.375,
-          wood,
-          'stile',
-        ).name = 'cabinet-face-frame';
-        box(
-          group,
-          width - 2 * frame,
-          horizontalFrame,
-          0.75,
-          x,
-          y + (side * (height - horizontalFrame)) / 2,
-          d / 2 - 0.375,
-          wood,
-          'rail',
-        ).name = 'cabinet-face-frame';
-      }
-      // One-eighth-inch reveal around each door or drawer, inside the frame.
-      width -= (inset ? 2 : 1) * frame + 0.25;
-      height -= (inset ? 2 : 1) * horizontalFrame + 0.25;
-    }
     const glass = item.face === 'shaker-glass' && item.kind === 'wall-cabinet';
     const frontPanel = box(
       group,
@@ -635,6 +620,48 @@ export function cabinetGeometry(
       toe / 2,
       item.kind === 'base' && config === 'pullout',
     );
+  if (
+    frontCells.length &&
+    (room?.overlay === 'inset' || room?.overlay === 'partial-overlay')
+  ) {
+    const frame = cabinetFaceFrame(
+      frontCells.map((c) => ({
+        ...c,
+        x: c.x - c.width / 2,
+        y: c.y - c.height / 2,
+      })),
+      {x: -w / 2, y: bottom, width: w, height: h - toe},
+    );
+    for (const [members, orientation] of [
+      [frame.stiles, 'stile'],
+      [frame.rails, 'rail'],
+    ] as const)
+      for (const r of members)
+        box(
+          group,
+          r.width,
+          r.height,
+          0.75,
+          r.x + r.width / 2,
+          r.y + r.height / 2,
+          d / 2 - 0.375,
+          wood,
+          orientation,
+        ).name = 'cabinet-face-frame';
+    frontCells.forEach((c, i) => {
+      const o = frame.openings[i];
+      const overlap = room.overlay === 'partial-overlay' ? frame.width / 2 : 0;
+      drawFront(
+        o.width + 2 * overlap - 0.25,
+        o.height + 2 * overlap - 0.25,
+        o.x + o.width / 2,
+        o.y + o.height / 2,
+        c.drawer,
+      );
+    });
+  } else
+    for (const c of frontCells)
+      drawFront(c.width, c.height, c.x, c.y, c.drawer);
   if (countertop && item.kind === 'base')
     addBaseCountertop(group, item, sharedCountertop, edges);
   return group;
