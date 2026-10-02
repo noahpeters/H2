@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  DEFAULT_COUNTERTOP_EDGES,
+  type CountertopEdges,
+} from './countertopEdges';
 import type {MaterialSelection} from './materials';
 import {
   createCabinetMaterial,
@@ -18,6 +22,7 @@ export function applianceGeometry(
   panelColor?: string,
   countertop = false,
   appearance?: MaterialSelection,
+  edges: CountertopEdges = DEFAULT_COUNTERTOP_EDGES,
 ) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
@@ -67,12 +72,12 @@ export function applianceGeometry(
       roughness: 0.35,
     });
     const top = box(
-      w + 2 * 0.0254,
+      w + (edges.left + edges.right) * 0.0254,
       1.5 * 0.0254,
-      d + 2 * 0.0254,
-      0,
+      d + (edges.back + edges.front) * 0.0254,
+      ((edges.right - edges.left) / 2) * 0.0254,
       h / 2 + 0.75 * 0.0254,
-      0,
+      ((edges.front - edges.back) / 2) * 0.0254,
       stone,
     );
     top.name = 'dishwasher-countertop';

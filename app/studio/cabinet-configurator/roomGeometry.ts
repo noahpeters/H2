@@ -6,6 +6,10 @@ import {fitDefinition} from './custom-unit/designConfigurations';
 import {customUnitGeometry} from './custom-unit/geometry';
 import * as THREE from 'three';
 import {
+  DEFAULT_COUNTERTOP_EDGES,
+  type CountertopEdges,
+} from './countertopEdges';
+import {
   createCabinetMaterial,
   mapMaterialPart,
   type PartRole,
@@ -119,6 +123,7 @@ export function cabinetGeometry(
   countertop: boolean,
   sharedCountertop = false,
   room?: Pick<Room, 'toeKick' | 'overlay'>,
+  edges: CountertopEdges = DEFAULT_COUNTERTOP_EDGES,
 ) {
   if (item.customCabinet) {
     const toe = cabinetToeKick(item, room);
@@ -152,7 +157,7 @@ export function cabinetGeometry(
     group.add(body);
     if (toe.height) addToeKick(group, item, toe);
     if (countertop && item.kind === 'base')
-      addBaseCountertop(group, item, sharedCountertop);
+      addBaseCountertop(group, item, sharedCountertop, edges);
     return group;
   }
   if (item.kind === 'base' && item.configuration === 'corner') {
@@ -180,12 +185,12 @@ export function cabinetGeometry(
     if (countertop && !sharedCountertop) {
       const shape = new THREE.Shape();
       const points = [
-        [-w / 2 - 1, -d / 2 - 1],
-        [w / 2 + 1, -d / 2 - 1],
-        [w / 2 + 1, -d / 2 + arm + 1],
+        [-w / 2 - edges.left, -d / 2 - edges.back],
+        [w / 2 + edges.right, -d / 2 - edges.back],
+        [w / 2 + edges.right, -d / 2 + arm + 1],
         [-w / 2 + arm + 1, -d / 2 + arm + 1],
-        [-w / 2 + arm + 1, d / 2 + 1],
-        [-w / 2 - 1, d / 2 + 1],
+        [-w / 2 + arm + 1, d / 2 + edges.front],
+        [-w / 2 - edges.left, d / 2 + edges.front],
       ];
       points.forEach(([x, z], i) =>
         i ? shape.lineTo(x * inch, z * inch) : shape.moveTo(x * inch, z * inch),
@@ -631,7 +636,7 @@ export function cabinetGeometry(
       item.kind === 'base' && config === 'pullout',
     );
   if (countertop && item.kind === 'base')
-    addBaseCountertop(group, item, sharedCountertop);
+    addBaseCountertop(group, item, sharedCountertop, edges);
   return group;
 }
 
@@ -640,6 +645,7 @@ function addBaseCountertop(
   group: THREE.Group,
   item: RoomElement,
   sharedCountertop: boolean,
+  edges: CountertopEdges,
 ) {
   const {width: w, height: h, depth: d} = item;
   const stone = new THREE.MeshStandardMaterial({
@@ -647,14 +653,18 @@ function addBaseCountertop(
     roughness: 0.35,
   });
   const topY = h / 2 + 0.75;
+  const minX = -w / 2 - edges.left,
+    maxX = w / 2 + edges.right;
+  const minZ = -d / 2 - edges.back,
+    maxZ = d / 2 + edges.front;
   const sink = sinkAttachment(item);
   if (sink) {
     if (!sharedCountertop) {
       const shape = new THREE.Shape();
-      shape.moveTo((-(w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
-      shape.lineTo(((w + 2) / 2) * inch, (-(d + 2) / 2) * inch);
-      shape.lineTo(((w + 2) / 2) * inch, ((d + 2) / 2) * inch);
-      shape.lineTo((-(w + 2) / 2) * inch, ((d + 2) / 2) * inch);
+      shape.moveTo(minX * inch, minZ * inch);
+      shape.lineTo(maxX * inch, minZ * inch);
+      shape.lineTo(maxX * inch, maxZ * inch);
+      shape.lineTo(minX * inch, maxZ * inch);
       shape.closePath();
       shape.holes.push(
         new THREE.Path(sinkCutout(sink).map((p) => p.multiplyScalar(inch))),
@@ -672,7 +682,16 @@ function addBaseCountertop(
     }
     group.add(sinkGeometry(sink, h, d));
   } else if (!sharedCountertop)
-    box(group, w + 2, 1.5, d + 2, 0, topY, 0, stone);
+    box(
+      group,
+      maxX - minX,
+      1.5,
+      maxZ - minZ,
+      (minX + maxX) / 2,
+      topY,
+      (minZ + maxZ) / 2,
+      stone,
+    ).name = 'cabinet-countertop';
 }
 
 export function placeOnWall(
