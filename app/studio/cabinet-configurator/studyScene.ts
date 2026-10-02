@@ -5,6 +5,7 @@ import {cabinetColor} from './materials';
 import {waitForMaterialTextures} from './materialRendering';
 import {fixtureGeometry} from './fixtureGeometry';
 import {applianceGeometry} from './applianceGeometry';
+import {countertopEdges, DEFAULT_COUNTERTOP_EDGES} from './countertopEdges';
 import {sinkAttachment} from './sinkAttachments';
 import {
   cabinetGeometry,
@@ -90,6 +91,13 @@ function desiredObjects(study: Study): Desired[] {
   }
   for (const item of study.elements) {
     const shared = study.islands.some((island) => island.id === item.islandId);
+    const edges =
+      !shared &&
+      (item.kind === 'base' ||
+        (item.kind === 'appliance' &&
+          (item.applianceKind ?? 'dishwasher') === 'dishwasher'))
+        ? countertopEdges(item, study.elements, room)
+        : DEFAULT_COUNTERTOP_EDGES;
     desired.push({
       key: `element:${item.id}`,
       selectable: true,
@@ -99,6 +107,7 @@ function desiredObjects(study: Study): Desired[] {
         {...item, placement: {elevation: item.placement.elevation}},
         study.countertop,
         shared,
+        edges,
         room.toeKick,
         room.overlay,
         room.height,
@@ -118,8 +127,9 @@ function desiredObjects(study: Study): Desired[] {
                   cabinetColor(item),
                   study.countertop && !item.islandId,
                   item,
+                  edges,
                 )
-              : cabinetGeometry(item, study.countertop, shared, room);
+              : cabinetGeometry(item, study.countertop, shared, room, edges);
         body.userData.id = item.id;
         return body;
       },

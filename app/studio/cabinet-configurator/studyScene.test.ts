@@ -227,3 +227,51 @@ test('hides selection in three mode and restores it in split without rebuilding 
     load.mockRestore();
   }
 });
+
+test('rebuilds the adjacent countertop when a tall cabinet moves away and back', async () => {
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    });
+  const content = new StudyScene(new THREE.Scene());
+  const study = sample();
+  study.countertop = true;
+  const neighbor = {
+    ...study.elements[0],
+    id: 'tall',
+    kind: 'tall' as const,
+    height: 84,
+    placement: {mode: 'floor' as const, x: 60, z: 30, rotation: 0},
+  };
+  const edge = () => {
+    const object = content.selectable.find(
+      (item) => item.userData.id === 'oak',
+    )!;
+    const top = object.getObjectByName('cabinet-countertop')!;
+    object.updateMatrixWorld(true);
+    // Compare in world coordinates: the base center is x=30 inches.
+    return (
+      new THREE.Box3().setFromObject(top).max.x / 0.0254 + study.room.width / 2
+    );
+  };
+  try {
+    await content.update({...study, elements: [...study.elements, neighbor]});
+    expect(edge()).toBeCloseTo(44.98);
+    await content.update({
+      ...study,
+      elements: [
+        ...study.elements,
+        {...neighbor, placement: {...neighbor.placement, x: 90}},
+      ],
+    });
+    expect(edge()).toBeCloseTo(46);
+    await content.update({...study, elements: [...study.elements, neighbor]});
+    expect(edge()).toBeCloseTo(44.98);
+  } finally {
+    content.dispose();
+    load.mockRestore();
+  }
+});
