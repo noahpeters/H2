@@ -15,6 +15,8 @@ export type FabricationPart = {
   material: string;
   stockType: 'sheet' | 'solid' | 'hardware';
   pockets: Pocket[];
+  mesh?: {vertices: Vec3[]; faces: number[][]};
+  basis?: [Vec3, Vec3, Vec3];
 };
 export type FabricationAssembly = {
   id: string;
@@ -24,7 +26,7 @@ export type FabricationAssembly = {
 };
 export type FabricationManifest = {
   schema: 'from-trees-fabrication';
-  version: 1;
+  version: 2;
   units: 'in';
   design: {slug: string; revision: number; updatedAt: string};
   profile: ConstructionProfile;
