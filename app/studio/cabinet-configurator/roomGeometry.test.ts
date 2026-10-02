@@ -100,12 +100,12 @@ describe('four wall room geometry', () => {
         expect(frames).toHaveLength(width > 30 ? 5 : 4);
         for (const frame of frames) {
           expect(new THREE.Box3().setFromObject(frame).max.z).toBeCloseTo(
-            (base.depth / 2) * 0.0254,
+            (base.depth / 2 + 0.75) * 0.0254,
           );
         }
         for (const front of fronts) {
           expect(new THREE.Box3().setFromObject(front).max.z).toBeLessThan(
-            (base.depth / 2) * 0.0254,
+            (base.depth / 2 + 0.75) * 0.0254,
           );
         }
       }

@@ -176,15 +176,15 @@ describe('room overlay', () => {
         overlay === 'full-overlay'
           ? 29.75
           : overlay === 'partial-overlay'
-            ? 29
-            : 28.25;
+            ? 28.25
+            : 26.75;
       expect(door.width).toBeCloseTo(width);
       for (const drawer of drawers) {
         expect(drawer.x).toBeCloseTo(door.x);
         expect(drawer.width).toBeCloseTo(door.width);
         expect(drawer.z).toBe(door.z);
       }
-      expect(door.z).toBe(overlay === 'inset' ? 0 : -0.75);
+      expect(door.z).toBe(overlay === 'partial-overlay' ? -1.5 : -0.75);
       for (const face of ['shaker', 'slab', 'vertical-slat'] as const) {
         const group = customUnitGeometry(
           unit,

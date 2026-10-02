@@ -257,6 +257,10 @@ describe('From Trees construction export', () => {
       expect(
         manifest.parts.filter((p) => p.name === 'Face frame stile'),
       ).toHaveLength(overlay === 'full-overlay' ? 0 : 2);
+      for (const frame of manifest.parts.filter((p) =>
+        p.name.startsWith('Face frame '),
+      ))
+        expect(frame.pockets).toEqual([]);
       noIntersections(manifest.parts);
     },
   );
@@ -345,7 +349,7 @@ describe('From Trees construction export', () => {
           (p) =>
             p.assemblyId === `continuous-frame:${base.id}` && p.origin[0] > 10,
         )!;
-        expect(seam.pockets.length).toBeGreaterThan(2);
+        expect(seam.pockets).toEqual([]);
         const fronts = manifest.parts.filter((p) => p.name === 'Door');
         expect(fronts).toHaveLength(2);
         for (const front of fronts) expect(front.size[0]).toBe(27.5);
