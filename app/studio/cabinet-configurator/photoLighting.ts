@@ -9,6 +9,7 @@ export type PhotoSettings = {
   openings: Record<string, Partial<OpeningLightSettings>>;
   samples: number;
   bounces: number;
+  denoise: boolean;
   maxDimension: number;
   exposure: number;
   toneMapping: THREE.ToneMapping;
@@ -17,7 +18,8 @@ export const DEFAULT_PHOTO_SETTINGS: PhotoSettings = {
   daylight: {temperature: 6500, intensity: 100},
   adjacent: {temperature: 3000, intensity: 12},
   openings: {},
-  samples: 96,
+  samples: 256,
+  denoise: true,
   bounces: 6,
   maxDimension: 1600,
   exposure: 1,
@@ -53,6 +55,7 @@ export function validatePhotoSettings(settings: PhotoSettings) {
   const light = (v: OpeningLightSettings) =>
     bounded(v.temperature, 1000, 25000) && bounded(v.intensity, 0, 10000);
   if (
+    typeof settings.denoise !== 'boolean' ||
     !light(settings.daylight) ||
     !light(settings.adjacent) ||
     !Number.isInteger(settings.samples) ||

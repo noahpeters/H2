@@ -4,7 +4,14 @@ import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
 
 test('pinned adapter disables randomized offset noise and repairs upstream cleanup', () => {
   const dispose = vi.fn();
-  const material = {setDefine: vi.fn(), dispose: vi.fn()};
+  const material = {
+    setDefine: vi.fn(),
+    dispose: vi.fn(),
+    stratifiedOffsetTexture: {
+      image: {width: 64, height: 64, data: new Float32Array(4096)},
+      needsUpdate: false,
+    },
+  };
   const tracer = {
     stableNoise: false,
     _pathTracer: {material},
@@ -16,7 +23,7 @@ test('pinned adapter disables randomized offset noise and repairs upstream clean
   };
   deterministicPhotoTracer(tracer as unknown as WebGLPathTracer);
   expect(tracer.stableNoise).toBe(true);
-  expect(material.setDefine).toHaveBeenCalledWith('RANDOM_TYPE', 0);
+  expect(material.setDefine).toHaveBeenCalledWith('RANDOM_TYPE', 2);
   disposePhotoTracer(tracer as unknown as WebGLPathTracer);
   expect(tracer._renderQuad).toBe(tracer._quad);
   expect(dispose).toHaveBeenCalledOnce();

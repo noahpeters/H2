@@ -7,6 +7,8 @@ import {blankStudy} from './CabinetConfigurator';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import type {MaterialDefinition} from './materialDefinition';
 
+vi.mock('./photoDenoise', () => ({denoisePhoto: vi.fn()}));
+
 const pathTracerMock = vi.hoisted(() => ({
   dispose: vi.fn(),
   settings: [] as unknown[],
@@ -15,7 +17,16 @@ vi.mock('three-gpu-pathtracer', () => ({
   WebGLPathTracer: class {
     samples = 0;
     tiles = new THREE.Vector2();
-    _pathTracer = {material: {setDefine: vi.fn(), dispose: vi.fn()}};
+    _pathTracer = {
+      material: {
+        setDefine: vi.fn(),
+        dispose: vi.fn(),
+        stratifiedOffsetTexture: {
+          image: {width: 64, height: 64, data: new Float32Array(4096)},
+        },
+      },
+    };
+    target = {texture: new THREE.Texture()};
     setScene = vi.fn();
     reset = () => {
       this.samples = 0;
