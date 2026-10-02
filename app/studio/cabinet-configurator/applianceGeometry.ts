@@ -1,4 +1,10 @@
 import * as THREE from 'three';
+import type {MaterialSelection} from './materials';
+import {
+  createCabinetMaterial,
+  mapMaterialPart,
+  type PartRole,
+} from './materialRendering';
 import type {ApplianceFront, ApplianceKind} from './model';
 
 /** Original, dimension-scaled appliance silhouettes; front faces local +Z. */
@@ -11,6 +17,7 @@ export function applianceGeometry(
   rangeHood = false,
   panelColor?: string,
   countertop = false,
+  appearance?: MaterialSelection,
 ) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({
@@ -40,11 +47,13 @@ export function applianceGeometry(
     y: number,
     z: number,
     mat = steel,
+    role: PartRole = 'board',
   ) => {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(width, height, depth),
       mat,
     );
+    mapMaterialPart(mesh.geometry, mat, {width, height, depth}, 'm', role);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -99,21 +108,26 @@ export function applianceGeometry(
     frontStyle !== 'stainless' &&
     (kind === 'refrigerator' || kind === 'dishwasher')
   ) {
-    const wood = new THREE.MeshStandardMaterial({
-      color: panelColor ?? 0xa68159,
-      roughness: 0.6,
-    });
-    const panel = new THREE.MeshStandardMaterial({
-      color: panelColor ?? (frontStyle === 'shaker' ? 0x99754f : 0xa68159),
-      roughness: 0.65,
-    });
+    const wood = appearance
+      ? createCabinetMaterial(appearance, 0.6)
+      : new THREE.MeshStandardMaterial({
+          color: panelColor ?? 0xa68159,
+          roughness: 0.6,
+        });
+    const panel = appearance
+      ? createCabinetMaterial(appearance, 0.65)
+      : new THREE.MeshStandardMaterial({
+          color: panelColor ?? (frontStyle === 'shaker' ? 0x99754f : 0xa68159),
+          roughness: 0.65,
+        });
     box(w, h, d, 0, 0, 0, wood);
     const count = kind === 'refrigerator' ? 2 : 1;
     const pw = w / count - 0.006,
       ph = h - 0.012;
     for (let i = 0; i < count; i++) {
       const x = ((i - (count - 1) / 2) * w) / count;
-      box(pw, ph, 0.012, x, 0, z + 0.006, panel).name = 'appliance-panel';
+      box(pw, ph, 0.012, x, 0, z + 0.006, panel, 'door').name =
+        'appliance-panel';
       if (frontStyle === 'shaker') {
         const rail = Math.min(0.0508, pw / 5);
         for (const side of [-1, 1]) {
@@ -125,6 +139,7 @@ export function applianceGeometry(
             0,
             z + 0.014,
             wood,
+            'stile',
           );
           box(
             pw - 2 * rail,
@@ -134,6 +149,7 @@ export function applianceGeometry(
             (side * (ph - rail)) / 2,
             z + 0.014,
             wood,
+            'rail',
           );
         }
       }

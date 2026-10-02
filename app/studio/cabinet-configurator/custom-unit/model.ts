@@ -1,4 +1,5 @@
 import {migrateFrontStyles} from '../overlay';
+import {validMaterialApplication} from '../materialDefinition';
 import {drawerArrayErrors} from './drawerArrays';
 import type {DoorMechanism} from './doorGeometry';
 import type {CabinetCurve} from './curves';
@@ -39,6 +40,7 @@ export type CustomUnitDivision = {
 export type CustomUnitNode = CustomUnitSection | CustomUnitDivision;
 
 export type CabinetPart = {
+  materialApplication?: import('../materialDefinition').MaterialApplication;
   id: string;
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
   name?: string;
@@ -354,6 +356,8 @@ export function validateCustomUnit(value: unknown): string[] {
           continue;
         }
         errors.push(...drawerArrayErrors(unit as CustomUnitDefinition, part));
+        if (!validMaterialApplication(part.materialApplication))
+          errors.push('Invalid part material application');
         if (typeof part.id !== 'string' || !part.id || ids.has(part.id))
           errors.push('Parts need unique IDs');
         ids.add(part.id);

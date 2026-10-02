@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type {CabinetPart} from './model';
+import {materialFromTemplate, mapMaterialPart} from '../materialRendering';
 export type DoorMechanism =
   | 'hinged'
   | 'pocket'
@@ -42,7 +43,14 @@ export function doorPreview(
     ) => {
       const board = new THREE.Mesh(
         new THREE.BoxGeometry(w, h, d),
-        material.clone(),
+        materialFromTemplate(material),
+      );
+      mapMaterialPart(
+        board.geometry,
+        board.material,
+        {width: w, height: h, depth: d},
+        'in',
+        w <= Math.min(h, d) ? 'drawer-side' : 'board',
       );
       board.position.set(x, y, z);
       board.userData.partId = part.id;
@@ -80,7 +88,19 @@ export function doorPreview(
           horizontal ? part.height : pitch * 0.94,
           part.depth,
         ),
-        material.clone(),
+        materialFromTemplate(material),
+      );
+      mapMaterialPart(
+        slat.geometry,
+        slat.material,
+        {
+          width: horizontal ? pitch * 0.94 : part.width,
+          height: horizontal ? part.height : pitch * 0.94,
+          depth: part.depth,
+        },
+        'in',
+        'door',
+        part.materialApplication,
       );
       slat.userData.partId = part.id;
       slat.castShadow = true;

@@ -100,6 +100,7 @@ export type RoomElement = {
   customCabinet?: import('./custom-unit/library').CustomCabinetInstance;
   storage?: import('./openStorage').OpenStorage;
   material?: CabinetMaterial;
+  materialDefinition?: import('./materialDefinition').MaterialDefinition;
   paintColor?: CabinetPaint;
   id: string;
   kind: ElementKind;

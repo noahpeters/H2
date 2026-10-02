@@ -2,7 +2,7 @@ import {roomFrontParts} from './frontLayout';
 import {migrateFrontStyles} from '../overlay';
 import {expandDrawerArray} from './drawerArrays';
 import {facePreviewGeometry, type CabinetAppearance} from './facePreview';
-import {cabinetColor} from '../materials';
+import {createCabinetMaterial, mapMaterialPart} from '../materialRendering';
 import {doorPreview} from './doorGeometry';
 import {cabinetProfilePoint, edgeSetback} from './curves';
 import * as THREE from 'three';
@@ -219,16 +219,17 @@ export function customUnitGeometry(
       followsProfile || part.profileMode === 'cabinet' ? undefined : part.edges;
     const localShape =
       followsProfile || part.profileMode === 'cabinet' ? undefined : part.shape;
-    const material = new THREE.MeshStandardMaterial({
-      color:
-        part.kind === 'rod'
-          ? 0x777777
-          : appearance
-            ? cabinetColor(appearance)
-            : part.kind === 'carcass'
-              ? 0xc7b294
-              : 0xd8c7a9,
-    });
+    const material =
+      appearance && part.kind !== 'rod'
+        ? createCabinetMaterial(appearance, 1)
+        : new THREE.MeshStandardMaterial({
+            color:
+              part.kind === 'rod'
+                ? 0x777777
+                : part.kind === 'carcass'
+                  ? 0xc7b294
+                  : 0xd8c7a9,
+          });
     const face =
       part.faceStyle ??
       (part.kind === 'drawer' && appearance?.face === 'shaker-glass'
@@ -244,6 +245,7 @@ export function customUnitGeometry(
             part.depth,
             face,
             Boolean(followsProfile || localEdges),
+            part.kind === 'drawer' ? 'x' : 'y',
           )
         : new THREE.BoxGeometry(
             part.width,
@@ -253,6 +255,20 @@ export function customUnitGeometry(
             1,
             followsProfile || localShape?.startsWith('round-') ? 64 : 1,
           );
+    mapMaterialPart(
+      geometry,
+      material,
+      part,
+      'in',
+      part.kind === 'door'
+        ? 'door'
+        : part.kind === 'drawer'
+          ? 'drawer'
+          : part.kind === 'shelf'
+            ? 'shelf'
+            : 'board',
+      part.materialApplication,
+    );
     if (followsProfile || localEdges || localShape?.startsWith('round-')) {
       const positions = geometry.getAttribute('position');
       for (let index = 0; index < positions.count; index++) {
