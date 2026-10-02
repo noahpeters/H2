@@ -708,3 +708,56 @@
   max-height: min(480px, 60vh);
   overflow-y: auto;
 }
+
+.cc-material {
+  border: 1px solid #d7d1c6;
+  border-radius: 6px;
+  padding: 8px;
+}
+.cc-material > summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.cc-material > summary small {
+  display: block;
+  margin-left: 24px;
+}
+.cc-material-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #999;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.cc-tools .cc-material label,
+.cc-tools .cc-material-assignment {
+  display: grid;
+  gap: 6px;
+  text-transform: none;
+}
+.cc-material input,
+.cc-tools .cc-material select,
+.cc-tools .cc-material-assignment select {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+.cc-material .cc-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cc-muted);
+}
+@media (max-width: 680px) {
+  .cc-materials {
+    grid-column: 1 / -1;
+  }
+  .cc-topbar {
+    height: auto;
+    min-height: 62px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 13px;
+  }
+}

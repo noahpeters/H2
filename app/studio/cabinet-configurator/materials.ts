@@ -105,6 +105,7 @@ for (const [id, folder, assetName, tileSize, sourceGrainAxis] of [
 }
 
 export type MaterialSelection = {
+  flatGrain?: import('./designMaterials').FlatGrain;
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
   /** Optional versioned snapshot, persisted with the design. Identity matches selection. */

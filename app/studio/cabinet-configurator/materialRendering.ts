@@ -1,3 +1,4 @@
+import type {FlatGrain} from './designMaterials';
 import * as THREE from 'three';
 import {resolveCabinetMaterial, type MaterialSelection} from './materials';
 import {
@@ -38,8 +39,12 @@ export function resolvePartApplication(
             : 'y';
   return {
     ...application,
-    grainAxis: application.grainAxis ?? grainAxis,
-    rotation: application.rotation ?? 0,
+    grainAxis: ['rail', 'stile', 'drawer-side'].includes(role)
+      ? grainAxis
+      : (application.grainAxis ?? grainAxis),
+    rotation: ['rail', 'stile', 'drawer-side'].includes(role)
+      ? 0
+      : (application.rotation ?? 0),
   };
 }
 
@@ -61,6 +66,7 @@ export function applyMaterialUVs(
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
   const grain = geometry.getAttribute('materialGrainAxis');
+  const fixed = geometry.getAttribute('materialFixedGrain');
   const uv = new THREE.Float32BufferAttribute(
     new Float32Array(position.count * 2),
     2,
@@ -76,22 +82,26 @@ export function applyMaterialUVs(
     ];
     const faceAxis = n.indexOf(Math.max(...n));
     const plane = [0, 1, 2].filter((axis) => axis !== faceAxis);
+    const locked = fixed?.getX(i) === 1;
     const along = axes.indexOf(
-      application.grainAxis ?? (grain ? axes[grain.getX(i)] : 'y'),
+      locked && grain
+        ? axes[grain.getX(i)]
+        : (application.grainAxis ?? (grain ? axes[grain.getX(i)] : 'y')),
     );
     const vAxis = plane.includes(along) ? along : plane[0];
     const uAxis = plane.find((axis) => axis !== vAxis)!;
     const p = [position.getX(i), position.getY(i), position.getZ(i)];
     const u = p[uAxis] * metersPerUnit[geometryUnit];
     const v = p[vAxis] * metersPerUnit[geometryUnit];
+    const rotation = locked ? 0 : angle;
     const across =
-      (u * Math.cos(angle) -
-        v * Math.sin(angle) +
+      (u * Math.cos(rotation) -
+        v * Math.sin(rotation) +
         (offset ? offset.u * metersPerUnit[offset.unit] : 0)) /
       width;
     const alongCoordinate =
-      (u * Math.sin(angle) +
-        v * Math.cos(angle) +
+      (u * Math.sin(rotation) +
+        v * Math.cos(rotation) +
         (offset ? offset.v * metersPerUnit[offset.unit] : 0)) /
       height;
     uv.setXY(
@@ -246,7 +256,12 @@ export function createCabinetMaterial(
   item: MaterialSelection,
   legacyRoughness: number,
 ) {
-  return createMaterial(resolveCabinetMaterial(item), legacyRoughness);
+  const material = createMaterial(
+    resolveCabinetMaterial(item),
+    legacyRoughness,
+  );
+  material.userData.flatGrain = item.flatGrain;
+  return material;
 }
 
 /** Motion-generated boards retain maps independently of their template lifetime. */
@@ -254,9 +269,12 @@ export function materialFromTemplate(template: THREE.Material) {
   const definition = template.userData.materialDefinition as
     | MaterialDefinition
     | undefined;
-  return definition && template instanceof THREE.MeshStandardMaterial
-    ? createMaterial(definition, template.roughness)
-    : template.clone();
+  const material =
+    definition && template instanceof THREE.MeshStandardMaterial
+      ? createMaterial(definition, template.roughness)
+      : template.clone();
+  material.userData.flatGrain = template.userData.flatGrain;
+  return material;
 }
 
 export function mapMaterialPart(
@@ -270,7 +288,28 @@ export function mapMaterialPart(
   const definition = material.userData.materialDefinition as
     | MaterialDefinition
     | undefined;
-  const resolved = resolvePartApplication(role, dimensions, application);
+  const flatGrain = material.userData.flatGrain as FlatGrain | undefined;
+  const locked = ['rail', 'stile', 'drawer-side'].includes(role);
+  const thinAxis =
+    dimensions.width < Math.min(dimensions.height, dimensions.depth)
+      ? 'x'
+      : dimensions.height < dimensions.depth
+        ? 'y'
+        : 'z';
+  const designApplication =
+    !locked && flatGrain && flatGrain !== 'automatic'
+      ? {
+          grainAxis: (flatGrain === 'horizontal'
+            ? thinAxis === 'x'
+              ? 'z'
+              : 'x'
+            : thinAxis === 'y'
+              ? 'z'
+              : 'y') as GrainAxis,
+          rotation: 0 as const,
+        }
+      : application;
+  const resolved = resolvePartApplication(role, dimensions, designApplication);
   if (definition)
     applyMaterialUVs(
       geometry,
@@ -278,7 +317,7 @@ export function mapMaterialPart(
       {
         ...resolved,
         grainAxis:
-          application?.grainAxis ??
+          (locked ? resolved.grainAxis : designApplication?.grainAxis) ??
           (geometry.hasAttribute('materialGrainAxis')
             ? undefined
             : resolved.grainAxis),

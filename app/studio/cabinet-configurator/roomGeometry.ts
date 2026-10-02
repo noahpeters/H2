@@ -134,6 +134,13 @@ export function cabinetGeometry(
         material: item.material ?? 'rift-white-oak',
         paintColor: item.paintColor,
         materialDefinition: item.materialDefinition,
+        flatGrain: item.flatGrain,
+      },
+      {
+        kind: item.kind,
+        hinge: item.hinge,
+        tallConfiguration: item.tallConfiguration,
+        bodyElevation: (item.placement.elevation ?? 0) + toe.height,
       },
     );
     // The definition is already fitted to the body envelope. Convert units only:
