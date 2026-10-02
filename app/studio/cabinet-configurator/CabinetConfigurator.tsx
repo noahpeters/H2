@@ -15,7 +15,6 @@ import {
   type FixtureKind,
   type FixtureSide,
 } from './fixtures';
-import {fixtureGeometry} from './fixtureGeometry';
 import {sinkAttachment} from './sinkAttachments';
 import {DEFAULT_TOE_KICK} from './cabinetEnvelope';
 import {ConfigurationSheet} from './custom-unit/ConfigurationSheet';
@@ -83,14 +82,7 @@ import {
   snapIslandEdges,
   snapRoomCorner,
 } from './placement';
-import {
-  cabinetGeometry,
-  roomGeometry,
-  roomFloorGeometry,
-  openingGeometry,
-  islandCountertop,
-} from './roomGeometry';
-import {applianceGeometry} from './applianceGeometry';
+import {StudyScene, elementTransform} from './studyScene';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   DOOR_TYPES,
@@ -578,14 +570,6 @@ export function createDragEndUpdate(id: string) {
   };
 }
 
-function elementTransform(element: RoomElement, room: Room) {
-  const center = elementCenter(element, room);
-  const rotation =
-    element.placement.mode === 'wall'
-      ? wallToFloor(element, room).rotation
-      : element.placement.rotation;
-  return {...center, rotation};
-}
 function ViewControls({
   view,
   pan,
@@ -664,6 +648,9 @@ export function ThreeStudy({
     target: THREE.Vector3;
     zoom: number;
   } | null>(null);
+  const studyRef = useRef(study);
+  studyRef.current = study;
+  const updateScene = useRef<((next: Study) => void) | null>(null);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
 
@@ -684,84 +671,19 @@ export function ThreeStudy({
       hasNavigated.current = true;
     };
     controls.addEventListener('start', rememberNavigation);
+    let dirty = true;
+    const invalidate = () => {
+      dirty = true;
+    };
+    controls.addEventListener('change', invalidate);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2.02;
 
-    const roomWidth = study.room.width * INCH;
-    const roomDepth = study.room.depth * INCH;
-    const roomHeight = study.room.height * INCH;
-    const floorColors = {oak: 0xbca679, walnut: 0x75604c, concrete: 0xbab9b4};
-    const wallColors = {plaster: 0xe9e3d7, white: 0xf5f4ef, green: 0x849184};
-    const floor = roomFloorGeometry(study.room, floorColors[study.room.floor]);
-    scene.add(floor);
-    scene.add(
-      ...roomGeometry(study.room, study.openings, wallColors[study.room.walls]),
-    );
-
-    const selectable: THREE.Object3D[] = [];
-    const warningIds = validateLayout(study.elements, study.room);
-    for (const island of study.islands) {
-      if (!study.countertop) continue;
-      const top = islandCountertop(island, study.elements);
-      top.position.set(
-        -roomWidth / 2 + island.x * INCH,
-        36 * INCH,
-        -roomDepth / 2 + island.z * INCH,
-      );
-      top.rotation.y = (-island.rotation * Math.PI) / 180;
-      scene.add(top);
-    }
-    for (const cabinet of study.elements) {
-      const width = cabinet.width * INCH;
-      const depth = cabinet.depth * INCH;
-      const height = cabinet.height * INCH;
-      const isAppliance = cabinet.kind === 'appliance';
-      const body =
-        cabinet.kind === 'fixture'
-          ? fixtureGeometry(cabinet, study.room)
-          : isAppliance
-            ? applianceGeometry(
-                cabinet.applianceKind ?? 'dishwasher',
-                width,
-                height,
-                depth,
-                cabinet.applianceFront,
-                cabinet.rangeHood,
-                cabinetColor(cabinet),
-                study.countertop && !cabinet.islandId,
-                cabinet,
-              )
-            : cabinetGeometry(
-                cabinet,
-                study.countertop,
-                study.islands.some((i) => i.id === cabinet.islandId),
-                study.room,
-              );
-      body.userData.id = cabinet.id;
-      const transform = elementTransform(cabinet, study.room);
-      const elevation =
-        cabinet.placement.mode === 'wall'
-          ? cabinet.placement.elevation
-          : cabinet.placement.mode === 'hosted'
-            ? cabinet.placement.elevation
-            : (cabinet.placement.elevation ?? 0);
-      body.rotation.y = (-transform.rotation * Math.PI) / 180;
-      body.position.set(
-        -roomWidth / 2 + transform.x * INCH,
-        elevation * INCH + height / 2,
-        -roomDepth / 2 + transform.z * INCH,
-      );
-      scene.add(body);
-      selectable.push(body);
-      if (cabinet.id === study.selected)
-        scene.add(new THREE.BoxHelper(body, 0xb57d45));
-    }
-
-    for (const opening of study.openings) {
-      const object = openingGeometry(opening, study.room);
-      scene.add(object);
-      selectable.push(object);
-    }
+    const content = new StudyScene(scene);
+    let currentStudy = studyRef.current;
+    const roomWidth = currentStudy.room.width * INCH;
+    const roomDepth = currentStudy.room.depth * INCH;
+    const roomHeight = currentStudy.room.height * INCH;
 
     const largest = Math.max(roomWidth, roomDepth);
     controls.target.set(0, roomHeight * 0.34, 0);
@@ -777,6 +699,9 @@ export function ThreeStudy({
     const resize = () => {
       const bounds = host.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
+      const roomWidth = currentStudy.room.width * INCH;
+      const roomDepth = currentStudy.room.depth * INCH;
+      const roomHeight = currentStudy.room.height * INCH;
       camera.aspect = bounds.width / bounds.height;
       if (!hasNavigated.current) {
         // Fit the loaded room until the user takes control of the camera.
@@ -798,7 +723,10 @@ export function ThreeStudy({
         controls.update();
       }
       camera.updateProjectionMatrix();
-      renderer.setSize(bounds.width, bounds.height, false);
+      invalidate();
+      const size = renderer.getSize(new THREE.Vector2());
+      if (size.x !== bounds.width || size.y !== bounds.height)
+        renderer.setSize(bounds.width, bounds.height, false);
     };
     navigation.current = {
       zoom: (factor) => {
@@ -819,6 +747,23 @@ export function ThreeStudy({
     observer.observe(host);
     resize();
 
+    updateScene.current = (next) => {
+      const previous = currentStudy.room;
+      currentStudy = next;
+      if (
+        previous.width !== next.room.width ||
+        previous.depth !== next.room.depth ||
+        previous.height !== next.room.height
+      )
+        resize();
+      void content
+        .update(next)
+        .then(invalidate)
+        .catch((error: unknown) =>
+          console.error('Cabinet scene update failed', error),
+        );
+    };
+
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const handlePick = (event: PointerEvent) => {
@@ -836,7 +781,7 @@ export function ThreeStudy({
         -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(selectable, true)[0];
+      const hit = raycaster.intersectObjects(content.selectable, true)[0];
       let current: THREE.Object3D | null | undefined = hit?.object;
       while (current && !current.userData.id)
         current = current.parent ?? undefined;
@@ -848,7 +793,10 @@ export function ThreeStudy({
     let frame = 0;
     const animate = () => {
       controls.update();
-      renderer.render(scene, camera);
+      if (dirty) {
+        renderer.render(scene, camera);
+        dirty = false;
+      }
       frame = requestAnimationFrame(animate);
     };
     animate();
@@ -862,21 +810,22 @@ export function ThreeStudy({
       observer.disconnect();
       renderer.domElement.removeEventListener('pointerdown', handlePick);
       controls.removeEventListener('start', rememberNavigation);
+      controls.removeEventListener('change', invalidate);
       navigation.current = null;
       controlsRef.current = null;
       controls.dispose();
-      renderer.dispose();
+      updateScene.current = null;
+      content.dispose();
       scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.geometry.dispose();
-          const materials = Array.isArray(object.material)
-            ? object.material
-            : [object.material];
-          materials.forEach((item) => item.dispose());
-        }
+        if (object instanceof THREE.DirectionalLight) object.shadow.dispose();
       });
+      renderer.dispose();
       host.replaceChildren();
     };
+  }, []);
+
+  useEffect(() => {
+    updateScene.current?.(study);
   }, [study]);
 
   return (

@@ -40,3 +40,11 @@ White albedo tint and roughness 1 are neutral multipliers preserving the source 
 ## Verification
 
 `materialRendering.test.ts` exercises specification and saved-design round trips, legacy defaults, validation, unchanged geometry, cross-unit physical scale, representative part grain conventions, merged shaker rail/stile mapping, explicit rotation/offset, standard/custom/appliance integration, PBR opt-in and texture isolation/disposal. Run `npm run verify`; the installed pre-push hook also runs lint and the full test suite.
+
+## Live scene updates
+
+The room viewport keeps one Three.js renderer, canvas, camera, controls and animation loop for its mounted lifetime. Camera changes and scene edits invalidate rendering; an idle viewport skips GPU redraws while controls continue checking damping. Canvas dimensions are changed only when the host size actually changes.
+
+`StudyScene` reuses room/cabinet geometry when only selection or placement changes. Exact transforms are updated on retained objects; dimensions, elevation-dependent hardware, material definitions, countertop cutouts and other geometry inputs still rebuild their affected objects through the existing factories. Replacement meshes retain their predecessors until all texture loads settle, and a revision check prevents older asynchronous results from restoring stale designs. Pending replacements survive drag updates without restarting their loads. Old meshes are disposed after replacement, keeping shared texture references alive throughout the transition. Selection lines, pending objects and shadow resources are released on unmount.
+
+Regression tests cover repeated drags without mesh/map replacement or additional texture loads, stable renderer/camera/canvas lifetime, idle redraw suppression, asynchronous replacement, superseded loads, exact dimension changes and final disposal. These are automated lifecycle tests; live browser verification is still needed for the original drag recording on the deployed preview.
