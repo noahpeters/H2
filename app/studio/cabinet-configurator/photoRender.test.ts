@@ -1,4 +1,5 @@
 import {afterEach, expect, test, vi} from 'vitest';
+import * as pathTracer from 'three-gpu-pathtracer';
 import * as THREE from 'three';
 import {createPhotoSnapshot, easedGeometry, renderPhoto} from './photoRender';
 import {createMaterial, mapMaterialPart} from './materialRendering';
@@ -11,11 +12,18 @@ const pathTracerMock = vi.hoisted(() => ({
   dispose: vi.fn(),
   settings: [] as unknown[],
 }));
-vi.mock('three-gpu-pathtracer', () => ({
+vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('three-gpu-pathtracer')>()),
   WebGLPathTracer: class {
     samples = 0;
     tiles = new THREE.Vector2();
-    _pathTracer = {material: {setDefine: vi.fn(), dispose: vi.fn()}};
+    _pathTracer = {
+      material: new (
+        pathTracer as unknown as {
+          PhysicalPathTracingMaterial: new () => THREE.ShaderMaterial;
+        }
+      ).PhysicalPathTracingMaterial(),
+    };
     setScene = vi.fn();
     reset = () => {
       this.samples = 0;

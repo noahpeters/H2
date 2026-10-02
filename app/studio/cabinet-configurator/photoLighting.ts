@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
+import type {PhotoContactSettings} from './photoContacts';
 import type {Opening, Room} from './model';
 import {roomSegments} from './roomOutline';
 
@@ -9,6 +11,7 @@ export type PhotoSettings = {
   openings: Record<string, Partial<OpeningLightSettings>>;
   samples: number;
   bounces: number;
+  contacts?: PhotoContactSettings;
   maxDimension: number;
   exposure: number;
   toneMapping: THREE.ToneMapping;
@@ -19,6 +22,7 @@ export const DEFAULT_PHOTO_SETTINGS: PhotoSettings = {
   openings: {},
   samples: 96,
   bounces: 6,
+  contacts: DEFAULT_PHOTO_CONTACTS,
   maxDimension: 1600,
   exposure: 1,
   toneMapping: THREE.ACESFilmicToneMapping,
@@ -53,6 +57,10 @@ export function validatePhotoSettings(settings: PhotoSettings) {
   const light = (v: OpeningLightSettings) =>
     bounded(v.temperature, 1000, 25000) && bounded(v.intensity, 0, 10000);
   if (
+    (settings.contacts !== undefined &&
+      (!['off', 'standard', 'fine'].includes(settings.contacts.quality) ||
+        !bounded(settings.contacts.intensity, 0, 1) ||
+        !bounded(settings.contacts.radius, 0.001, 0.2))) ||
     !light(settings.daylight) ||
     !light(settings.adjacent) ||
     !Number.isInteger(settings.samples) ||
@@ -137,5 +145,13 @@ export function visiblePhotoScene(source: THREE.Scene) {
     }
   };
   prune(scene);
+  // Upstream sorts meshes by UUID before BVH construction. clone() creates random
+  // UUIDs, changing tie ordering at coplanar contacts between repeated captures.
+  let meshIndex = 0;
+  scene.traverse((object) => {
+    if (object instanceof THREE.Mesh) {
+      object.uuid = `00000000-0000-4000-8000-${(meshIndex++).toString(16).padStart(12, '0')}`;
+    }
+  });
   return scene;
 }

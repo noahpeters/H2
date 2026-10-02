@@ -1,3 +1,5 @@
+import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
+import type {PhotoContactSettings} from './photoContacts';
 import {PhotoDialog} from './PhotoDialog';
 import {createPhotoSnapshot, renderPhoto} from './photoRender';
 import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
@@ -1015,6 +1017,77 @@ export function ThreeStudy({
                 <option value={256}>Fine (256 samples)</option>
               </select>
             </label>
+            <label>
+              Contact detail quality
+              <select
+                value={
+                  (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).quality
+                }
+                onChange={(event) =>
+                  setPhotoSettings((value) => ({
+                    ...value,
+                    contacts: {
+                      ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
+                      quality: event.target
+                        .value as PhotoContactSettings['quality'],
+                    },
+                  }))
+                }
+              >
+                <option value="off">Base photo sampling</option>
+                <option value="standard">
+                  Standard (2 paths near contacts)
+                </option>
+                <option value="fine">Fine (4 paths near contacts)</option>
+              </select>
+            </label>
+            <label>
+              Contact refinement strength
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                value={
+                  (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).intensity
+                }
+                onChange={(event) =>
+                  setPhotoSettings((value) => ({
+                    ...value,
+                    contacts: {
+                      ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
+                      intensity: Number(event.target.value),
+                    },
+                  }))
+                }
+              />
+            </label>
+            <label>
+              Contact radius (mm)
+              <input
+                type="number"
+                min={1}
+                max={200}
+                step={1}
+                value={
+                  (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).radius *
+                  1000
+                }
+                onChange={(event) =>
+                  setPhotoSettings((value) => ({
+                    ...value,
+                    contacts: {
+                      ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
+                      radius: Number(event.target.value) / 1000,
+                    },
+                  }))
+                }
+              />
+            </label>
+            <p>
+              Contact refinement reduces noise in tight gaps without adding
+              darkness. Higher quality takes longer.
+            </p>
             <label>
               Image size
               <select
