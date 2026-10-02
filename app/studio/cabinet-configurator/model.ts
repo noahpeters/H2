@@ -1,3 +1,4 @@
+import {islandWorldBounds} from './islandFootprint';
 import {migrateFrontStyles, type Overlay} from './overlay';
 import {sinkAttachment, sinkFits} from './sinkAttachments';
 import type {CabinetMaterial, CabinetPaint} from './materials';
@@ -457,42 +458,22 @@ export function moveIsland(
 }
 
 export function aisleClearance(island: Island, room: Room) {
-  const halfWidth =
-    (Math.abs(island.width * Math.cos((island.rotation * Math.PI) / 180)) +
-      Math.abs(island.depth * Math.sin((island.rotation * Math.PI) / 180))) /
-    2;
-  const halfDepth =
-    (Math.abs(island.width * Math.sin((island.rotation * Math.PI) / 180)) +
-      Math.abs(island.depth * Math.cos((island.rotation * Math.PI) / 180))) /
-    2;
+  const b = islandWorldBounds(island);
   const distances = {
-    left: island.x - halfWidth,
-    right: room.width - island.x - halfWidth,
-    top: island.z - halfDepth,
-    bottom: room.depth - island.z - halfDepth,
+    left: b.left,
+    right: room.width - b.right,
+    top: b.top,
+    bottom: room.depth - b.bottom,
   };
   for (const s of roomSegments(room)) {
-    if (
-      s.horizontal &&
-      s.x < island.x + halfWidth &&
-      s.x + s.length > island.x - halfWidth
-    ) {
-      if (s.z <= island.z)
-        distances.top = Math.min(distances.top, island.z - halfDepth - s.z);
-      else
-        distances.bottom = Math.min(
-          distances.bottom,
-          s.z - island.z - halfDepth,
-        );
-    } else if (
-      !s.horizontal &&
-      s.z < island.z + halfDepth &&
-      s.z + s.length > island.z - halfDepth
-    ) {
-      if (s.x <= island.x)
-        distances.left = Math.min(distances.left, island.x - halfWidth - s.x);
-      else
-        distances.right = Math.min(distances.right, s.x - island.x - halfWidth);
+    if (s.horizontal && s.x < b.right && s.x + s.length > b.left) {
+      if (s.z <= (b.top + b.bottom) / 2)
+        distances.top = Math.min(distances.top, b.top - s.z);
+      else distances.bottom = Math.min(distances.bottom, s.z - b.bottom);
+    } else if (!s.horizontal && s.z < b.bottom && s.z + s.length > b.top) {
+      if (s.x <= (b.left + b.right) / 2)
+        distances.left = Math.min(distances.left, b.left - s.x);
+      else distances.right = Math.min(distances.right, s.x - b.right);
     }
   }
   return distances;

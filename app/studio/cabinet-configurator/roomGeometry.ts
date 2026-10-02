@@ -1,3 +1,4 @@
+import {islandOutline} from './islandFootprint';
 import {sinkAttachment} from './sinkAttachments';
 import {sinkGeometry, sinkCutout} from './fixtureGeometry';
 import {cabinetToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
@@ -22,12 +23,11 @@ import {
 const inch = 0.0254;
 export function islandCountertop(island: Island, elements: RoomElement[]) {
   const shape = new THREE.Shape();
-  const w = (island.width / 2 + island.overhang) * inch,
-    d = (island.depth / 2 + island.overhang) * inch;
-  shape.moveTo(-w, -d);
-  shape.lineTo(w, -d);
-  shape.lineTo(w, d);
-  shape.lineTo(-w, d);
+  const b = islandOutline(island);
+  shape.moveTo(b.left * inch, b.top * inch);
+  shape.lineTo(b.right * inch, b.top * inch);
+  shape.lineTo(b.right * inch, b.bottom * inch);
+  shape.lineTo(b.left * inch, b.bottom * inch);
   shape.closePath();
   for (const item of elements) {
     if (

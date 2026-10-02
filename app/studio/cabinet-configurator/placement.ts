@@ -1,3 +1,8 @@
+import {
+  islandContainsElement,
+  islandOverlapsElement,
+  islandOutline,
+} from './islandFootprint';
 import {placeOpening} from './openingPlacement';
 import {
   bounds,
@@ -118,18 +123,11 @@ export function snapWall(item: RoomElement, room: Room, threshold = 3) {
   delete item.islandId;
 }
 export function islandAt(item: RoomElement, islands: Island[], room: Room) {
-  if (item.kind === 'fixture') return undefined;
+  const current = islands.find((i) => i.id === item.islandId);
+  if (current && islandOverlapsElement(item, current)) return current.id;
   const p = elementCenter(item, room);
   return islands
-    .filter((i) => {
-      const a = (-i.rotation * Math.PI) / 180,
-        dx = p.x - i.x,
-        dz = p.z - i.z;
-      return (
-        Math.abs(dx * Math.cos(a) - dz * Math.sin(a)) <= i.width / 2 &&
-        Math.abs(dx * Math.sin(a) + dz * Math.cos(a)) <= i.depth / 2
-      );
-    })
+    .filter((i) => islandContainsElement(item, i))
     .sort(
       (a, b) =>
         Math.hypot(p.x - a.x, p.z - a.z) - Math.hypot(p.x - b.x, p.z - b.z),
@@ -186,13 +184,18 @@ export function snapIslandEdges(
     (Math.abs(item.width * Math.sin(relative)) +
       Math.abs(item.depth * Math.cos(relative))) /
     2;
-  if (hw > island.width / 2 || hd > island.depth / 2) return;
-  const nearest = (value: number, limit: number) => {
-    const target = value < 0 ? -limit : limit;
+  const outline = islandOutline(island);
+  if (
+    hw * 2 > outline.right - outline.left ||
+    hd * 2 > outline.bottom - outline.top
+  )
+    return;
+  const nearest = (value: number, min: number, max: number) => {
+    const target = Math.abs(value - min) < Math.abs(value - max) ? min : max;
     return Math.abs(value - target) <= threshold ? target : value;
   };
-  x = nearest(x, island.width / 2 - hw);
-  z = nearest(z, island.depth / 2 - hd);
+  x = nearest(x, outline.left + hw, outline.right - hw);
+  z = nearest(z, outline.top + hd, outline.bottom - hd);
   p.x = island.x + x * c - z * s;
   p.z = island.z + x * s + z * c;
 }

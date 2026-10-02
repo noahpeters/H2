@@ -1,3 +1,4 @@
+import {islandContainsElement, islandOutline} from './islandFootprint';
 import {
   bounds,
   elementCenter,
@@ -54,17 +55,21 @@ function openingVolume(opening: Opening): RoomElement {
   };
 }
 function islandVolume(island: Island): RoomElement {
+  const outline = islandOutline(island);
+  const x = (outline.left + outline.right) / 2,
+    z = (outline.top + outline.bottom) / 2;
+  const angle = (island.rotation * Math.PI) / 180;
   return {
     id: island.id,
     kind: 'base',
-    width: island.width,
-    depth: island.depth,
+    width: outline.right - outline.left,
+    depth: outline.bottom - outline.top,
     height: 36,
     face: 'slab',
     placement: {
       mode: 'floor',
-      x: island.x,
-      z: island.z,
+      x: island.x + x * Math.cos(angle) - z * Math.sin(angle),
+      z: island.z + x * Math.sin(angle) + z * Math.cos(angle),
       rotation: island.rotation,
     },
   };
@@ -87,26 +92,7 @@ export function validAutomaticPlacement(
       elevation(item) !== 0
     )
       return false;
-    const p = item.placement,
-      angle = (island.rotation * Math.PI) / 180;
-    const dx = p.x - island.x,
-      dz = p.z - island.z;
-    const relative = ((p.rotation - island.rotation) * Math.PI) / 180;
-    const hw =
-      (Math.abs(item.width * Math.cos(relative)) +
-        Math.abs(item.depth * Math.sin(relative))) /
-      2;
-    const hd =
-      (Math.abs(item.width * Math.sin(relative)) +
-        Math.abs(item.depth * Math.cos(relative))) /
-      2;
-    if (
-      Math.abs(dx * Math.cos(angle) + dz * Math.sin(angle)) + hw >
-        island.width / 2 + 1e-7 ||
-      Math.abs(-dx * Math.sin(angle) + dz * Math.cos(angle)) + hd >
-        island.depth / 2 + 1e-7
-    )
-      return false;
+    if (!islandContainsElement(item, island)) return false;
   }
   if (
     inRoom &&
@@ -274,15 +260,20 @@ export function elementPlacementCandidates(
   });
   if (item.kind !== 'wall-cabinet' && elevation(item) === 0) {
     for (const island of islands) {
-      if (item.width > island.width || item.depth > island.depth) continue;
+      const outline = islandOutline(island);
+      if (
+        item.width > outline.right - outline.left ||
+        item.depth > outline.bottom - outline.top
+      )
+        continue;
       const angle = (island.rotation * Math.PI) / 180;
       for (const x of [
-        -(island.width - item.width) / 2,
-        (island.width - item.width) / 2,
+        outline.left + item.width / 2,
+        outline.right - item.width / 2,
       ])
         for (const z of [
-          -(island.depth - item.depth) / 2,
-          (island.depth - item.depth) / 2,
+          outline.top + item.depth / 2,
+          outline.bottom - item.depth / 2,
         ])
           add(
             floor(
