@@ -8,7 +8,7 @@ Part axes are red = grain/length, green = width, blue = thickness. Instances hav
 
 ## Construction defaults
 
-These defaults follow the cabinet-bottom-up-pricing skill with Noah's explicit updates: 3/4-inch carcasses; dados/rabbets, never butt joints; 5/8-inch maple drawer boxes using rabbets for this first pass, with dovetails deferred.
+These defaults follow the cabinet-bottom-up-pricing skill with Noah's explicit updates: 3/4-inch carcasses; dados/rabbets for carcasses; butt joints for face frames; 5/8-inch maple drawer boxes using rabbets for this first pass, with dovetails deferred.
 
 - Standard shells: two 3-inch top stretchers, two 3-inch back nailers, no full top; 1/4-inch back inside nailers and in side grooves. Separate clip-on toe-kick faces use the room's support-space dimensions (default 4-inch height, 3-inch setback).
 - Carcass insertion defaults to 3/8 inch. Cut dimensions include insertion into receiving joints.
@@ -16,13 +16,13 @@ These defaults follow the cabinet-bottom-up-pricing skill with Noah's explicit u
 - Shaker fronts: separate solid rails/stiles, 2.25-inch widths, 1/4-inch grooves/stub tenons and 1/4-inch panels. Rail widths scale down for small fronts.
 - Explicit custom rectangular board thicknesses and full tops are retained. Touching horizontal/back panels insert into vertical receivers. Custom arrays expand into individual drawer fronts and boxes.
 
-All numeric settings are editable per export. These are first-pass stock and joinery dimensions, not CNC toolpaths: exact joinery fit, Movento drilling/notches, dovetails, edge treatments and finishing are deferred. Hardware including Hafele Axilo feet, clips, hinges and slides is excluded. Countertops, appliances, fixtures and room surfaces are excluded. Every supported Cabinet Designer construction is exported. Curved and profiled stock uses the same shaping functions as the designer, sampled into closed surfaces after joinery. Corner cabinets retain their two-arm layout; angled shelves retain their orientation and receive machined side housings. Floating shelves include separate grooved cleats. Inset/partial-overlay cabinets include joined face-frame stock. Appliance cabinets include their supporting shelves and fronts. Slat fronts are stock blanks without decorative routing.
+All numeric settings are editable per export. These are first-pass stock and joinery dimensions, not CNC toolpaths: exact joinery fit, Movento drilling/notches, dovetails, edge treatments and finishing are deferred. Hardware including Hafele Axilo feet, clips, hinges and slides is excluded. Countertops, appliances, fixtures and room surfaces are excluded. Every supported Cabinet Designer construction is exported. Curved and profiled stock uses the same shaping functions as the designer, sampled into closed surfaces after joinery. Corner cabinets retain their two-arm layout; angled shelves retain their orientation and receive machined side housings. Floating shelves include separate grooved cleats. Inset/partial-overlay cabinets include butt-jointed face-frame stock. Appliance cabinets include their supporting shelves and fronts. Slat fronts are stock blanks without decorative routing.
 
 ## Continuous face frames
 
-The room-level **Continuous face frames** option defaults off and applies to inset and partial-overlay catalog cabinets. Touching cabinets in a straight run share one 1.5-inch boundary stile rather than two 1.5-inch end stiles. Both fronts expand to use the resulting openings, with inset reveals retained. Each run exports one **Continuous face frame** assembly, including rail joinery and the carcass rabbets from both cabinets. Moving or removing a neighbor updates the preview and the next export.
+The room-level **Continuous face frames** option defaults off and applies to inset and partial-overlay catalog and customized cabinets. Touching cabinets in a straight run share one 1.5-inch boundary stile rather than two 1.5-inch end stiles. Both fronts expand to use the resulting openings, with inset reveals retained. Each run exports one **Continuous face frame** assembly, with butt-jointed rails/stiles, placed against the carcass without dado or rabbet cuts. Moving or removing a neighbor updates the preview and the next export.
 
-Runs require matching orientation, depth, frame height/elevation, and material/finish. Gaps, corners, appliances, open storage without fronts, and explicit custom cabinet constructions break the run. Custom constructions retain their specified boards. Existing saved designs keep independent frames until the option is enabled; existing SketchUp models need reimporting.
+Runs require matching orientation, depth, frame height/elevation, and material/finish. Gaps, corners, appliances, open storage without fronts, and curved/profiled custom constructions break the run. Customized cabinets follow the room overlay and frame settings while retaining their stored composition. Existing saved designs keep independent frames until the option is enabled; existing SketchUp models need reimporting.
 
 ## Access and maintenance
 

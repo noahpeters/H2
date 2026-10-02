@@ -1,7 +1,13 @@
+import {cabinetFaceFrame} from '../faceFrame';
 import {drawerBounds, expandDrawerArray} from './drawerArrays';
 import type {CabinetPart, CustomUnitDefinition} from './model';
 import type {Overlay} from '../overlay';
 
+export type RoomFrontPart = CabinetPart & {
+  arrayId?: string;
+  roomOpening?: Opening;
+  faceFrame?: 'left' | 'right' | 'interior' | 'rail';
+};
 type Opening = NonNullable<CabinetPart['drawerArray']>['opening'];
 
 /** Recover the opening from either legacy opening-sized doors or overlay fronts.
@@ -48,21 +54,23 @@ export function frontOpening(
 export function roomFrontParts(
   unit: CustomUnitDefinition,
   overlay: Overlay,
-): (CabinetPart & {arrayId?: string})[] {
-  return (unit.parts ?? []).flatMap((part) => {
+  joined: {left?: boolean; right?: boolean} = {},
+): RoomFrontPart[] {
+  const exteriorParts = new Set<CabinetPart>();
+  const projectedParts = (unit.parts ?? []).flatMap((part) => {
     if (
       !['door', 'drawer'].includes(part.kind) ||
-      part.z >= 0 ||
+      part.z > 0 ||
       part.drawerArray?.face === 'internal' ||
       part.door?.mechanism === 'tambour'
     )
       return expandDrawerArray(part, unit.reveal);
     const opening = part.drawerArray?.opening ?? frontOpening(unit, part);
-    const bounds = drawerBounds(unit, opening, 'external', overlay);
+    const bounds = drawerBounds(unit, opening, 'external', 'full-overlay');
     const projected = {
       ...part,
       ...bounds,
-      z: overlay === 'inset' ? 0 : -part.depth,
+      z: -part.depth,
     };
     if (part.drawerArray) {
       const array = part.drawerArray;
@@ -74,6 +82,56 @@ export function roomFrontParts(
         heights: array.heights.map((height) => (height * available) / total),
       };
     }
-    return expandDrawerArray(projected, unit.reveal);
+    const expanded = expandDrawerArray(projected, unit.reveal);
+    expanded.forEach((part) => exteriorParts.add(part));
+    return expanded;
   });
+  if (overlay === 'full-overlay') return projectedParts;
+  const exterior = projectedParts.filter((part) => exteriorParts.has(part));
+  if (!exterior.length) return projectedParts;
+  const frame = cabinetFaceFrame(
+    exterior,
+    {x: 0, y: 0, width: unit.width, height: unit.height},
+    joined,
+  );
+  const openings = new Map(
+    exterior.map((part, i) => [part, frame.openings[i]]),
+  );
+  const result: RoomFrontPart[] = projectedParts.map((part) => {
+    const opening = openings.get(part);
+    if (!opening) return part;
+    const overlap = overlay === 'partial-overlay' ? frame.width / 2 : 0;
+    return {
+      ...part,
+      x: opening.x - overlap + unit.reveal,
+      y: opening.y - overlap + unit.reveal,
+      width: opening.width + 2 * overlap - 2 * unit.reveal,
+      height: opening.height + 2 * overlap - 2 * unit.reveal,
+      z: overlay === 'inset' ? -0.75 : -0.75 - part.depth,
+      roomOpening: opening,
+    };
+  });
+  for (const [i, r] of frame.stiles.entries())
+    result.push({
+      id: `room-frame-stile-${i}`,
+      name: 'Face frame stile',
+      kind: 'panel',
+      ...r,
+      z: -0.75,
+      depth: 0.75,
+      faceFrame: i === 0 ? 'left' : i === 1 ? 'right' : 'interior',
+      materialApplication: {grainAxis: 'y'},
+    });
+  for (const [i, r] of frame.rails.entries())
+    result.push({
+      id: `room-frame-rail-${i}`,
+      name: 'Face frame rail',
+      kind: 'panel',
+      ...r,
+      z: -0.75,
+      depth: 0.75,
+      faceFrame: 'rail',
+      materialApplication: {grainAxis: 'x'},
+    });
+  return result;
 }

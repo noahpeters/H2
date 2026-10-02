@@ -1,3 +1,4 @@
+import type {FrameNeighbors} from '../continuousFaceFrames';
 import {roomFrontParts} from './frontLayout';
 import {migrateFrontStyles} from '../overlay';
 import {expandDrawerArray} from './drawerArrays';
@@ -25,16 +26,19 @@ export function customUnitGeometry(
   openings: Record<string, number> = {},
   appearance?: CabinetAppearance,
   handles?: RoomHandleContext,
+  neighbors: FrameNeighbors = {},
 ): THREE.Group {
   definition = migrateFrontStyles(definition);
   const layout = customUnitLayoutParts(definition) as CabinetPart[];
   const parts = roomFrontParts(
     {...definition, parts: layout},
     appearance?.overlay ?? 'full-overlay',
+    {left: Boolean(neighbors.left), right: Boolean(neighbors.right)},
   );
   const group = new THREE.Group();
   group.name = `custom-unit:${definition.id}`;
   for (const part of parts) {
+    if (neighbors.left && part.faceFrame === 'left') continue;
     const followsProfile =
       part.profileMode !== 'independent' &&
       Boolean(definition.profile || definition.curve);
@@ -141,7 +145,9 @@ export function customUnitGeometry(
           ]
         : material,
     );
-    mesh.name = `custom-unit-${part.kind}`;
+    mesh.name = part.faceFrame
+      ? 'cabinet-face-frame'
+      : `custom-unit-${part.kind}`;
     mesh.userData.sectionId = part.sectionId;
     mesh.userData.partId = part.arrayId ?? part.id;
     mesh.castShadow = true;

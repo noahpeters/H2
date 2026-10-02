@@ -81,7 +81,7 @@ export function resolveFabrication(
     assemblies: [],
     parts: [],
     assumptions: [
-      'From Trees first-pass construction: dado/rabbet carcasses; no butt joints. Review before cutting.',
+      'From Trees first-pass construction: dado/rabbet carcasses; butt-jointed face frames. Review before cutting.',
       'Standard carcasses have two top stretchers and two back nailers, not a full top. Backs sit inside the nailers.',
       'Drawer boxes use rabbet joints for now; dovetails, Movento notches/holes, joinery fit tolerances and toolpaths are not generated.',
       'Drawer deductions are configurable estimating defaults, not a certified slide drilling specification.',
@@ -426,6 +426,10 @@ export function resolveFabrication(
       for (const part of roomFrontParts(
         {...definition, parts: layout},
         design.room.overlay ?? 'full-overlay',
+        {
+          left: Boolean(frameRuns.get(item.id)?.left),
+          right: Boolean(frameRuns.get(item.id)?.right),
+        },
       )) {
         const start = local.length;
         if (part.kind === 'door' || part.kind === 'drawer') {
@@ -433,6 +437,7 @@ export function resolveFabrication(
             (p) => p.id === part.id || p.id === part.arrayId,
           );
           const opening =
+            part.roomOpening ??
             original?.drawerArray?.opening ??
             (original
               ? frontOpening({...definition, parts: layout}, original)
@@ -443,7 +448,11 @@ export function resolveFabrication(
             part.name ?? part.kind,
             [part.x, part.z, part.y],
             [part.width, part.depth, part.height],
-            part.kind === 'rod' ? 'hardware' : 'sheet',
+            part.faceFrame
+              ? 'solid'
+              : part.kind === 'rod'
+                ? 'hardware'
+                : 'sheet',
             part.kind === 'rod' ? 'Metal rod' : material,
             part.materialApplication?.grainAxis === 'x'
               ? 0
@@ -451,7 +460,14 @@ export function resolveFabrication(
                 ? 1
                 : undefined,
           );
-          if (part.kind !== 'rod') boards.push(board);
+          if (part.faceFrame) {
+            board.grainAxis = part.faceFrame === 'rail' ? 0 : 2;
+            const neighbors = frameRuns.get(item.id);
+            if (part.faceFrame === 'right' && neighbors?.right)
+              sharedStiles.set(`${item.id}:${neighbors.right}`, board);
+            if (part.faceFrame === 'left' && neighbors?.left)
+              sharedStiles.set(`${neighbors.left}:${item.id}:duplicate`, board);
+          } else if (part.kind !== 'rod') boards.push(board);
         }
         for (const board of local.slice(start)) shapeSources.set(board, part);
       }
@@ -744,12 +760,11 @@ export function resolveFabrication(
       );
       if (framed) {
         const boards: FabricationPart[] = [];
-        const joint = Math.min(j, frame.width / 2);
         for (const r of frame.stiles)
           boards.push(
             add(
               'Face frame stile',
-              [r.x, -t / 2, r.y],
+              [r.x, -t, r.y],
               [r.width, t, r.height],
               'solid',
               material,
@@ -760,74 +775,13 @@ export function resolveFabrication(
           boards.push(
             add(
               'Face frame rail',
-              [r.x, -t / 2, r.y],
+              [r.x, -t, r.y],
               [r.width, t, r.height],
               'solid',
               material,
               0,
             ),
           );
-        // Extend each member into its receiving neighbor and machine the shared volume.
-        for (const donor of boards)
-          for (const receiver of boards) {
-            if (donor === receiver) continue;
-            const horizontal =
-              donor.name === 'Face frame rail' &&
-              receiver.name === 'Face frame stile';
-            const vertical =
-              donor.name === 'Face frame stile' &&
-              receiver.name === 'Face frame rail';
-            if (!horizontal && !vertical) continue;
-            const a = horizontal ? 0 : 2,
-              other = horizontal ? 2 : 0;
-            if (
-              donor.origin[other] >=
-                receiver.origin[other] + receiver.size[other] ||
-              donor.origin[other] + donor.size[other] <= receiver.origin[other]
-            )
-              continue;
-            if (
-              Math.abs(donor.origin[a] + donor.size[a] - receiver.origin[a]) <
-              EPS
-            )
-              donor.size[a] += joint;
-            else if (
-              Math.abs(
-                donor.origin[a] - receiver.origin[a] - receiver.size[a],
-              ) < EPS
-            ) {
-              donor.origin[a] -= joint;
-              donor.size[a] += joint;
-            } else continue;
-          }
-        // Compute pockets only after all tenons have reached their final size.
-        for (let i = 0; i < boards.length; i++)
-          for (let k = i + 1; k < boards.length; k++) {
-            const a = boards[i],
-              b = boards[k],
-              shared = intersect(a, b);
-            if (!shared) continue;
-            const stile = a.name === 'Face frame stile' ? a : b;
-            const rail = stile === a ? b : a;
-            const receiver = boards.indexOf(stile) < 2 ? stile : rail;
-            pocket(
-              receiver,
-              shared.origin.map((v, a) => v - receiver.origin[a]) as Vec3,
-              shared.size,
-              'rabbet',
-            );
-          }
-        for (const board of boards)
-          for (const carcass of local.filter((p) => p.stockType === 'sheet')) {
-            const shared = intersect(board, carcass);
-            if (shared)
-              pocket(
-                board,
-                shared.origin.map((v, a) => v - board.origin[a]) as Vec3,
-                shared.size,
-                'rabbet',
-              );
-          }
         if (neighbors?.right)
           sharedStiles.set(`${item.id}:${neighbors.right}`, boards[1]);
         if (neighbors?.left)
@@ -844,7 +798,7 @@ export function resolveFabrication(
           part.y = opening.y - overlap + 0.125;
           part.width = opening.width + 2 * overlap - 0.25;
           part.height = opening.height + 2 * overlap - 0.25;
-          part.z = inset ? -t / 2 : -t * 1.5;
+          part.z = inset ? -t : -t * 2;
         }
         front(part, part.kind === 'drawer' && entry.box, opening);
       });
@@ -882,27 +836,11 @@ export function resolveFabrication(
       manifest.parts.push(part);
     }
   }
-  // Both cabinets machine their side of the seam. Keep one physical stile,
-  // carrying the pockets from both sides in the left cabinet's assembly.
-  for (const [key, receiver] of sharedStiles) {
+  // Neighboring cabinets reference the same boundary stile. Export it once.
+  for (const [key] of sharedStiles) {
     if (key.endsWith(':duplicate')) continue;
     const duplicate = sharedStiles.get(`${key}:duplicate`);
-    if (!duplicate) continue;
-    const owner = design.elements.find((e) => e.id === receiver.assemblyId)!;
-    const neighbor = design.elements.find(
-      (e) => e.id === duplicate.assemblyId,
-    )!;
-    const shift = (owner.width + neighbor.width) / 2;
-    for (const pocket of duplicate.pockets)
-      receiver.pockets.push({
-        ...pocket,
-        origin: [
-          duplicate.origin[0] + shift + pocket.origin[0] - receiver.origin[0],
-          pocket.origin[1],
-          pocket.origin[2],
-        ],
-      });
-    manifest.parts.splice(manifest.parts.indexOf(duplicate), 1);
+    if (duplicate) manifest.parts.splice(manifest.parts.indexOf(duplicate), 1);
   }
   for (const [rootId, neighbors] of frameRuns) {
     if (neighbors.left || !neighbors.right) continue;

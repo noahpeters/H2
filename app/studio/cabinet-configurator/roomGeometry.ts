@@ -150,6 +150,7 @@ export function cabinetGeometry(
         tallConfiguration: item.tallConfiguration,
         bodyElevation: (item.placement.elevation ?? 0) + toe.height,
       },
+      frameNeighbors,
     );
     // The definition is already fitted to the body envelope. Convert units only:
     // bounds can include projecting fronts/end shelves or omit removed panels.
@@ -286,7 +287,11 @@ export function cabinetGeometry(
     drawer: boolean,
   ) => {
     const inset = room?.overlay === 'inset';
-    const faceZ = inset ? d / 2 - 0.375 : d / 2;
+    const faceZ = inset
+      ? d / 2 + 0.375
+      : room?.overlay === 'partial-overlay'
+        ? d / 2 + 0.75
+        : d / 2;
     const glass = item.face === 'shaker-glass' && item.kind === 'wall-cabinet';
     const frontPanel = box(
       group,
@@ -656,7 +661,7 @@ export function cabinetGeometry(
           0.75,
           r.x + r.width / 2,
           r.y + r.height / 2,
-          d / 2 - 0.375,
+          d / 2 + 0.375,
           wood,
           orientation,
         ).name = 'cabinet-face-frame';
