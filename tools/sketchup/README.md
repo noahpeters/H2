@@ -1,16 +1,10 @@
 # Cabinet fabrication export
 
-FTOPS system administrators open a saved design in **Configuration → Cabinet Designer**, then choose **Generate SketchUp export** in its preview. The first pass downloads a self-contained Ruby script, a stock-parts CSV and a construction manifest for that exact saved revision. A changed revision returns 409 and requires reopening the design.
+The installable extension, Ruby source and tracked `.rbz` live in [noahpeters/from-trees-sketchup](https://github.com/noahpeters/from-trees-sketchup). H2 only resolves saved cabinet designs into construction data.
 
-Open a new model in SketchUp Desktop 2022 or newer. Open **Extensions → Developer → Ruby Console** and load the downloaded file, for example:
+FTOPS system administrators open a saved design preview and download the extension installer once. Install it through SketchUp's Extension Manager, then open **Extensions → From Trees → Cabinet Designer**. Sign into the hosted FTOPS page, open a saved design, review construction settings and import directly into SketchUp. Save normally as `.skp`. Each physical stock part is a machined solid component nested in a cabinet assembly; the import is undoable.
 
-```ruby
-load '/Users/you/Downloads/From-Trees-aaaaaaaa-r4.rb'
-```
-
-The importer creates a root group, a component assembly for each cabinet and solid component instances for each physical stock part. It checks manifold solids and stock bounds before committing. A failed import rolls back; a successful import can be undone and offers a native `.skp` save dialog. Existing content is preserved, so start a new model if the saved file should contain only the exported design.
-
-Part axes are red = grain/length, green = width, blue = thickness. Instances have unit scale; pocket geometry represents actual removed stock. Identical parts reuse definitions. When OpenCutList is installed, previously untyped generated materials receive sheet-good, solid-wood or hardware types and grain settings through its API. Supplier stock sizes, allowances and cutting strategy still need configuration. The same resolved parts drive CSV and SketchUp.
+Part axes are red = grain/length, green = width, blue = thickness. Instances have unit scale; dimensions include insertion into receiving joints. The same resolved parts drive the construction manifest and CSV. The importer validates solids before committing and configures OpenCutList material types when installed. Supplier stock sizes, allowances and cutting strategy remain configurable.
 
 ## Construction defaults
 
@@ -28,6 +22,6 @@ All numeric settings are editable per export. These are first-pass stock and joi
 
 `GET /admin/export?slug=<32 hex characters>&revision=<integer>` uses the existing dedicated reporting token, which must differ from the write token. FTOPS enforces authenticated system-admin identity and forwards only fixed construction fields through its private service binding. The response contains no edit credential and does not mutate the source design.
 
-Edit `from_trees_importer.rb`, then run `node scripts/package-sketchup-importer.mjs` and format the generated `importerSource.ts`. A regression test checks the embedded source is identical. Tests verify stock dimensions, joint intersections, drawer arrays, storage variants, transforms, profile validation, and service authorization/revision behavior.
+The H2 endpoint returns only JSON construction data and CSV, never Ruby code. Extension packaging and runtime validation are maintained in its separate repository. H2 tests verify stock dimensions, joint intersections, drawer arrays, storage variants, transforms, profile validation, and service authorization/revision behavior.
 
 Native validation in SketchUp 2026: a two-cabinet sample containing Shaker drawer fronts, rabbeted boxes and a tall cabinet produced 50 manifold parts; OpenCutList recognized all 50 with no ignored parts or errors. The actual H2 Worker was also checked in Cloudflare workerd with local D1, alongside FTOPS's committed service-binding runtime regression. No production deployment is implied by these checks.

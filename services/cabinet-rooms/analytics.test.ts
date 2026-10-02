@@ -218,7 +218,7 @@ it('exports only the requested saved revision with the separate read token', asy
   const body = (await response.json()) as any;
   expect(body.manifest.design.revision).toBe(4);
   expect(body.manifest.parts.length).toBeGreaterThan(30);
-  expect(body.ruby).toContain('Base64.strict_decode64');
+  expect(body).not.toHaveProperty('ruby');
   expect(JSON.stringify(body)).not.toContain('secret-hash');
   expect(
     db.prepare('SELECT data FROM rooms WHERE slug=?').get(slug)?.data,

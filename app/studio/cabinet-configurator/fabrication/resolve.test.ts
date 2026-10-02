@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {describe, it, expect} from 'vitest';
-import {readFileSync, writeFileSync} from 'node:fs';
+import {writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createOpenStorage} from '../openStorage';
@@ -11,7 +11,6 @@ import {customUnitLayoutParts} from '../custom-unit/layoutParts';
 import {resolveFabrication} from './resolve';
 import {DEFAULT_CONSTRUCTION, constructionProfile} from './profile';
 import {exportBundle} from './bundle';
-import {IMPORTER_SOURCE} from './importerSource';
 import {stockDimensions} from './stock';
 import type {FabricationPart} from './model';
 import type {RoomElement} from '../model';
@@ -250,24 +249,15 @@ describe('From Trees construction export', () => {
       0.625,
     );
   });
-  it('embeds data as base64 JSON, not executable Ruby, and uses the same parts for CSV', () => {
+  it('exports only construction data and uses the same parts for CSV', () => {
     const manifest = resolve([
       {...base, materialDefinition: undefined, material: 'rift-white-oak'},
     ]);
     manifest.parts[0].name = "'; system('evil'); #";
     const bundle = exportBundle(manifest);
-    expect(bundle.ruby).not.toContain("system('evil')");
+    expect(bundle).not.toHaveProperty('ruby');
     expect(bundle.csv.split('\r\n')).toHaveLength(manifest.parts.length + 2);
     expect(bundle.csv).toContain('29.25');
-    expect(IMPORTER_SOURCE).toBe(
-      readFileSync(
-        new URL(
-          '../../../../tools/sketchup/from_trees_importer.rb',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-    );
   });
   it('produces native SketchUp verification fixtures from the real resolver', () => {
     const manifest = resolve([
