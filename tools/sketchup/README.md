@@ -4,7 +4,7 @@ The installable extension, Ruby source and tracked `.rbz` live in [noahpeters/fr
 
 FTOPS system administrators open a saved design preview and download the extension installer once. Install it through SketchUp's Extension Manager, then open **Extensions → From Trees → Cabinet Designer**. Sign into the hosted FTOPS page, open a saved design, review construction settings and import directly into SketchUp. Save normally as `.skp`. Each physical stock part is a machined solid component nested in a cabinet assembly; the import is undoable.
 
-Part axes are red = grain/length, green = width, blue = thickness. Instances have unit scale; dimensions include insertion into receiving joints. The same resolved parts drive the construction manifest and CSV. The importer validates solids before committing and configures OpenCutList material types when installed. Supplier stock sizes, allowances and cutting strategy remain configurable.
+Part axes are red = grain/length, green = width, blue = thickness. Instances have unit scale; dimensions include insertion into receiving joints. The same resolved parts drive the construction manifest and CSV. Extension 0.2.0 or newer reads the shaped-stock protocol. The importer validates solids before committing and configures OpenCutList material types when installed. Supplier stock sizes, allowances and cutting strategy remain configurable.
 
 ## Construction defaults
 
@@ -13,10 +13,10 @@ These defaults follow the cabinet-bottom-up-pricing skill with Noah's explicit u
 - Standard shells: two 3-inch top stretchers, two 3-inch back nailers, no full top; 1/4-inch back inside nailers and in side grooves. Separate clip-on toe-kick faces use the room's support-space dimensions (default 4-inch height, 3-inch setback).
 - Carcass insertion defaults to 3/8 inch. Cut dimensions include insertion into receiving joints.
 - Drawer bottom: 3/8-inch maple-veneer plywood, grooves 1/4 inch deep, bottom set 1/2 inch above box bottom. Side height is at most 6 inches, reduced to fit short fronts. Width deducts 1.25 inches from the clear opening; depth deducts 3 inches from cabinet depth.
-- Shaker fronts: separate solid rails/stiles, 2.25-inch widths, 1/4-inch grooves/stub tenons and 1/4-inch panels. Small fronts that cannot fit those rails require a different front style or profile.
+- Shaker fronts: separate solid rails/stiles, 2.25-inch widths, 1/4-inch grooves/stub tenons and 1/4-inch panels. Rail widths scale down for small fronts.
 - Explicit custom rectangular board thicknesses and full tops are retained. Touching horizontal/back panels insert into vertical receivers. Custom arrays expand into individual drawer fronts and boxes.
 
-All numeric settings are editable per export. These are first-pass stock and joinery dimensions, not CNC toolpaths: exact joinery fit, Movento drilling/notches, dovetails, edge treatments and finishing are deferred. Hardware including Hafele Axilo feet, clips, hinges and slides is excluded. Countertops, appliances, fixtures and room surfaces are excluded. Curved/profiled/tambour parts, legacy face-frame overlays, angled/floating shelves, corners and catalog appliance openings without explicit fabrication definitions fail the whole export with review issues rather than supplying approximate cut dimensions. Slat fronts are stock blanks without decorative routing.
+All numeric settings are editable per export. These are first-pass stock and joinery dimensions, not CNC toolpaths: exact joinery fit, Movento drilling/notches, dovetails, edge treatments and finishing are deferred. Hardware including Hafele Axilo feet, clips, hinges and slides is excluded. Countertops, appliances, fixtures and room surfaces are excluded. Every supported Cabinet Designer construction is exported. Curved and profiled stock uses the same shaping functions as the designer, sampled into closed surfaces after joinery. Corner cabinets retain their two-arm layout; angled shelves retain their orientation and receive machined side housings. Floating shelves include separate grooved cleats. Inset/partial-overlay cabinets include joined face-frame stock. Appliance cabinets include their supporting shelves and fronts. Slat fronts are stock blanks without decorative routing.
 
 ## Access and maintenance
 

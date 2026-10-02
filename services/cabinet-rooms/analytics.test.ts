@@ -230,5 +230,5 @@ it('exports only the requested saved revision with the separate read token', asy
     data.replace('three-drawer', 'corner'),
     slug,
   );
-  expect((await call(path)).status).toBe(422);
+  expect((await call(path)).status).toBe(200);
 });
