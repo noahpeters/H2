@@ -8,7 +8,10 @@ type Opening = NonNullable<CabinetPart['drawerArray']>['opening'];
  * Only a board touching this front can define its edge; paired doors retain
  * their shared meeting edge. Stored composition dimensions remain unchanged.
  */
-function frontOpening(unit: CustomUnitDefinition, part: CabinetPart): Opening {
+export function frontOpening(
+  unit: CustomUnitDefinition,
+  part: CabinetPart,
+): Opening {
   const edge = (axis: 'x' | 'y', size: 'width' | 'height', before: boolean) => {
     const value =
       part[axis] + (before ? -unit.reveal : part[size] + unit.reveal);

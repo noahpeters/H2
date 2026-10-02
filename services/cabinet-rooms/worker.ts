@@ -1,3 +1,4 @@
+import {fabricationExport} from './fabrication';
 import {intake, drainIntake, type IntakeServiceEnv} from './intake';
 import {
   dashboard,
@@ -96,7 +97,11 @@ export default {
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (path === '/admin/dashboard' || path === '/admin/design') {
+    if (
+      path === '/admin/dashboard' ||
+      path === '/admin/design' ||
+      path === '/admin/export'
+    ) {
       if (
         !env.ANALYTICS_READ_TOKEN ||
         env.ANALYTICS_READ_TOKEN === env.SERVICE_TOKEN ||
@@ -105,9 +110,11 @@ export default {
       )
         return jsonResponse({error: 'Unauthorized'}, 401);
       try {
-        return await (path === '/admin/design'
-          ? designPreview(request, env.DB)
-          : dashboard(request, env.DB));
+        return await (path === '/admin/export'
+          ? fabricationExport(request, env.DB)
+          : path === '/admin/design'
+            ? designPreview(request, env.DB)
+            : dashboard(request, env.DB));
       } catch {
         return jsonResponse({error: 'Reporting is unavailable'}, 503);
       }

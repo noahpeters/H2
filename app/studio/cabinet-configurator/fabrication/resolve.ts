@@ -1,0 +1,612 @@
+import {wallToFloor, type RoomElement, type Room} from '../model';
+import {cabinetToeKick, cabinetCompositionEnvelope} from '../cabinetEnvelope';
+import {storageLayout} from '../openStorage';
+import {fitDefinition} from '../custom-unit/designConfigurations';
+import {customUnitLayoutParts} from '../custom-unit/layoutParts';
+import {roomFrontParts, frontOpening} from '../custom-unit/frontLayout';
+import type {CabinetPart} from '../custom-unit/model';
+import {
+  FabricationError,
+  type Vec3,
+  type FabricationManifest,
+  type FabricationPart,
+} from './model';
+import type {ConstructionProfile} from './profile';
+
+type Design = {room: Room; elements: RoomElement[]};
+const EPS = 0.001;
+const axis = (size: Vec3) => size.indexOf(Math.min(...size)) as 0 | 1 | 2;
+const intersect = (a: FabricationPart, b: FabricationPart) => {
+  const origin = a.origin.map((v, i) => Math.max(v, b.origin[i])) as Vec3;
+  const size = a.size.map(
+    (v, i) => Math.min(a.origin[i] + v, b.origin[i] + b.size[i]) - origin[i],
+  ) as Vec3;
+  return size.every((v) => v > EPS) ? {origin, size} : null;
+};
+/** Join horizontal/back panels into vertical receiving boards. Stock length
+ * includes the insertion; receiving pockets remove the shared physical volume. */
+function dadoPanels(parts: FabricationPart[], depth: number) {
+  for (const donor of parts) {
+    if (axis(donor.size) === 0) continue;
+    for (const receiver of parts) {
+      if (axis(receiver.size) !== 0) continue;
+      const start = receiver.origin[0],
+        end = start + receiver.size[0];
+      const donorStart = donor.origin[0],
+        donorEnd = donorStart + donor.size[0];
+      const overlapOtherAxes = [1, 2].every(
+        (i) =>
+          donor.origin[i] < receiver.origin[i] + receiver.size[i] - EPS &&
+          donor.origin[i] + donor.size[i] > receiver.origin[i] + EPS,
+      );
+      if (!overlapOtherAxes) continue;
+      const joint = Math.min(depth, receiver.size[0] / 2);
+      if (Math.abs(donorEnd - start) < EPS || Math.abs(donorEnd - end) < EPS)
+        donor.size[0] = start + joint - donorStart;
+      else if (
+        Math.abs(donorStart - end) < EPS ||
+        Math.abs(donorStart - start) < EPS
+      ) {
+        donor.origin[0] = end - joint;
+        donor.size[0] = donorEnd - donor.origin[0];
+      } else continue;
+      const overlap = intersect(donor, receiver);
+      if (overlap)
+        receiver.pockets.push({
+          origin: overlap.origin.map((v, i) => v - receiver.origin[i]) as Vec3,
+          size: overlap.size,
+          operation: 'dado',
+        });
+    }
+  }
+}
+
+export function resolveFabrication(
+  design: Design,
+  source: FabricationManifest['design'],
+  profile: ConstructionProfile,
+): FabricationManifest {
+  const manifest: FabricationManifest = {
+    schema: 'from-trees-fabrication',
+    version: 1,
+    units: 'in',
+    design: source,
+    profile,
+    assemblies: [],
+    parts: [],
+    assumptions: [
+      'From Trees first-pass construction: dado/rabbet carcasses; no butt joints. Review before cutting.',
+      'Standard carcasses have two top stretchers and two back nailers, not a full top. Backs sit inside the nailers.',
+      'Drawer boxes use rabbet joints for now; dovetails, Movento notches/holes, joinery fit tolerances and toolpaths are not generated.',
+      'Drawer deductions are configurable estimating defaults, not a certified slide drilling specification.',
+      'Each rectangular stock component has local grain/width/thickness axes. Dimensions include insertion into joints.',
+      'Toe-kick faces are separate clip-on stock components below floor cabinets; clips and feet are excluded.',
+      'Custom compositions retain their explicit board thicknesses and full tops. Touching horizontal/back boards receive dados into vertical boards.',
+      'Shaker rails have stub tenons; panels fit grooves. Decorative slat routing is represented as stock, not machining.',
+    ],
+    excluded: [
+      'Room surfaces, countertops, fixtures, appliances, pulls, hinges, slides, Axilo feet and plumbing. Hardware requires separate supplier specifications.',
+    ],
+  };
+  const issues: string[] = [];
+  for (const item of design.elements) {
+    if (item.kind === 'appliance' || item.kind === 'fixture') continue;
+    const envelope = cabinetCompositionEnvelope(item, design.room);
+    const toe = cabinetToeKick(item, design.room);
+    const transform = wallToFloor(item, design.room);
+    const assembly = {
+      id: item.id,
+      name:
+        item.customCabinet?.definition.name ??
+        `${item.kind} ${item.width} × ${item.height}`,
+      origin: [
+        transform.x,
+        -transform.z,
+        (item.placement.elevation ?? 0) + toe.height,
+      ] as Vec3,
+      rotation: -transform.rotation,
+    };
+    manifest.assemblies.push(assembly);
+    let serial = 0;
+    const local: FabricationPart[] = [];
+    const material =
+      item.materialDefinition?.label ??
+      item.material ??
+      'Front material — verify';
+    const add = (
+      name: string,
+      origin: Vec3,
+      size: Vec3,
+      stockType: FabricationPart['stockType'] = 'sheet',
+      stockMaterial = 'Prefinished maple / Baltic-birch plywood',
+      grainAxis?: 0 | 1 | 2,
+    ) => {
+      if (manifest.parts.length + local.length >= 5000)
+        throw new FabricationError([
+          'The design exceeds the 5,000-part export limit.',
+        ]);
+      const thickness = axis(size);
+      const grain = grainAxis ?? (size.indexOf(Math.max(...size)) as 0 | 1 | 2);
+      const part: FabricationPart = {
+        id: `${item.id}:part:${serial++}`,
+        assemblyId: item.id,
+        name,
+        origin: [...origin],
+        size: [...size],
+        grainAxis:
+          grain === thickness ? (((thickness + 1) % 3) as 0 | 1 | 2) : grain,
+        material: stockMaterial,
+        stockType,
+        pockets: [],
+      };
+      local.push(part);
+      return part;
+    };
+    const pocket = (
+      part: FabricationPart,
+      origin: Vec3,
+      size: Vec3,
+      operation: 'dado' | 'rabbet' | 'groove',
+    ) => part.pockets.push({origin, size, operation});
+    const drawerBox = (
+      front: CabinetPart,
+      opening: {x: number; y: number; width: number; height: number},
+    ) => {
+      const t = profile.drawerThickness,
+        j = profile.drawerRabbetDepth,
+        g = profile.drawerGrooveDepth,
+        b = profile.drawerBottomThickness;
+      const w = opening.width - profile.drawerWidthDeduction;
+      const x = opening.x + (opening.width - w) / 2,
+        y = Math.max(front.y + 0.5, profile.carcassThickness + 0.5),
+        z = Math.max(0, front.z + front.depth);
+      const d = Math.min(
+        envelope.depth - profile.drawerDepthDeduction,
+        envelope.depth - profile.carcassThickness - profile.backThickness - z,
+      );
+      const h = Math.min(
+        profile.drawerSideHeight,
+        front.height - 1,
+        envelope.height - profile.carcassThickness - y - 0.25,
+      );
+      if (h <= profile.drawerBottomInset + b || w <= 2 * t || d <= 2 * t) {
+        issues.push(
+          `${item.id}: drawer ${front.id} does not fit the construction profile.`,
+        );
+        return;
+      }
+      for (const right of [false, true]) {
+        const side = add(
+          'Drawer side',
+          [x + (right ? w - t : 0), z, y],
+          [t, d, h],
+          'solid',
+          'Maple drawer stock',
+          1,
+        );
+        for (const rear of [false, true])
+          pocket(
+            side,
+            [right ? 0 : t - j, rear ? d - t : 0, 0],
+            [j, t, h],
+            'rabbet',
+          );
+        pocket(
+          side,
+          [right ? 0 : t - g, 0, profile.drawerBottomInset],
+          [g, d, b],
+          'groove',
+        );
+      }
+      for (const rear of [false, true]) {
+        const end = add(
+          rear ? 'Drawer back' : 'Drawer box front',
+          [x + t - j, z + (rear ? d - t : 0), y],
+          [w - 2 * t + 2 * j, t, h],
+          'solid',
+          'Maple drawer stock',
+          0,
+        );
+        pocket(
+          end,
+          [0, rear ? 0 : t - g, profile.drawerBottomInset],
+          [w - 2 * t + 2 * j, g, b],
+          'groove',
+        );
+      }
+      add(
+        'Drawer bottom',
+        [x + t - g, z + t - g, y + profile.drawerBottomInset],
+        [w - 2 * t + 2 * g, d - 2 * t + 2 * g, b],
+        'sheet',
+        'Maple veneer drawer-bottom plywood',
+        0,
+      );
+    };
+    const front = (
+      part: CabinetPart,
+      makeBox: boolean,
+      opening?: {x: number; y: number; width: number; height: number},
+    ) => {
+      const style = part.faceStyle ?? item.face;
+      const x = part.x,
+        z = part.z,
+        y = part.y,
+        w = part.width,
+        h = part.height,
+        t = part.depth;
+      const label = part.kind === 'drawer' ? 'Drawer front' : 'Door';
+      if (['shaker', 'shaker-glass', 'inset-shaker'].includes(style)) {
+        const r = profile.shakerRailWidth,
+          g = profile.shakerGrooveDepth,
+          p = profile.shakerPanelThickness;
+        if (w <= 2 * r || h <= 2 * r || p >= t || g >= r) {
+          issues.push(
+            `${item.id}: ${label} ${part.id} is too small for the Shaker profile.`,
+          );
+          return;
+        }
+        for (const right of [false, true]) {
+          const stile = add(
+            `${label} stile`,
+            [x + (right ? w - r : 0), z, y],
+            [r, t, h],
+            'solid',
+            material,
+            2,
+          );
+          pocket(
+            stile,
+            [right ? 0 : r - g, (t - p) / 2, 0],
+            [g, p, h],
+            'groove',
+          );
+        }
+        for (const top of [false, true]) {
+          const rail = add(
+            `${label} rail`,
+            [x + r - g, z, y + (top ? h - r : 0)],
+            [w - 2 * r + 2 * g, t, r],
+            'solid',
+            material,
+            0,
+          );
+          // Stub-tenon shoulders leave a panel-thickness tongue at each rail end.
+          for (const right of [false, true])
+            for (const rear of [false, true])
+              pocket(
+                rail,
+                [right ? rail.size[0] - g : 0, rear ? (t + p) / 2 : 0, 0],
+                [g, (t - p) / 2, r],
+                'rabbet',
+              );
+          pocket(
+            rail,
+            [0, (t - p) / 2, top ? 0 : r - g],
+            [w - 2 * r + 2 * g, p, g],
+            'groove',
+          );
+        }
+        add(
+          `${label} panel`,
+          [x + r - g, z + (t - p) / 2, y + r - g],
+          [w - 2 * r + 2 * g, p, h - 2 * r + 2 * g],
+          'sheet',
+          style === 'shaker-glass' ? 'Glass — verify thickness' : material,
+          2,
+        );
+      } else
+        add(
+          label,
+          [x, z, y],
+          [w, t, h],
+          'sheet',
+          material,
+          part.materialApplication?.grainAxis === 'x' ? 0 : 2,
+        );
+      if (makeBox && opening) drawerBox(part, opening);
+    };
+    if (
+      item.configuration === 'corner' ||
+      item.storage?.angled ||
+      item.storage?.type === 'floating-shelves' ||
+      (!item.customCabinet &&
+        design.room.overlay &&
+        design.room.overlay !== 'full-overlay')
+    ) {
+      issues.push(
+        `${item.id}: corner cabinets, angled/floating shelves and legacy face-frame overlays need a fabrication definition before export.`,
+      );
+      continue;
+    }
+    if (item.customCabinet) {
+      const definition = fitDefinition(item.customCabinet.definition, envelope);
+      const layout = customUnitLayoutParts(definition) as CabinetPart[];
+      if (
+        definition.curve ||
+        definition.profile ||
+        layout.some(
+          (p) =>
+            (p.shape && p.shape !== 'rectangular') ||
+            p.edges ||
+            p.door?.mechanism === 'tambour',
+        )
+      ) {
+        issues.push(
+          `${item.id}: curved/profiled/tambour fabrication is not supported by the rectangular first-pass profile.`,
+        );
+        continue;
+      }
+      const boards: FabricationPart[] = [];
+      for (const part of roomFrontParts(
+        {...definition, parts: layout},
+        design.room.overlay ?? 'full-overlay',
+      )) {
+        if (part.kind === 'door' || part.kind === 'drawer') {
+          const original = layout.find(
+            (p) => p.id === part.id || p.id === part.arrayId,
+          );
+          const opening =
+            original?.drawerArray?.opening ??
+            (original
+              ? frontOpening({...definition, parts: layout}, original)
+              : undefined);
+          front(part, part.kind === 'drawer', opening);
+        } else {
+          const board = add(
+            part.name ?? part.kind,
+            [part.x, part.z, part.y],
+            [part.width, part.depth, part.height],
+            part.kind === 'rod' ? 'hardware' : 'sheet',
+            part.kind === 'rod' ? 'Metal rod' : material,
+            part.materialApplication?.grainAxis === 'x'
+              ? 0
+              : part.materialApplication?.grainAxis === 'z'
+                ? 1
+                : undefined,
+          );
+          if (part.kind !== 'rod') boards.push(board);
+        }
+      }
+      dadoPanels(boards, profile.dadoDepth);
+    } else {
+      const w = envelope.width,
+        h = envelope.height,
+        d = envelope.depth,
+        t = profile.carcassThickness,
+        j = profile.dadoDepth,
+        b = profile.backThickness,
+        g = profile.backGrooveDepth,
+        r = profile.stretcherWidth;
+      const inner = w - 2 * t,
+        insideDepth = d - t - b;
+      const sides = [
+        add('Left side', [0, 0, 0], [t, d, h]),
+        add('Right side', [w - t, 0, 0], [t, d, h]),
+      ];
+      const horizontal = (name: string, y: number, depth: number, z = 0) => {
+        add(name, [t - j, z, y], [inner + 2 * j, depth, t]);
+        for (let i = 0; i < 2; i++)
+          pocket(
+            sides[i],
+            [i ? 0 : t - j, z, y],
+            [j, depth, t],
+            y === 0 ? 'rabbet' : 'dado',
+          );
+      };
+      horizontal('Bottom', 0, insideDepth);
+      horizontal('Front top stretcher', h - t, r);
+      horizontal('Rear top stretcher', h - t, r, insideDepth - r);
+      for (const top of [false, true]) {
+        const y = top ? h - r : t;
+        add(
+          top ? 'Upper back nailer' : 'Lower back nailer',
+          [t - j, d - t, y],
+          [inner + 2 * j, t, r],
+        );
+        for (let i = 0; i < 2; i++)
+          pocket(sides[i], [i ? 0 : t - j, d - t, y], [j, t, r], 'dado');
+      }
+      if (!item.storage || item.storage.back) {
+        add(
+          'Back',
+          [t - g, insideDepth, t],
+          [inner + 2 * g, b, h - t],
+          'sheet',
+          'Back plywood',
+          2,
+        );
+        for (let i = 0; i < 2; i++)
+          pocket(
+            sides[i],
+            [i ? 0 : t - g, insideDepth, 0],
+            [g, b, h],
+            'groove',
+          );
+      }
+      const fronts: {part: CabinetPart; box: boolean}[] = [];
+      const addFront = (
+        kind: 'door' | 'drawer',
+        width: number,
+        height: number,
+        x: number,
+        y: number,
+        box = true,
+      ) =>
+        fronts.push({
+          part: {
+            id: `front-${fronts.length}`,
+            kind,
+            x,
+            y,
+            z: -t,
+            width,
+            height,
+            depth: t,
+          },
+          box,
+        });
+      const paired = (low: number, height: number) => {
+        const count = w > 30 ? 2 : 1;
+        for (let i = 0; i < count; i++) {
+          const width = count === 1 ? w - 0.25 : w / 2 - 0.1875;
+          addFront(
+            'door',
+            width,
+            height,
+            ((i + 0.5) * w) / count - width / 2,
+            low,
+          );
+        }
+      };
+      const usable = h - 0.25;
+      if (item.storage) {
+        const layout = storageLayout(item, design.room);
+        if (layout.divider) {
+          const board = add(
+            'Storage divider',
+            [t + layout.divider - 0.375, 0, t],
+            [t, insideDepth, h - 2 * t],
+          );
+          pocket(
+            local.find((p) => p.name === 'Bottom')!,
+            [layout.divider - 0.375 + j, 0, t - j],
+            [t, insideDepth, j],
+            'dado',
+          );
+          board.origin[2] -= j;
+          board.size[2] += j;
+        }
+        for (const y of layout.shelfYs)
+          horizontal('Shelf', y - toe.height - t / 2, insideDepth - 0.75);
+        // Combination shelves stop at the central divider.
+        if (layout.divider)
+          for (const shelf of local.filter((p) => p.name === 'Shelf')) {
+            shelf.size[0] = layout.shelfWidth + 2 * j;
+            const divider = local.find((p) => p.name === 'Storage divider')!;
+            pocket(
+              divider,
+              [0, 0, shelf.origin[2] - divider.origin[2]],
+              [j, shelf.size[1], t],
+              'dado',
+            );
+            const rightCut = sides[1].pockets.find(
+              (p) =>
+                Math.abs(p.origin[2] - shelf.origin[2]) < EPS &&
+                p.size[2] === t,
+            );
+            if (rightCut)
+              sides[1].pockets.splice(sides[1].pockets.indexOf(rightCut), 1);
+          }
+        for (const y of layout.rods)
+          add(
+            'Hanging rod',
+            [w / 2 + layout.rodX - layout.rodWidth / 2, d / 2, y - toe.height],
+            [layout.rodWidth, 1.25, 1.25],
+            'hardware',
+            'Metal rod',
+            0,
+          );
+        for (let i = 0; i < layout.drawers; i++)
+          addFront(
+            'drawer',
+            w - 0.25,
+            layout.drawerZone / layout.drawers - 0.125,
+            0.125,
+            layout.low - toe.height + (i * layout.drawerZone) / layout.drawers,
+          );
+        if (item.storage.doors)
+          paired(
+            layout.low - toe.height + layout.drawerZone,
+            layout.high - layout.low - layout.drawerZone - 0.125,
+          );
+      } else if (item.configuration === 'three-drawer') {
+        let y = 0.125;
+        for (const height of [usable * 0.4, usable * 0.4, usable * 0.2]) {
+          addFront('drawer', w - 0.25, height - 0.125, 0.125, y + 0.0625);
+          y += height;
+        }
+      } else if (
+        item.configuration === 'door-drawer' ||
+        item.configuration === 'sink'
+      ) {
+        const height = Math.min(6, usable / 3);
+        addFront(
+          'drawer',
+          w - 0.25,
+          height - 0.125,
+          0.125,
+          h - height - 0.0625,
+          item.configuration !== 'sink',
+        );
+        paired(0.125, usable - height - 0.125);
+      } else if (item.configuration === 'farmhouse-sink') {
+        const apron = Math.min(10, usable * 0.35);
+        // The sink apron is plumbing, not a wood door/front.
+        const count = 2,
+          height = usable - apron - 0.125,
+          width = w / 2 - 0.1875;
+        for (let i = 0; i < count; i++)
+          addFront(
+            'door',
+            width,
+            height,
+            ((i + 0.5) * w) / count - width / 2,
+            0.125,
+          );
+      } else if (
+        item.configuration === 'microwave-drawer' ||
+        (item.tallConfiguration && item.tallConfiguration !== 'standard')
+      ) {
+        issues.push(
+          `${item.id}: appliance opening support and clearance require an explicit custom composition.`,
+        );
+      } else if (item.configuration === 'pullout')
+        addFront('drawer', w - 0.25, usable, 0.125, 0.125);
+      else paired(0.125, usable);
+      for (const entry of fronts)
+        front(entry.part, entry.part.kind === 'drawer' && entry.box, {
+          x: t,
+          y: entry.part.y,
+          width: inner,
+          height: entry.part.height,
+        });
+    }
+    if (toe.height > 0)
+      add(
+        'Toe-kick face',
+        [0, toe.setback, -toe.height],
+        [item.width, profile.carcassThickness, toe.height],
+        'sheet',
+        material,
+        0,
+      );
+    for (const part of local) {
+      if (
+        !part.size.every((v) => Number.isFinite(v) && v > EPS) ||
+        !part.origin.every(Number.isFinite)
+      )
+        issues.push(`${item.id}: ${part.name} has invalid dimensions.`);
+      if (
+        part.pockets.some(
+          (p) =>
+            !p.size.every((v) => Number.isFinite(v) && v > 0) ||
+            p.origin.some(
+              (v, i) => v < -EPS || v + p.size[i] > part.size[i] + EPS,
+            ),
+        )
+      )
+        issues.push(`${item.id}: ${part.name} has a joint outside its stock.`);
+      // Model axes: X right, Y toward rear, Z up. SketchUp room Y is -designer Z.
+      part.origin[0] -= item.width / 2;
+      part.origin[1] -= item.depth / 2;
+      manifest.parts.push(part);
+    }
+  }
+  if (!manifest.parts.length)
+    issues.push('This design contains no cabinet parts.');
+  if (manifest.parts.length > 5000)
+    issues.push('The design exceeds the 5,000-part export limit.');
+  if (issues.length) throw new FabricationError([...new Set(issues)]);
+  return manifest;
+}
