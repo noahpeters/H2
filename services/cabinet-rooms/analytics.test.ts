@@ -172,3 +172,63 @@ it('rejects malformed visits and reports empty results without inventing history
   expect(report.sources).toEqual([]);
   expect((await call('/admin/design?slug=' + 'd'.repeat(32))).status).toBe(404);
 });
+
+it('exports only the requested saved revision with the separate read token', async () => {
+  const {db, call} = setup();
+  const slug = 'e'.repeat(32);
+  const data = JSON.stringify({
+    version: 2,
+    countertop: true,
+    view: 'split',
+    openings: [],
+    islands: [],
+    room: {width: 144, depth: 120, height: 96, floor: 'oak', walls: 'plaster'},
+    elements: [
+      {
+        id: 'base',
+        kind: 'base',
+        width: 30,
+        height: 34.5,
+        depth: 24,
+        face: 'shaker',
+        configuration: 'three-drawer',
+        placement: {mode: 'floor', x: 30, z: 30, rotation: 0},
+      },
+    ],
+  });
+  db.prepare('INSERT INTO rooms VALUES (?,?,?,?,?)').run(
+    slug,
+    'secret-hash',
+    data,
+    4,
+    new Date().toISOString(),
+  );
+  const path = `/admin/export?slug=${slug}&revision=4`;
+  expect((await call(path, 'write-token')).status).toBe(401);
+  expect((await call(path, 'wrong')).status).toBe(401);
+  expect((await call(path, 'read-token', {})).status).toBe(405);
+  expect((await call(`/admin/export?slug=${slug}`)).status).toBe(400);
+  expect((await call(`/admin/export?slug=${slug}&revision=3`)).status).toBe(
+    409,
+  );
+  expect((await call(path + '&dadoDepth=0.75')).status).toBe(400);
+  const response = await call(path);
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  const body = (await response.json()) as any;
+  expect(body.manifest.design.revision).toBe(4);
+  expect(body.manifest.parts.length).toBeGreaterThan(30);
+  expect(body).not.toHaveProperty('ruby');
+  expect(JSON.stringify(body)).not.toContain('secret-hash');
+  expect(
+    db.prepare('SELECT data FROM rooms WHERE slug=?').get(slug)?.data,
+  ).toBe(data);
+  expect(
+    (await call(`/admin/export?slug=${'f'.repeat(32)}&revision=1`)).status,
+  ).toBe(404);
+  db.prepare('UPDATE rooms SET data=? WHERE slug=?').run(
+    data.replace('three-drawer', 'corner'),
+    slug,
+  );
+  expect((await call(path)).status).toBe(422);
+});
