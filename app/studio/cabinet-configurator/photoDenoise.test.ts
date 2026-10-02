@@ -1,0 +1,105 @@
+import {afterEach, expect, test, vi} from 'vitest';
+import * as THREE from 'three';
+import {denoisePhoto} from './photoDenoise';
+import {photoNoiseOffsets} from './photoNoise';
+
+afterEach(() => vi.restoreAllMocks());
+
+test('guide/filter passes preserve source materials, geometry, texture ownership and renderer state', () => {
+  const scene = new THREE.Scene();
+  const texture = new THREE.Texture();
+  const original = new THREE.MeshStandardMaterial({
+    color: '#886644',
+    map: texture,
+  });
+  const geometry = new THREE.BoxGeometry();
+  scene.add(new THREE.Mesh(geometry, [original, original]));
+  const previousTarget = new THREE.WebGLRenderTarget(16, 16);
+  let currentTarget = previousTarget;
+  const render = vi.fn();
+  const renderer = {
+    getRenderTarget: () => currentTarget,
+    setRenderTarget: (value: THREE.WebGLRenderTarget) => {
+      currentTarget = value;
+    },
+    render,
+    toneMapping: THREE.ACESFilmicToneMapping,
+    outputColorSpace: THREE.SRGBColorSpace,
+    autoClear: false,
+  };
+  const releaseTexture = vi.spyOn(texture, 'dispose');
+  const releaseSource = vi.spyOn(original, 'dispose');
+  const releaseGeometry = vi.spyOn(geometry, 'dispose');
+  const releaseTarget = vi.spyOn(THREE.WebGLRenderTarget.prototype, 'dispose');
+  denoisePhoto(
+    renderer as unknown as THREE.WebGLRenderer,
+    scene,
+    new THREE.PerspectiveCamera(),
+    texture,
+    128,
+    128,
+  );
+  expect(render).toHaveBeenCalledTimes(5);
+  const guide = render.mock.calls[0][0] as THREE.Scene;
+  expect(guide).not.toBe(scene);
+  expect((guide.children[0] as THREE.Mesh).geometry).toBe(geometry);
+  expect((scene.children[0] as THREE.Mesh).material).toEqual([
+    original,
+    original,
+  ]);
+  expect(scene.overrideMaterial).toBeNull();
+  expect(releaseTexture).not.toHaveBeenCalled();
+  expect(releaseSource).not.toHaveBeenCalled();
+  expect(releaseGeometry).not.toHaveBeenCalled();
+  expect(releaseTarget).toHaveBeenCalledTimes(4);
+  expect(currentTarget).toBe(previousTarget);
+  expect(renderer.toneMapping).toBe(THREE.ACESFilmicToneMapping);
+  expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
+  expect(renderer.autoClear).toBe(false);
+});
+
+test('failed GPU guide rendering releases temporary targets and restores output configuration', () => {
+  const previous = new THREE.WebGLRenderTarget();
+  let current = previous;
+  const renderer = {
+    getRenderTarget: () => current,
+    setRenderTarget: (value: THREE.WebGLRenderTarget) => {
+      current = value;
+    },
+    render: () => {
+      throw new Error('GPU failure');
+    },
+    toneMapping: THREE.ACESFilmicToneMapping,
+    outputColorSpace: THREE.SRGBColorSpace,
+    autoClear: false,
+  };
+  const dispose = vi.spyOn(THREE.WebGLRenderTarget.prototype, 'dispose');
+  expect(() =>
+    denoisePhoto(
+      renderer as unknown as THREE.WebGLRenderer,
+      new THREE.Scene(),
+      new THREE.PerspectiveCamera(),
+      new THREE.Texture(),
+      64,
+      64,
+    ),
+  ).toThrow('GPU failure');
+  expect(dispose).toHaveBeenCalledTimes(4);
+  expect(current).toBe(previous);
+  expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
+  expect(renderer.autoClear).toBe(false);
+});
+
+test('fixed spatial ranks remain uniform and identical across separate captures', () => {
+  const first = photoNoiseOffsets();
+  const second = photoNoiseOffsets();
+  expect(first).toEqual(second);
+  expect(first).not.toBe(second);
+  expect(new Set(first).size).toBe(4096);
+  expect(Math.min(...first)).toBe(0);
+  expect(Math.max(...first)).toBeLessThan(1);
+  expect(first.reduce((total, v) => total + v, 0) / first.length).toBeCloseTo(
+    0.5,
+    3,
+  );
+});

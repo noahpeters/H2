@@ -1010,10 +1010,23 @@ export function ThreeStudy({
                   }))
                 }
               >
-                <option value={32}>Quick (32 samples)</option>
-                <option value={96}>Standard (96 samples)</option>
-                <option value={256}>Fine (256 samples)</option>
+                <option value={64}>Quick (64 samples)</option>
+                <option value={256}>Standard (256 samples)</option>
+                <option value={512}>Fine (512 samples)</option>
               </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={photoSettings.denoise}
+                onChange={(event) =>
+                  setPhotoSettings((value) => ({
+                    ...value,
+                    denoise: event.target.checked,
+                  }))
+                }
+              />
+              Reduce photo noise
             </label>
             <label>
               Image size

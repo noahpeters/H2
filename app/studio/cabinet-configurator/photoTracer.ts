@@ -1,21 +1,36 @@
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
+import {photoNoiseOffsets} from './photoNoise';
 
-/** Adapter for pinned 0.0.23: stableNoise alone leaves a randomized blue-noise offset.
- * PCG uses pixel coordinates and the reset sample seed, so no global random state
- * or constructor-generated noise texture contributes to the render sequence.
- */
+/** Pinned adapter: deterministic stratification plus fixed spatial blue-noise ranks. */
 export function deterministicPhotoTracer(tracer: WebGLPathTracer) {
   const pinned = tracer as WebGLPathTracer & {
     stableNoise: boolean;
-    _pathTracer: {material: {setDefine: (name: string, value: number) => void}};
+    _pathTracer: {
+      material: {
+        setDefine: (name: string, value: number) => void;
+        stratifiedOffsetTexture: {
+          image: {data: Float32Array; width: number; height: number};
+          needsUpdate: boolean;
+        };
+      };
+    };
   };
-  if (!pinned._pathTracer?.material?.setDefine) {
+  const material = pinned._pathTracer?.material;
+  const offsets = material?.stratifiedOffsetTexture;
+  if (
+    !material?.setDefine ||
+    offsets?.image.width !== 64 ||
+    offsets.image.height !== 64 ||
+    offsets.image.data.length !== 4096
+  ) {
     throw new Error(
       'Photo tracer compatibility changed. Please update the photo adapter.',
     );
   }
   pinned.stableNoise = true;
-  pinned._pathTracer.material.setDefine('RANDOM_TYPE', 0);
+  offsets.image.data.set(photoNoiseOffsets());
+  offsets.needsUpdate = true;
+  material.setDefine('RANDOM_TYPE', 2);
 }
 
 /** 0.0.23 dispose references a renamed quad and omits its low-resolution target. */
