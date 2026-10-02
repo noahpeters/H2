@@ -1,0 +1,69 @@
+{
+  "asset": "oak_veneer_02",
+  "source": "https://polyhaven.com/a/oak_veneer_02",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 1000,
+    "height": 1000,
+    "unit": "mm"
+  },
+  "physicalSizeBasis": "Provider specifies 1 m width and 10.2 px/cm at 1K; square maps imply a 1 m square tile.",
+  "sourceSpecies": "Oak; white-oak species not verified by provider.",
+  "sourceFinish": "Source appearance; coating system not specified.",
+  "sourceCut": "Not specified by provider.",
+  "application": "User-selected representative preview for rift-white-oak; not a verified rift-cut white-oak scan.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "oak_veneer_02_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_02/oak_veneer_02_diff_1k.jpg",
+      "bytes": 586151,
+      "sha256": "69410573a965898d455f389ede7c0de5709de33430ad489786e5ba70b3e7ba81",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "oak_veneer_02_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_02/oak_veneer_02_nor_gl_1k.jpg",
+      "bytes": 306086,
+      "sha256": "4e5444b3fa1f3456891ca06e9f8978f7f303cadaf36cd4041da8e207be7202ce",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "oak_veneer_02_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_02/oak_veneer_02_rough_1k.jpg",
+      "bytes": 767259,
+      "sha256": "e9d438b6d00db37cbf4745cc7ff3b59ee29fd7cc75ce6396356dd004a84d2e43",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "oak_veneer_02_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_02/oak_veneer_02_ao_1k.jpg",
+      "bytes": 537549,
+      "sha256": "df47b81e36dba68c378966ca76cc0bee51925db5bf2b41a9752debc6871f314c",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ],
+  "sourceGrainAxis": "u",
+  "sourceGrainBasis": "Visual inspection of the provider albedo: grain runs horizontally along image U."
+}

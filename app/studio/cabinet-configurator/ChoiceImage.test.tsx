@@ -1,5 +1,5 @@
 import {act, cleanup, render, waitFor} from '@testing-library/react';
-import {afterEach, expect, test, vi} from 'vitest';
+import {afterEach, beforeEach, expect, test, vi} from 'vitest';
 import * as THREE from 'three';
 
 const graphics = {
@@ -22,8 +22,22 @@ vi.spyOn(THREE, 'WebGLRenderer').mockImplementation(
 );
 import {ChoiceImage} from './VisualChoices';
 
+let resetTextures = () => {};
+beforeEach(() => {
+  // Lifecycle tests use resolved synthetic maps, independent of network images.
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    });
+  resetTextures = () => load.mockRestore();
+});
+
 afterEach(() => {
   cleanup();
+  resetTextures();
   vi.unstubAllGlobals();
   graphics.lost = false;
   vi.clearAllMocks();
@@ -78,7 +92,9 @@ test('waits for a collapsed option to become visible and disconnects on success'
       disconnect = disconnect;
     },
   );
-  const result = render(<ChoiceImage category="material" value="walnut" />);
+  const result = render(
+    <ChoiceImage category="material" value="paint-grade" />,
+  );
   expect(graphics.render).not.toHaveBeenCalled();
   act(() => {
     notify(

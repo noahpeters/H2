@@ -1,0 +1,68 @@
+{
+  "asset": "white_maple_veneer",
+  "source": "https://polyhaven.com/a/white_maple_veneer",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 1000,
+    "height": 1000,
+    "unit": "mm"
+  },
+  "physicalSizeBasis": "Provider specifies 1 m width and 10.2 px/cm at 1K; square maps imply a 1 m square tile.",
+  "sourceSpecies": "Maple",
+  "sourceFinish": "Source appearance; coating system not specified.",
+  "sourceCut": "Not specified by provider.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "white_maple_veneer_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_maple_veneer/white_maple_veneer_diff_1k.jpg",
+      "bytes": 443279,
+      "sha256": "0cdcb6d726ca7e6039ab0eeb2b1828a0ef188b43c2370972cf6eebeaff76aaa0",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "white_maple_veneer_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_maple_veneer/white_maple_veneer_nor_gl_1k.jpg",
+      "bytes": 275968,
+      "sha256": "fb63ac49ab9a8f1e650a7886e570bfb46a1970d73b9a943c29015f3f111078fc",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "white_maple_veneer_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_maple_veneer/white_maple_veneer_rough_1k.jpg",
+      "bytes": 721797,
+      "sha256": "6bacc0bae40c52759e91d77555baad27f9e8cb2bec471d755726262539e6df02",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "white_maple_veneer_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_maple_veneer/white_maple_veneer_ao_1k.jpg",
+      "bytes": 383779,
+      "sha256": "460d347f2c97609c3815bd599b61ac9d3e474f8d6d781346fb2a14ecb4b22f7e",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ],
+  "sourceGrainAxis": "u",
+  "sourceGrainBasis": "Visual inspection of the provider albedo: grain runs horizontally across image U."
+}

@@ -1,0 +1,68 @@
+{
+  "asset": "cherry_veneer",
+  "source": "https://polyhaven.com/a/cherry_veneer",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 1000,
+    "height": 1000,
+    "unit": "mm"
+  },
+  "physicalSizeBasis": "Provider specifies 1 m width and 10.2 px/cm at 1K; square maps imply a 1 m square tile.",
+  "sourceSpecies": "Cherry",
+  "sourceFinish": "Source appearance; coating system not specified.",
+  "sourceCut": "Not specified by provider.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "cherry_veneer_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cherry_veneer/cherry_veneer_diff_1k.jpg",
+      "bytes": 485750,
+      "sha256": "d50fed9f9964721d6b18581cadb6d95717a714b85361b22078e7d913ba5ce4d2",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "cherry_veneer_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cherry_veneer/cherry_veneer_nor_gl_1k.jpg",
+      "bytes": 288037,
+      "sha256": "d2c722c80651e7c1074d46f27c18a78de5bce9ced1c8afc82ea3aa555555e57a",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "cherry_veneer_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cherry_veneer/cherry_veneer_rough_1k.jpg",
+      "bytes": 522104,
+      "sha256": "25dc671f72a5c78c2fec855b95a009d1c948a9616007887a653c2c695ee1b7a6",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "cherry_veneer_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cherry_veneer/cherry_veneer_ao_1k.jpg",
+      "bytes": 350741,
+      "sha256": "7984387f664a272b33d33206ac2d4763cea9311762ae8c9af8751a172a5d5c20",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ],
+  "sourceGrainAxis": "u",
+  "sourceGrainBasis": "Visual inspection of the provider albedo: grain runs horizontally across image U."
+}
