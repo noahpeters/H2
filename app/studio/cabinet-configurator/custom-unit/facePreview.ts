@@ -28,6 +28,16 @@ export function facePreviewGeometry(
   grainAxis: GrainAxis = 'y',
 ) {
   const pieces: THREE.BufferGeometry[] = [];
+  const photoBoxes: {
+    width: number;
+    height: number;
+    depth: number;
+    x: number;
+    y: number;
+    z: number;
+    axis: GrainAxis;
+    fixed: boolean;
+  }[] = [];
   const box = (
     width: number,
     height: number,
@@ -66,6 +76,7 @@ export function facePreviewGeometry(
       ),
     );
     pieces.push(geometry);
+    photoBoxes.push({width, height, depth, x, y, z, axis, fixed});
   };
   const frame = (
     width: number,
@@ -111,6 +122,7 @@ export function facePreviewGeometry(
   });
   if (style === 'shaker-glass')
     result.groups[result.groups.length - 1].materialIndex = 1;
+  if (!segmented) result.userData.photoBoxes = photoBoxes;
   pieces.forEach((piece) => piece.dispose());
   return result;
 }

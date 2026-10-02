@@ -1,0 +1,33 @@
+{
+  "source": "https://polyhaven.com/a/smooth_concrete_floor",
+  "license": "CC0-1.0",
+  "dimensionsMM": [
+    2000,
+    2000
+  ],
+  "authors": {
+    "Dimitrios Savva": "All"
+  },
+  "files": {
+    "albedo": {
+      "file": "smooth_concrete_floor_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_diff_1k.jpg",
+      "sha256": "079587ae48fb3e2bfb0d0f9209eb75dc26ee30e213403d96377a30f6f6955092"
+    },
+    "normal": {
+      "file": "smooth_concrete_floor_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_nor_gl_1k.jpg",
+      "sha256": "588bdbcc16b8dfa2869a2c154c076a419abb8ed83284691c2dffdddfcf20cc0c"
+    },
+    "roughness": {
+      "file": "smooth_concrete_floor_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_rough_1k.jpg",
+      "sha256": "89082ede1efd3a60fd600a49e381a5822c89ee3bf75456ad883b3057190042a5"
+    },
+    "ao": {
+      "file": "smooth_concrete_floor_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smooth_concrete_floor/smooth_concrete_floor_ao_1k.jpg",
+      "sha256": "8cff430f78e39328e12454f9932e89b49430288875d36a72a5ea2adce19f10c4"
+    }
+  }
+}

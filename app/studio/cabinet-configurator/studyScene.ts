@@ -1,3 +1,5 @@
+import {roomSegments} from './roomOutline';
+import {ROOM_MATERIALS, applyRoomSurface} from './roomMaterials';
 import {continuousFrameNeighbors} from './continuousFaceFrames';
 import * as THREE from 'three';
 import type {Study} from './CabinetConfigurator';
@@ -52,6 +54,19 @@ export function disposeStudyObject(object: THREE.Object3D) {
   materials.forEach((material) => material.dispose());
 }
 
+function applyCountertops(object: THREE.Object3D, room: Room) {
+  const replaced = new Set<THREE.Material>();
+  object.traverse((part) => {
+    if (part instanceof THREE.Mesh && part.name.endsWith('-countertop'))
+      applyRoomSurface(
+        part,
+        ROOM_MATERIALS.countertop[room.countertopMaterial ?? 'white-quartz'],
+        'countertop',
+      ).forEach((m) => replaced.add(m));
+  });
+  replaced.forEach((m) => m.dispose());
+}
+
 function desiredObjects(study: Study): Desired[] {
   const {room} = study;
   const desired: Desired[] = [
@@ -59,12 +74,32 @@ function desiredObjects(study: Study): Desired[] {
       key: 'room',
       signature: JSON.stringify([room, study.openings]),
       build: () => {
-        const floors = {oak: 0xbca679, walnut: 0x75604c, concrete: 0xbab9b4};
-        const walls = {plaster: 0xe9e3d7, white: 0xf5f4ef, green: 0x849184};
-        return new THREE.Group().add(
-          roomFloorGeometry(room, floors[room.floor]),
-          ...roomGeometry(room, study.openings, walls[room.walls]),
-        );
+        const floor = roomFloorGeometry(room, 0xffffff);
+        const walls = roomGeometry(room, study.openings, 0xffffff);
+        walls.forEach((wall, index) => {
+          wall.userData.photoWall = {
+            segment: roomSegments(room)[index],
+            room,
+            openings: study.openings,
+          };
+        });
+        const replaced = new Set<THREE.Material>();
+        applyRoomSurface(
+          floor,
+          ROOM_MATERIALS.floor[room.floor],
+          'floor',
+        ).forEach((m) => replaced.add(m));
+        for (const wall of walls)
+          wall.traverse((part) => {
+            if (part instanceof THREE.Mesh)
+              applyRoomSurface(
+                part,
+                ROOM_MATERIALS.walls[room.walls],
+                'wall',
+              ).forEach((m) => replaced.add(m));
+          });
+        replaced.forEach((m) => m.dispose());
+        return new THREE.Group().add(floor, ...walls);
       },
     },
   ];
@@ -75,11 +110,16 @@ function desiredObjects(study: Study): Desired[] {
       // Sink cutouts depend on placement; ordinary cabinet movement does not.
       signature: JSON.stringify([
         island,
+        room.countertopMaterial,
         study.elements.filter(
           (item) => item.islandId === island.id && sinkAttachment(item),
         ),
       ]),
-      build: () => islandCountertop(island, study.elements),
+      build: () => {
+        const top = islandCountertop(island, study.elements);
+        applyCountertops(top, room);
+        return top;
+      },
       place: (object) => {
         object.position.set(
           (-room.width / 2 + island.x) * INCH,
@@ -108,6 +148,7 @@ function desiredObjects(study: Study): Desired[] {
       signature: JSON.stringify([
         {...item, placement: {elevation: item.placement.elevation}},
         study.countertop,
+        room.countertopMaterial,
         shared,
         edges,
         room.toeKick,
@@ -140,6 +181,7 @@ function desiredObjects(study: Study): Desired[] {
                   edges,
                   frameRuns.get(item.id),
                 );
+        applyCountertops(body, room);
         body.userData.id = item.id;
         return body;
       },
@@ -180,6 +222,10 @@ export class StudyScene {
 
   constructor(scene: THREE.Scene) {
     scene.add(this.root);
+  }
+
+  get ready() {
+    return !this.disposed && this.pending.size === 0 && this.entries.size > 0;
   }
 
   async update(study: Study) {

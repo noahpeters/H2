@@ -15,6 +15,13 @@ export default async function handleRequest(
   context: HydrogenRouterContextProvider,
 ) {
   const {nonce, header, NonceProvider} = createContentSecurityPolicy({
+    // PNG previews stay local to the browser; retain the default image origins.
+    imgSrc: [
+      "'self'",
+      'blob:',
+      'https://cdn.shopify.com',
+      'https://shopify.com',
+    ],
     shop: {
       checkoutDomain: context.env.PUBLIC_CHECKOUT_DOMAIN,
       storeDomain: context.env.PUBLIC_STORE_DOMAIN,

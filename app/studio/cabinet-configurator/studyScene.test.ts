@@ -34,8 +34,12 @@ test('drag and selection updates reuse loaded meshes, maps and room geometry', a
   const loaded: (() => void)[] = [];
   const load = vi
     .spyOn(THREE.TextureLoader.prototype, 'load')
-    .mockImplementation((_url, onLoad) => {
+    .mockImplementation((url, onLoad) => {
       const texture = new THREE.Texture();
+      if (url.startsWith('/textures/room/')) {
+        queueMicrotask(() => onLoad?.(texture));
+        return texture;
+      }
       loaded.push(() => onLoad?.(texture));
       return texture;
     });
@@ -54,6 +58,7 @@ test('drag and selection updates reuse loaded meshes, maps and room geometry', a
     const dispose = vi.fn();
     material.map!.addEventListener('dispose', dispose);
     const room = content.root.children[0];
+    const initialLoads = load.mock.calls.length;
     for (let i = 1; i <= 20; i++) {
       await content.update({
         ...study,
@@ -74,7 +79,10 @@ test('drag and selection updates reuse loaded meshes, maps and room geometry', a
       );
       expect(cabinet.rotation.y).toBeCloseTo((-i * 2 * Math.PI) / 180);
     }
-    expect(load).toHaveBeenCalledTimes(4);
+    expect(
+      load.mock.calls.filter(([url]) => !url.startsWith('/textures/room/')),
+    ).toHaveLength(4);
+    expect(load).toHaveBeenCalledTimes(initialLoads);
     expect(dispose).not.toHaveBeenCalled();
     content.dispose();
     expect(dispose).toHaveBeenCalledOnce();
@@ -88,8 +96,12 @@ test('keeps visible meshes until new maps settle and commits the latest drag wit
   const loaded: (() => void)[] = [];
   const load = vi
     .spyOn(THREE.TextureLoader.prototype, 'load')
-    .mockImplementation((_url, onLoad) => {
+    .mockImplementation((url, onLoad) => {
       const texture = new THREE.Texture();
+      if (url.startsWith('/textures/room/')) {
+        queueMicrotask(() => onLoad?.(texture));
+        return texture;
+      }
       loaded.push(() => onLoad?.(texture));
       return texture;
     });
@@ -146,8 +158,12 @@ test('superseded loads never restore removed objects, and changed dimensions reb
   const loaded: (() => void)[] = [];
   const load = vi
     .spyOn(THREE.TextureLoader.prototype, 'load')
-    .mockImplementation((_url, onLoad) => {
+    .mockImplementation((url, onLoad) => {
       const texture = new THREE.Texture();
+      if (url.startsWith('/textures/room/')) {
+        queueMicrotask(() => onLoad?.(texture));
+        return texture;
+      }
       loaded.push(() => onLoad?.(texture));
       return texture;
     });

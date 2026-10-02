@@ -1,0 +1,27 @@
+{
+  "source": "https://ambientcg.com/view?id=Granite001B",
+  "license": "CC0-1.0",
+  "creation": "Procedural",
+  "textureSizeMM": [
+    1000,
+    1000
+  ],
+  "notes": "Preview tile footprint is an explicit 1m assumption; provider reports no measured dimensions. Neutral color is darkened and roughness reduced for a polished worktop preview.",
+  "files": {
+    "albedo": {
+      "file": "Granite001B_1K-JPG_Color.jpg",
+      "url": "https://ambientcg.com/get?file=Granite001B_1K-JPG.zip",
+      "sha256": "14c47277d395c14372e9ec2a1c3b06d2f9b3a5a3c4a75796226cff4b7d460eee"
+    },
+    "normal": {
+      "file": "Granite001B_1K-JPG_NormalGL.jpg",
+      "url": "https://ambientcg.com/get?file=Granite001B_1K-JPG.zip",
+      "sha256": "204d44456a59f001a71155796123f5a7b02f73e83a889102d7c683ace030fb6a"
+    },
+    "roughness": {
+      "file": "Granite001B_1K-JPG_Roughness.jpg",
+      "url": "https://ambientcg.com/get?file=Granite001B_1K-JPG.zip",
+      "sha256": "16e36b5dd5a70e98462e8a20cfb147d8a7a358b8c651053787438b3cf8e8c0d3"
+    }
+  }
+}

@@ -62,6 +62,7 @@ export function islandCountertop(island: Island, elements: RoomElement[]) {
     new THREE.ExtrudeGeometry(shape, {depth: 1.5 * inch, bevelEnabled: false}),
     new THREE.MeshStandardMaterial({color: 0xe0d9cc, roughness: 0.35}),
   );
+  mesh.name = 'island-countertop';
   mesh.rotation.x = Math.PI / 2;
   const group = new THREE.Group();
   group.add(mesh);
@@ -207,6 +208,7 @@ export function cabinetGeometry(
         }),
         new THREE.MeshStandardMaterial({color: 0xe0d9cc, roughness: 0.35}),
       );
+      top.name = 'cabinet-countertop';
       top.rotation.x = Math.PI / 2;
       top.position.y = (item.height / 2 + 1.5) * inch;
       group.add(top);
@@ -721,6 +723,7 @@ function addBaseCountertop(
         }),
         stone,
       );
+      top.name = 'cabinet-countertop';
       top.rotation.x = Math.PI / 2;
       top.position.y = (h / 2 + 1.5) * inch;
       group.add(top);
