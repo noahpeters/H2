@@ -1,5 +1,6 @@
 import {PhotoDialog} from './PhotoDialog';
 import {createPhotoSnapshot, renderPhoto} from './photoRender';
+import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
 import {ROOM_MATERIALS} from './roomMaterials';
 import {MaterialsSection} from './MaterialsSection';
 import {
@@ -630,6 +631,10 @@ export function ThreeStudy({
   const [pan, setPan] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const [photoSettings, setPhotoSettings] = useState(DEFAULT_PHOTO_SETTINGS);
+  const [photoProgress, setPhotoProgress] = useState(0);
+  const photoAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => photoAbort.current?.abort(), []);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const photoRef = useRef<
     (() => ReturnType<typeof createPhotoSnapshot>) | null
@@ -640,9 +645,16 @@ export function ThreeStudy({
     takingPhoto.current = true;
     setPhotoBusy(true);
     setPhotoError('');
+    setPhotoProgress(0);
+    photoAbort.current = new AbortController();
     try {
       const snapshot = photoRef.current();
-      const blob = await renderPhoto(snapshot, hostRef.current ?? undefined);
+      const blob = await renderPhoto(
+        snapshot,
+        hostRef.current ?? undefined,
+        photoSettings,
+        {signal: photoAbort.current.signal, onProgress: setPhotoProgress},
+      );
       setPhotoBlob(blob);
     } catch (error) {
       setPhotoError(
@@ -923,7 +935,9 @@ export function ThreeStudy({
             disabled={photoBusy}
             onClick={() => void takePhoto()}
           >
-            {photoBusy ? 'Taking photo…' : 'Take Photo'}
+            {photoBusy
+              ? `Taking photo… ${Math.floor(photoProgress * 100)}%`
+              : 'Take Photo'}
           </button>
           <ViewControls
             view="3D"
@@ -933,6 +947,101 @@ export function ThreeStudy({
             onFit={() => navigation.current?.fit()}
           />
         </div>
+      )}
+      {showControls && (
+        <details className="cc-photo-settings">
+          <summary>Photo lighting and quality</summary>
+          <fieldset disabled={photoBusy}>
+            <legend>Opening light</legend>
+            {(['daylight', 'adjacent'] as const).map((kind) => (
+              <div key={kind}>
+                <label>
+                  {kind === 'daylight'
+                    ? 'Daylight temperature (K)'
+                    : 'Adjacent room temperature (K)'}
+                  <input
+                    type="number"
+                    min={1000}
+                    max={25000}
+                    step={100}
+                    value={photoSettings[kind].temperature}
+                    onChange={(event) =>
+                      setPhotoSettings((value) => ({
+                        ...value,
+                        [kind]: {
+                          ...value[kind],
+                          temperature: Number(event.target.value),
+                        },
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  {kind === 'daylight'
+                    ? 'Daylight brightness'
+                    : 'Adjacent room brightness'}
+                  <input
+                    type="number"
+                    min={0}
+                    max={10000}
+                    step={1}
+                    value={photoSettings[kind].intensity}
+                    onChange={(event) =>
+                      setPhotoSettings((value) => ({
+                        ...value,
+                        [kind]: {
+                          ...value[kind],
+                          intensity: Number(event.target.value),
+                        },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            ))}
+            <label>
+              Photo quality
+              <select
+                value={photoSettings.samples}
+                onChange={(event) =>
+                  setPhotoSettings((value) => ({
+                    ...value,
+                    samples: Number(event.target.value),
+                  }))
+                }
+              >
+                <option value={32}>Quick (32 samples)</option>
+                <option value={96}>Standard (96 samples)</option>
+                <option value={256}>Fine (256 samples)</option>
+              </select>
+            </label>
+            <label>
+              Image size
+              <select
+                value={photoSettings.maxDimension}
+                onChange={(event) =>
+                  setPhotoSettings((value) => ({
+                    ...value,
+                    maxDimension: Number(event.target.value),
+                  }))
+                }
+              >
+                <option value={1000}>1000 pixels</option>
+                <option value={1600}>1600 pixels</option>
+                <option value={2400}>2400 pixels</option>
+              </select>
+            </label>
+            <p>
+              Photos may take seconds to minutes. Closed doors block adjacent
+              light; rooms without lit openings will be dark.
+            </p>
+          </fieldset>
+        </details>
+      )}
+      {photoBusy && (
+        <button type="button" onClick={() => photoAbort.current?.abort()}>
+          Cancel photo
+        </button>
       )}
       <div
         style={{cursor: pan ? 'grab' : undefined}}

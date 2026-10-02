@@ -7,6 +7,26 @@ import {blankStudy} from './CabinetConfigurator';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import type {MaterialDefinition} from './materialDefinition';
 
+const pathTracerMock = vi.hoisted(() => ({
+  dispose: vi.fn(),
+  settings: [] as unknown[],
+}));
+vi.mock('three-gpu-pathtracer', () => ({
+  WebGLPathTracer: class {
+    samples = 0;
+    tiles = new THREE.Vector2();
+    _pathTracer = {material: {setDefine: vi.fn(), dispose: vi.fn()}};
+    setScene = vi.fn();
+    reset = () => {
+      this.samples = 0;
+    };
+    renderSample = () => {
+      this.samples += 1;
+    };
+    dispose = pathTracerMock.dispose;
+  },
+}));
+
 const definition: MaterialDefinition = {
   version: 1,
   id: 'test',
@@ -171,6 +191,8 @@ test('same-viewport photo and flash finish before returning PNG and release only
     class {
       domElement = canvas;
       shadowMap = {};
+      extensions = {has: () => true};
+      getContext = () => ({isContextLost: () => false});
       setPixelRatio = () => {};
       setSize = () => {};
       render = () => {};
@@ -183,13 +205,16 @@ test('same-viewport photo and flash finish before returning PNG and release only
     new THREE.PerspectiveCamera(38, 1.6),
   );
   const result = renderPhoto(snapshot, host);
-  await vi.advanceTimersByTimeAsync(0);
+  await vi.waitFor(() =>
+    expect(host.querySelector('.cc-photo-flash')).not.toBeNull(),
+  );
   expect(host.contains(canvas)).toBe(true);
   expect(host.querySelector('.cc-photo-flash')).not.toBeNull();
   await vi.advanceTimersByTimeAsync(220);
   expect((await result).type).toBe('image/png');
   expect(host.children).toHaveLength(1);
   expect(host.firstChild).toBe(live);
+  expect(pathTracerMock.dispose).toHaveBeenCalledOnce();
   expect(dispose).toHaveBeenCalledOnce();
   expect(loseContext).toHaveBeenCalledOnce();
   host.remove();

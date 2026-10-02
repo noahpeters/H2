@@ -930,5 +930,6 @@ export function openingGeometry(opening: Opening, room: Room) {
 
   placeOnWall(group, opening.wall, opening.offset + w / 2, room);
   group.userData.id = opening.id;
+  group.userData.photoOpening = {opening, room};
   return group;
 }
