@@ -50,20 +50,35 @@ The room viewport keeps one Three.js renderer, canvas, camera, controls and anim
 Regression tests cover repeated drags without mesh/map replacement or additional texture loads, stable renderer/camera/canvas lifetime, idle redraw suppression, asynchronous replacement, superseded loads, exact dimension changes and final disposal. These are automated lifecycle tests; live browser verification is still needed for the original drag recording on the deployed preview.
 
 
-## Walnut, cherry and maple
+## Walnut, cherry, maple and representative rift oak
 
-The existing selections now use Poly Haven's Natural Walnut Veneer, Cherry Veneer and White Maple Veneer, respectively. All are CC0-1.0 assets by Jenelle van Heerden. Each set bundles four unmodified 1K JPG maps (diffuse, OpenGL normal, roughness, AO), its README and a provenance manifest with download URLs, SHA-256 hashes and dimensions. Each provider page lists a 1 m width and 10.2 px/cm at 1K; the square source images therefore map to a 1 × 1 m physical tile. This basis is recorded explicitly rather than claiming a successful metadata API lookup.
+The existing selections now use Poly Haven's Walnut Veneer, Cherry Veneer and White Maple Veneer, respectively. All are CC0-1.0 assets by Jenelle van Heerden. Each set bundles four unmodified 1K JPG maps (diffuse, OpenGL normal, roughness, AO), its README and a provenance manifest with download URLs, SHA-256 hashes and dimensions. The walnut provider page lists a 1.8 m width and 5.7 px/cm at 1K; cherry and maple list a 1 m width and 10.2 px/cm. Their square source images imply square tiles at those physical widths. This basis is recorded explicitly rather than claiming a successful metadata API lookup.
 
 | Selection | Source | Source grain | Across × along tile |
 | --- | --- | --- | --- |
-| Walnut | https://polyhaven.com/a/natural_walnut_veneer | U (horizontal) | 1000 × 1000 mm |
+| Walnut | https://polyhaven.com/a/walnut_veneer | V (vertical) | 1800 × 1800 mm |
 | Cherry | https://polyhaven.com/a/cherry_veneer | U (horizontal) | 1000 × 1000 mm |
 | Maple | https://polyhaven.com/a/white_maple_veneer | U (horizontal) | 1000 × 1000 mm |
+| Rift-white-oak representative preview | https://polyhaven.com/a/oak_veneer_02 | U (horizontal) | 1000 × 1000 mm |
 
 Source grain was inspected on the actual albedo files. Geometry UVs transpose across/along coordinates for source-U materials; image files and shared texture transforms stay unchanged. This also preserves alignment with the corresponding tangent-space normal, roughness and AO maps. Older definitions without `textureGrainAxis` retain source-V behavior. Saw cut, botanical subtype and coating system are not inferred. Original preview colors remain fallbacks, and white albedo tint / roughness 1 remain neutral source-map multipliers. Saved color-only snapshots remain authoritative; reselect a wood to use the updated catalog.
 
 ### Rift-sawn white oak asset gap
 
-No verified openly redistributable, physically scaled rift-sawn white oak set was located in this search. Poly Haven's existing White Oak Veneer does not identify its cut; generic oak or straight-grain images were not relabeled. A cut-specific commercial candidate exists at https://superellipse.co/en-us/products/white-oak-rift-sawn-wood-veneer, but its commercial license/account access is not an open license and permission to redistribute its source maps has not been established. No files from that provider are bundled. The editor displays a color-only preview note for rift oak; supplied explicit saved texture definitions still take precedence. A properly licensed rift-specific scan with physical dimensions is still needed.
+No verified openly redistributable, physically scaled rift-sawn white oak set was located in this search. Poly Haven's existing White Oak Veneer does not identify its cut; generic oak or straight-grain images were not relabeled. A cut-specific commercial candidate exists at https://superellipse.co/en-us/products/white-oak-rift-sawn-wood-veneer, but its commercial license/account access is not an open license and permission to redistribute its source maps has not been established. No files from that provider are bundled. The user subsequently selected CC0 Oak Veneer 02 as a representative rift-white-oak preview. It uses the provider's 1 m footprint and inspected source-U grain. The catalog substrate remains the authoritative rift-sawn white-oak design selection, while the editor preview note and provenance explicitly state that the texture's white-oak species and cut are unverified. Existing color-only snapshots remain color-only; supplied saved texture definitions still take precedence. A verified rift-specific scan would improve material fidelity.
 
 Additional regression tests verify each new set's integrity, serialization, legacy snapshots, slot semantics, fallback color and actual physical mapping on doors, drawer fronts, rails, stiles, shelves, ends and drawer sides, including non-square source-U footprints. Existing lifecycle tests now use explicit color-only snapshots, so adding production assets does not turn those synthetic tests into unresolved image loads.
+
+The original Natural Walnut Veneer files remain available for saved material snapshots referencing their URLs; new walnut selections resolve to Walnut Veneer.
+
+### Wider rift-white-oak search
+
+A wider search covered CC0 libraries, commercial texture libraries, stock marketplaces and manufacturer scans. No verified open-licensed, real-sample rift-white-oak set with physical dimensions was found. Specific leads and blockers:
+
+- Superellipse White Oak Rift Sawn Wood Veneer: https://superellipse.co/en-us/products/white-oak-rift-sawn-wood-veneer. Explicit white-oak/cut label, PBR maps and a 200 × 200 cm footprint. The FAQ restricts standalone map sharing (https://superellipse.co/en-us/pages/faq); browser delivery and public-repository redistribution need explicit permission. Real-sample acquisition provenance remains unverified.
+- TurboSquid / propsny, 32 North American wood grain images: https://www.turbosquid.com/FullPreview/518178. Explicitly lists Rift White Oak and says the images are scans of actual veneer samples (1650 × 2550 px). Physical sample dimensions and full PBR slots are not specified. The license's WebGL/source-access restrictions require approval for our delivery path: https://blog.turbosquid.com/royalty-free-license/.
+- Lightbeans / Elmwood Copal Stain on Rift Cut White Oak Woodgrain Laminate: https://lightbeans.com/en/texture/elmwood/elmwood-custom-blond-stain. This is a specific laminate/finish product rather than generic rift-white-oak timber. The texture terms prohibit redistribution without written consent and use promoting competing products: https://lightbeans.com/en/pages/texture-terms.
+- FreeAlphas Close marked rift sawn: https://freealphas.com/a/close-marked-rift-sawn/. CC0 but an algorithmically generated grayscale pattern, not a verified white-oak sample or measured PBR set; unsuitable for the explicit real-material requirement.
+- Manufacturer reference swatches (for example https://keystonewood.com/acceptable-rift-cut-white-oak-examples/) identify actual unfinished rift-cut white oak, but no redistributable map license or measured tile is established. They are research references only.
+
+The concrete next acquisition path is permission for a verified scan (including web-delivery and repository rights, physical sample footprint and available maps), or an original measured photograph/scan of confirmed rift-sawn white oak. No restricted candidate maps above have been copied into production assets. The user-approved CC0 Oak Veneer 02 representative preview is now bundled with its limitations explicitly recorded.

@@ -149,25 +149,25 @@ describe('serializable material foundation', () => {
   it('defaults legacy designs without rewriting their geometry or material selections', () => {
     const saved = {
       ...blankStudy(),
-      elements: [{...item, material: 'rift-white-oak' as const}],
+      elements: [{...item, material: 'paint-grade' as const}],
     };
     const before = JSON.stringify(saved);
     const loaded = migrateStudy(JSON.parse(before));
     expect(validStudy(loaded)).toBe(true);
-    expect(loaded.elements[0].material).toBe('rift-white-oak');
+    expect(loaded.elements[0].material).toBe('paint-grade');
     expect(loaded.elements[0].materialDefinition).toBeUndefined();
     expect(resolveCabinetMaterial(loaded.elements[0])).toEqual(
-      CABINET_MATERIAL_DEFINITIONS['rift-white-oak'],
+      CABINET_MATERIAL_DEFINITIONS['paint-grade'],
     );
     expect(JSON.stringify(saved)).toBe(before);
     const mat = createCabinetMaterial(loaded.elements[0], 0.6);
-    expect(mat.color.getHexString()).toBe('c4aa80');
+    expect(mat.color.getHexString()).toBe('f2f0e9');
     expect(mat.roughness).toBe(0.6);
     expect(mat.metalness).toBe(0);
     expect(mat.map).toBeNull();
-    const panel = createCabinetMaterial({}, 0.65);
+    const panel = createCabinetMaterial({material: 'paint-grade'}, 0.65);
     expect(panel.roughness).toBe(0.65);
-    expect(panel.color.getHexString()).toBe('c4aa80');
+    expect(panel.color.getHexString()).toBe('f2f0e9');
   });
 
   it('rejects unknown versions, unsafe/missing texture definitions and invalid numeric values', () => {

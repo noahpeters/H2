@@ -1,0 +1,68 @@
+{
+  "asset": "walnut_veneer",
+  "source": "https://polyhaven.com/a/walnut_veneer",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 1800,
+    "height": 1800,
+    "unit": "mm"
+  },
+  "physicalSizeBasis": "Provider specifies 1.8 m width and 5.7 px/cm at 1K; square maps imply a 1.8 m square tile.",
+  "sourceSpecies": "Walnut",
+  "sourceFinish": "Source appearance; coating system not specified.",
+  "sourceCut": "Not specified by provider.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "walnut_veneer_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/walnut_veneer/walnut_veneer_diff_1k.jpg",
+      "bytes": 496596,
+      "sha256": "d8c971e403b185b5c350d1e6fa75c3e7fcc36130781c7686263f6bcd23ac4db1",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "walnut_veneer_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/walnut_veneer/walnut_veneer_nor_gl_1k.jpg",
+      "bytes": 442897,
+      "sha256": "de823c2e9942ea77caeddab08add49688a9792b79aac496640fecaee9fbcb5c4",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "walnut_veneer_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/walnut_veneer/walnut_veneer_rough_1k.jpg",
+      "bytes": 556628,
+      "sha256": "5cb9d78ec685155d2b66a1db01abc61049d00953d783d0c78d829512de9ab0b4",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "walnut_veneer_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/walnut_veneer/walnut_veneer_ao_1k.jpg",
+      "bytes": 466570,
+      "sha256": "355d1028bd45868906563b1b446acbc0216b78e24ecca6256808e67f64237a94",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ],
+  "sourceGrainAxis": "v",
+  "sourceGrainBasis": "Visual inspection of the provider albedo: grain runs vertically along image V."
+}

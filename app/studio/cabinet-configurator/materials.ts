@@ -69,17 +69,21 @@ CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
   textureSize: {width: 500, height: 500, unit: 'mm'},
 };
 
-for (const [id, folder, assetName] of [
-  ['walnut', 'natural-walnut-veneer', 'natural_walnut_veneer'],
-  ['cherry', 'cherry-veneer', 'cherry_veneer'],
-  ['maple', 'white-maple-veneer', 'white_maple_veneer'],
+for (const [id, folder, assetName, tileSize, sourceGrainAxis] of [
+  ['walnut', 'walnut-veneer', 'walnut_veneer', 1800, 'v'],
+  ['rift-white-oak', 'oak-veneer-02', 'oak_veneer_02', 1000, 'u'],
+  ['cherry', 'cherry-veneer', 'cherry_veneer', 1000, 'u'],
+  ['maple', 'white-maple-veneer', 'white_maple_veneer', 1000, 'u'],
 ] as const) {
   const asset = (slot: string) => ({
     uri: `/studio/materials/${folder}/${assetName}_${slot}_1k.jpg`,
     provenance: {
       source: `https://polyhaven.com/a/${assetName}`,
       license: 'CC0-1.0',
-      notes: `${CABINET_MATERIALS[id].label} veneer preview using the source appearance. Saw cut and coating system are unspecified.`,
+      notes:
+        id === 'rift-white-oak'
+          ? 'Representative preview using Poly Haven Oak Veneer 02, selected for rift-white-oak. Source white-oak species, rift cut and coating system are unverified.'
+          : `${CABINET_MATERIALS[id].label} veneer preview using the source appearance. Saw cut and coating system are unspecified.`,
     },
   });
   CABINET_MATERIAL_DEFINITIONS[id] = {
@@ -95,8 +99,8 @@ for (const [id, folder, assetName] of [
       roughness: asset('rough'),
       ao: asset('ao'),
     },
-    textureSize: {width: 1000, height: 1000, unit: 'mm'},
-    textureGrainAxis: 'u',
+    textureSize: {width: tileSize, height: tileSize, unit: 'mm'},
+    textureGrainAxis: sourceGrainAxis,
   };
 }
 

@@ -21,7 +21,8 @@ import {blankStudy, migrateStudy} from './CabinetConfigurator';
 import {validStudy} from './savedRoomProtocol';
 
 const materials = [
-  ['walnut', 'natural-walnut-veneer'],
+  ['walnut', 'walnut-veneer'],
+  ['rift-white-oak', 'oak-veneer-02'],
   ['cherry', 'cherry-veneer'],
   ['maple', 'white-maple-veneer'],
 ] as const;
@@ -88,7 +89,7 @@ describe.each(materials)('%s production textures', (id, folder) => {
     material.dispose();
   });
 
-  it('maps horizontal source grain onto vertical doors/ends and horizontal rails/drawers at real scale', () => {
+  it('maps each source grain onto vertical doors/ends and horizontal rails/drawers at real scale', () => {
     const source = new THREE.Texture();
     const material = createMaterial(definition, 0.6, () => source);
     const parts: [
@@ -121,8 +122,12 @@ describe.each(materials)('%s production textures', (id, folder) => {
           if (normal < 0.99) continue;
           const position =
             along === 'x' ? p.getX(i) : along === 'y' ? p.getY(i) : p.getZ(i);
-          // Source U follows grain; the 1 m footprint means metres / 1.
-          expect(uv.getX(i)).toBeCloseTo(position * 0.0254);
+          // The source axis follows part grain at the provider's physical scale.
+          const grainUV =
+            definition.textureGrainAxis === 'u' ? uv.getX(i) : uv.getY(i);
+          expect(grainUV).toBeCloseTo(
+            (position * 0.0254) / (definition.textureSize!.height * 0.001),
+          );
         }
         expect(Array.from(geometry.getAttribute('position').array)).toEqual(
           positions,
@@ -229,13 +234,27 @@ it('keeps non-square physical dimensions correct when source grain is U and defa
   }
 });
 
-it('reports the rift-sawn asset gap without substituting an unspecified cut or inventing a finish', () => {
+it('labels the user-selected oak preview without asserting a verified cut or inventing a finish', () => {
   expect(
-    CABINET_MATERIAL_DEFINITIONS['rift-white-oak'].textures,
-  ).toBeUndefined();
+    CABINET_MATERIAL_DEFINITIONS['rift-white-oak'].textures!.albedo!.provenance
+      .source,
+  ).toBe('https://polyhaven.com/a/oak_veneer_02');
   expect(materialPreviewNote({material: 'rift-white-oak'})).toContain(
-    'Color-only',
+    'Representative preview',
   );
+  expect(materialPreviewNote({material: 'rift-white-oak'})).toContain(
+    'unverified',
+  );
+  const legacyRift = {
+    ...CABINET_MATERIAL_DEFINITIONS['rift-white-oak'],
+    textures: undefined,
+  };
+  expect(
+    materialPreviewNote({
+      material: 'rift-white-oak',
+      materialDefinition: legacyRift,
+    }),
+  ).toContain('Color-only');
   for (const [id] of materials)
     expect(CABINET_MATERIAL_DEFINITIONS[id].finish).toEqual({});
   const explicit = {
