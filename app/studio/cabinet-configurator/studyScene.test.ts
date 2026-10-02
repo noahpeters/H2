@@ -172,3 +172,28 @@ test('superseded loads never restore removed objects, and changed dimensions reb
     load.mockRestore();
   }
 });
+
+test('hides selection in three mode and restores it in split without rebuilding cabinets', async () => {
+  const content = new StudyScene(new THREE.Scene());
+  const study = sample();
+  study.elements[0].material = 'walnut';
+  try {
+    await content.update({...study, view: 'split'});
+    const cabinet = content.selectable[0];
+    expect(
+      content.root.children.some((object) => object instanceof THREE.BoxHelper),
+    ).toBe(true);
+    await content.update({...study, view: 'three'});
+    expect(content.selectable[0]).toBe(cabinet);
+    expect(
+      content.root.children.some((object) => object instanceof THREE.BoxHelper),
+    ).toBe(false);
+    await content.update({...study, view: 'split'});
+    expect(content.selectable[0]).toBe(cabinet);
+    expect(
+      content.root.children.some((object) => object instanceof THREE.BoxHelper),
+    ).toBe(true);
+  } finally {
+    content.dispose();
+  }
+});

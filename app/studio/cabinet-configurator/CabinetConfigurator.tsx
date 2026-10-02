@@ -81,6 +81,7 @@ import {
   snapRoomCorner,
 } from './placement';
 import {StudyScene, elementTransform} from './studyScene';
+import {SceneInteractions} from './sceneInteractions';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   DOOR_TYPES,
@@ -679,6 +680,7 @@ export function ThreeStudy({
     controls.maxPolarAngle = Math.PI / 2.02;
 
     const content = new StudyScene(scene);
+    const interactions = new SceneInteractions();
     let currentStudy = studyRef.current;
     const roomWidth = currentStudy.room.width * INCH;
     const roomDepth = currentStudy.room.depth * INCH;
@@ -749,6 +751,7 @@ export function ThreeStudy({
     updateScene.current = (next) => {
       const previous = currentStudy.room;
       currentStudy = next;
+      if (next.view !== 'three') interactions.reset();
       if (
         previous.width !== next.room.width ||
         previous.depth !== next.room.depth ||
@@ -781,16 +784,53 @@ export function ThreeStudy({
       );
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.intersectObjects(content.selectable, true)[0];
+      if (currentStudy.view === 'three') {
+        if (hit && interactions.toggle(hit.object)) invalidate();
+        return;
+      }
       let current: THREE.Object3D | null | undefined = hit?.object;
       while (current && !current.userData.id)
         current = current.parent ?? undefined;
       if (current?.userData.id)
         selectRef.current?.(current.userData.id as string);
     };
-    renderer.domElement.addEventListener('pointerdown', handlePick);
+    let press: {id: number; x: number; y: number} | null = null;
+    const down = (event: PointerEvent) => {
+      if (press) {
+        press = null;
+        return;
+      }
+      if (event.button === 0)
+        press = {id: event.pointerId, x: event.clientX, y: event.clientY};
+    };
+    const move = (event: PointerEvent) => {
+      if (
+        press &&
+        Math.hypot(event.clientX - press.x, event.clientY - press.y) > 5
+      )
+        press = null;
+    };
+    const up = (event: PointerEvent) => {
+      if (
+        press &&
+        press.id === event.pointerId &&
+        Math.hypot(event.clientX - press.x, event.clientY - press.y) <= 5
+      )
+        handlePick(event);
+      press = null;
+    };
+    const cancel = () => {
+      press = null;
+    };
+    renderer.domElement.addEventListener('pointerdown', down);
+    renderer.domElement.addEventListener('pointermove', move);
+    renderer.domElement.addEventListener('pointerup', up);
+    renderer.domElement.addEventListener('pointercancel', cancel);
 
     let frame = 0;
+    const clock = new THREE.Clock();
     const animate = () => {
+      if (interactions.update(content.root, clock.getDelta())) invalidate();
       controls.update();
       if (dirty) {
         renderer.render(scene, camera);
@@ -807,7 +847,11 @@ export function ThreeStudy({
       };
       cancelAnimationFrame(frame);
       observer.disconnect();
-      renderer.domElement.removeEventListener('pointerdown', handlePick);
+      renderer.domElement.removeEventListener('pointerdown', down);
+      renderer.domElement.removeEventListener('pointermove', move);
+      renderer.domElement.removeEventListener('pointerup', up);
+      renderer.domElement.removeEventListener('pointercancel', cancel);
+      interactions.reset();
       controls.removeEventListener('start', rememberNavigation);
       controls.removeEventListener('change', invalidate);
       navigation.current = null;
@@ -831,7 +875,11 @@ export function ThreeStudy({
     <>
       {showControls && (
         <div className="cc-panel-label">
-          <span>Spatial study</span>
+          <span>
+            {study.view === 'three'
+              ? 'Click doors and drawers to open or close'
+              : 'Spatial study'}
+          </span>
           <ViewControls
             view="3D"
             pan={pan}
@@ -3325,7 +3373,11 @@ export function CabinetConfigurator({
               <ThreeStudy
                 showControls
                 study={study}
-                onSelect={(id) => setStudy((c) => ({...c, selected: id}))}
+                onSelect={
+                  study.view === 'split'
+                    ? (id) => setStudy((c) => ({...c, selected: id}))
+                    : undefined
+                }
               />
             </div>
           </div>

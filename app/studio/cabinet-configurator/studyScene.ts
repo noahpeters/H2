@@ -204,9 +204,12 @@ export class StudyScene {
     }
     this.entries = next;
     this.pending.clear();
-    const selected = this.selectable.find(
-      (object) => object.userData.id === study.selected,
-    );
+    const selected =
+      study.view === 'three'
+        ? undefined
+        : this.selectable.find(
+            (object) => object.userData.id === study.selected,
+          );
     if (selected !== this.selected) {
       if (this.selection) {
         this.root.remove(this.selection);
