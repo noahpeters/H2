@@ -90,10 +90,14 @@ export function previewElement(
       applianceFront: value as RoomElement['applianceFront'],
     };
   }
-  if (category === 'material') item.material = value as CabinetMaterial;
+  if (category === 'material') {
+    item.material = value as CabinetMaterial;
+    delete item.materialDefinition;
+  }
   if (category === 'paint') {
     item.material = 'paint-grade';
     item.paintColor = value as CabinetPaint;
+    delete item.materialDefinition;
   }
   return item;
 }
@@ -140,6 +144,7 @@ function thumbnail(category: VisualCategory, value: string) {
             false,
             cabinetColor(item),
             item.applianceKind === 'dishwasher',
+            item,
           )
         : cabinetGeometry(item, true, false);
   scene.add(body, new THREE.HemisphereLight(0xffffff, 0x5b5546, 2.2));

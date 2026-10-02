@@ -4,6 +4,7 @@ import {FIXTURE_CATALOG} from './fixtures';
 import {configurationCategory} from './custom-unit/designConfigurations';
 import {DOOR_TYPES} from './model';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
+import {validMaterialDefinition} from './materialDefinition';
 import {validStorage} from './openStorage';
 import {validOutline, roomSegments} from './roomOutline';
 import {validateCustomUnit} from './custom-unit/model';
@@ -154,6 +155,9 @@ export function validStudy(value: any): boolean {
           e.kind,
         ) &&
         validSink(e.sink) &&
+        (e.materialDefinition === undefined ||
+          (validMaterialDefinition(e.materialDefinition) &&
+            e.materialDefinition.id === (e.material ?? 'rift-white-oak'))) &&
         (e.sink == null || canAttachSink(e)) &&
         (e.kind !== 'fixture' ||
           (Object.hasOwn(FIXTURE_CATALOG, e.fixtureKind) &&

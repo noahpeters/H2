@@ -714,6 +714,7 @@ export function ThreeStudy({
                 cabinet.rangeHood,
                 cabinetColor(cabinet),
                 study.countertop && !cabinet.islandId,
+                cabinet,
               )
             : cabinetGeometry(
                 cabinet,
@@ -2145,7 +2146,10 @@ export function CabinetConfigurator({
                             const item = d.elements.find(
                               (e) => e.id === selected.id,
                             );
-                            if (item) item.material = material;
+                            if (item) {
+                              item.material = material;
+                              delete item.materialDefinition;
+                            }
                           });
                         }}
                       >
@@ -2175,7 +2179,10 @@ export function CabinetConfigurator({
                               const item = d.elements.find(
                                 (e) => e.id === selected.id,
                               );
-                              if (item) item.paintColor = paintColor;
+                              if (item) {
+                                item.paintColor = paintColor;
+                                delete item.materialDefinition;
+                              }
                             });
                           }}
                         >

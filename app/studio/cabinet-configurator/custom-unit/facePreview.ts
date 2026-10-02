@@ -3,11 +3,13 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type {RoomElement} from '../model';
 import type {CabinetMaterial, CabinetPaint} from '../materials';
+import type {MaterialDefinition, GrainAxis} from '../materialDefinition';
 export type CabinetAppearance = {
   overlay?: Overlay;
   face: RoomElement['face'];
   material: CabinetMaterial;
   paintColor?: CabinetPaint;
+  materialDefinition?: MaterialDefinition;
 };
 export const FACE_STYLES = {
   slab: 'Slab',
@@ -22,6 +24,7 @@ export function facePreviewGeometry(
   d: number,
   style: RoomElement['face'],
   segmented: boolean,
+  grainAxis: GrainAxis = 'y',
 ) {
   const pieces: THREE.BufferGeometry[] = [];
   const box = (
@@ -31,6 +34,7 @@ export function facePreviewGeometry(
     x: number,
     y: number,
     z: number,
+    axis: GrainAxis = grainAxis,
   ) => {
     const geometry = new THREE.BoxGeometry(
       width,
@@ -41,6 +45,15 @@ export function facePreviewGeometry(
       1,
     );
     geometry.translate(x, y, z);
+    geometry.setAttribute(
+      'materialGrainAxis',
+      new THREE.Float32BufferAttribute(
+        new Float32Array(geometry.getAttribute('position').count).fill(
+          ['x', 'y', 'z'].indexOf(axis),
+        ),
+        1,
+      ),
+    );
     pieces.push(geometry);
   };
   const frame = (
@@ -51,8 +64,16 @@ export function facePreviewGeometry(
     z: number,
   ) => {
     for (const side of [-1, 1]) {
-      box(rail, height, depth, (side * (width - rail)) / 2, 0, z);
-      box(width - rail * 2, rail, depth, 0, (side * (height - rail)) / 2, z);
+      box(rail, height, depth, (side * (width - rail)) / 2, 0, z, 'y');
+      box(
+        width - rail * 2,
+        rail,
+        depth,
+        0,
+        (side * (height - rail)) / 2,
+        z,
+        'x',
+      );
     }
   };
   if (style === 'vertical-slat') {

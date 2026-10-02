@@ -4,7 +4,11 @@ import {cabinetToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
 import {fitDefinition} from './custom-unit/designConfigurations';
 import {customUnitGeometry} from './custom-unit/geometry';
 import * as THREE from 'three';
-import {cabinetColor} from './materials';
+import {
+  createCabinetMaterial,
+  mapMaterialPart,
+  type PartRole,
+} from './materialRendering';
 import {storageLayout} from './openStorage';
 import {applianceGeometry} from './applianceGeometry';
 import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
@@ -66,6 +70,7 @@ function box(
   y: number,
   z: number,
   material: THREE.Material,
+  role: PartRole = 'board',
 ) {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(
@@ -74,6 +79,17 @@ function box(
       Math.max(d, 0.01) * inch,
     ),
     material,
+  );
+  mapMaterialPart(
+    mesh.geometry,
+    material,
+    {
+      width: Math.max(w, 0.01) * inch,
+      height: Math.max(h, 0.01) * inch,
+      depth: Math.max(d, 0.01) * inch,
+    },
+    'm',
+    role,
   );
   mesh.position.set(x * inch, y * inch, z * inch);
   mesh.castShadow = true;
@@ -94,7 +110,8 @@ function addToeKick(
     0,
     -item.height / 2 + toe.height / 2,
     -toe.setback / 2,
-    new THREE.MeshStandardMaterial({color: cabinetColor(item), roughness: 0.6}),
+    createCabinetMaterial(item, 0.6),
+    'rail',
   ).name = 'room-toe-kick');
 }
 export function cabinetGeometry(
@@ -116,6 +133,7 @@ export function cabinetGeometry(
         overlay: room?.overlay,
         material: item.material ?? 'rift-white-oak',
         paintColor: item.paintColor,
+        materialDefinition: item.materialDefinition,
       },
     );
     // The definition is already fitted to the body envelope. Convert units only:
@@ -181,14 +199,8 @@ export function cabinetGeometry(
   }
   const group = new THREE.Group();
   const {width: w, height: h, depth: d} = item;
-  const wood = new THREE.MeshStandardMaterial({
-    color: cabinetColor(item),
-    roughness: 0.6,
-  });
-  const panel = new THREE.MeshStandardMaterial({
-    color: cabinetColor(item),
-    roughness: 0.65,
-  });
+  const wood = createCabinetMaterial(item, 0.6);
+  const panel = createCabinetMaterial(item, 0.65);
   const dark = new THREE.MeshStandardMaterial({
     color: 0x39322b,
     roughness: 0.8,
@@ -204,7 +216,8 @@ export function cabinetGeometry(
     const shelfDepth = Math.max(6, item.depth);
     for (let index = 0; index < count; index++) {
       const y = count === 1 ? 0 : -h / 2 + (index * h) / (count - 1);
-      box(group, w, 1.5, shelfDepth, 0, y, 0, wood).name = 'floating-shelf';
+      box(group, w, 1.5, shelfDepth, 0, y, 0, wood, 'shelf').name =
+        'floating-shelf';
       // A short inset block suggests concealed wall hardware without turning
       // the composition into a cabinet carcass.
       box(group, Math.max(4, w - 8), 1, 2, 0, y, -shelfDepth / 2, dark).name =
@@ -217,10 +230,20 @@ export function cabinetGeometry(
   const bottom = -h / 2 + toe;
   if (toe) addToeKick(group, item, support);
   for (const side of [-1, 1])
-    box(group, 0.75, h - toe, d, side * (w / 2 - 0.375), toe / 2, 0, wood);
-  box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood);
+    box(
+      group,
+      0.75,
+      h - toe,
+      d,
+      side * (w / 2 - 0.375),
+      toe / 2,
+      0,
+      wood,
+      'end',
+    );
+  box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood, 'shelf');
   if (item.kind === 'tall' || item.kind === 'wall-cabinet')
-    box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, wood).name =
+    box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, wood, 'shelf').name =
       'cabinet-top';
   if (!item.storage || item.storage.back)
     box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
@@ -247,6 +270,7 @@ export function cabinetGeometry(
           y,
           d / 2 - 0.375,
           wood,
+          'stile',
         ).name = 'cabinet-face-frame';
         box(
           group,
@@ -257,6 +281,7 @@ export function cabinetGeometry(
           y + (side * (height - horizontalFrame)) / 2,
           d / 2 - 0.375,
           wood,
+          'rail',
         ).name = 'cabinet-face-frame';
       }
       // One-eighth-inch reveal around each door or drawer, inside the frame.
@@ -281,6 +306,7 @@ export function cabinetGeometry(
             depthWrite: false,
           })
         : panel,
+      drawer ? 'drawer' : 'door',
     );
     frontPanel.name = 'cabinet-front';
     if (item.face === 'vertical-slat') {
@@ -310,6 +336,7 @@ export function cabinetGeometry(
           y,
           faceZ,
           wood,
+          'stile',
         );
         box(
           group,
@@ -320,6 +347,7 @@ export function cabinetGeometry(
           y + (side * (height - rail)) / 2,
           faceZ,
           wood,
+          'rail',
         );
       }
     }
@@ -393,6 +421,7 @@ export function cabinetGeometry(
         height - h / 2,
         0,
         wood,
+        'shelf',
       );
       shelf.name = 'storage-shelf';
       if (item.storage.type === 'shoes' && item.storage.angled) {
