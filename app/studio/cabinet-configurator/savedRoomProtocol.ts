@@ -99,6 +99,11 @@ export function validStudy(value: any): boolean {
     !OVERLAY_OPTIONS.includes(value.room.overlay)
   )
     return false;
+  if (
+    value.room.continuousFaceFrames !== undefined &&
+    typeof value.room.continuousFaceFrames !== 'boolean'
+  )
+    return false;
   const walls = roomSegments(value.room).map((s) => s.id);
   if (new Set(walls).size !== walls.length) return false;
   if (

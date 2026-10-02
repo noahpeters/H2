@@ -217,6 +217,7 @@ export type Island = {
 };
 export type Room = {
   overlay?: Overlay;
+  continuousFaceFrames?: boolean;
   toeKick?: {height: number; setback: number};
   outline?: RoomPoint[];
   partitions?: Partition[];

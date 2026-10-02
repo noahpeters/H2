@@ -1,9 +1,15 @@
 /** One cabinet frame, with shared members between neighboring front cells. */
 export type FrameRect = {x: number; y: number; width: number; height: number};
-export function cabinetFaceFrame(cells: FrameRect[], bounds: FrameRect) {
+export function cabinetFaceFrame(
+  cells: FrameRect[],
+  bounds: FrameRect,
+  joined: {left?: boolean; right?: boolean} = {},
+) {
   const f = Math.min(1.5, bounds.width / 6, bounds.height / 6);
   const right = bounds.x + bounds.width,
     top = bounds.y + bounds.height;
+  const innerLeft = bounds.x + f * (joined.left ? 0.5 : 1);
+  const innerRight = right - f * (joined.right ? 0.5 : 1);
   const horizontal: FrameRect[] = [];
   const vertical: FrameRect[] = [];
   for (let i = 0; i < cells.length; i++)
@@ -24,11 +30,11 @@ export function cabinetFaceFrame(cells: FrameRect[], bounds: FrameRect) {
         const lower = a.y < b.y ? a : b,
           upper = lower === a ? b : a;
         horizontal.push({
-          x: Math.max(bounds.x + f, x - f / 2),
+          x: Math.max(innerLeft, x - f / 2),
           y: (lower.y + lower.height + upper.y) / 2 - f / 2,
           width:
-            Math.min(right - f, x + w + f / 2) -
-            Math.max(bounds.x + f, x - f / 2),
+            Math.min(innerRight, x + w + f / 2) -
+            Math.max(innerLeft, x - f / 2),
           height: f,
         });
       }
@@ -70,15 +76,25 @@ export function cabinetFaceFrame(cells: FrameRect[], bounds: FrameRect) {
   };
   const rails = merge(
     [
-      {x: bounds.x + f, y: bounds.y, width: bounds.width - 2 * f, height: f},
-      {x: bounds.x + f, y: top - f, width: bounds.width - 2 * f, height: f},
+      {x: innerLeft, y: bounds.y, width: innerRight - innerLeft, height: f},
+      {x: innerLeft, y: top - f, width: innerRight - innerLeft, height: f},
       ...horizontal,
     ],
     'x',
   );
   const stiles = [
-    {x: bounds.x, y: bounds.y, width: f, height: bounds.height},
-    {x: right - f, y: bounds.y, width: f, height: bounds.height},
+    {
+      x: bounds.x - (joined.left ? f / 2 : 0),
+      y: bounds.y,
+      width: f,
+      height: bounds.height,
+    },
+    {
+      x: right - f * (joined.right ? 0.5 : 1),
+      y: bounds.y,
+      width: f,
+      height: bounds.height,
+    },
   ];
   for (const v of merge(vertical, 'y')) {
     let spans = [v];
@@ -100,9 +116,9 @@ export function cabinetFaceFrame(cells: FrameRect[], bounds: FrameRect) {
     stiles.push(...spans);
   }
   const openings = cells.map((c) => {
-    let x = bounds.x + f,
+    let x = innerLeft,
       y = bounds.y + f,
-      end = right - f,
+      end = innerRight,
       high = top - f;
     for (const s of stiles)
       if (s.y < c.y + c.height && s.y + s.height > c.y) {

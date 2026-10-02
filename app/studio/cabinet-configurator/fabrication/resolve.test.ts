@@ -289,6 +289,133 @@ describe('From Trees construction export', () => {
       noIntersections(manifest.parts);
     },
   );
+  it.each([false, true])(
+    'exports one physical seam stile for continuous frames=%s',
+    (enabled) => {
+      const elements = [
+        {
+          ...base,
+          width: 30,
+          placement: {mode: 'floor' as const, x: 15, z: 30, rotation: 0},
+        },
+        {
+          ...base,
+          id: 'next',
+          width: 30,
+          placement: {mode: 'floor' as const, x: 45, z: 30, rotation: 0},
+        },
+      ];
+      const manifest = resolveFabrication(
+        {
+          ...blankStudy(),
+          room: {
+            ...blankStudy().room,
+            overlay: 'inset',
+            continuousFaceFrames: enabled,
+          },
+          elements,
+        },
+        source,
+        DEFAULT_CONSTRUCTION,
+      );
+      const stiles = manifest.parts.filter(
+        (p) => p.name === 'Face frame stile',
+      );
+      expect(stiles).toHaveLength(enabled ? 3 : 4);
+      for (const stile of stiles) expect(stile.size[0]).toBe(1.5);
+      const world = manifest.parts.map((p) => {
+        const assembly = manifest.assemblies.find(
+          (a) => a.id === p.assemblyId,
+        )!;
+        return {
+          ...p,
+          origin: p.origin.map((v, i) => v + assembly.origin[i]) as [
+            number,
+            number,
+            number,
+          ],
+        };
+      });
+      noIntersections(world);
+      if (enabled) {
+        expect(
+          manifest.assemblies.filter((a) => a.name === 'Continuous face frame'),
+        ).toHaveLength(1);
+        const seam = stiles.find(
+          (p) =>
+            p.assemblyId === `continuous-frame:${base.id}` && p.origin[0] > 10,
+        )!;
+        expect(seam.pockets.length).toBeGreaterThan(2);
+        const fronts = manifest.parts.filter((p) => p.name === 'Door');
+        expect(fronts).toHaveLength(2);
+        for (const front of fronts) expect(front.size[0]).toBe(27.5);
+      }
+    },
+  );
+  it.each(['inset', 'partial-overlay'] as const)(
+    'exports unequal-width, mixed-front runs for %s in any element order',
+    (overlay) => {
+      const elements = [
+        {
+          ...base,
+          id: 'a',
+          width: 24,
+          configuration: 'three-drawer' as const,
+          placement: {mode: 'floor' as const, x: 12, z: 30, rotation: 0},
+        },
+        {
+          ...base,
+          id: 'b',
+          width: 36,
+          configuration: 'door-drawer' as const,
+          placement: {mode: 'floor' as const, x: 42, z: 30, rotation: 0},
+        },
+        {
+          ...base,
+          id: 'c',
+          width: 18,
+          placement: {mode: 'floor' as const, x: 69, z: 30, rotation: 0},
+        },
+      ];
+      const manifest = resolveFabrication(
+        {
+          ...blankStudy(),
+          room: {...blankStudy().room, overlay, continuousFaceFrames: true},
+          elements: elements.reverse(),
+        },
+        source,
+        DEFAULT_CONSTRUCTION,
+      );
+      const run = manifest.assemblies.filter(
+        (a) => a.name === 'Continuous face frame',
+      );
+      expect(run).toHaveLength(1);
+      const frameParts = manifest.parts.filter((p) =>
+        p.name.startsWith('Face frame '),
+      );
+      expect(new Set(frameParts.map((p) => p.assemblyId))).toEqual(
+        new Set([run[0].id]),
+      );
+      expect(
+        frameParts.filter((p) => p.name === 'Face frame stile'),
+      ).toHaveLength(5);
+      noIntersections(
+        manifest.parts.map((p) => {
+          const assembly = manifest.assemblies.find(
+            (a) => a.id === p.assemblyId,
+          )!;
+          return {
+            ...p,
+            origin: p.origin.map((v, i) => v + assembly.origin[i]) as [
+              number,
+              number,
+              number,
+            ],
+          };
+        }),
+      );
+    },
+  );
   it.each([
     'single-door',
     'three-drawer',
