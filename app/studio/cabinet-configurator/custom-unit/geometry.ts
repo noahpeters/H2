@@ -4,6 +4,7 @@ import {expandDrawerArray} from './drawerArrays';
 import {facePreviewGeometry, type CabinetAppearance} from './facePreview';
 import {createCabinetMaterial, mapMaterialPart} from '../materialRendering';
 import {doorPreview} from './doorGeometry';
+import {addFrontHandle, type RoomHandleContext} from './frontHandles';
 import {cabinetProfilePoint, edgeSetback} from './curves';
 import * as THREE from 'three';
 import {
@@ -202,6 +203,7 @@ export function customUnitGeometry(
   definition: CustomUnitDefinition,
   openings: Record<string, number> = {},
   appearance?: CabinetAppearance,
+  handles?: RoomHandleContext,
 ): THREE.Group {
   definition = migrateFrontStyles(definition);
   const layout = customUnitLayoutParts(definition) as CabinetPart[];
@@ -328,6 +330,9 @@ export function customUnitGeometry(
       part.y + part.height / 2,
       part.z + part.depth / 2 - definition.depth / 2,
     );
+    // Attach before rigging so hardware shares every door/drawer transform.
+    if (handles && part.door?.mechanism !== 'tambour')
+      addFrontHandle(mesh, part, definition, handles);
     const object = doorPreview(
       mesh,
       {...part, id: part.id!},
@@ -336,6 +341,8 @@ export function customUnitGeometry(
     );
     object.userData.partId = part.arrayId ?? part.id;
     object.userData.partRoot = true;
+    if (handles && part.door?.mechanism === 'tambour')
+      addFrontHandle(object, part, definition, handles);
     group.add(object);
   }
   return group;

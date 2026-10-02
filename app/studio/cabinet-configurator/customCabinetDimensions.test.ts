@@ -68,8 +68,14 @@ describe('precise custom cabinet dimensions', () => {
     const item = saveConfiguration([], base, definition).item;
     const before = JSON.stringify(item);
     const geometry = cabinetGeometry(item, false);
-    const part = geometry.getObjectByName('custom-unit-drawer')!;
-    const actual = bounds(part);
+    const part = geometry.getObjectByName('custom-unit-drawer') as THREE.Mesh;
+    part.updateWorldMatrix(true, true);
+    part.geometry.computeBoundingBox();
+    // Measure the front itself; its attached pull projects beyond the panel.
+    const actual = part.geometry
+      .boundingBox!.clone()
+      .applyMatrix4(part.matrixWorld);
+    expect(bounds(part).max.z).toBeGreaterThan(actual.max.z);
     const size = actual.getSize(new THREE.Vector3()).divideScalar(inch);
     expect(size.x).toBeCloseTo(21.375, 5);
     expect(size.y).toBeCloseTo(6.125, 5);

@@ -135,6 +135,12 @@ export function cabinetGeometry(
         paintColor: item.paintColor,
         materialDefinition: item.materialDefinition,
       },
+      {
+        kind: item.kind,
+        hinge: item.hinge,
+        tallConfiguration: item.tallConfiguration,
+        bodyElevation: (item.placement.elevation ?? 0) + toe.height,
+      },
     );
     // The definition is already fitted to the body envelope. Convert units only:
     // bounds can include projecting fronts/end shelves or omit removed panels.
