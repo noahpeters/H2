@@ -164,6 +164,16 @@ describe('serializable material foundation', () => {
       {...mapping, textureSize: {...mapping.textureSize, unit: 'feet'}},
       {...mapping, pbr: {...mapping.pbr, roughness: NaN}},
       {...mapping, pbr: {...mapping.pbr, ior: 5}},
+      {...mapping, pbr: {...mapping.pbr, albedoTint: 'white'}},
+      {
+        ...mapping,
+        textures: {
+          albedo: {
+            uri: '/fixture.png',
+            provenance: {source: 'Fixture', license: 'Test-only', notes: 42},
+          },
+        },
+      },
       {...mapping, textures: {albedo: {uri: 'javascript:alert(1)'}}},
       {
         ...mapping,

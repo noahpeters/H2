@@ -11,6 +11,7 @@ import {
 } from 'react';
 import * as THREE from 'three';
 import {cabinetGeometry} from './roomGeometry';
+import {waitForMaterialTextures} from './materialRendering';
 import {applianceGeometry} from './applianceGeometry';
 import {createAppliance, type ApplianceKind, type RoomElement} from './model';
 import {createOpenStorage, type StorageKind} from './openStorage';
@@ -113,7 +114,7 @@ const previewRoom = {
 // One renderer, reused for static images: no animation loops or WebGL context per tile.
 let renderer: THREE.WebGLRenderer | undefined;
 const images = new Map<string, string>();
-function thumbnail(category: VisualCategory, value: string) {
+async function thumbnail(category: VisualCategory, value: string) {
   const key = `${category}:${value}`;
   const cached = images.get(key);
   if (cached) return cached;
@@ -183,6 +184,7 @@ function thumbnail(category: VisualCategory, value: string) {
     );
   camera.lookAt(center);
   try {
+    await waitForMaterialTextures(body);
     renderer.render(scene, camera);
     if (renderer.getContext().isContextLost()) {
       throw new Error('Preview context lost');
@@ -224,19 +226,31 @@ export function ChoiceImage({
     if (!target) return;
     let observer: IntersectionObserver | undefined;
     let source: HTMLCanvasElement | undefined;
+    let active = true;
+    let drawing = false;
     const draw = () => {
+      void drawAsync();
+    };
+    const drawAsync = async () => {
+      if (!active || drawing) return;
+      drawing = true;
       try {
+        const src = await thumbnail(category, value);
+        if (!active) return;
         setImage({
           key: `${category}:${value}`,
-          src: thumbnail(category, value),
+          src,
         });
         observer?.disconnect();
         source?.removeEventListener('webglcontextrestored', draw);
       } catch {
+        if (!active) return;
         // A lost context must not become a permanently cached blank image.
         // Retry visible options after Three.js restores its shared renderer.
         source = renderer?.domElement;
         source?.addEventListener('webglcontextrestored', draw);
+      } finally {
+        drawing = false;
       }
     };
     if (typeof IntersectionObserver === 'undefined') {
@@ -248,6 +262,7 @@ export function ChoiceImage({
       observer.observe(target);
     }
     return () => {
+      active = false;
       observer?.disconnect();
       source?.removeEventListener('webglcontextrestored', draw);
     };

@@ -1,0 +1,65 @@
+{
+  "asset": "white_oak_veneer",
+  "source": "https://polyhaven.com/a/white_oak_veneer",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 500,
+    "height": 500,
+    "unit": "mm"
+  },
+  "sourceSpecies": "White oak",
+  "sourceFinish": "raw wood",
+  "sourceCut": "Not specified by provider. The designer selection remains plain-sawn; this asset is an unverified-cut white oak preview.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "white_oak_veneer_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_oak_veneer/white_oak_veneer_diff_1k.jpg",
+      "bytes": 595257,
+      "sha256": "8fdec14fd3c06de907693c9c3241037dc93327ad907296371a2f74a0becd8187",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "white_oak_veneer_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_oak_veneer/white_oak_veneer_nor_gl_1k.jpg",
+      "bytes": 623607,
+      "sha256": "9e8dd65e443d92107caa4cd30403d78946a8b8c5a6029e6446c7368865b1d1c0",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "white_oak_veneer_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_oak_veneer/white_oak_veneer_rough_1k.jpg",
+      "bytes": 520649,
+      "sha256": "a8670e80f203bd031ac3c80f0f606383be51a0ee108e016fa19cad6b9bd373e7",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "white_oak_veneer_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_oak_veneer/white_oak_veneer_ao_1k.jpg",
+      "bytes": 554620,
+      "sha256": "cca8f3db8d847b950db2a92f4d32fbab8b43c85f407a0f9d0d1bc2bc73224ea8",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ]
+}

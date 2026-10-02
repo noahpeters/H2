@@ -18,7 +18,7 @@ export const CABINET_PAINTS = {
 export type CabinetMaterial = keyof typeof CABINET_MATERIALS;
 export type CabinetPaint = keyof typeof CABINET_PAINTS;
 
-/** Catalog facts come only from existing selection labels. No finish/texture claims. */
+/** Substrate selections are design intent; texture provenance records source limitations. */
 export const CABINET_MATERIAL_DEFINITIONS: Record<
   CabinetMaterial,
   MaterialDefinition
@@ -47,6 +47,28 @@ export const CABINET_MATERIAL_DEFINITIONS: Record<
   ]),
 ) as Record<CabinetMaterial, MaterialDefinition>;
 
+const whiteOakAsset = (slot: string) => ({
+  uri: `/studio/materials/white-oak-veneer/white_oak_veneer_${slot}_1k.jpg`,
+  provenance: {
+    source: 'https://polyhaven.com/a/white_oak_veneer',
+    license: 'CC0-1.0',
+    notes:
+      'Raw white oak veneer preview. The texture source does not specify the saw cut; no finish system is represented.',
+  },
+});
+CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
+  ...CABINET_MATERIAL_DEFINITIONS['plain-white-oak'],
+  // Neutral albedo and roughness multipliers, not measured finish parameters.
+  pbr: {color: '#c4aa80', albedoTint: '#ffffff', roughness: 1},
+  textures: {
+    albedo: whiteOakAsset('diff'),
+    normal: whiteOakAsset('nor_gl'),
+    roughness: whiteOakAsset('rough'),
+    ao: whiteOakAsset('ao'),
+  },
+  textureSize: {width: 500, height: 500, unit: 'mm'},
+};
+
 export type MaterialSelection = {
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
@@ -70,6 +92,10 @@ export function resolveCabinetMaterial(
       color: id === 'paint-grade' ? cabinetColor(item) : definition.pbr.color,
     },
   };
+}
+
+export function materialPreviewNote(item: MaterialSelection) {
+  return resolveCabinetMaterial(item).textures?.albedo?.provenance.notes;
 }
 export function hasMaterialFinish(item: {
   kind: string;

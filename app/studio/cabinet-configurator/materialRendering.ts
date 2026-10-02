@@ -99,6 +99,74 @@ export function applyMaterialUVs(
   // Explicit channel 0 for AO as well; do not depend on undocumented UV2 defaults.
 }
 
+type LoadedTexture = {
+  texture: THREE.Texture;
+  ready: Promise<boolean>;
+  references: number;
+};
+// Texture transforms are configured once. Every part's orientation/scale lives in UVs.
+const textureCache = new Map<string, LoadedTexture>();
+const materialLoads = new WeakMap<THREE.Material, Promise<unknown>>();
+
+function configureTexture(texture: THREE.Texture, albedo: boolean) {
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1, 1);
+  texture.offset.set(0, 0);
+  texture.center.set(0, 0);
+  texture.rotation = 0;
+  texture.matrixAutoUpdate = true;
+  texture.colorSpace = albedo ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  texture.channel = 0;
+  texture.needsUpdate = true;
+}
+
+function acquireTexture(asset: TextureAsset, albedo: boolean) {
+  const key = `${albedo ? 'srgb' : 'data'}:${asset.uri}`;
+  let entry = textureCache.get(key);
+  if (!entry) {
+    let complete!: (success: boolean) => void;
+    const ready = new Promise<boolean>((resolve) => {
+      complete = resolve;
+    });
+    const texture = new THREE.TextureLoader().load(
+      asset.uri,
+      () => complete(true),
+      undefined,
+      () => complete(false),
+    );
+    configureTexture(texture, albedo);
+    entry = {texture, ready, references: 0};
+    textureCache.set(key, entry);
+  }
+  entry.references++;
+  const owned = entry;
+  return {
+    ...owned,
+    release() {
+      if (--owned.references === 0) {
+        textureCache.delete(key);
+        owned.texture.dispose();
+      }
+    },
+  };
+}
+
+/** Static previews must wait before capturing pixels; failures resolve to fallback. */
+export async function waitForMaterialTextures(object: THREE.Object3D) {
+  const pending = new Set<Promise<unknown>>();
+  object.traverse((part) => {
+    if (!(part instanceof THREE.Mesh)) return;
+    const materials = Array.isArray(part.material)
+      ? part.material
+      : [part.material];
+    for (const material of materials) {
+      const ready = materialLoads.get(material);
+      if (ready) pending.add(ready);
+    }
+  });
+  await Promise.all(pending);
+}
+
 export function createMaterial(
   definition: MaterialDefinition,
   legacyRoughness: number,
@@ -119,7 +187,9 @@ export function createMaterial(
         })
       : new THREE.MeshStandardMaterial(properties);
   material.userData.materialDefinition = definition;
-  const owned: THREE.Texture[] = [];
+  const release: (() => void)[] = [];
+  const pending: Promise<unknown>[] = [];
+  let disposed = false;
   const slots = {
     albedo: 'map',
     normal: 'normalMap',
@@ -129,43 +199,40 @@ export function createMaterial(
   for (const [slot, property] of Object.entries(slots)) {
     const asset = definition.textures?.[slot as keyof typeof slots];
     if (!asset) continue;
-    // A provider may cache sources. Clone its texture before setting slot semantics.
-    // The default loader creates a dedicated texture and uploads when loading completes.
-    const texture = textureSource
-      ? textureSource(asset).clone()
-      : new THREE.TextureLoader().load(
+    // Custom providers keep independent transforms. The built-in cache owns its
+    // immutable slot configuration and reference-counts shared GPU resources.
+    const resource = textureSource
+      ? (() => {
+          const texture = textureSource(asset).clone();
+          configureTexture(texture, slot === 'albedo');
+          return {
+            texture,
+            ready: Promise.resolve(true),
+            release: () => texture.dispose(),
+          };
+        })()
+      : acquireTexture(asset, slot === 'albedo');
+    release.push(resource.release);
+    material[property] = resource.texture;
+    if (slot === 'albedo') material.color.set(pbr.albedoTint ?? pbr.color);
+    pending.push(
+      resource.ready.then((success) => {
+        if (success || disposed) return;
+        material[property] = null;
+        if (slot === 'albedo') material.color.set(pbr.color);
+        material.needsUpdate = true;
+        material.userData.textureErrors = [
+          ...(material.userData.textureErrors ?? []),
           asset.uri,
-          () => {
-            texture.needsUpdate = true;
-          },
-          undefined,
-          () => {
-            material[property] = null;
-            material.needsUpdate = true;
-            material.userData.textureErrors = [
-              ...(material.userData.textureErrors ?? []),
-              asset.uri,
-            ];
-          },
-        );
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(1, 1);
-    texture.offset.set(0, 0);
-    texture.center.set(0, 0);
-    texture.rotation = 0;
-    texture.matrixAutoUpdate = true;
-    texture.colorSpace =
-      slot === 'albedo' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-    texture.channel = 0;
-    texture.needsUpdate = true;
-    owned.push(texture);
-    material[property] = texture;
+        ];
+      }),
+    );
   }
-  let disposed = false;
+  materialLoads.set(material, Promise.all(pending));
   material.addEventListener('dispose', () => {
     if (disposed) return;
     disposed = true;
-    owned.forEach((texture) => texture.dispose());
+    release.forEach((dispose) => dispose());
   });
   return material;
 }
@@ -177,7 +244,7 @@ export function createCabinetMaterial(
   return createMaterial(resolveCabinetMaterial(item), legacyRoughness);
 }
 
-/** Motion-generated boards own their maps; disposing a template cannot dispose them. */
+/** Motion-generated boards retain maps independently of their template lifetime. */
 export function materialFromTemplate(template: THREE.Material) {
   const definition = template.userData.materialDefinition as
     | MaterialDefinition
