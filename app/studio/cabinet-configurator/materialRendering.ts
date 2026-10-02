@@ -44,7 +44,8 @@ export function resolvePartApplication(
 }
 
 /** UV-only stock-space projection. Does not modify positions, normals or transforms.
- * U runs across grain; V along grain. On end faces the normal-parallel grain
+ * Stock coordinates run across/along grain, then resolve source image U/V.
+ * On end faces the normal-parallel grain
  * axis falls back to the first in-plane axis. No invented end-grain texture.
  */
 export function applyMaterialUVs(
@@ -83,16 +84,20 @@ export function applyMaterialUVs(
     const p = [position.getX(i), position.getY(i), position.getZ(i)];
     const u = p[uAxis] * metersPerUnit[geometryUnit];
     const v = p[vAxis] * metersPerUnit[geometryUnit];
-    uv.setXY(
-      i,
+    const across =
       (u * Math.cos(angle) -
         v * Math.sin(angle) +
         (offset ? offset.u * metersPerUnit[offset.unit] : 0)) /
-        width,
+      width;
+    const alongCoordinate =
       (u * Math.sin(angle) +
         v * Math.cos(angle) +
         (offset ? offset.v * metersPerUnit[offset.unit] : 0)) /
-        height,
+      height;
+    uv.setXY(
+      i,
+      definition.textureGrainAxis === 'u' ? alongCoordinate : across,
+      definition.textureGrainAxis === 'u' ? across : alongCoordinate,
     );
   }
   geometry.setAttribute('uv', uv);

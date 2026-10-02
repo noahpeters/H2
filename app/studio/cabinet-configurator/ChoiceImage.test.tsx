@@ -78,7 +78,9 @@ test('waits for a collapsed option to become visible and disconnects on success'
       disconnect = disconnect;
     },
   );
-  const result = render(<ChoiceImage category="material" value="walnut" />);
+  const result = render(
+    <ChoiceImage category="material" value="paint-grade" />,
+  );
   expect(graphics.render).not.toHaveBeenCalled();
   act(() => {
     notify(

@@ -69,6 +69,37 @@ CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
   textureSize: {width: 500, height: 500, unit: 'mm'},
 };
 
+for (const [id, folder, assetName] of [
+  ['walnut', 'natural-walnut-veneer', 'natural_walnut_veneer'],
+  ['cherry', 'cherry-veneer', 'cherry_veneer'],
+  ['maple', 'white-maple-veneer', 'white_maple_veneer'],
+] as const) {
+  const asset = (slot: string) => ({
+    uri: `/studio/materials/${folder}/${assetName}_${slot}_1k.jpg`,
+    provenance: {
+      source: `https://polyhaven.com/a/${assetName}`,
+      license: 'CC0-1.0',
+      notes: `${CABINET_MATERIALS[id].label} veneer preview using the source appearance. Saw cut and coating system are unspecified.`,
+    },
+  });
+  CABINET_MATERIAL_DEFINITIONS[id] = {
+    ...CABINET_MATERIAL_DEFINITIONS[id],
+    pbr: {
+      color: CABINET_MATERIALS[id].color,
+      albedoTint: '#ffffff',
+      roughness: 1,
+    },
+    textures: {
+      albedo: asset('diff'),
+      normal: asset('nor_gl'),
+      roughness: asset('rough'),
+      ao: asset('ao'),
+    },
+    textureSize: {width: 1000, height: 1000, unit: 'mm'},
+    textureGrainAxis: 'u',
+  };
+}
+
 export type MaterialSelection = {
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
@@ -95,7 +126,13 @@ export function resolveCabinetMaterial(
 }
 
 export function materialPreviewNote(item: MaterialSelection) {
-  return resolveCabinetMaterial(item).textures?.albedo?.provenance.notes;
+  const definition = resolveCabinetMaterial(item);
+  return (
+    definition.textures?.albedo?.provenance.notes ??
+    (definition.id === 'rift-white-oak' && !definition.textures?.albedo
+      ? 'Color-only preview; a verified rift-sawn white oak grain sample is not available yet.'
+      : undefined)
+  );
 }
 export function hasMaterialFinish(item: {
   kind: string;

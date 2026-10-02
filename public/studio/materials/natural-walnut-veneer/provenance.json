@@ -1,0 +1,68 @@
+{
+  "asset": "natural_walnut_veneer",
+  "source": "https://polyhaven.com/a/natural_walnut_veneer",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 1000,
+    "height": 1000,
+    "unit": "mm"
+  },
+  "physicalSizeBasis": "Provider specifies 1 m width and 10.2 px/cm at 1K; square maps imply a 1 m square tile.",
+  "sourceSpecies": "Walnut",
+  "sourceFinish": "Source appearance; coating system not specified.",
+  "sourceCut": "Not specified by provider.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "natural_walnut_veneer_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/natural_walnut_veneer/natural_walnut_veneer_diff_1k.jpg",
+      "bytes": 633330,
+      "sha256": "41fe45f6457bddd4d97627bc610d2980d91683bc521c9692a6c4f2a6a3b05efd",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "natural_walnut_veneer_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/natural_walnut_veneer/natural_walnut_veneer_nor_gl_1k.jpg",
+      "bytes": 441987,
+      "sha256": "da621d3c7e96740313b459a034a30f46271d91a9dcad0c0c657a1485e32d336b",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "natural_walnut_veneer_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/natural_walnut_veneer/natural_walnut_veneer_rough_1k.jpg",
+      "bytes": 568696,
+      "sha256": "a5c7353aa7886a383b04506145548f9d2ffb9753c3d0b6cf52d972c18e5578d9",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "natural_walnut_veneer_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/natural_walnut_veneer/natural_walnut_veneer_ao_1k.jpg",
+      "bytes": 584222,
+      "sha256": "371e9290844fd434d0e68e9b2c6846e17f03850d50f4fefbee4e4d55ffc67173",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ],
+  "sourceGrainAxis": "u",
+  "sourceGrainBasis": "Visual inspection of the provider albedo: grain runs horizontally across image U."
+}
