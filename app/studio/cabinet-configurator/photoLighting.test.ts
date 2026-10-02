@@ -1,0 +1,160 @@
+import {expect, test} from 'vitest';
+import * as THREE from 'three';
+import {
+  addPhotoLighting,
+  DEFAULT_PHOTO_SETTINGS,
+  temperatureColor,
+  validatePhotoSettings,
+  visiblePhotoScene,
+} from './photoLighting';
+import {blankStudy} from './CabinetConfigurator';
+import {openingGeometry} from './roomGeometry';
+
+test('opening emitters follow real apertures, face inward, use separate colors and preserve source geometry', () => {
+  const room = blankStudy().room;
+  const scene = new THREE.Scene();
+  const window = openingGeometry(
+    {
+      id: 'w',
+      kind: 'window',
+      wall: 'back',
+      offset: 12,
+      width: 36,
+      height: 48,
+      sill: 30,
+    },
+    room,
+  );
+  const doorway = openingGeometry(
+    {
+      id: 'd',
+      kind: 'opening',
+      wall: 'right',
+      offset: 24,
+      width: 32,
+      height: 80,
+    },
+    room,
+  );
+  scene.add(
+    window,
+    doorway,
+    new THREE.AmbientLight(),
+    new THREE.DirectionalLight(),
+  );
+  const geometry = (window.children[0] as THREE.Mesh).geometry;
+  const before = Array.from(geometry.attributes.position.array);
+  addPhotoLighting(scene, DEFAULT_PHOTO_SETTINGS);
+  const lights = scene.children.filter(
+    (v) => v instanceof THREE.RectAreaLight,
+  ) as THREE.RectAreaLight[];
+  expect(lights).toHaveLength(2);
+  expect(lights[0].width).toBeCloseTo(36 * 0.0254);
+  expect(lights[0].height).toBeCloseTo(48 * 0.0254);
+  expect(lights[0].position.y).toBeCloseTo(54 * 0.0254);
+  expect(
+    new THREE.Vector3(0, 0, -1).applyQuaternion(lights[0].quaternion).z,
+  ).toBeCloseTo(1);
+  expect(
+    new THREE.Vector3(0, 0, -1).applyQuaternion(lights[1].quaternion).x,
+  ).toBeCloseTo(-1);
+  expect(lights[0].intensity).toBe(100);
+  expect(lights[1].intensity).toBe(12);
+  expect(lights[1].color.b / lights[1].color.r).toBeLessThan(
+    lights[0].color.b / lights[0].color.r,
+  );
+  expect(Array.from(geometry.attributes.position.array)).toEqual(before);
+  expect(scene.children.some((v) => v instanceof THREE.AmbientLight)).toBe(
+    false,
+  );
+});
+
+test('per-opening overrides, zero intensity and partition sources are deterministic', () => {
+  const room = {
+    ...blankStudy().room,
+    partitions: [
+      {
+        id: 'segment-test' as const,
+        x: 48,
+        z: 24,
+        length: 80,
+        orientation: 'horizontal' as const,
+      },
+    ],
+  };
+  const create = () => {
+    const scene = new THREE.Scene();
+    scene.add(
+      openingGeometry(
+        {
+          id: 'p',
+          kind: 'opening',
+          wall: 'segment-test',
+          offset: 12,
+          width: 24,
+          height: 80,
+        },
+        room,
+      ),
+    );
+    addPhotoLighting(scene, {
+      ...DEFAULT_PHOTO_SETTINGS,
+      openings: {p: {temperature: 4000, intensity: 20}},
+    });
+    return scene;
+  };
+  expect(create().toJSON()).toMatchObject({object: {type: 'Scene'}});
+  const first = create().children.filter(
+    (v) => v instanceof THREE.RectAreaLight,
+  ) as THREE.RectAreaLight[];
+  const second = create().children.filter(
+    (v) => v instanceof THREE.RectAreaLight,
+  ) as THREE.RectAreaLight[];
+  expect(first).toHaveLength(2);
+  expect(
+    first.map((v) => [
+      v.position.toArray(),
+      v.quaternion.toArray(),
+      v.color.toArray(),
+      v.intensity,
+    ]),
+  ).toEqual(
+    second.map((v) => [
+      v.position.toArray(),
+      v.quaternion.toArray(),
+      v.color.toArray(),
+      v.intensity,
+    ]),
+  );
+  const dark = create();
+  addPhotoLighting(dark, {
+    ...DEFAULT_PHOTO_SETTINGS,
+    openings: {p: {intensity: 0}},
+  });
+  expect(dark.children.filter((v) => v instanceof THREE.Light)).toHaveLength(0);
+});
+
+test('hidden ancestors are pruned only in the tracing view', () => {
+  const scene = new THREE.Scene();
+  const parent = new THREE.Group();
+  parent.visible = false;
+  parent.add(
+    new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()),
+  );
+  scene.add(parent);
+  expect(visiblePhotoScene(scene).children).toHaveLength(0);
+  expect(scene.children[0].children).toHaveLength(1);
+});
+
+test('settings reject unbounded work and invalid colors; warm colors remain finite', () => {
+  expect(() =>
+    validatePhotoSettings({...DEFAULT_PHOTO_SETTINGS, samples: Infinity}),
+  ).toThrow();
+  expect(() =>
+    validatePhotoSettings({
+      ...DEFAULT_PHOTO_SETTINGS,
+      openings: {w: {temperature: NaN}},
+    }),
+  ).toThrow();
+  expect(temperatureColor(3000).toArray().every(Number.isFinite)).toBe(true);
+});

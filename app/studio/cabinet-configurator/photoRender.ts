@@ -17,6 +17,15 @@ import type {Room, Opening} from './model';
 import {roomSegments} from './roomOutline';
 import {disposeStudyObject} from './studyScene';
 
+import {
+  addPhotoLighting,
+  DEFAULT_PHOTO_SETTINGS,
+  visiblePhotoScene,
+} from './photoLighting';
+import type {PhotoSettings} from './photoLighting';
+import type {WebGLPathTracer} from 'three-gpu-pathtracer';
+import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
+
 const INCH = 0.0254;
 /** Only box stock and extruded stock are rebuilt. Shaped/profiled stock is retained. */
 export function easedGeometry(
@@ -278,27 +287,69 @@ export function createPhotoSnapshot(
 export async function renderPhoto(
   snapshot: ReturnType<typeof createPhotoSnapshot>,
   host?: HTMLElement,
+  settings: PhotoSettings = DEFAULT_PHOTO_SETTINGS,
+  options: {signal?: AbortSignal; onProgress?: (progress: number) => void} = {},
 ): Promise<Blob> {
   let renderer: THREE.WebGLRenderer | undefined;
   let flash: HTMLDivElement | undefined;
+  let tracer: WebGLPathTracer | undefined;
   try {
+    // Copy options before yielding so later control edits cannot change this capture.
+    settings = structuredClone(settings);
     await waitForMaterialTextures(snapshot.scene);
+    addPhotoLighting(snapshot.scene, settings);
+    const {WebGLPathTracer} = await import('three-gpu-pathtracer');
+    options.signal?.throwIfAborted();
     renderer = new THREE.WebGLRenderer({
       antialias: true,
       preserveDrawingBuffer: true,
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = settings.toneMapping;
+    renderer.toneMappingExposure = settings.exposure;
+    if (!renderer.extensions.has('EXT_color_buffer_float')) {
+      throw new Error(
+        'Photo lighting requires WebGL2 floating-point rendering on this device.',
+      );
+    }
     const aspect = snapshot.camera.aspect;
-    const width = aspect >= 1 ? 2400 : Math.round(2400 * aspect);
+    const width =
+      aspect >= 1
+        ? settings.maxDimension
+        : Math.round(settings.maxDimension * aspect);
     const height = Math.round(width / aspect);
     renderer.setPixelRatio(1);
     renderer.setSize(width, height, false);
     renderer.domElement.className = 'cc-photo-canvas';
     renderer.domElement.setAttribute('aria-label', 'Photo render');
     host?.append(renderer.domElement);
-    renderer.render(snapshot.scene, snapshot.camera);
+    tracer = new WebGLPathTracer(renderer);
+    // Fixed sample sequence and count, independent of elapsed time and frame scheduling.
+    deterministicPhotoTracer(tracer);
+    tracer.bounces = settings.bounces;
+    tracer.multipleImportanceSampling = true;
+    tracer.tiles.set(3, 3);
+    tracer.renderDelay = 0;
+    tracer.fadeDuration = 0;
+    tracer.minSamples = 1;
+    tracer.rasterizeScene = false;
+    tracer.setScene(visiblePhotoScene(snapshot.scene), snapshot.camera);
+    tracer.reset();
+    const started = performance.now();
+    while (tracer.samples < settings.samples) {
+      options.signal?.throwIfAborted();
+      if (renderer.getContext().isContextLost())
+        throw new Error('Photo graphics context was lost. Please retry.');
+      if (performance.now() - started > 180000)
+        throw new Error(
+          'Photo exceeded three minutes. Try fewer samples or a smaller image.',
+        );
+      tracer.renderSample();
+      options.onProgress?.(Math.min(1, tracer.samples / settings.samples));
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    }
     // Present the enhanced pass in the existing viewport before capturing it.
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
@@ -319,13 +370,17 @@ export async function renderPhoto(
     }
     return blob;
   } finally {
-    disposeStudyObject(snapshot.scene);
-    snapshot.scene.traverse((object) => {
-      if (object instanceof THREE.DirectionalLight) object.shadow.dispose();
-    });
-    flash?.remove();
-    renderer?.domElement.remove();
-    renderer?.dispose();
-    renderer?.forceContextLoss();
+    try {
+      if (tracer) disposePhotoTracer(tracer);
+    } finally {
+      disposeStudyObject(snapshot.scene);
+      snapshot.scene.traverse((object) => {
+        if (object instanceof THREE.DirectionalLight) object.shadow.dispose();
+      });
+      flash?.remove();
+      renderer?.domElement.remove();
+      renderer?.dispose();
+      renderer?.forceContextLoss();
+    }
   }
 }
