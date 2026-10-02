@@ -19,6 +19,12 @@ export function createCabinetRenderer(host: HTMLElement, unitScale = 1) {
   sun.shadow.camera.bottom = -5 * unitScale;
   sun.shadow.camera.near = 0.5 * unitScale;
   sun.shadow.camera.far = 500 * unitScale;
+  // Shadow lookup offsets only: leave cabinet geometry and material normals exact.
+  // The default 512px map and zero bias make flat boards shadow themselves.
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.normalBias = 0.005 * unitScale; // 5mm in either viewport's units.
+  sun.shadow.bias =
+    (-0.002 * unitScale) / (sun.shadow.camera.far - sun.shadow.camera.near); // 2mm depth tolerance.
   sun.shadow.camera.updateProjectionMatrix();
   sun.castShadow = true;
   scene.add(sun);
