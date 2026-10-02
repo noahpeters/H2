@@ -224,6 +224,7 @@ export type Room = {
   width: number;
   depth: number;
   height: number;
+  countertopMaterial?: 'white-quartz' | 'taj-mahal' | 'dark-granite';
   floor: 'oak' | 'walnut' | 'concrete';
   walls: 'plaster' | 'white' | 'green';
 };

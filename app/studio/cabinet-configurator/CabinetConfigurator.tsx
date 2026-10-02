@@ -1,3 +1,6 @@
+import {PhotoDialog} from './PhotoDialog';
+import {createPhotoSnapshot, renderPhoto} from './photoRender';
+import {ROOM_MATERIALS} from './roomMaterials';
 import {MaterialsSection} from './MaterialsSection';
 import {
   migrateDesignMaterials,
@@ -625,6 +628,33 @@ export function ThreeStudy({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const photoRef = useRef<
+    (() => ReturnType<typeof createPhotoSnapshot>) | null
+  >(null);
+  const takingPhoto = useRef(false);
+  const takePhoto = async () => {
+    if (takingPhoto.current || !photoRef.current) return;
+    takingPhoto.current = true;
+    setPhotoBusy(true);
+    setPhotoError('');
+    try {
+      const snapshot = photoRef.current();
+      const blob = await renderPhoto(snapshot, hostRef.current ?? undefined);
+      setPhotoBlob(blob);
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to take photo. Please try again.',
+      );
+    } finally {
+      takingPhoto.current = false;
+      setPhotoBusy(false);
+    }
+  };
   const panRef = useRef(pan);
   panRef.current = pan;
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -681,6 +711,13 @@ export function ThreeStudy({
 
     const content = new StudyScene(scene);
     const interactions = new SceneInteractions();
+    photoRef.current = () => {
+      if (!content.ready)
+        throw new Error(
+          'Room materials are loading. Please try again in a moment.',
+        );
+      return createPhotoSnapshot(scene, camera);
+    };
     let currentStudy = studyRef.current;
     const roomWidth = currentStudy.room.width * INCH;
     const roomDepth = currentStudy.room.depth * INCH;
@@ -854,6 +891,7 @@ export function ThreeStudy({
       interactions.reset();
       controls.removeEventListener('start', rememberNavigation);
       controls.removeEventListener('change', invalidate);
+      photoRef.current = null;
       navigation.current = null;
       controlsRef.current = null;
       controls.dispose();
@@ -880,6 +918,13 @@ export function ThreeStudy({
               ? 'Click doors and drawers to open or close'
               : 'Spatial study'}
           </span>
+          <button
+            type="button"
+            disabled={photoBusy}
+            onClick={() => void takePhoto()}
+          >
+            {photoBusy ? 'Taking photo…' : 'Take Photo'}
+          </button>
           <ViewControls
             view="3D"
             pan={pan}
@@ -894,7 +939,12 @@ export function ThreeStudy({
         className="cc-three-host"
         ref={hostRef}
         aria-label="Interactive 3D room study"
+        aria-busy={photoBusy}
       />
+      {photoError && <p role="alert">{photoError}</p>}
+      {photoBlob && (
+        <PhotoDialog blob={photoBlob} close={() => setPhotoBlob(null)} />
+      )}
     </>
   );
 }
@@ -1579,6 +1629,48 @@ export function CabinetConfigurator({
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
+              {(['walls', 'floor', 'countertop'] as const).map((surface) => (
+                <label key={surface}>
+                  {surface === 'walls'
+                    ? 'Walls'
+                    : surface === 'floor'
+                      ? 'Floor'
+                      : 'Countertops'}
+                  <select
+                    value={
+                      surface === 'countertop'
+                        ? (study.room.countertopMaterial ?? 'white-quartz')
+                        : study.room[surface]
+                    }
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      update((d) => {
+                        if (surface === 'countertop')
+                          d.room.countertopMaterial = value as NonNullable<
+                            Room['countertopMaterial']
+                          >;
+                        else if (surface === 'floor')
+                          d.room.floor = value as Room['floor'];
+                        else d.room.walls = value as Room['walls'];
+                      });
+                    }}
+                  >
+                    {Object.entries(ROOM_MATERIALS[surface]).map(
+                      ([id, material]) => (
+                        <option key={id} value={id}>
+                          {material.label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              ))}
+              {study.room.countertopMaterial === 'taj-mahal' && (
+                <p className="cc-muted">
+                  Taj Mahal preview uses representative cream stone veining.
+                  Actual slabs vary.
+                </p>
+              )}
               <label>
                 Front overlay
                 <select

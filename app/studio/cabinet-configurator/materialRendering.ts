@@ -197,8 +197,8 @@ export function createMaterial(
     pbr.ior !== undefined || pbr.specularIntensity !== undefined
       ? new THREE.MeshPhysicalMaterial({
           ...properties,
-          ior: pbr.ior,
-          specularIntensity: pbr.specularIntensity,
+          ior: pbr.ior ?? 1.5,
+          specularIntensity: pbr.specularIntensity ?? 1,
         })
       : new THREE.MeshStandardMaterial(properties);
   material.userData.materialDefinition = definition;

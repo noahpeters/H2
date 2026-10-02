@@ -1,6 +1,6 @@
 # Cabinet material definitions and mapping
 
-Cabinet Designer remains a Three.js designer. This change adds material data and UV mapping; it does not add a renderer or a Render Photo action. Geometry, dimensions, visibility, object/motion transforms and camera controls remain authoritative in their existing paths. No displacement map is supported.
+Cabinet Designer remains a Three.js designer. Material data and UV mapping serve the live designer and the separate on-demand Take Photo pass. See [room surfaces and photo rendering](cabinet-photo-rendering.md) for that pipeline. Geometry, dimensions, visibility, object/motion transforms and camera controls remain authoritative in their existing paths. No displacement map is supported.
 
 ## Saved specifications
 

@@ -107,6 +107,10 @@ export function validStudy(value: any): boolean {
   const walls = roomSegments(value.room).map((s) => s.id);
   if (new Set(walls).size !== walls.length) return false;
   if (
+    (value.room.countertopMaterial !== undefined &&
+      !['white-quartz', 'taj-mahal', 'dark-granite'].includes(
+        value.room.countertopMaterial,
+      )) ||
     !['oak', 'walnut', 'concrete'].includes(value.room.floor) ||
     !['plaster', 'white', 'green'].includes(value.room.walls)
   )
