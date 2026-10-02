@@ -17,7 +17,7 @@ import {blankStudy, migrateStudy} from './CabinetConfigurator';
 import {validStudy} from './savedRoomProtocol';
 
 const definition = CABINET_MATERIAL_DEFINITIONS['plain-white-oak'];
-const root = join(process.cwd(), 'public/studio/materials/white-oak-veneer');
+const root = join(process.cwd(), 'public/studio/materials/oak-veneer-05');
 
 describe('explicit white oak preview', () => {
   it('bundles the provenance-matched maps and serializes the complete specification', () => {
@@ -125,8 +125,8 @@ describe('explicit white oak preview', () => {
           uv = mesh.geometry.getAttribute('uv');
         for (let i = 0; i < p.count; i++) {
           if (n.getZ(i) < 0.99) continue;
-          expect(uv.getY(i)).toBeCloseTo(
-            ((along === 'y' ? p.getY(i) : p.getX(i)) * 0.0254) / 0.5,
+          expect(uv.getX(i)).toBeCloseTo(
+            (along === 'y' ? p.getY(i) : p.getX(i)) * 0.0254,
           );
         }
       }

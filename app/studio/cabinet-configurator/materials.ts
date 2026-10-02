@@ -48,12 +48,12 @@ export const CABINET_MATERIAL_DEFINITIONS: Record<
 ) as Record<CabinetMaterial, MaterialDefinition>;
 
 const whiteOakAsset = (slot: string) => ({
-  uri: `/studio/materials/white-oak-veneer/white_oak_veneer_${slot}_1k.jpg`,
+  uri: `/studio/materials/oak-veneer-05/oak_veneer_05_${slot}_1k.jpg`,
   provenance: {
-    source: 'https://polyhaven.com/a/white_oak_veneer',
+    source: 'https://polyhaven.com/a/oak_veneer_05',
     license: 'CC0-1.0',
     notes:
-      'Raw white oak veneer preview. The texture source does not specify the saw cut; no finish system is represented.',
+      'Representative preview using Poly Haven Oak Veneer 05, selected for plain-white-oak. Source white-oak species, plain-sawn cut and coating system are unverified.',
   },
 });
 CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
@@ -66,7 +66,8 @@ CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
     roughness: whiteOakAsset('rough'),
     ao: whiteOakAsset('ao'),
   },
-  textureSize: {width: 500, height: 500, unit: 'mm'},
+  textureSize: {width: 1000, height: 1000, unit: 'mm'},
+  textureGrainAxis: 'u',
 };
 
 for (const [id, folder, assetName, tileSize, sourceGrainAxis] of [
