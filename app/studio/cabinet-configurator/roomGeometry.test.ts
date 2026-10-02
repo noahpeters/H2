@@ -97,7 +97,7 @@ describe('four wall room geometry', () => {
           (child) => child.name === 'cabinet-front',
         );
         expect(fronts).toHaveLength(width > 30 ? 2 : 1);
-        expect(frames).toHaveLength(fronts.length * 4);
+        expect(frames).toHaveLength(width > 30 ? 5 : 4);
         for (const frame of frames) {
           expect(new THREE.Box3().setFromObject(frame).max.z).toBeCloseTo(
             (base.depth / 2) * 0.0254,
@@ -111,6 +111,32 @@ describe('four wall room geometry', () => {
       }
     },
   );
+  it('uses two full-height stiles and four single rails for three inset drawers', () => {
+    const group = cabinetGeometry(
+      {...base, configuration: 'three-drawer'},
+      false,
+      false,
+      {...room, overlay: 'inset'},
+    );
+    const frames = group.children.filter(
+      (c) => c.name === 'cabinet-face-frame',
+    ) as THREE.Mesh<THREE.BoxGeometry>[];
+    expect(frames).toHaveLength(6);
+    expect(
+      frames.filter((c) => c.geometry.parameters.height > 1.5 * 0.0254),
+    ).toHaveLength(2);
+    const fronts = group.children.filter((c) => c.name === 'cabinet-front');
+    expect(fronts).toHaveLength(3);
+    group.updateMatrixWorld(true);
+    for (let i = 0; i < frames.length; i++)
+      for (let j = i + 1; j < frames.length; j++) {
+        const intersection = new THREE.Box3()
+          .setFromObject(frames[i])
+          .intersect(new THREE.Box3().setFromObject(frames[j]));
+        const size = intersection.getSize(new THREE.Vector3());
+        expect(size.x * size.y * size.z).toBeLessThan(1e-10);
+      }
+  });
   it('renders a microwave drawer above one storage drawer under a countertop', () => {
     const group = cabinetGeometry(
       {...base, configuration: 'microwave-drawer'},

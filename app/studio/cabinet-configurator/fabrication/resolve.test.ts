@@ -242,7 +242,7 @@ describe('From Trees construction export', () => {
     });
   });
   it.each(['full-overlay', 'partial-overlay', 'inset'] as const)(
-    'exports standard fronts and separate joined frames for %s',
+    'exports standard fronts and a single joined cabinet frame for %s',
     (overlay) => {
       const manifest = resolveFabrication(
         {
@@ -256,7 +256,36 @@ describe('From Trees construction export', () => {
       expect(manifest.parts.some((p) => p.name === 'Drawer bottom')).toBe(true);
       expect(
         manifest.parts.filter((p) => p.name === 'Face frame stile'),
-      ).toHaveLength(overlay === 'full-overlay' ? 0 : 6);
+      ).toHaveLength(overlay === 'full-overlay' ? 0 : 2);
+      noIntersections(manifest.parts);
+    },
+  );
+  it.each(['single-door', 'door-drawer', 'three-drawer'] as const)(
+    'shares frame members and preserves machined solids for %s',
+    (configuration) => {
+      const manifest = resolveFabrication(
+        {
+          ...blankStudy(),
+          room: {...blankStudy().room, overlay: 'inset'},
+          elements: [{...base, width: 36, configuration}],
+        },
+        source,
+        DEFAULT_CONSTRUCTION,
+      );
+      const stiles = manifest.parts.filter(
+        (p) => p.name === 'Face frame stile',
+      );
+      const rails = manifest.parts.filter((p) => p.name === 'Face frame rail');
+      expect(stiles).toHaveLength(configuration === 'three-drawer' ? 2 : 3);
+      expect(rails).toHaveLength(
+        configuration === 'three-drawer'
+          ? 4
+          : configuration === 'door-drawer'
+            ? 3
+            : 2,
+      );
+      for (const stile of stiles) expect(stile.size[0]).toBe(1.5);
+      for (const rail of rails) expect(rail.size[2]).toBe(1.5);
       noIntersections(manifest.parts);
     },
   );
