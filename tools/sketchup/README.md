@@ -18,6 +18,12 @@ These defaults follow the cabinet-bottom-up-pricing skill with Noah's explicit u
 
 All numeric settings are editable per export. These are first-pass stock and joinery dimensions, not CNC toolpaths: exact joinery fit, Movento drilling/notches, dovetails, edge treatments and finishing are deferred. Hardware including Hafele Axilo feet, clips, hinges and slides is excluded. Countertops, appliances, fixtures and room surfaces are excluded. Every supported Cabinet Designer construction is exported. Curved and profiled stock uses the same shaping functions as the designer, sampled into closed surfaces after joinery. Corner cabinets retain their two-arm layout; angled shelves retain their orientation and receive machined side housings. Floating shelves include separate grooved cleats. Inset/partial-overlay cabinets include joined face-frame stock. Appliance cabinets include their supporting shelves and fronts. Slat fronts are stock blanks without decorative routing.
 
+## Continuous face frames
+
+The room-level **Continuous face frames** option defaults off and applies to inset and partial-overlay catalog cabinets. Touching cabinets in a straight run share one 1.5-inch boundary stile rather than two 1.5-inch end stiles. Both fronts expand to use the resulting openings, with inset reveals retained. Each run exports one **Continuous face frame** assembly, including rail joinery and the carcass rabbets from both cabinets. Moving or removing a neighbor updates the preview and the next export.
+
+Runs require matching orientation, depth, frame height/elevation, and material/finish. Gaps, corners, appliances, open storage without fronts, and explicit custom cabinet constructions break the run. Custom constructions retain their specified boards. Existing saved designs keep independent frames until the option is enabled; existing SketchUp models need reimporting.
+
 ## Access and maintenance
 
 `GET /admin/export?slug=<32 hex characters>&revision=<integer>` uses the existing dedicated reporting token, which must differ from the write token. FTOPS enforces authenticated system-admin identity and forwards only fixed construction fields through its private service binding. The response contains no edit credential and does not mutate the source design.

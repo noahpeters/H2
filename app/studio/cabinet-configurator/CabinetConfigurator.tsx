@@ -1595,6 +1595,27 @@ export function CabinetConfigurator({
                   <option value="inset">Inset</option>
                 </select>
               </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={study.room.continuousFaceFrames ?? false}
+                  disabled={
+                    (study.room.overlay ?? 'full-overlay') === 'full-overlay'
+                  }
+                  onChange={(event) => {
+                    const enabled = event.currentTarget.checked;
+                    update((d) => {
+                      d.room.continuousFaceFrames = enabled;
+                    });
+                  }}
+                />
+                Continuous face frames
+              </label>
+              <p>
+                Share a single frame across adjacent cabinets with matching
+                height, depth, and material. Cabinet boundaries use one stile
+                instead of two.
+              </p>
               <fieldset>
                 <legend>Base and tall cabinet toe kicks</legend>
                 {(['height', 'setback'] as const).map((field) => (

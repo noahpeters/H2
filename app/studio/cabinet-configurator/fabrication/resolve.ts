@@ -1,3 +1,4 @@
+import {continuousFrameNeighbors} from '../continuousFaceFrames';
 import {cabinetFaceFrame} from '../faceFrame';
 import {wallToFloor, type RoomElement, type Room} from '../model';
 import {cabinetToeKick, cabinetCompositionEnvelope} from '../cabinetEnvelope';
@@ -94,6 +95,8 @@ export function resolveFabrication(
     ],
   };
   const issues: string[] = [];
+  const frameRuns = continuousFrameNeighbors(design.elements, design.room);
+  const sharedStiles = new Map<string, FabricationPart>();
   for (const item of design.elements) {
     if (item.kind === 'appliance' || item.kind === 'fixture') continue;
     const envelope = cabinetCompositionEnvelope(item, design.room);
@@ -733,9 +736,11 @@ export function resolveFabrication(
         fronts.length > 0 &&
         (design.room.overlay === 'inset' ||
           design.room.overlay === 'partial-overlay');
+      const neighbors = frameRuns.get(item.id);
       const frame = cabinetFaceFrame(
         fronts.map((e) => e.part),
         {x: 0, y: 0, width: w, height: h},
+        {left: Boolean(neighbors?.left), right: Boolean(neighbors?.right)},
       );
       if (framed) {
         const boards: FabricationPart[] = [];
@@ -804,11 +809,7 @@ export function resolveFabrication(
             if (!shared) continue;
             const stile = a.name === 'Face frame stile' ? a : b;
             const rail = stile === a ? b : a;
-            const receiver =
-              Math.abs(stile.origin[0]) < EPS ||
-              Math.abs(stile.origin[0] + stile.size[0] - w) < EPS
-                ? stile
-                : rail;
+            const receiver = boards.indexOf(stile) < 2 ? stile : rail;
             pocket(
               receiver,
               shared.origin.map((v, a) => v - receiver.origin[a]) as Vec3,
@@ -827,6 +828,10 @@ export function resolveFabrication(
                 'rabbet',
               );
           }
+        if (neighbors?.right)
+          sharedStiles.set(`${item.id}:${neighbors.right}`, boards[1]);
+        if (neighbors?.left)
+          sharedStiles.set(`${neighbors.left}:${item.id}:duplicate`, boards[0]);
       }
       fronts.forEach((entry, i) => {
         const part = {...entry.part};
@@ -875,6 +880,57 @@ export function resolveFabrication(
       part.origin[0] -= item.width / 2;
       part.origin[1] -= item.depth / 2;
       manifest.parts.push(part);
+    }
+  }
+  // Both cabinets machine their side of the seam. Keep one physical stile,
+  // carrying the pockets from both sides in the left cabinet's assembly.
+  for (const [key, receiver] of sharedStiles) {
+    if (key.endsWith(':duplicate')) continue;
+    const duplicate = sharedStiles.get(`${key}:duplicate`);
+    if (!duplicate) continue;
+    const owner = design.elements.find((e) => e.id === receiver.assemblyId)!;
+    const neighbor = design.elements.find(
+      (e) => e.id === duplicate.assemblyId,
+    )!;
+    const shift = (owner.width + neighbor.width) / 2;
+    for (const pocket of duplicate.pockets)
+      receiver.pockets.push({
+        ...pocket,
+        origin: [
+          duplicate.origin[0] + shift + pocket.origin[0] - receiver.origin[0],
+          pocket.origin[1],
+          pocket.origin[2],
+        ],
+      });
+    manifest.parts.splice(manifest.parts.indexOf(duplicate), 1);
+  }
+  for (const [rootId, neighbors] of frameRuns) {
+    if (neighbors.left || !neighbors.right) continue;
+    const rootAssembly = manifest.assemblies.find((a) => a.id === rootId)!;
+    const runAssembly = {
+      ...rootAssembly,
+      id: `continuous-frame:${rootId}`,
+      name: 'Continuous face frame',
+    };
+    manifest.assemblies.push(runAssembly);
+    let currentId: string | undefined = rootId,
+      shift = 0;
+    while (currentId) {
+      const current = design.elements.find((e) => e.id === currentId)!;
+      for (const part of manifest.parts)
+        if (
+          part.assemblyId === currentId &&
+          part.name.startsWith('Face frame ')
+        ) {
+          part.assemblyId = runAssembly.id;
+          part.origin[0] += shift;
+        }
+      const nextId: string | undefined = frameRuns.get(currentId)?.right;
+      if (nextId) {
+        const next = design.elements.find((e) => e.id === nextId)!;
+        shift += (current.width + next.width) / 2;
+      }
+      currentId = nextId;
     }
   }
   if (!manifest.parts.length)

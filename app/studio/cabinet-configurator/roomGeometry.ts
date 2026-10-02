@@ -1,3 +1,4 @@
+import type {FrameNeighbors} from './continuousFaceFrames';
 import {cabinetFaceFrame} from './faceFrame';
 import {islandOutline} from './islandFootprint';
 import {sinkAttachment} from './sinkAttachments';
@@ -125,6 +126,7 @@ export function cabinetGeometry(
   sharedCountertop = false,
   room?: Pick<Room, 'toeKick' | 'overlay'>,
   edges: CountertopEdges = DEFAULT_COUNTERTOP_EDGES,
+  frameNeighbors: FrameNeighbors = {},
 ) {
   if (item.customCabinet) {
     const toe = cabinetToeKick(item, room);
@@ -631,12 +633,22 @@ export function cabinetGeometry(
         y: c.y - c.height / 2,
       })),
       {x: -w / 2, y: bottom, width: w, height: h - toe},
+      {
+        left: Boolean(frameNeighbors.left),
+        right: Boolean(frameNeighbors.right),
+      },
     );
     for (const [members, orientation] of [
       [frame.stiles, 'stile'],
       [frame.rails, 'rail'],
     ] as const)
-      for (const r of members)
+      for (const r of members) {
+        if (
+          frameNeighbors.left &&
+          orientation === 'stile' &&
+          r === frame.stiles[0]
+        )
+          continue;
         box(
           group,
           r.width,
@@ -648,6 +660,7 @@ export function cabinetGeometry(
           wood,
           orientation,
         ).name = 'cabinet-face-frame';
+      }
     frontCells.forEach((c, i) => {
       const o = frame.openings[i];
       const overlap = room.overlay === 'partial-overlay' ? frame.width / 2 : 0;

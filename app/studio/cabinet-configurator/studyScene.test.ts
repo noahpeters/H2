@@ -275,3 +275,50 @@ test('rebuilds the adjacent countertop when a tall cabinet moves away and back',
     load.mockRestore();
   }
 });
+
+test('rebuilds continuous frames when neighbors move or the room option changes', async () => {
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    });
+  const content = new StudyScene(new THREE.Scene()),
+    study = sample();
+  study.room = {...study.room, overlay: 'inset', continuousFaceFrames: true};
+  const neighbor = {
+    ...study.elements[0],
+    id: 'next',
+    placement: {mode: 'floor' as const, x: 60, z: 30, rotation: 0},
+  };
+  const count = () =>
+    content.selectable.reduce(
+      (n, o) =>
+        n + o.children.filter((c) => c.name === 'cabinet-face-frame').length,
+      0,
+    );
+  try {
+    await content.update({...study, elements: [...study.elements, neighbor]});
+    expect(count()).toBe(7);
+    await content.update({
+      ...study,
+      elements: [
+        ...study.elements,
+        {...neighbor, placement: {...neighbor.placement, x: 65}},
+      ],
+    });
+    expect(count()).toBe(8);
+    await content.update({...study, elements: [...study.elements, neighbor]});
+    expect(count()).toBe(7);
+    await content.update({
+      ...study,
+      room: {...study.room, continuousFaceFrames: false},
+      elements: [...study.elements, neighbor],
+    });
+    expect(count()).toBe(8);
+  } finally {
+    content.dispose();
+    load.mockRestore();
+  }
+});

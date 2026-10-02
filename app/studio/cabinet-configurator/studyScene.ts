@@ -1,3 +1,4 @@
+import {continuousFrameNeighbors} from './continuousFaceFrames';
 import * as THREE from 'three';
 import type {Study} from './CabinetConfigurator';
 import {elementCenter, wallToFloor, type RoomElement, type Room} from './model';
@@ -89,6 +90,7 @@ function desiredObjects(study: Study): Desired[] {
       },
     });
   }
+  const frameRuns = continuousFrameNeighbors(study.elements, room);
   for (const item of study.elements) {
     const shared = study.islands.some((island) => island.id === item.islandId);
     const edges =
@@ -110,6 +112,7 @@ function desiredObjects(study: Study): Desired[] {
         edges,
         room.toeKick,
         room.overlay,
+        frameRuns.get(item.id),
         room.height,
       ]),
       build: () => {
@@ -129,7 +132,14 @@ function desiredObjects(study: Study): Desired[] {
                   item,
                   edges,
                 )
-              : cabinetGeometry(item, study.countertop, shared, room, edges);
+              : cabinetGeometry(
+                  item,
+                  study.countertop,
+                  shared,
+                  room,
+                  edges,
+                  frameRuns.get(item.id),
+                );
         body.userData.id = item.id;
         return body;
       },
