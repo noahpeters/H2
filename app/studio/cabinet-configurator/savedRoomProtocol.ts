@@ -104,6 +104,13 @@ export function validStudy(value: any): boolean {
     typeof value.room.continuousFaceFrames !== 'boolean'
   )
     return false;
+  if (
+    value.room.islandCountertopOverhang !== undefined &&
+    (!num(value.room.islandCountertopOverhang) ||
+      value.room.islandCountertopOverhang < 0 ||
+      value.room.islandCountertopOverhang > 12)
+  )
+    return false;
   const walls = roomSegments(value.room).map((s) => s.id);
   if (new Set(walls).size !== walls.length) return false;
   if (

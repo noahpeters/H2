@@ -9,7 +9,6 @@ import {waitForMaterialTextures} from './materialRendering';
 import {fixtureGeometry} from './fixtureGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {countertopEdges, DEFAULT_COUNTERTOP_EDGES} from './countertopEdges';
-import {sinkAttachment} from './sinkAttachments';
 import {
   cabinetGeometry,
   roomGeometry,
@@ -107,16 +106,16 @@ function desiredObjects(study: Study): Desired[] {
     if (!study.countertop) continue;
     desired.push({
       key: `island:${island.id}`,
-      // Sink cutouts depend on placement; ordinary cabinet movement does not.
+      // Cabinet positions and overlay determine finished frame coverage.
       signature: JSON.stringify([
         island,
         room.countertopMaterial,
-        study.elements.filter(
-          (item) => item.islandId === island.id && sinkAttachment(item),
-        ),
+        room.overlay,
+        room.islandCountertopOverhang,
+        study.elements.filter((item) => item.islandId === island.id),
       ]),
       build: () => {
-        const top = islandCountertop(island, study.elements);
+        const top = islandCountertop(island, study.elements, room);
         applyCountertops(top, room);
         return top;
       },

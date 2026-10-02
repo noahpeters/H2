@@ -1,4 +1,4 @@
-import {islandWorldBounds} from './islandFootprint';
+import {islandWorldBounds, islandCountertopOutline} from './islandFootprint';
 import {migrateFrontStyles, type Overlay} from './overlay';
 import {sinkAttachment, sinkFits} from './sinkAttachments';
 import type {CabinetMaterial, CabinetPaint} from './materials';
@@ -224,6 +224,7 @@ export type Room = {
   width: number;
   depth: number;
   height: number;
+  islandCountertopOverhang?: number;
   countertopMaterial?: 'white-quartz' | 'taj-mahal' | 'dark-granite';
   floor: 'oak' | 'walnut' | 'concrete';
   walls: 'plaster' | 'white' | 'green';
@@ -461,8 +462,15 @@ export function moveIsland(
   });
 }
 
-export function aisleClearance(island: Island, room: Room) {
-  const b = islandWorldBounds(island);
+export function aisleClearance(
+  island: Island,
+  room: Room,
+  elements?: RoomElement[],
+) {
+  const b = islandWorldBounds(
+    island,
+    elements ? islandCountertopOutline(island, elements, room) : undefined,
+  );
   const distances = {
     left: b.left,
     right: room.width - b.right,
