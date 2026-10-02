@@ -197,9 +197,15 @@ test('superseded loads never restore removed objects, and changed dimensions reb
 });
 
 test('hides selection in three mode and restores it in split without rebuilding cabinets', async () => {
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    });
   const content = new StudyScene(new THREE.Scene());
   const study = sample();
-  study.elements[0].material = 'walnut';
   try {
     await content.update({...study, view: 'split'});
     const cabinet = content.selectable[0];
@@ -218,5 +224,6 @@ test('hides selection in three mode and restores it in split without rebuilding 
     ).toBe(true);
   } finally {
     content.dispose();
+    load.mockRestore();
   }
 });
