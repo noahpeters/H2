@@ -1,0 +1,69 @@
+{
+  "asset": "oak_veneer_05",
+  "source": "https://polyhaven.com/a/oak_veneer_05",
+  "author": "Jenelle van Heerden",
+  "license": "CC0-1.0",
+  "licenseSource": "https://polyhaven.com/license",
+  "physicalSize": {
+    "width": 1000,
+    "height": 1000,
+    "unit": "mm"
+  },
+  "physicalSizeBasis": "Provider API dimensions [1000, 1000]; asset page specifies 1 m width and 10.2 px/cm at 1K.",
+  "sourceSpecies": "Oak; white-oak species not verified by provider.",
+  "sourceFinish": "Source raw-wood appearance; coating system not specified.",
+  "sourceCut": "Not specified by provider.",
+  "application": "User-selected representative preview for plain-white-oak; not a verified plain-sawn white-oak scan.",
+  "sourceGrainAxis": "u",
+  "sourceGrainAxisBasis": "Visual inspection of original diffuse map: grain runs horizontally along image U.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "oak_veneer_05_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_05/oak_veneer_05_diff_1k.jpg",
+      "bytes": 523638,
+      "sha256": "2c19382650f986c035b350a276c97c43687d83b0ba87c9fce4e73304b7027ffc",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "oak_veneer_05_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_05/oak_veneer_05_nor_gl_1k.jpg",
+      "bytes": 337001,
+      "sha256": "68c43175188f1a83fa034fe3ada13425ba9e10a409aec9c5846babdbd11375d8",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "slot": "rough",
+      "filename": "oak_veneer_05_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_05/oak_veneer_05_rough_1k.jpg",
+      "bytes": 721064,
+      "sha256": "8e3beb97c3cbbfe102c94e18bfe34d11ce25f50f28c53ccc727c02931c1aa4ee",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    },
+    {
+      "slot": "ao",
+      "filename": "oak_veneer_05_ao_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_05/oak_veneer_05_ao_1k.jpg",
+      "bytes": 600241,
+      "sha256": "d5868ce9fdf57f217f5114a0317799a7a309cc8c30d59a8fb4ac3b85d554d492",
+      "pixels": [
+        1024,
+        1024
+      ],
+      "mode": "L"
+    }
+  ]
+}

@@ -21,6 +21,7 @@ import {blankStudy, migrateStudy} from './CabinetConfigurator';
 import {validStudy} from './savedRoomProtocol';
 
 const materials = [
+  ['plain-white-oak', 'oak-veneer-05'],
   ['walnut', 'walnut-veneer'],
   ['rift-white-oak', 'oak-veneer-02'],
   ['cherry', 'cherry-veneer'],
@@ -267,4 +268,63 @@ it('labels the user-selected oak preview without asserting a verified cut or inv
       materialDefinition: explicit,
     }),
   ).toBe(explicit.textures!.albedo!.provenance.notes);
+});
+
+// Keep the previous bundled asset addressable by saved explicit definitions.
+it('preserves a saved plain-oak texture snapshot when the catalog changes', () => {
+  const oldRoot = join(
+    process.cwd(),
+    'public/studio/materials/white-oak-veneer',
+  );
+  const manifest = JSON.parse(
+    readFileSync(join(oldRoot, 'provenance.json'), 'utf8'),
+  ) as {
+    files: {slot: string; filename: string; bytes: number; sha256: string}[];
+  };
+  const old = {
+    ...CABINET_MATERIAL_DEFINITIONS['plain-white-oak'],
+    textureSize: {width: 500, height: 500, unit: 'mm' as const},
+    textureGrainAxis: undefined,
+    textures: Object.fromEntries(
+      manifest.files.map((file) => [
+        {diff: 'albedo', nor_gl: 'normal', rough: 'roughness', ao: 'ao'}[
+          file.slot
+        ]!,
+        {
+          uri: `/studio/materials/white-oak-veneer/${file.filename}`,
+          provenance: {
+            source: 'https://polyhaven.com/a/white_oak_veneer',
+            license: 'CC0-1.0',
+          },
+        },
+      ]),
+    ),
+  };
+  const study = blankStudy();
+  study.elements = [
+    {
+      id: 'old-oak',
+      kind: 'base',
+      width: 30,
+      height: 34.5,
+      depth: 24,
+      face: 'shaker',
+      material: 'plain-white-oak',
+      materialDefinition: old,
+      placement: {mode: 'floor', x: 30, z: 30, rotation: 0},
+    },
+  ];
+  const loaded = migrateStudy(JSON.parse(JSON.stringify(study)));
+  expect(validStudy(loaded)).toBe(true);
+  expect(resolveCabinetMaterial(loaded.elements[0])).toEqual(
+    JSON.parse(JSON.stringify(old)),
+  );
+  expect(
+    resolveCabinetMaterial({material: 'plain-white-oak'}).textures!.albedo!.uri,
+  ).toContain('oak-veneer-05/oak_veneer_05_diff_1k.jpg');
+  for (const file of manifest.files) {
+    const data = readFileSync(join(oldRoot, file.filename));
+    expect(data.length).toBe(file.bytes);
+    expect(createHash('sha256').update(data).digest('hex')).toBe(file.sha256);
+  }
 });
