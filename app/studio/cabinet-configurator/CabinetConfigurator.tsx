@@ -67,6 +67,7 @@ import {
 } from './roomOutline';
 import {
   CABINET_MATERIALS,
+  materialPreviewNote,
   CABINET_PAINTS,
   cabinetColor,
   hasMaterialFinish,
@@ -2176,6 +2177,9 @@ export function CabinetConfigurator({
                         )}
                       </VisualSelect>
                     </div>
+                    {materialPreviewNote(selected) && (
+                      <p className="cc-hint">{materialPreviewNote(selected)}</p>
+                    )}
                     {selected.material === 'paint-grade' && (
                       <div
                         className="cc-visual-field"

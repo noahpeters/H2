@@ -1,4 +1,4 @@
-import {act, cleanup, render} from '@testing-library/react';
+import {act, cleanup, render, waitFor} from '@testing-library/react';
 import {afterEach, expect, test, vi} from 'vitest';
 import * as THREE from 'three';
 
@@ -29,35 +29,43 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-test('renders without IntersectionObserver and reuses immutable images after remount', () => {
+test('renders without IntersectionObserver and reuses immutable images after remount', async () => {
   vi.stubGlobal('IntersectionObserver', undefined);
   const first = render(<ChoiceImage category="front" value="shaker" />);
+  await waitFor(() =>
+    expect(first.container.querySelector('img')).not.toBeNull(),
+  );
   expect(first.container.querySelector('img')).toHaveAttribute(
     'src',
     'data:image/png;base64,preview',
   );
   first.unmount();
   const second = render(<ChoiceImage category="front" value="shaker" />);
-  expect(second.container.querySelector('img')).not.toBeNull();
+  await waitFor(() =>
+    expect(second.container.querySelector('img')).not.toBeNull(),
+  );
   expect(graphics.render).toHaveBeenCalledTimes(1);
   expect(graphics.encode).toHaveBeenCalledTimes(1);
 });
 
-test('does not cache a lost context and retries when graphics recover', () => {
+test('does not cache a lost context and retries when graphics recover', async () => {
   vi.stubGlobal('IntersectionObserver', undefined);
   graphics.lost = true;
   const result = render(<ChoiceImage category="tall" value="standard" />);
   expect(result.container.querySelector('img')).toBeNull();
   expect(graphics.encode).not.toHaveBeenCalled();
+  await act(async () => {});
   graphics.lost = false;
   act(() => {
     graphics.canvas!.dispatchEvent(new Event('webglcontextrestored'));
   });
-  expect(result.container.querySelector('img')).not.toBeNull();
+  await waitFor(() =>
+    expect(result.container.querySelector('img')).not.toBeNull(),
+  );
   expect(graphics.render).toHaveBeenCalledTimes(1);
 });
 
-test('waits for a collapsed option to become visible and disconnects on success', () => {
+test('waits for a collapsed option to become visible and disconnects on success', async () => {
   let notify: IntersectionObserverCallback;
   const disconnect = vi.fn();
   vi.stubGlobal(
@@ -78,6 +86,38 @@ test('waits for a collapsed option to become visible and disconnects on success'
       {} as IntersectionObserver,
     );
   });
-  expect(result.container.querySelector('img')).not.toBeNull();
+  await waitFor(() =>
+    expect(result.container.querySelector('img')).not.toBeNull(),
+  );
   expect(disconnect).toHaveBeenCalled();
+});
+
+test('captures a textured material only after its maps load', async () => {
+  vi.stubGlobal('IntersectionObserver', undefined);
+  const loaded: (() => void)[] = [];
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      loaded.push(() => onLoad?.(texture));
+      return texture;
+    });
+  try {
+    const result = render(
+      <ChoiceImage category="material" value="plain-white-oak" />,
+    );
+    expect(loaded).toHaveLength(4);
+    expect(result.container.querySelector('img')).toBeNull();
+    expect(graphics.render).not.toHaveBeenCalled();
+    await act(async () => {
+      loaded.forEach((complete) => complete());
+    });
+    await waitFor(() =>
+      expect(result.container.querySelector('img')).not.toBeNull(),
+    );
+    expect(graphics.render).toHaveBeenCalledOnce();
+  } finally {
+    cleanup();
+    load.mockRestore();
+  }
 });

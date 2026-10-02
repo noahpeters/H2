@@ -8,7 +8,7 @@ export type MaterialApplication = {
 };
 export type TextureAsset = {
   uri: string;
-  provenance: {source: string; license: string};
+  provenance: {source: string; license: string; notes?: string};
 };
 export type MaterialDefinition = {
   version: 1;
@@ -30,6 +30,8 @@ export type MaterialDefinition = {
   /** Preview values are inherited from the designer; they are not finish measurements. */
   pbr: {
     color: string;
+    /** Optional neutral/color multiplier for an albedo map; color is the fallback. */
+    albedoTint?: string;
     roughness?: number;
     metalness?: number;
     ior?: number;
@@ -116,6 +118,12 @@ export function validMaterialDefinition(
     !/^#[a-f0-9]{6}$/i.test(pbr.color)
   )
     return false;
+  if (
+    pbr.albedoTint !== undefined &&
+    (typeof pbr.albedoTint !== 'string' ||
+      !/^#[a-f0-9]{6}$/i.test(pbr.albedoTint))
+  )
+    return false;
   for (const key of ['roughness', 'metalness', 'specularIntensity'] as const) {
     const n = pbr[key];
     if (n !== undefined && (!finite(n) || n < 0 || n > 1)) return false;
@@ -145,7 +153,8 @@ export function validMaterialDefinition(
         !/^(\/(?!\/)|https:\/\/)/.test(asset.uri) ||
         !object(asset.provenance) ||
         !text(asset.provenance.source) ||
-        !text(asset.provenance.license)
+        !text(asset.provenance.license) ||
+        (asset.provenance.notes !== undefined && !text(asset.provenance.notes))
       )
         return false;
     }

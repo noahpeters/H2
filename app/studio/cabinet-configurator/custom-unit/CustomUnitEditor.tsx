@@ -6,7 +6,11 @@ import {
   setDrawerHeight,
 } from './drawerArrays';
 import {FACE_STYLES, type CabinetAppearance} from './facePreview';
-import {CABINET_MATERIALS, CABINET_PAINTS} from '../materials';
+import {
+  CABINET_MATERIALS,
+  CABINET_PAINTS,
+  materialPreviewNote,
+} from '../materials';
 import type {PlacementKind} from './openingPlacement';
 import {useState, type ReactNode} from 'react';
 import {
@@ -600,6 +604,9 @@ export function CustomUnitEditor({
                   ))}
                 </select>
               </label>
+              {materialPreviewNote(appearance) && (
+                <p>{materialPreviewNote(appearance)}</p>
+              )}
               {appearance.material === 'paint-grade' && (
                 <label>
                   Preview paint
