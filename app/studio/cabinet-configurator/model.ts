@@ -99,6 +99,8 @@ export type RoomElement = {
   sink?: import('./sinkAttachments').SinkAttachment | null;
   customCabinet?: import('./custom-unit/library').CustomCabinetInstance;
   storage?: import('./openStorage').OpenStorage;
+  materialId?: string;
+  flatGrain?: import('./designMaterials').FlatGrain;
   material?: CabinetMaterial;
   materialDefinition?: import('./materialDefinition').MaterialDefinition;
   paintColor?: CabinetPaint;

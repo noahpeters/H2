@@ -1,3 +1,4 @@
+import {validDesignMaterials, FLAT_GRAIN_OPTIONS} from './designMaterials';
 import {OVERLAY_OPTIONS} from './overlay';
 import {validSink, canAttachSink} from './sinkAttachments';
 import {FIXTURE_CATALOG} from './fixtures';
@@ -134,13 +135,30 @@ export function validStudy(value: any): boolean {
               validStudy({
                 ...value,
                 configurations: [],
-                elements: [c.template],
+                materials: undefined,
+                elements: [{...c.template, materialId: undefined}],
                 islands: [],
                 openings: [],
               }))),
       ) ||
       new Set(value.configurations.map((c: any) => c.id)).size !==
         value.configurations.length)
+  )
+    return false;
+  if (value.materials !== undefined && !validDesignMaterials(value.materials))
+    return false;
+  if (
+    value.elements.some(
+      (e: any) =>
+        (e?.materialId !== undefined &&
+          (!value.materials ||
+            !value.materials.some((m: any) => m.id === e.materialId))) ||
+        (value.materials &&
+          e?.kind !== 'fixture' &&
+          !value.materials.some((m: any) => m.id === e?.materialId)) ||
+        (e?.flatGrain !== undefined &&
+          !FLAT_GRAIN_OPTIONS.includes(e.flatGrain)),
+    )
   )
     return false;
   const ids = [...value.elements, ...value.openings, ...value.islands].map(

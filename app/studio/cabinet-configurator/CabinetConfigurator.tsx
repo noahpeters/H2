@@ -1,3 +1,9 @@
+import {MaterialsSection} from './MaterialsSection';
+import {
+  migrateDesignMaterials,
+  syncDesignMaterials,
+  type DesignMaterial,
+} from './designMaterials';
 import {islandOutline, islandOverlapsElement} from './islandFootprint';
 import {migrateFrontStyles, roomOverlay, type Overlay} from './overlay';
 import {
@@ -64,15 +70,7 @@ import {
   presetOutline,
   type RoomPoint,
 } from './roomOutline';
-import {
-  CABINET_MATERIALS,
-  materialPreviewNote,
-  CABINET_PAINTS,
-  cabinetColor,
-  hasMaterialFinish,
-  type CabinetMaterial,
-  type CabinetPaint,
-} from './materials';
+import {cabinetColor, hasMaterialFinish} from './materials';
 import * as THREE from 'three';
 import {
   islandAt,
@@ -111,6 +109,7 @@ import {
 
 type View = 'plan' | 'split' | 'three';
 export type Study = {
+  materials?: DesignMaterial[];
   configurations?: DesignConfiguration[];
   version: 2;
   room: Room;
@@ -456,7 +455,7 @@ export function migrateStudy(raw: unknown): Study {
           elevation: appliance.elevation,
         } as const),
   }));
-  return {
+  return migrateDesignMaterials({
     ...fallback,
     ...value,
     version: 2,
@@ -478,7 +477,7 @@ export function migrateStudy(raw: unknown): Study {
         : {...configuration, template: cabinetTypeTemplate(source)};
     }),
     islands: value.islands ?? [],
-  };
+  });
 }
 
 type ActiveDrag =
@@ -953,7 +952,9 @@ export function CabinetConfigurator({
     scale: number;
     horizontal: boolean;
   } | null>(null);
-  const [study, setStudy] = useState<Study>(initialStudy);
+  const [study, setStudy] = useState<Study>(() =>
+    migrateDesignMaterials(initialStudy()),
+  );
   const [history, setHistory] = useState<Study[]>([]);
   const placementHints = useRef<{floor?: string; wall?: string}>({});
   const creationPreferences = useRef<CreationPreferences | null>(null);
@@ -966,11 +967,13 @@ export function CabinetConfigurator({
     study,
     setStudy,
     (preset) =>
-      preset === REFERENCE_ROOM_PRESET || preset === LEGACY_REFERENCE_PRESET
-        ? referenceRoomStudy()
-        : preset === 'blank'
-          ? blankStudy()
-          : initialStudy(),
+      migrateDesignMaterials(
+        preset === REFERENCE_ROOM_PRESET || preset === LEGACY_REFERENCE_PRESET
+          ? referenceRoomStudy()
+          : preset === 'blank'
+            ? blankStudy()
+            : initialStudy(),
+      ),
     migrateStudy,
     () => {
       setHistory([]);
@@ -986,6 +989,10 @@ export function CabinetConfigurator({
         setHistory((items) => [...items.slice(-29), clone(current)]);
         const next = clone(current);
         change(next);
+        syncDesignMaterials(
+          next,
+          current.elements.find((e) => e.id === current.selected)?.materialId,
+        );
         for (const item of next.elements) {
           if (item.kind === 'base' || item.kind === 'tall')
             item.placement.elevation = 0;
@@ -1520,6 +1527,7 @@ export function CabinetConfigurator({
         }}
       >
         <aside className="cc-tools" aria-label="Design controls">
+          <MaterialsSection study={study} update={update} />
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
@@ -2093,81 +2101,28 @@ export function CabinetConfigurator({
                     </label>
                   )}
                 {hasMaterialFinish(selected) && (
-                  <>
-                    <div
-                      className="cc-visual-field"
-                      role="group"
-                      aria-label="Material"
+                  <label className="cc-material-assignment">
+                    Design material
+                    <select
+                      value={selected.materialId ?? ''}
+                      onChange={(event) => {
+                        const id = event.currentTarget.value;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.materialId = id;
+                        });
+                      }}
                     >
-                      Material
-                      <VisualSelect
-                        category="material"
-                        value={selected.material ?? 'rift-white-oak'}
-                        onChange={(event) => {
-                          const material = event.currentTarget
-                            .value as CabinetMaterial;
-                          update((d) => {
-                            const item = d.elements.find(
-                              (e) => e.id === selected.id,
-                            );
-                            if (item) {
-                              item.material = material;
-                              delete item.materialDefinition;
-                            }
-                          });
-                        }}
-                      >
-                        {Object.entries(CABINET_MATERIALS).map(
-                          ([key, value]) => (
-                            <option key={key} value={key}>
-                              {value.label}
-                            </option>
-                          ),
-                        )}
-                      </VisualSelect>
-                    </div>
-                    {materialPreviewNote(selected) && (
-                      <p className="cc-hint">{materialPreviewNote(selected)}</p>
-                    )}
-                    {selected.material === 'paint-grade' && (
-                      <div
-                        className="cc-visual-field"
-                        role="group"
-                        aria-label="Paint color"
-                      >
-                        Paint color
-                        <VisualSelect
-                          category="paint"
-                          value={selected.paintColor ?? 'white'}
-                          onChange={(event) => {
-                            const paintColor = event.currentTarget
-                              .value as CabinetPaint;
-                            update((d) => {
-                              const item = d.elements.find(
-                                (e) => e.id === selected.id,
-                              );
-                              if (item) {
-                                item.paintColor = paintColor;
-                                delete item.materialDefinition;
-                              }
-                            });
-                          }}
-                        >
-                          {Object.entries(CABINET_PAINTS).map(
-                            ([key, value]) => (
-                              <option key={key} value={key}>
-                                {value.label}
-                              </option>
-                            ),
-                          )}
-                        </VisualSelect>
-                      </div>
-                    )}
-                    <small>
-                      Screen colors are approximate; approve a physical finish
-                      sample.
-                    </small>
-                  </>
+                      {study.materials?.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                    <small>Edit shared finishes in Materials.</small>
+                  </label>
                 )}
                 {selected.kind !== 'fixture' &&
                   selected.kind !== 'appliance' &&
