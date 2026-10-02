@@ -264,3 +264,61 @@ describe('design grain intent', () => {
     expect(shelf.userData.materialApplication.grainAxis).toBe('z');
   });
 });
+
+it.each(['walnut', 'rift-white-oak', 'cherry', 'maple'] as const)(
+  'combines %s source orientation and physical scale with shared grain controls and fixed frames',
+  (id) => {
+    const definition = CABINET_MATERIAL_DEFINITIONS[id];
+    const tile = definition.textureSize!;
+    const footprint = [tile.width * 0.001, tile.height * 0.001];
+    for (const flatGrain of ['horizontal', 'vertical'] as const) {
+      const material = createCabinetMaterial({material: id, flatGrain}, 0.6);
+      const geometry = facePreviewGeometry(30, 40, 0.75, 'shaker', false);
+      const before = Array.from(geometry.getAttribute('position').array);
+      try {
+        mapMaterialPart(
+          geometry,
+          material,
+          {width: 30, height: 40, depth: 0.75},
+          'in',
+          'door',
+          {rotation: 90},
+        );
+        const position = geometry.getAttribute('position');
+        const normal = geometry.getAttribute('normal');
+        const grain = geometry.getAttribute('materialGrainAxis');
+        const fixed = geometry.getAttribute('materialFixedGrain');
+        const uv = geometry.getAttribute('uv');
+        let frameVertices = 0,
+          panelVertices = 0;
+        for (let i = 0; i < position.count; i++) {
+          if (normal.getZ(i) < 0.99) continue;
+          const locked = fixed.getX(i) === 1;
+          if (locked) frameVertices++;
+          else panelVertices++;
+          const alongX = locked
+            ? grain.getX(i) === 0
+            : flatGrain === 'horizontal';
+          const along =
+            ((alongX ? position.getX(i) : position.getY(i)) * 0.0254) /
+            footprint[1];
+          const across =
+            ((alongX ? position.getY(i) : position.getX(i)) * 0.0254) /
+            footprint[0];
+          expect(uv.getX(i)).toBeCloseTo(
+            definition.textureGrainAxis === 'u' ? along : across,
+          );
+          expect(uv.getY(i)).toBeCloseTo(
+            definition.textureGrainAxis === 'u' ? across : along,
+          );
+        }
+        expect(frameVertices).toBeGreaterThan(0);
+        expect(panelVertices).toBeGreaterThan(0);
+        expect(Array.from(position.array)).toEqual(before);
+      } finally {
+        geometry.dispose();
+        material.dispose();
+      }
+    }
+  },
+);

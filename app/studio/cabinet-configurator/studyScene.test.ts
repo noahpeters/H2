@@ -2,6 +2,7 @@ import {expect, test, vi} from 'vitest';
 import * as THREE from 'three';
 import {blankStudy, type Study} from './CabinetConfigurator';
 import {StudyScene} from './studyScene';
+import {CABINET_MATERIAL_DEFINITIONS} from './materials';
 
 function sample(): Study {
   return {
@@ -97,7 +98,18 @@ test('keeps visible meshes until new maps settle and commits the latest drag wit
   try {
     const legacy = {
       ...study,
-      elements: [{...study.elements[0], material: 'walnut' as const}],
+      elements: [
+        {
+          ...study.elements[0],
+          material: 'walnut' as const,
+          materialDefinition: {
+            ...CABINET_MATERIAL_DEFINITIONS.walnut,
+            textures: undefined,
+            textureSize: undefined,
+            pbr: {color: '#72513d'},
+          },
+        },
+      ],
     };
     await content.update(legacy);
     const visible = content.selectable[0];
@@ -151,7 +163,18 @@ test('superseded loads never restore removed objects, and changed dimensions reb
     const walnut = {
       ...study,
       countertop: false,
-      elements: [{...study.elements[0], material: 'walnut' as const}],
+      elements: [
+        {
+          ...study.elements[0],
+          material: 'walnut' as const,
+          materialDefinition: {
+            ...CABINET_MATERIAL_DEFINITIONS.walnut,
+            textures: undefined,
+            textureSize: undefined,
+            pbr: {color: '#72513d'},
+          },
+        },
+      ],
     };
     await content.update(walnut);
     const before = content.selectable[0];

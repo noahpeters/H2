@@ -28,7 +28,15 @@ import {
 import {customUnitGeometry} from './custom-unit/geometry';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 
-const walnut = CABINET_MATERIAL_DEFINITIONS.walnut;
+// Explicit color-only snapshot keeps synthetic mapping/PBR tests independent
+// of production catalog assets.
+const walnut: MaterialDefinition = {
+  ...CABINET_MATERIAL_DEFINITIONS.walnut,
+  textures: undefined,
+  textureSize: undefined,
+  textureGrainAxis: undefined,
+  pbr: {color: '#72513d'},
+};
 // A synthetic mapping fixture, not a claim about real walnut grain or finishes.
 const mapping: MaterialDefinition = {
   ...walnut,
@@ -139,22 +147,27 @@ describe('serializable material foundation', () => {
   });
 
   it('defaults legacy designs without rewriting their geometry or material selections', () => {
-    const saved = {...blankStudy(), elements: [item]};
+    const saved = {
+      ...blankStudy(),
+      elements: [{...item, material: 'paint-grade' as const}],
+    };
     const before = JSON.stringify(saved);
     const loaded = migrateStudy(JSON.parse(before));
     expect(validStudy(loaded)).toBe(true);
-    expect(loaded.elements[0].material).toBe('walnut');
+    expect(loaded.elements[0].material).toBe('paint-grade');
     expect(loaded.elements[0].materialDefinition).toBeUndefined();
-    expect(resolveCabinetMaterial(loaded.elements[0])).toEqual(walnut);
+    expect(resolveCabinetMaterial(loaded.elements[0])).toEqual(
+      CABINET_MATERIAL_DEFINITIONS['paint-grade'],
+    );
     expect(JSON.stringify(saved)).toBe(before);
     const mat = createCabinetMaterial(loaded.elements[0], 0.6);
-    expect(mat.color.getHexString()).toBe('72513d');
+    expect(mat.color.getHexString()).toBe('f2f0e9');
     expect(mat.roughness).toBe(0.6);
     expect(mat.metalness).toBe(0);
     expect(mat.map).toBeNull();
-    const panel = createCabinetMaterial({}, 0.65);
+    const panel = createCabinetMaterial({material: 'paint-grade'}, 0.65);
     expect(panel.roughness).toBe(0.65);
-    expect(panel.color.getHexString()).toBe('c4aa80');
+    expect(panel.color.getHexString()).toBe('f2f0e9');
   });
 
   it('rejects unknown versions, unsafe/missing texture definitions and invalid numeric values', () => {

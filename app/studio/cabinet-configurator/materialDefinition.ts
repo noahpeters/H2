@@ -45,6 +45,8 @@ export type MaterialDefinition = {
   };
   /** One tile: width across grain, height along grain. Shared by all slots. */
   textureSize?: {width: number; height: number; unit: LengthUnit};
+  /** Source image direction along grain; independent of each part's grain axis. */
+  textureGrainAxis?: 'u' | 'v';
 };
 
 export const metersPerUnit: Record<LengthUnit, number> = {
@@ -87,7 +89,13 @@ export function validMaterialDefinition(
     !text(value.label)
   )
     return false;
-  const {substrate, finish, pbr, textures, textureSize} = value;
+  const {substrate, finish, pbr, textures, textureSize, textureGrainAxis} =
+    value;
+  if (
+    textureGrainAxis !== undefined &&
+    !['u', 'v'].includes(String(textureGrainAxis))
+  )
+    return false;
   if (
     !object(substrate) ||
     ![

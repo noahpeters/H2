@@ -69,6 +69,41 @@ CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
   textureSize: {width: 500, height: 500, unit: 'mm'},
 };
 
+for (const [id, folder, assetName, tileSize, sourceGrainAxis] of [
+  ['walnut', 'walnut-veneer', 'walnut_veneer', 1800, 'v'],
+  ['rift-white-oak', 'oak-veneer-02', 'oak_veneer_02', 1000, 'u'],
+  ['cherry', 'cherry-veneer', 'cherry_veneer', 1000, 'u'],
+  ['maple', 'white-maple-veneer', 'white_maple_veneer', 1000, 'u'],
+] as const) {
+  const asset = (slot: string) => ({
+    uri: `/studio/materials/${folder}/${assetName}_${slot}_1k.jpg`,
+    provenance: {
+      source: `https://polyhaven.com/a/${assetName}`,
+      license: 'CC0-1.0',
+      notes:
+        id === 'rift-white-oak'
+          ? 'Representative preview using Poly Haven Oak Veneer 02, selected for rift-white-oak. Source white-oak species, rift cut and coating system are unverified.'
+          : `${CABINET_MATERIALS[id].label} veneer preview using the source appearance. Saw cut and coating system are unspecified.`,
+    },
+  });
+  CABINET_MATERIAL_DEFINITIONS[id] = {
+    ...CABINET_MATERIAL_DEFINITIONS[id],
+    pbr: {
+      color: CABINET_MATERIALS[id].color,
+      albedoTint: '#ffffff',
+      roughness: 1,
+    },
+    textures: {
+      albedo: asset('diff'),
+      normal: asset('nor_gl'),
+      roughness: asset('rough'),
+      ao: asset('ao'),
+    },
+    textureSize: {width: tileSize, height: tileSize, unit: 'mm'},
+    textureGrainAxis: sourceGrainAxis,
+  };
+}
+
 export type MaterialSelection = {
   flatGrain?: import('./designMaterials').FlatGrain;
   material?: CabinetMaterial;
@@ -96,7 +131,13 @@ export function resolveCabinetMaterial(
 }
 
 export function materialPreviewNote(item: MaterialSelection) {
-  return resolveCabinetMaterial(item).textures?.albedo?.provenance.notes;
+  const definition = resolveCabinetMaterial(item);
+  return (
+    definition.textures?.albedo?.provenance.notes ??
+    (definition.id === 'rift-white-oak' && !definition.textures?.albedo
+      ? 'Color-only preview; a verified rift-sawn white oak grain sample is not available yet.'
+      : undefined)
+  );
 }
 export function hasMaterialFinish(item: {
   kind: string;
