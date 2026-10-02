@@ -70,6 +70,7 @@ CABINET_MATERIAL_DEFINITIONS['plain-white-oak'] = {
 };
 
 export type MaterialSelection = {
+  flatGrain?: import('./designMaterials').FlatGrain;
   material?: CabinetMaterial;
   paintColor?: CabinetPaint;
   /** Optional versioned snapshot, persisted with the design. Identity matches selection. */

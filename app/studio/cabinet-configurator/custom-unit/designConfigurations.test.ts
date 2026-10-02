@@ -37,7 +37,12 @@ describe('design-local configurations', () => {
     };
     expect(validStudy(study)).toBe(true);
     const loaded = migrateStudy(JSON.parse(JSON.stringify(study)));
-    expect(loaded.elements).toEqual(study.elements);
+    expect(loaded.elements).toMatchObject(study.elements);
+    expect(loaded.elements.map((e) => e.materialId)).toEqual([
+      'material-1',
+      'material-1',
+    ]);
+    expect(validStudy(loaded)).toBe(true);
     const drawer = second.customCabinet!.definition.parts!.find(
       (p) => p.drawerArray,
     )!;

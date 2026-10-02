@@ -134,6 +134,7 @@ export function cabinetGeometry(
         material: item.material ?? 'rift-white-oak',
         paintColor: item.paintColor,
         materialDefinition: item.materialDefinition,
+        flatGrain: item.flatGrain,
       },
       {
         kind: item.kind,

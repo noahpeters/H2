@@ -61,3 +61,26 @@ Front style is independent: shaker, slab, slatted, and eligible glass fronts can
 Custom composition dimensions remain canonical. The renderer derives exterior front bounds from their openings and supporting boards: full coverage, half coverage, or no coverage, followed by the definition's reveal. Door and drawer edges share this calculation. Room changes do not rewrite library templates, drawer proportions, or the cabinet envelope.
 
 Island overhang extends only toward the selected seating side (none means no seating overhang). The same visible outline defines the countertop, plan boundary, snapping, and automatic placement. A released cabinet/appliance joins an island only when its full nominal footprint is within that outline. Existing members remain grouped while any part of their footprint still touches or overlaps the island, even if their center leaves the outline; they detach when completely outside. Existing membership takes priority over an overlapping second island. Island movement carries retained members. Dragging a member across a nearby wall does not attach it to that wall while it still overlaps its island.
+
+### Design materials
+
+The left sidebar's Materials section holds named finishes shared by the design.
+Add as many finishes as needed (up to 200), choose any current wood or paint
+option, and assign objects using the Selected object's Design material menu.
+Changing a material updates every assigned cabinet, open-storage object, and
+panel-ready appliance. New objects inherit the selected object's design material
+when available; otherwise an existing matching finish or the first material is
+used. Existing rooms migrate matching per-object finishes into shared entries;
+different paint colors and material-definition snapshots remain distinct.
+
+Flat surface grain can follow the existing part defaults or run horizontally /
+across width or vertically / along height (depth for horizontal shelves). Direction
+is local to each surface and follows the object when it rotates. Shaker rails and
+stiles always run lengthwise, including customized fronts. The setting records
+intent for every finish; visible grain requires a textured preview material.
+
+Removing a material requires choosing a remaining material and confirming
+reassignment. The last material cannot be removed. Material edits, assignments,
+and removal participate in Undo, online saving, local recovery, copied rooms,
+and sharing. Saved material ids are design-local; stale creation preferences do
+not add finishes from another design.

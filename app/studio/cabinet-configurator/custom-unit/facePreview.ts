@@ -5,6 +5,7 @@ import type {RoomElement} from '../model';
 import type {CabinetMaterial, CabinetPaint} from '../materials';
 import type {MaterialDefinition, GrainAxis} from '../materialDefinition';
 export type CabinetAppearance = {
+  flatGrain?: import('../designMaterials').FlatGrain;
   overlay?: Overlay;
   face: RoomElement['face'];
   material: CabinetMaterial;
@@ -35,6 +36,7 @@ export function facePreviewGeometry(
     y: number,
     z: number,
     axis: GrainAxis = grainAxis,
+    fixed = false,
   ) => {
     const geometry = new THREE.BoxGeometry(
       width,
@@ -54,6 +56,15 @@ export function facePreviewGeometry(
         1,
       ),
     );
+    geometry.setAttribute(
+      'materialFixedGrain',
+      new THREE.Float32BufferAttribute(
+        new Float32Array(geometry.getAttribute('position').count).fill(
+          fixed ? 1 : 0,
+        ),
+        1,
+      ),
+    );
     pieces.push(geometry);
   };
   const frame = (
@@ -64,7 +75,7 @@ export function facePreviewGeometry(
     z: number,
   ) => {
     for (const side of [-1, 1]) {
-      box(rail, height, depth, (side * (width - rail)) / 2, 0, z, 'y');
+      box(rail, height, depth, (side * (width - rail)) / 2, 0, z, 'y', true);
       box(
         width - rail * 2,
         rail,
@@ -73,6 +84,7 @@ export function facePreviewGeometry(
         (side * (height - rail)) / 2,
         z,
         'x',
+        true,
       );
     }
   };
