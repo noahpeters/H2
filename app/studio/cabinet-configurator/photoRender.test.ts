@@ -9,6 +9,8 @@ import {disposeStudyObject, StudyScene} from './studyScene';
 import {blankStudy} from './CabinetConfigurator';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import type {MaterialDefinition} from './materialDefinition';
+import {presetOutline} from './roomOutline';
+import {visiblePhotoScene} from './photoLighting';
 
 vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
 
@@ -165,7 +167,7 @@ test('easing retains stock envelopes, inset countertop holes, face-frame parts a
   [original, eased, face, softened].forEach((geometry) => geometry.dispose());
 });
 
-test('wall fillets are photo-only and preserve translucent wall visibility', async () => {
+test('wall fillets are photo-only and preserve opaque wall materials', async () => {
   vi.spyOn(THREE.TextureLoader.prototype, 'load').mockImplementation(
     (_url, onLoad) => {
       const texture = new THREE.Texture();
@@ -187,12 +189,147 @@ test('wall fillets are photo-only and preserve translucent wall visibility', asy
       (part) =>
         (part as THREE.Mesh).material instanceof THREE.MeshStandardMaterial &&
         ((part as THREE.Mesh).material as THREE.MeshStandardMaterial)
-          .opacity === 0.18,
+          .opacity === 1,
     ),
-  ).toHaveLength(3);
+  ).toHaveLength(4);
   disposeStudyObject(snapshot.scene);
   content.dispose();
 });
+
+test.each(['rectangle', 'l-shape'] as const)(
+  '%s photos use opaque interior walls and hide exterior cutaway walls and openings without changing the live scene',
+  async (shape) => {
+    vi.spyOn(THREE.TextureLoader.prototype, 'load').mockImplementation(
+      (_url, onLoad) => {
+        const texture = new THREE.Texture();
+        queueMicrotask(() => onLoad?.(texture));
+        return texture;
+      },
+    );
+    const scene = new THREE.Scene();
+    const content = new StudyScene(scene);
+    const study = blankStudy();
+    study.room.outline = presetOutline(study.room, shape);
+    study.openings = [
+      {
+        id: 'near-window',
+        kind: 'window',
+        wall: 'front',
+        offset: 20,
+        width: 24,
+        height: 30,
+        sill: 42,
+      },
+      {
+        id: 'near-door',
+        kind: 'door',
+        wall: 'right',
+        offset: 20,
+        width: 30,
+        height: 80,
+      },
+      {
+        id: 'far-window',
+        kind: 'window',
+        wall: 'back',
+        offset: 20,
+        width: 24,
+        height: 30,
+        sill: 42,
+      },
+    ];
+    const camera = new THREE.PerspectiveCamera();
+    const position = (x: number, z: number) =>
+      camera.position.set(
+        (x - study.room.width / 2) * 0.0254,
+        48 * 0.0254,
+        (z - study.room.depth / 2) * 0.0254,
+      );
+    try {
+      await content.update(study);
+      const liveWalls = content.root.children[0].children.slice(1);
+      const liveMaterials: THREE.Material[] = [];
+      scene.traverse((part) => {
+        if (part instanceof THREE.Mesh && part.userData.photoSurface === 'wall')
+          liveMaterials.push(part.material as THREE.Material);
+      });
+      const original = liveMaterials.map((m) => [
+        m.opacity,
+        m.transparent,
+        m.depthWrite,
+      ]);
+      for (const inside of [true, false, true]) {
+        // Test the concave outline, not just its rectangular bounds.
+        position(
+          study.room.width * (inside ? 0.25 : shape === 'l-shape' ? 0.8 : 1.1),
+          study.room.depth * (inside ? 0.25 : 0.8),
+        );
+        const snapshot = createPhotoSnapshot(scene, camera);
+        try {
+          const walls: THREE.Object3D[] = [];
+          const openings: THREE.Object3D[] = [];
+          snapshot.scene.traverse((part) => {
+            if (part.userData.photoWall) walls.push(part);
+            if (
+              part.userData.id &&
+              study.openings.some((o) => o.id === part.userData.id)
+            )
+              openings.push(part);
+            if (
+              part instanceof THREE.Mesh &&
+              part.userData.photoSurface === 'wall'
+            ) {
+              const m = part.material as THREE.Material;
+              expect([m.opacity, m.transparent, m.depthWrite]).toEqual([
+                1,
+                false,
+                true,
+              ]);
+            }
+          });
+          for (const wall of walls)
+            expect(wall.visible).toBe(inside || !wall.userData.cutawayRoomWall);
+          expect(openings.map((o) => o.visible)).toEqual([
+            inside,
+            inside,
+            true,
+          ]);
+          expect(
+            snapshot.scene.children.filter(
+              (o) => o.name === 'photo-wall-fillet',
+            ),
+          ).toHaveLength(inside ? 4 : 1);
+          const renderScene = visiblePhotoScene(snapshot.scene);
+          const renderObjects: THREE.Object3D[] = [];
+          renderScene.traverse((o) => renderObjects.push(o));
+          if (!inside)
+            expect(renderObjects.some((o) => o.userData.cutawayRoomWall)).toBe(
+              false,
+            );
+          // Interior photos preserve window glass transparency.
+          if (inside)
+            expect(
+              renderObjects.some(
+                (o) =>
+                  o instanceof THREE.Mesh &&
+                  (o.material as THREE.Material).opacity === 0.45,
+              ),
+            ).toBe(true);
+          expect(liveWalls.every((wall) => wall.visible)).toBe(true);
+          expect(content.selectable.every((o) => o.visible)).toBe(true);
+          expect(
+            liveMaterials.map((m) => [m.opacity, m.transparent, m.depthWrite]),
+          ).toEqual(original);
+          expect(liveMaterials.some((m) => m.opacity === 0.18)).toBe(true);
+        } finally {
+          disposeStudyObject(snapshot.scene);
+        }
+      }
+    } finally {
+      content.dispose();
+    }
+  },
+);
 
 test('same-viewport photo and flash finish before returning PNG and release only photo resources', async () => {
   vi.useFakeTimers();

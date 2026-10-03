@@ -838,7 +838,8 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
     const wall = segment.id,
       length = segment.length;
     const wallGroup = new THREE.Group();
-    // Near walls remain translucent so all four walls can be edited from outside.
+    wallGroup.userData.cutawayRoomWall = segment.nx < 0 || segment.nz < 0;
+    // Near walls remain translucent in the interactive room view.
     const mat = new THREE.MeshStandardMaterial({
       color,
       transparent: segment.nx < 0 || segment.nz < 0,
@@ -899,6 +900,8 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
 }
 export function openingGeometry(opening: Opening, room: Room) {
   const group = new THREE.Group();
+  const segment = roomWall(room, opening.wall);
+  group.userData.cutawayRoomWall = segment.nx < 0 || segment.nz < 0;
   const {width: w, height: h} = opening;
   const sill = opening.kind === 'window' ? (opening.sill ?? 42) : 0;
   const trim = new THREE.MeshStandardMaterial({
