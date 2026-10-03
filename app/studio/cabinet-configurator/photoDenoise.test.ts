@@ -49,7 +49,7 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
     128,
     128,
   );
-  expect(render).toHaveBeenCalledTimes(5);
+  expect(render).toHaveBeenCalledTimes(6);
   const guide = render.mock.calls[0][0] as THREE.Scene;
   expect(guide).not.toBe(scene);
   expect((guide.children[0] as THREE.Mesh).geometry).toBe(geometry);
@@ -59,7 +59,11 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
   ]);
   expect(scene.overrideMaterial).toBeNull();
   expect(normalGuide).toHaveLength(2);
-  normalGuide.forEach((value) => expect(value.normalMap).toBeNull());
+  normalGuide.forEach((value) => {
+    expect(value.normalMap).toBe(texture);
+    expect(value.normalScale.toArray()).toEqual([2, 2]);
+    expect(value.normalScale).not.toBe(original.normalScale);
+  });
   expect(original.normalMap).toBe(texture);
   expect(original.normalScale.toArray()).toEqual([2, 2]);
   expect(releaseTexture).not.toHaveBeenCalled();

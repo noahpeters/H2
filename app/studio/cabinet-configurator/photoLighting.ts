@@ -21,7 +21,7 @@ export const DEFAULT_PHOTO_SETTINGS: PhotoSettings = {
   samples: 256,
   denoise: true,
   bounces: 6,
-  maxDimension: 1600,
+  maxDimension: 2400,
   exposure: 1,
   toneMapping: THREE.ACESFilmicToneMapping,
 };

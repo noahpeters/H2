@@ -1044,13 +1044,14 @@ export function ThreeStudy({
                 }
               >
                 <option value={1000}>1000 pixels</option>
-                <option value={1600}>1600 pixels</option>
-                <option value={2400}>2400 pixels</option>
+                <option value={1600}>1600 pixels — faster</option>
+                <option value={2400}>2400 pixels — detailed</option>
               </select>
             </label>
             <p>
-              Photos may take seconds to minutes. Closed doors block adjacent
-              light; rooms without lit openings will be dark.
+              Detailed photos may take several minutes. Fine quality takes about
+              twice as long as Standard. Closed doors block adjacent light;
+              rooms without lit openings will be dark.
             </p>
           </fieldset>
         </details>

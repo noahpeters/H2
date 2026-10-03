@@ -51,9 +51,15 @@ export async function denoisePhoto(
       ? (object.material as THREE.Material[])
       : [object.material];
     const normals = original.map((value) => {
+      const pbr = value as THREE.MeshStandardMaterial;
       const material = new THREE.MeshNormalMaterial({
         side: value.side,
         alphaTest: value.alphaTest,
+        normalMap: pbr.normalMap ?? null,
+        normalMapType: pbr.normalMapType,
+        normalScale: pbr.normalScale?.clone(),
+        bumpMap: pbr.bumpMap ?? null,
+        bumpScale: pbr.bumpScale,
       });
       guideMaterials.push(material);
       return material;
@@ -89,13 +95,20 @@ export async function denoisePhoto(
       uniform float stepSize;
       uniform bool firstPass, finalPass;
       varying vec2 vUv;
+      bool validLighting(vec3 value) {
+        return !any(isnan(value)) && !any(isinf(value)) && all(greaterThanEqual(value, vec3(0.0)));
+      }
       float distanceAt(vec2 uv) {
         float z = texture2D(depth, uv).r;
         return nearFar.x * nearFar.y / (nearFar.y - z * (nearFar.y - nearFar.x));
       }
       vec3 lightingAt(vec2 uv) {
         vec3 value = texture2D(image, uv).rgb;
-        return firstPass ? value / max(texture2D(albedo, uv).rgb, vec3(0.04)) : value;
+        if (!validLighting(value)) return vec3(-1.0);
+        value = firstPass ? value / max(texture2D(albedo, uv).rgb, vec3(0.04)) : value;
+        // Filter targets are half floats. Keep rare HDR outliers representable
+        // instead of letting infinity contaminate every neighboring pixel.
+        return min(value, vec3(65504.0));
       }
       vec3 normalAt(vec2 uv) {
         vec3 n = texture2D(normals, uv).rgb * 2.0 - 1.0;
@@ -113,14 +126,17 @@ export async function denoisePhoto(
         float total = 0.0;
         if (rawDepth >= 0.999999) {
           // Keep the captured background and silhouette exactly, including alpha.
-          sum = center.rgb;
+          sum = validLighting(center.rgb) ? center.rgb : vec3(0.0);
         } else {
           vec3 n = normalAt(vUv);
-          // Always retain the center sample. Guide rejection cannot create black pixels.
-          sum = lightingAt(vUv) * 36.0;
-          total = 36.0;
+          // Keep every valid center, but reconstruct invalid centers from their
+          // finite neighbors. A single NaN must never grow into a black square.
+          vec3 centerLight = lightingAt(vUv);
+          bool validCenter = validLighting(centerLight);
+          sum = validCenter ? centerLight * 36.0 : vec3(0.0);
+          total = validCenter ? 36.0 : 0.0;
           float d = distanceAt(vUv);
-          float light = log(1.0 + photoLuminance(lightingAt(vUv)));
+          float light = validCenter ? log(1.0 + photoLuminance(centerLight)) : 0.0;
           for (int x = -2; x <= 2; x++) {
             for (int y = -2; y <= 2; y++) {
               if (x == 0 && y == 0) continue;
@@ -136,6 +152,7 @@ export async function denoisePhoto(
               vec3 deltaColor = texture2D(albedo, uv).rgb - base;
               float colorWeight = exp(-dot(deltaColor, deltaColor) / 0.02);
               vec3 value = lightingAt(uv);
+              if (!validLighting(value)) continue;
               float deltaLight = log(1.0 + photoLuminance(value)) - light;
               float lightingWeight = exp(-deltaLight * deltaLight / 2.0);
               float weight = kernel(x) * kernel(y) * geometry * colorWeight * lightingWeight;
@@ -143,7 +160,7 @@ export async function denoisePhoto(
               total += weight;
             }
           }
-          sum /= total;
+          sum = total > 0.0 ? sum / total : vec3(0.0);
           if (finalPass) sum *= max(base, vec3(0.04));
         }
         gl_FragColor = vec4(sum, center.a);
@@ -176,9 +193,11 @@ export async function denoisePhoto(
     renderer.setRenderTarget(albedo);
     renderer.render(guide, camera);
     await waitForPhotoGpu(renderer.getContext(), signal);
-    // Three bounded à-trous passes: 25 taps each, at pixel spacing 1, 2 and 4.
-    for (let pass = 0; pass < 3; pass++) {
-      const finalPass = pass === 2;
+    // Extend lighting smoothing at photo resolution, while restoring the original
+    // albedo and using the actual material relief to protect grain and fine edges.
+    // Four bounded à-trous passes: 25 taps each, at spacing 1, 2, 4 and 8.
+    for (let pass = 0; pass < 4; pass++) {
+      const finalPass = pass === 3;
       material.uniforms.firstPass.value = pass === 0;
       material.uniforms.finalPass.value = finalPass;
       material.uniforms.stepSize.value = 2 ** pass;
