@@ -339,7 +339,7 @@ test('rebuilds continuous frames when neighbors move or the room option changes'
   }
 });
 
-test('island tops rebuild when frame coverage, edge allowance, or member positions change', async () => {
+test('island tops update frame and edge allowances without growing when members move', async () => {
   const load = vi
     .spyOn(THREE.TextureLoader.prototype, 'load')
     .mockImplementation((_url, onLoad) => {
@@ -382,7 +382,7 @@ test('island tops rebuild when frame coverage, edge allowance, or member positio
     study.elements[0].placement = {mode: 'floor', x: 30, z: 31, rotation: 0};
     await content.update(study);
     expect(top()).not.toBe(adjusted);
-    expect(front() - initialFront).toBeCloseTo(1.875);
+    expect(front() - initialFront).toBeCloseTo(0.875);
   } finally {
     content.dispose();
     load.mockRestore();

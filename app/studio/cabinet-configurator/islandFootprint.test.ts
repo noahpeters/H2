@@ -213,6 +213,45 @@ describe('island membership on release', () => {
 });
 
 describe('island finished countertop coverage', () => {
+  it.each([0, 90, 45])(
+    'keeps plan bounds, countertop and aisle clearance fixed while members move at %s degrees',
+    (rotation) => {
+      const island = {...zone, rotation};
+      for (const overlay of ['full-overlay', 'inset'] as const) {
+        const settings = {...room, overlay};
+        const centered = atLocal(island, 0, 0, true);
+        const outline = islandCountertopOutline(island, [centered], settings);
+        const clearance = aisleClearance(island, settings, [centered]);
+        const original = new THREE.Box3().setFromObject(
+          islandCountertop(island, [centered], settings),
+        );
+        for (const [x, z] of [
+          [40, 0],
+          [-40, 0],
+          [0, -30],
+          [0, 33],
+        ]) {
+          const moved = atLocal(island, x, z, true);
+          expect(islandOverlapsElement(moved, island)).toBe(true);
+          const released = createDragEndUpdate(moved.id)(study(moved, island));
+          expect(released.elements[0].islandId).toBe(island.id);
+          expect(
+            islandCountertopOutline(island, released.elements, settings),
+          ).toEqual(outline);
+          expect(aisleClearance(island, settings, released.elements)).toEqual(
+            clearance,
+          );
+          const mesh = new THREE.Box3().setFromObject(
+            islandCountertop(island, released.elements, settings),
+          );
+          expect(mesh.min.x).toBeCloseTo(original.min.x);
+          expect(mesh.max.x).toBeCloseTo(original.max.x);
+          expect(mesh.min.z).toBeCloseTo(original.min.z);
+          expect(mesh.max.z).toBeCloseTo(original.max.z);
+        }
+      }
+    },
+  );
   it.each([0, 90, 180, 270, 45])(
     'clears the rendered inset face frame by 1/8 inch at %s degrees',
     (rotation) => {

@@ -17,8 +17,8 @@ export function islandOutline(island: Island) {
 
 export const DEFAULT_ISLAND_COUNTERTOP_OVERHANG = 0.125;
 
-/** Finished cabinet/frame coverage, separate from the body used for placement.
- * Seating keeps its own reach; the small edge allowance applies elsewhere.
+/** Fixed island envelope plus finished-frame and countertop allowances.
+ * Member positions never resize the island as cabinets enter or leave it.
  */
 export function islandCountertopOutline(
   island: Island,
@@ -44,27 +44,15 @@ export function islandCountertopOutline(
       room?.overlay === 'inset' || room?.overlay === 'partial-overlay'
         ? 0.75
         : 0;
-    // Face frames project from the local front (+z), not every cabinet side.
-    const footprint = islandElementFootprint(
-      {
-        ...item,
-        depth: item.depth + frame,
-        placement: {
-          ...item.placement,
-          x:
-            item.placement.x -
-            (frame / 2) * Math.sin((item.placement.rotation * Math.PI) / 180),
-          z:
-            item.placement.z +
-            (frame / 2) * Math.cos((item.placement.rotation * Math.PI) / 180),
-        },
-      },
-      island,
-    )!;
-    body.left = Math.min(body.left, ...footprint.map((p) => p.x));
-    body.right = Math.max(body.right, ...footprint.map((p) => p.x));
-    body.top = Math.min(body.top, ...footprint.map((p) => p.z));
-    body.bottom = Math.max(body.bottom, ...footprint.map((p) => p.z));
+    // Reserve the frame projection at the defined body edge. Translation does
+    // not change this allowance, even while a member partly overlaps the zone.
+    const angle = ((item.placement.rotation - island.rotation) * Math.PI) / 180;
+    const dx = -frame * Math.sin(angle),
+      dz = frame * Math.cos(angle);
+    body.left = Math.min(body.left, -island.width / 2 + Math.min(0, dx));
+    body.right = Math.max(body.right, island.width / 2 + Math.max(0, dx));
+    body.top = Math.min(body.top, -island.depth / 2 + Math.min(0, dz));
+    body.bottom = Math.max(body.bottom, island.depth / 2 + Math.max(0, dz));
   }
   const seating = islandOutline(island);
   return {

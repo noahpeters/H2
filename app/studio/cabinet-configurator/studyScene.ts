@@ -108,7 +108,7 @@ function desiredObjects(study: Study): Desired[] {
     if (!study.countertop) continue;
     desired.push({
       key: `island:${island.id}`,
-      // Cabinet positions and overlay determine finished frame coverage.
+      // Member movement updates sink cutouts; it never expands the top's outline.
       signature: JSON.stringify([
         island,
         room.countertopMaterial,
