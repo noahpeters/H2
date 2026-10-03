@@ -93,16 +93,19 @@ export function PhotoCameraControls({
             update({quality: e.target.value as PhotoCameraSettings['quality']})
           }
         >
-          <option value="quick">Quick</option>
-          <option value="standard">Standard</option>
-          <option value="fine">Fine</option>
+          <option value="quick">Quick · adaptive</option>
+          <option value="standard">Standard · adaptive</option>
+          <option value="fine">Fine · adaptive</option>
+          <option value="ultra">Super high quality · full render</option>
         </select>
       </label>
       <p>
         Photos keep the current position and aim point. A level 28mm lens
         changes framing to straighten verticals; turn correction off to capture
         the exact viewport view. Positive shift frames higher. Standard and Fine
-        improve edges but take longer. The full room stays sharp.
+        improve edges but take longer. Adaptive photos stop when image changes
+        stay small; difficult scenes continue refining. Super high quality runs
+        the full rendering budget. The full room stays sharp.
       </p>
     </fieldset>
   );

@@ -8,7 +8,7 @@ export type PhotoCameraSettings = {
   lensMm: number;
   verticalShift: number;
   architectural: boolean;
-  quality: 'quick' | 'standard' | 'fine';
+  quality: 'quick' | 'standard' | 'fine' | 'ultra';
 };
 export const DEFAULT_PHOTO_CAMERA: PhotoCameraSettings = {
   autoExposure: true,
@@ -24,6 +24,7 @@ export const PHOTO_QUALITY = {
   quick: {scale: 1, samples: 64},
   standard: {scale: 1.5, samples: 256},
   fine: {scale: 2, samples: 512},
+  ultra: {scale: 2, samples: 512},
 } as const;
 
 export function validatePhotoCamera(value: PhotoCameraSettings) {
