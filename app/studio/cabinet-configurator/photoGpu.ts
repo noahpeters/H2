@@ -25,8 +25,10 @@ export async function waitForPhotoGpu(
         return;
       if (status === gl.WAIT_FAILED)
         throw new Error('Photo graphics synchronization failed. Please retry.');
-      if (performance.now() - started > 15000)
-        throw new Error('Photo graphics stalled. Try a smaller image.');
+      if (performance.now() - started > 45000)
+        throw new Error(
+          'Photo graphics stalled for 45 seconds. Try Quick quality or a smaller image, then take the photo again.',
+        );
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => resolve()),
       );

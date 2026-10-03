@@ -850,6 +850,9 @@
   outline: 2px solid #667651;
   outline-offset: 4px;
 }
+.cabinet-app .cc-photo-progress button + button {
+  margin-left: 8px;
+}
 .cc-photo-dialog img {
   display: block;
   width: 100%;

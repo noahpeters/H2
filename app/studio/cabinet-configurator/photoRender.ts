@@ -410,10 +410,10 @@ export async function renderPhoto(
     // Work grows with pixel area and sample count. Give detailed photos time to
     // converge instead of silently lowering their resolution or sample budget.
     const timeLimit = Math.min(
-      900000,
+      2700000,
       Math.max(
-        180000,
-        180000 *
+        540000,
+        540000 *
           ((settings.maxDimension * quality.scale) / 1600) ** 2 *
           (samples / 256),
       ),
@@ -427,7 +427,7 @@ export async function renderPhoto(
           throw new Error('Photo graphics context was lost. Please retry.');
         if (performance.now() - started > timeLimit)
           throw new Error(
-            'Photo took too long. Try fewer samples or a smaller image.',
+            `Photo rendering timed out after ${Math.round(timeLimit / 60000)} minutes (${Math.floor((tracer.samples / samples) * 100)}% complete). Try Quick quality or a smaller image, then take the photo again.`,
           );
         const previousSamples = tracer.samples;
         tracer.renderSample();

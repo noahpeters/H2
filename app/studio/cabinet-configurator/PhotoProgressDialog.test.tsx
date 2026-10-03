@@ -20,7 +20,7 @@ test('opens modally, keeps progress updates in the same dialog, and cancels by b
   const view = render(<PhotoProgressDialog progress={0} cancel={cancel} />);
   const dialog = screen.getByRole('dialog', {name: 'Say cheese!'});
   expect(show).toHaveBeenCalledOnce();
-  expect(dialog).toHaveAccessibleDescription(/can take a few minutes/);
+  expect(dialog).toHaveAccessibleDescription(/can take several minutes/);
   expect(screen.getByRole('button', {name: 'Cancel photo'})).toHaveFocus();
   view.rerender(<PhotoProgressDialog progress={0.42} cancel={cancel} />);
   expect(screen.getByRole('progressbar')).toHaveAttribute('value', '0.42');
