@@ -1,7 +1,28 @@
 import {afterEach, expect, test, vi} from 'vitest';
 import {waitForPhotoGpu} from './photoGpu';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+test('allows a graphics wait beyond 15 seconds, but reports a stall after 45 seconds', async () => {
+  let now = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => now);
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    now += 15000;
+    callback(0);
+  });
+  const completing = gpu([4, 4, 3]);
+  await waitForPhotoGpu(completing as unknown as WebGL2RenderingContext);
+  expect(now).toBe(30000);
+  now = 0;
+  const stalled = gpu([4, 4, 4, 4, 4]);
+  await expect(
+    waitForPhotoGpu(stalled as unknown as WebGL2RenderingContext),
+  ).rejects.toThrow('stalled for 45 seconds');
+  expect(stalled.deleteSync).toHaveBeenCalledOnce();
+});
 
 function gpu(statuses: number[]) {
   const fence = {};

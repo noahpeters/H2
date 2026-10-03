@@ -664,7 +664,13 @@ export function ThreeStudy({
   >(null);
   const takingPhoto = useRef(false);
   const takePhoto = async () => {
-    if (takingPhoto.current || !photoRef.current) return;
+    if (takingPhoto.current) return;
+    if (!photoRef.current) {
+      setPhotoError(
+        'The room is not ready for a photo yet. Wait for the 3D view to load, then try again.',
+      );
+      return;
+    }
     takingPhoto.current = true;
     setPhotoBusy(true);
     setPhotoError('');
@@ -682,7 +688,7 @@ export function ThreeStudy({
     } catch (error) {
       if (!photoAbort.current.signal.aborted)
         setPhotoError(
-          error instanceof Error
+          error instanceof Error && error.message.trim()
             ? error.message
             : 'Unable to take photo. Please try again.',
         );
@@ -1147,10 +1153,15 @@ export function ThreeStudy({
           </fieldset>
         </details>
       )}
-      {photoBusy && (
+      {(photoBusy || photoError) && (
         <PhotoProgressDialog
           progress={photoProgress}
-          cancel={() => photoAbort.current?.abort()}
+          error={photoError}
+          retry={() => void takePhoto()}
+          cancel={() => {
+            if (photoBusy) photoAbort.current?.abort();
+            else setPhotoError('');
+          }}
         />
       )}
       <div
@@ -1160,7 +1171,6 @@ export function ThreeStudy({
         aria-label="Interactive 3D room study"
         aria-busy={photoBusy}
       />
-      {photoError && <p role="alert">{photoError}</p>}
       {photoBlob && (
         <PhotoDialog blob={photoBlob} close={() => setPhotoBlob(null)} />
       )}

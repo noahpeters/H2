@@ -25,6 +25,7 @@ vi.mock('./photoDenoise', () => ({denoisePhoto: vi.fn()}));
 const pathTracerMock = vi.hoisted(() => ({
   dispose: vi.fn(),
   settings: [] as {randomType: number; contactPaths: number}[],
+  stalled: false,
 }));
 vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
   ...(await importOriginal<typeof import('three-gpu-pathtracer')>()),
@@ -50,7 +51,7 @@ vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
       this.samples = 0;
     };
     renderSample = () => {
-      this.samples += 1;
+      if (!pathTracerMock.stalled) this.samples += 1;
     };
     dispose = pathTracerMock.dispose;
   },
@@ -65,9 +66,75 @@ const definition: MaterialDefinition = {
   pbr: {color: '#ffffff', roughness: 0.5},
 };
 afterEach(() => {
+  pathTracerMock.stalled = false;
+  pathTracerMock.dispose.mockClear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+
+test.each([
+  ['quick', 1000, 540000],
+  ['standard', 1600, 1215000],
+  ['fine', 2400, 2700000],
+] as const)(
+  'allows the tripled %s rendering budget and reports timeout while restoring the live view',
+  async (quality, maxDimension, limit) => {
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      now += 60000;
+      callback(0);
+      return 1;
+    });
+    pathTracerMock.stalled = true;
+    const host = document.createElement('div');
+    const live = document.createElement('canvas');
+    host.append(live);
+    const canvas = document.createElement('canvas');
+    const dispose = vi.fn(),
+      loseContext = vi.fn();
+    vi.spyOn(THREE, 'WebGLRenderer').mockImplementation(
+      class {
+        domElement = canvas;
+        extensions = {has: () => true};
+        capabilities = {maxTextureSize: 8192};
+        getContext = () => ({
+          isContextLost: () => false,
+          getParameter: () => 8192,
+        });
+        setPixelRatio = () => {};
+        setSize = () => {};
+        dispose = dispose;
+        forceContextLoss = loseContext;
+      } as unknown as typeof THREE.WebGLRenderer,
+    );
+    const progress = vi.fn();
+    await expect(
+      renderPhoto(
+        createPhotoSnapshot(
+          new THREE.Scene(),
+          new THREE.PerspectiveCamera(38, 1.6),
+        ),
+        host,
+        {
+          ...DEFAULT_PHOTO_SETTINGS,
+          maxDimension,
+          camera: {...DEFAULT_PHOTO_SETTINGS.camera!, quality},
+        },
+        {onProgress: progress},
+      ),
+    ).rejects.toThrow(
+      `timed out after ${Math.round(limit / 60000)} minutes (0% complete)`,
+    );
+    expect(now).toBeGreaterThan(limit);
+    expect(now).toBeLessThanOrEqual(limit + 60000);
+    expect(progress.mock.calls.length).toBeGreaterThanOrEqual(9);
+    expect(host.children).toHaveLength(1);
+    expect(host.firstChild).toBe(live);
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(loseContext).toHaveBeenCalledOnce();
+  },
+);
 
 test('photo snapshot retains camera, poses, visibility and independent materials without changing live geometry', () => {
   const source = new THREE.Scene();
