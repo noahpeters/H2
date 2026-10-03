@@ -9,7 +9,9 @@ While Edit room outline is active:
 - Drag island zones in both axes; their grouped cabinets/appliances move with them. Cabinet/appliance hit targets are disabled in this mode so they cannot obscure room editing targets or accidentally move independently.
 - Each drag uses one Undo entry. Pointer release, cancellation and lost capture end dragging. Changes use the existing room autosave and shared 3D state; no saved-room schema change is needed.
 
-Outside outline editing, openings remain selectable and their room controls open, but they do not drag. Islands retain their existing regular-plan dragging. Selecting an island in the plan opens its Room controls. Entering outline editing from a 3D-only view switches to split view so the plan is available.
+Outside outline editing, perimeter walls, interior walls and all openings are locked: they cannot be selected or dragged, and wall end handles are hidden. Opening selection in split-view 3D is also locked. Leaving edit mode clears opening selection and ends active wall/opening gestures. Islands retain their existing regular-plan dragging. Selecting an island in the plan opens its Room controls. Entering outline editing from a 3D-only view switches to split view so the plan is available.
+
+Island boundaries and countertops follow the island's defined width, depth, seating overhang and finished-edge allowances. Moving a grouped cabinet, including partly outside its island, never enlarges these extents or changes aisle measurements. Membership still persists until the cabinet is fully outside. Face-frame allowance follows cabinet orientation rather than cabinet position.
 
 If no wall can contain an opening, dragging leaves it unchanged; the existing width/layout warning remains available. Opening collisions are not prevented by this feature.
 

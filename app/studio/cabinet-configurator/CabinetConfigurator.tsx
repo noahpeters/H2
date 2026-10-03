@@ -1261,6 +1261,15 @@ export function CabinetConfigurator({
   const [guideTarget, setGuideTarget] = useState<GuideTarget | null>(null);
   useEffect(() => {
     setGuideTarget(null);
+    roomDrag.current = null;
+    openingDrag.current = null;
+    endDrag.current = null;
+    if (!editingRoom)
+      setStudy((current) =>
+        current.openings.some((o) => o.id === current.selected)
+          ? {...current, selected: null}
+          : current,
+      );
   }, [study.view, editingRoom]);
   const rooms = useSavedRooms(
     study,
@@ -1589,7 +1598,7 @@ export function CabinetConfigurator({
     return next;
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
-    if (endDrag.current) {
+    if (editingRoom && endDrag.current) {
       const a = endDrag.current,
         point = planPoint(ev);
       if (point && a.pointerId === ev.pointerId)
@@ -1607,7 +1616,7 @@ export function CabinetConfigurator({
         );
       return;
     }
-    if (openingDrag.current) {
+    if (editingRoom && openingDrag.current) {
       const a = openingDrag.current;
       if (ev.pointerId !== a.pointerId) return;
       const x = a.x + (ev.clientX - a.clientX) / a.scale;
@@ -1621,7 +1630,7 @@ export function CabinetConfigurator({
       });
       return;
     }
-    if (roomDrag.current) {
+    if (editingRoom && roomDrag.current) {
       const a = roomDrag.current;
       const position =
         a.position +
@@ -1658,7 +1667,9 @@ export function CabinetConfigurator({
     setStudy(createDragUpdate(a, clientX, clientY, ss));
   };
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
-  const opening = study.openings.find((o) => o.id === study.selected);
+  const opening = editingRoom
+    ? study.openings.find((o) => o.id === study.selected)
+    : undefined;
   const selectedPartition = study.room.partitions?.find(
     (p) => p.id === selectedWall,
   );
@@ -3239,26 +3250,34 @@ export function CabinetConfigurator({
                     />
                     <>
                       <line
-                        role="button"
-                        tabIndex={0}
+                        role={editingRoom ? 'button' : undefined}
+                        tabIndex={editingRoom ? 0 : undefined}
                         aria-label={`Edit ${s.label}, ${Math.round(s.length)} inches`}
                         x1={pad + s.a.x * scale}
                         y1={pad + s.a.z * scale}
                         x2={pad + s.b.x * scale}
                         y2={pad + s.b.z * scale}
                         stroke={
-                          selectedWall === s.id ? '#b57d45' : 'transparent'
+                          editingRoom && selectedWall === s.id
+                            ? '#b57d45'
+                            : 'transparent'
                         }
                         strokeWidth="14"
                         strokeOpacity="0.5"
                         style={{
-                          cursor: s.horizontal ? 'ns-resize' : 'ew-resize',
+                          pointerEvents: editingRoom ? undefined : 'none',
+                          cursor: editingRoom
+                            ? s.horizontal
+                              ? 'ns-resize'
+                              : 'ew-resize'
+                            : undefined,
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') setSelectedWall(s.id);
+                          if (editingRoom && e.key === 'Enter')
+                            setSelectedWall(s.id);
                         }}
                         onPointerDown={(e) => {
-                          if (e.button !== 0) return;
+                          if (!editingRoom || e.button !== 0) return;
                           e.stopPropagation();
                           e.currentTarget.setPointerCapture(e.pointerId);
                           setStudy((c) => ({...c, selected: null}));
@@ -3300,24 +3319,23 @@ export function CabinetConfigurator({
                   return (
                     <g
                       key={o.id}
-                      role="button"
-                      tabIndex={0}
+                      role={editingRoom ? 'button' : undefined}
+                      tabIndex={editingRoom ? 0 : undefined}
                       aria-label={o.kind + ' on ' + o.wall + ' wall'}
                       style={{
-                        cursor: editingRoom ? 'grab' : 'pointer',
+                        pointerEvents: editingRoom ? undefined : 'none',
+                        cursor: editingRoom ? 'grab' : undefined,
                         touchAction: 'none',
                       }}
                       onClick={() => {
+                        if (!editingRoom) return;
                         setStudy((c) => ({...c, selected: o.id}));
                         if (selectedControls.current)
                           selectedControls.current.open = true;
                       }}
                       onPointerDown={(event) => {
                         if (
-                          (!editingRoom &&
-                            !study.room.partitions?.some(
-                              (p) => p.id === o.wall,
-                            )) ||
+                          !editingRoom ||
                           event.button !== 0 ||
                           openingDrag.current
                         )
@@ -3347,7 +3365,7 @@ export function CabinetConfigurator({
                           selectedControls.current.open = true;
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        if (editingRoom && e.key === 'Enter') {
                           setStudy((c) => ({...c, selected: o.id}));
                           if (selectedControls.current)
                             selectedControls.current.open = true;
@@ -3630,7 +3648,8 @@ export function CabinetConfigurator({
                     </text>
                   </g>
                 )}
-                {selectedPartition &&
+                {editingRoom &&
+                  selectedPartition &&
                   !addingWall &&
                   (['start', 'end'] as const).map((end) => {
                     const horizontal =
@@ -3740,7 +3759,14 @@ export function CabinetConfigurator({
                 study={study}
                 onSelect={
                   study.view === 'split'
-                    ? (id) => setStudy((c) => ({...c, selected: id}))
+                    ? (id) => {
+                        if (
+                          !editingRoom &&
+                          study.openings.some((o) => o.id === id)
+                        )
+                          return;
+                        setStudy((c) => ({...c, selected: id}));
+                      }
                     : undefined
                 }
               />
