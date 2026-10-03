@@ -11,12 +11,19 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
   const original = new THREE.MeshStandardMaterial({
     color: '#886644',
     map: texture,
+    normalMap: texture,
+    normalScale: new THREE.Vector2(2, 2),
   });
   const geometry = new THREE.BoxGeometry();
   scene.add(new THREE.Mesh(geometry, [original, original]));
   const previousTarget = new THREE.WebGLRenderTarget(16, 16);
   let currentTarget = previousTarget;
-  const render = vi.fn();
+  let normalGuide: THREE.MeshNormalMaterial[] = [];
+  const render = vi.fn((rendered: THREE.Scene) => {
+    if (normalGuide.length || !(rendered instanceof THREE.Scene)) return;
+    normalGuide = (rendered.children[0] as THREE.Mesh)
+      .material as THREE.MeshNormalMaterial[];
+  });
   const renderer = {
     getRenderTarget: () => currentTarget,
     setRenderTarget: (value: THREE.WebGLRenderTarget) => {
@@ -48,6 +55,10 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
     original,
   ]);
   expect(scene.overrideMaterial).toBeNull();
+  expect(normalGuide).toHaveLength(2);
+  normalGuide.forEach((value) => expect(value.normalMap).toBeNull());
+  expect(original.normalMap).toBe(texture);
+  expect(original.normalScale.toArray()).toEqual([2, 2]);
   expect(releaseTexture).not.toHaveBeenCalled();
   expect(releaseSource).not.toHaveBeenCalled();
   expect(releaseGeometry).not.toHaveBeenCalled();
