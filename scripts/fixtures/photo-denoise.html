@@ -1,0 +1,64 @@
+<!doctype html>
+<title>Photo denoising GPU regression</title>
+<p id="status">Running</p>
+<script type="module">
+  // Serve with Vite and open /scripts/fixtures/photo-denoise.html.
+  // Real GPU coverage: guide rejection must never erase valid, constant radiance.
+  import * as THREE from 'three';
+  import {denoisePhoto} from '/app/studio/cabinet-configurator/photoDenoise.ts';
+  const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
+  renderer.setSize(64, 64);
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+  camera.position.z = 2;
+  const data = new Float32Array(64 * 64 * 4);
+  for (let i = 0; i < data.length; i += 4) data.set([0.4, 0.3, 0.2, 1], i);
+  const radiance = new THREE.DataTexture(
+    data,
+    64,
+    64,
+    THREE.RGBAFormat,
+    THREE.FloatType,
+  );
+  radiance.needsUpdate = true;
+  const results = [];
+  try {
+    for (const degenerate of [false, true]) {
+      const scene = new THREE.Scene();
+      const geometry = new THREE.PlaneGeometry(10, 10);
+      if (degenerate) geometry.getAttribute('normal').array.fill(0);
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0.5, 0.5, 0.5),
+      });
+      scene.add(new THREE.Mesh(geometry, material));
+      denoisePhoto(renderer, scene, camera, radiance, 64, 64);
+      const pixels = new Uint8Array(64 * 64 * 4);
+      const gl = renderer.getContext();
+      gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      for (let i = 0; i < pixels.length; i++) {
+        const expected = [102, 77, 51, 255][i % 4];
+        if (Math.abs(pixels[i] - expected) > 1)
+          throw new Error(
+            `Lighting lost: degenerate=${degenerate}, channel=${i}, value=${pixels[i]}`,
+          );
+      }
+      results.push({
+        degenerate,
+        pixelsChecked: 4096,
+        rgb: Array.from(pixels.slice(0, 3)),
+      });
+      geometry.dispose();
+      material.dispose();
+    }
+    document.querySelector('#status').textContent =
+      'Passed: ' + JSON.stringify(results);
+  } catch (error) {
+    document.querySelector('#status').textContent = 'Failed: ' + error.message;
+    throw error;
+  } finally {
+    radiance.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss();
+  }
+</script>

@@ -49,11 +49,8 @@ export function denoisePhoto(
       ? (object.material as THREE.Material[])
       : [object.material];
     const normals = original.map((value) => {
-      const pbr = value as THREE.MeshStandardMaterial;
       const material = new THREE.MeshNormalMaterial({
         side: value.side,
-        normalMap: pbr.normalMap ?? null,
-        normalScale: pbr.normalScale?.clone(),
         alphaTest: value.alphaTest,
       });
       guideMaterials.push(material);
@@ -98,6 +95,12 @@ export function denoisePhoto(
         vec3 value = texture2D(image, uv).rgb;
         return firstPass ? value / max(texture2D(albedo, uv).rgb, vec3(0.04)) : value;
       }
+      vec3 normalAt(vec2 uv) {
+        vec3 n = texture2D(normals, uv).rgb * 2.0 - 1.0;
+        float lengthSquared = dot(n, n);
+        // Missing/degenerate normals must preserve radiance, never erase it.
+        return lengthSquared > 0.000001 ? n * inversesqrt(lengthSquared) : vec3(0.0);
+      }
       float photoLuminance(vec3 c) {return dot(c, vec3(0.2126, 0.7152, 0.0722));}
       float kernel(int i) {return i == 0 ? 6.0 : abs(i) == 1 ? 4.0 : 1.0;}
       void main() {
@@ -110,16 +113,22 @@ export function denoisePhoto(
           // Keep the captured background and silhouette exactly, including alpha.
           sum = center.rgb;
         } else {
-          vec3 n = normalize(texture2D(normals, vUv).rgb * 2.0 - 1.0);
+          vec3 n = normalAt(vUv);
+          // Always retain the center sample. Guide rejection cannot create black pixels.
+          sum = lightingAt(vUv) * 36.0;
+          total = 36.0;
           float d = distanceAt(vUv);
           float light = log(1.0 + photoLuminance(lightingAt(vUv)));
           for (int x = -2; x <= 2; x++) {
             for (int y = -2; y <= 2; y++) {
+              if (x == 0 && y == 0) continue;
+              if (dot(n, n) < 0.5) continue;
               vec2 uv = clamp(vUv + vec2(float(x), float(y)) * pixel * stepSize, pixel * 0.5, vec2(1.0) - pixel * 0.5);
               float otherDepth = texture2D(depth, uv).r;
               if (otherDepth >= 0.999999) continue;
-              vec3 otherNormal = normalize(texture2D(normals, uv).rgb * 2.0 - 1.0);
-              float geometry = pow(max(dot(n, otherNormal), 0.0), 64.0);
+              vec3 otherNormal = normalAt(uv);
+              if (dot(otherNormal, otherNormal) < 0.5) continue;
+              float geometry = pow(clamp(dot(n, otherNormal), 0.0, 1.0), 64.0);
               float deltaDepth = (distanceAt(uv) - d) / max(d, 0.01);
               geometry *= exp(-deltaDepth * deltaDepth / 0.0004);
               vec3 deltaColor = texture2D(albedo, uv).rgb - base;
@@ -132,7 +141,7 @@ export function denoisePhoto(
               total += weight;
             }
           }
-          sum /= max(total, 0.000001);
+          sum /= total;
           if (finalPass) sum *= max(base, vec3(0.04));
         }
         gl_FragColor = vec4(sum, center.a);
