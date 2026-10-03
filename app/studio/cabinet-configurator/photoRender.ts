@@ -346,22 +346,34 @@ export async function renderPhoto(
     tracer.setScene(traceScene, snapshot.camera);
     tracer.reset();
     const started = performance.now();
+    // Work grows with pixel area and sample count. Give detailed photos time to
+    // converge instead of silently lowering their resolution or sample budget.
+    const timeLimit = Math.min(
+      900000,
+      Math.max(
+        180000,
+        180000 * (settings.maxDimension / 1600) ** 2 * (settings.samples / 256),
+      ),
+    );
     while (tracer.samples < settings.samples) {
       const frameStart = performance.now();
+      let tilesSubmitted = 0;
       do {
         options.signal?.throwIfAborted();
         if (renderer.getContext().isContextLost())
           throw new Error('Photo graphics context was lost. Please retry.');
-        if (performance.now() - started > 180000)
+        if (performance.now() - started > timeLimit)
           throw new Error(
-            'Photo exceeded three minutes. Try fewer samples or a smaller image.',
+            'Photo took too long. Try fewer samples or a smaller image.',
           );
         const previousSamples = tracer.samples;
         tracer.renderSample();
+        tilesSubmitted++;
         // Shader compilation is asynchronous: yield instead of spinning at zero progress.
         if (tracer.samples === previousSamples) break;
       } while (
         tracer.samples < settings.samples &&
+        tilesSubmitted < 3 &&
         performance.now() - frameStart < 12
       );
       options.onProgress?.(Math.min(1, tracer.samples / settings.samples));
