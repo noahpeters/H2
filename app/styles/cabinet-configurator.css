@@ -863,3 +863,27 @@
   gap: 16px;
   margin-top: 16px;
 }
+
+/* Ephemeral plan measurements stay readable at every plan zoom. */
+.cc-positioning-guides {
+  pointer-events: none;
+}
+.cc-positioning-guide-alignment line {
+  stroke: #408276;
+  stroke-width: 1.25;
+  stroke-dasharray: 5 4;
+}
+.cc-positioning-guide-distance line {
+  stroke: #a65b27;
+  stroke-width: 1.25;
+}
+.cc-positioning-guide-distance rect {
+  fill: #fffdf6;
+  stroke: #e4ccb5;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.cc-positioning-guide-distance text {
+  fill: #7e421c;
+  font-weight: 600;
+}
