@@ -1,3 +1,4 @@
+import {PhotoCameraControls} from './PhotoCameraControls';
 import {PhotoDialog} from './PhotoDialog';
 import {createPhotoSnapshot, renderPhoto} from './photoRender';
 import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
@@ -732,7 +733,7 @@ export function ThreeStudy({
         throw new Error(
           'Room materials are loading. Please try again in a moment.',
         );
-      return createPhotoSnapshot(scene, camera);
+      return createPhotoSnapshot(scene, camera, controls.target);
     };
     let currentStudy = studyRef.current;
     const roomWidth = currentStudy.room.width * INCH;
@@ -954,9 +955,16 @@ export function ThreeStudy({
       )}
       {showControls && (
         <details className="cc-photo-settings">
-          <summary>Photo lighting and quality</summary>
+          <summary>Photo camera, lighting and quality</summary>
           <fieldset disabled={photoBusy}>
-            <legend>Opening light</legend>
+            <legend>Photo settings</legend>
+            <PhotoCameraControls
+              value={photoSettings.camera}
+              onChange={(camera) =>
+                setPhotoSettings((value) => ({...value, camera}))
+              }
+            />
+            <p>Opening light</p>
             {(['daylight', 'adjacent'] as const).map((kind) => (
               <div key={kind}>
                 <label>
@@ -1004,22 +1012,6 @@ export function ThreeStudy({
               </div>
             ))}
             <label>
-              Photo quality
-              <select
-                value={photoSettings.samples}
-                onChange={(event) =>
-                  setPhotoSettings((value) => ({
-                    ...value,
-                    samples: Number(event.target.value),
-                  }))
-                }
-              >
-                <option value={64}>Quick (64 samples)</option>
-                <option value={256}>Standard (256 samples)</option>
-                <option value={512}>Fine (512 samples)</option>
-              </select>
-            </label>
-            <label>
               <input
                 type="checkbox"
                 checked={photoSettings.denoise}
@@ -1049,9 +1041,9 @@ export function ThreeStudy({
               </select>
             </label>
             <p>
-              Detailed photos may take several minutes. Fine quality takes about
-              twice as long as Standard. Closed doors block adjacent light;
-              rooms without lit openings will be dark.
+              Detailed photos may take several minutes. Fine quality uses more
+              pixels and samples than Standard. Closed doors block adjacent
+              light; rooms without lit openings will be dark.
             </p>
           </fieldset>
         </details>
