@@ -2,6 +2,7 @@ import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import type {PhotoContactSettings} from './photoContacts';
 import {PhotoCameraControls} from './PhotoCameraControls';
 import {PhotoDialog} from './PhotoDialog';
+import {PhotoProgressDialog} from './PhotoProgressDialog';
 import {createPhotoSnapshot, renderPhoto} from './photoRender';
 import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
 import {ROOM_MATERIALS} from './roomMaterials';
@@ -662,13 +663,14 @@ export function ThreeStudy({
         photoSettings,
         {signal: photoAbort.current.signal, onProgress: setPhotoProgress},
       );
-      setPhotoBlob(blob);
+      if (!photoAbort.current.signal.aborted) setPhotoBlob(blob);
     } catch (error) {
-      setPhotoError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to take photo. Please try again.',
-      );
+      if (!photoAbort.current.signal.aborted)
+        setPhotoError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to take photo. Please try again.',
+        );
     } finally {
       takingPhoto.current = false;
       setPhotoBusy(false);
@@ -1122,9 +1124,10 @@ export function ThreeStudy({
         </details>
       )}
       {photoBusy && (
-        <button type="button" onClick={() => photoAbort.current?.abort()}>
-          Cancel photo
-        </button>
+        <PhotoProgressDialog
+          progress={photoProgress}
+          cancel={() => photoAbort.current?.abort()}
+        />
       )}
       <div
         style={{cursor: pan ? 'grab' : undefined}}
