@@ -158,3 +158,30 @@ test('settings reject unbounded work and invalid colors; warm colors remain fini
   ).toThrow();
   expect(temperatureColor(3000).toArray().every(Number.isFinite)).toBe(true);
 });
+
+test('derived tracer meshes have stable BVH order without modifying snapshot identities', () => {
+  const source = new THREE.Scene();
+  const group = new THREE.Group();
+  group.add(
+    new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()),
+  );
+  source.add(
+    group,
+    new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()),
+  );
+  const original: string[] = [];
+  source.traverse((object) => original.push(object.uuid));
+  const meshes = (scene: THREE.Scene) => {
+    const ids: string[] = [];
+    scene.traverse((object) => {
+      if (object instanceof THREE.Mesh) ids.push(object.uuid);
+    });
+    return ids;
+  };
+  expect(meshes(visiblePhotoScene(source))).toEqual(
+    meshes(visiblePhotoScene(source)),
+  );
+  const after: string[] = [];
+  source.traverse((object) => after.push(object.uuid));
+  expect(after).toEqual(original);
+});

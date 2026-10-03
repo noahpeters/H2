@@ -25,6 +25,7 @@ import {
 import type {PhotoSettings} from './photoLighting';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
+import {configurePhotoContacts, DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import {denoisePhoto} from './photoDenoise';
 import {waitForPhotoGpu} from './photoGpu';
 
@@ -365,6 +366,7 @@ export async function renderPhoto(
     tracer = new WebGLPathTracer(renderer);
     // Fixed sample sequence and count, independent of elapsed time and frame scheduling.
     deterministicPhotoTracer(tracer);
+    configurePhotoContacts(tracer, settings.contacts ?? DEFAULT_PHOTO_CONTACTS);
     tracer.bounces = settings.bounces;
     tracer.filterGlossyFactor = 0.5;
     tracer.multipleImportanceSampling = true;

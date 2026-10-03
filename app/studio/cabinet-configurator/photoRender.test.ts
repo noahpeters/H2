@@ -1,4 +1,7 @@
+import {denoisePhoto} from './photoDenoise';
+import {finishPhoto} from './photoFinish';
 import {afterEach, expect, test, vi} from 'vitest';
+import * as pathTracer from 'three-gpu-pathtracer';
 import * as THREE from 'three';
 import {createPhotoSnapshot, easedGeometry, renderPhoto} from './photoRender';
 import {createMaterial, mapMaterialPart} from './materialRendering';
@@ -15,23 +18,28 @@ vi.mock('./photoDenoise', () => ({denoisePhoto: vi.fn()}));
 
 const pathTracerMock = vi.hoisted(() => ({
   dispose: vi.fn(),
-  settings: [] as unknown[],
+  settings: [] as {randomType: number; contactPaths: number}[],
 }));
-vi.mock('three-gpu-pathtracer', () => ({
+vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('three-gpu-pathtracer')>()),
   WebGLPathTracer: class {
     samples = 0;
     tiles = new THREE.Vector2();
     _pathTracer = {
-      material: {
-        setDefine: vi.fn(),
-        dispose: vi.fn(),
-        stratifiedOffsetTexture: {
-          image: {width: 64, height: 64, data: new Float32Array(4096)},
-        },
-      },
+      material: new (
+        pathTracer as unknown as {
+          PhysicalPathTracingMaterial: new () => THREE.ShaderMaterial;
+        }
+      ).PhysicalPathTracingMaterial(),
     };
     target = {texture: new THREE.Texture()};
-    setScene = vi.fn();
+    setScene = vi.fn(() => {
+      const material = this._pathTracer.material;
+      pathTracerMock.settings.push({
+        randomType: material.defines.RANDOM_TYPE,
+        contactPaths: material.uniforms.photoContactPaths.value,
+      });
+    });
     reset = () => {
       this.samples = 0;
     };
@@ -233,6 +241,12 @@ test('same-viewport photo and flash finish before returning PNG and release only
   expect((await result).type).toBe('image/png');
   expect(host.children).toHaveLength(1);
   expect(host.firstChild).toBe(live);
+  expect(pathTracerMock.settings.at(-1)).toEqual({
+    randomType: 2,
+    contactPaths: 2,
+  });
+  expect(denoisePhoto).toHaveBeenCalledOnce();
+  expect(finishPhoto).toHaveBeenCalledOnce();
   expect(pathTracerMock.dispose).toHaveBeenCalledOnce();
   expect(dispose).toHaveBeenCalledOnce();
   expect(loseContext).toHaveBeenCalledOnce();
