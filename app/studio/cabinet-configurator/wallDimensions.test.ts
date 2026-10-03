@@ -1,8 +1,8 @@
 import {expect, test} from 'vitest';
 import * as THREE from 'three';
-import {blankStudy} from './CabinetConfigurator';
+import {blankStudy, reshapeStudy} from './CabinetConfigurator';
 import {bounds, validateLayout, wallToFloor, type RoomElement} from './model';
-import {roomSegments, presetOutline} from './roomOutline';
+import {roomSegments, roomPoints, presetOutline} from './roomOutline';
 import {cabinetGeometry, roomGeometry, openingGeometry} from './roomGeometry';
 import {elementTransform, disposeStudyObject} from './studyScene';
 import {snapWall} from './placement';
@@ -291,4 +291,114 @@ test('wall thickness round-trips in saved rooms, defaults for old rooms, and rej
     expect(validStudy({...study, room: {...study.room, wallThickness}})).toBe(
       false,
     );
+});
+
+test('mixed wall thicknesses share corner miters and drive their own geometry, openings, lighting and cabinet faces', () => {
+  const study = blankStudy();
+  study.room.partitions = [
+    {id: 'segment-divider', x: 72, z: 0, length: 120, orientation: 'vertical'},
+  ];
+  study.room.wallThicknesses = {back: 6, left: 8, 'segment-divider': 10};
+  expect(wallBounds(study.room, 'back')).toEqual({
+    left: -8,
+    right: 148.5,
+    top: -6,
+    bottom: 0,
+  });
+  expect(wallBounds(study.room, 'left')).toEqual({
+    left: -8,
+    right: 0,
+    top: -6,
+    bottom: 124.5,
+  });
+  const walls = roomGeometry(study.room, [], 0xffffff);
+  const segments = roomSegments(study.room);
+  for (const s of segments) {
+    const thickness = wallThickness(study.room, s.id);
+    const wallBox = new THREE.Box3().setFromObject(walls[segments.indexOf(s)]);
+    expect(
+      s.horizontal
+        ? wallBox.max.z - wallBox.min.z
+        : wallBox.max.x - wallBox.min.x,
+    ).toBeCloseTo(thickness * INCH, 6);
+    const opening = {
+      id: s.id,
+      kind: 'window' as const,
+      wall: s.id,
+      offset: 24,
+      width: 30,
+      height: 48,
+    };
+    const assembly = openingGeometry(opening, study.room);
+    const jambBox = new THREE.Box3().setFromObject(assembly);
+    expect(
+      s.horizontal
+        ? jambBox.max.z - jambBox.min.z
+        : jambBox.max.x - jambBox.min.x,
+    ).toBeCloseTo(thickness * INCH, 6);
+    const scene = new THREE.Scene().add(assembly);
+    addPhotoLighting(scene, DEFAULT_PHOTO_SETTINGS);
+    const light = scene.children.find((o) => o instanceof THREE.RectAreaLight)!;
+    const distance = Math.abs(
+      s.nx * (light.position.x / INCH + study.room.width / 2 - s.x) +
+        s.nz * (light.position.z / INCH + study.room.depth / 2 - s.z),
+    );
+    expect(distance).toBeCloseTo(
+      (s.id === 'segment-divider' ? thickness / 2 : thickness) + 0.04 / INCH,
+    );
+    disposeStudyObject(scene);
+  }
+  const cabinet = {
+    ...base,
+    placement: {
+      mode: 'wall' as const,
+      wall: 'segment-divider' as const,
+      offset: 6,
+      elevation: 0,
+    },
+  };
+  expect(bounds(cabinet, study.room).right).toBe(72 - 10 / 2);
+  study.room.wallThickness = 7;
+  expect(wallThickness(study.room, 'back')).toBe(6);
+  expect(wallThickness(study.room, 'right')).toBe(7);
+  expect(bounds(cabinet, study.room).right).toBe(67);
+  walls.forEach(disposeStudyObject);
+  const saved = JSON.parse(JSON.stringify(study)) as typeof study;
+  expect(validStudy(saved)).toBe(true);
+  expect(saved.room.wallThicknesses).toEqual(study.room.wallThicknesses);
+  for (const wallThicknesses of [
+    null,
+    [],
+    {missing: 6},
+    {back: 0},
+    {back: '6'},
+    {back: 25},
+  ])
+    expect(validStudy({...study, room: {...study.room, wallThicknesses}})).toBe(
+      false,
+    );
+});
+
+test('removing outline walls drops their overrides without changing the saved undo snapshot', () => {
+  const study = blankStudy();
+  study.room.outline = presetOutline(study.room, 'l-shape');
+  study.room.partitions = [
+    {id: 'segment-divider', x: 48, z: 0, length: 60, orientation: 'vertical'},
+  ];
+  study.room.wallThicknesses = {
+    back: 6,
+    'segment-l-1': 8,
+    'segment-divider': 10,
+  };
+  const next = reshapeStudy(
+    study,
+    roomPoints({...study.room, outline: undefined}),
+  );
+  expect(next.room.wallThicknesses).toEqual({back: 6, 'segment-divider': 10});
+  expect(study.room.wallThicknesses).toEqual({
+    back: 6,
+    'segment-l-1': 8,
+    'segment-divider': 10,
+  });
+  expect(validStudy(next)).toBe(true);
 });

@@ -143,7 +143,7 @@ export function addPhotoLighting(scene: THREE.Scene, settings: PhotoSettings) {
         opening.height * inch,
       );
       // Outside the aperture, so existing panes, frames and closed door leaves occlude it.
-      const wallDepth = wallThickness(room) * inch;
+      const wallDepth = wallThickness(room, opening.wall) * inch;
       emitter.position
         .copy(center)
         .addScaledVector(

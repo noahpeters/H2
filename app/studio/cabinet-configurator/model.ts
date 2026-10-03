@@ -218,6 +218,7 @@ export type Island = {
 };
 export type Room = {
   wallThickness?: number;
+  wallThicknesses?: Partial<Record<Wall, number>>;
   overlay?: Overlay;
   continuousFaceFrames?: boolean;
   toeKick?: {height: number; setback: number};

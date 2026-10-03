@@ -122,6 +122,20 @@ export function validStudy(value: any): boolean {
   const walls = roomSegments(value.room).map((s) => s.id);
   if (new Set(walls).size !== walls.length) return false;
   if (
+    value.room.wallThicknesses !== undefined &&
+    (!value.room.wallThicknesses ||
+      typeof value.room.wallThicknesses !== 'object' ||
+      Array.isArray(value.room.wallThicknesses) ||
+      Object.entries(value.room.wallThicknesses).some(
+        ([id, thickness]) =>
+          !walls.includes(id as (typeof walls)[number]) ||
+          !num(thickness) ||
+          Number(thickness) < MIN_WALL_THICKNESS ||
+          Number(thickness) > MAX_WALL_THICKNESS,
+      ))
+  )
+    return false;
+  if (
     (value.room.countertopMaterial !== undefined &&
       !['white-quartz', 'taj-mahal', 'dark-granite'].includes(
         value.room.countertopMaterial,

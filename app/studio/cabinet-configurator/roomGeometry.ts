@@ -916,7 +916,7 @@ export function openingGeometry(opening: Opening, room: Room) {
   group.userData.cutawayRoomWall = segment.nx < 0 || segment.nz < 0;
   const {width: w, height: h} = opening;
   const sill = opening.kind === 'window' ? (opening.sill ?? 42) : 0;
-  const thickness = wallThickness(room);
+  const thickness = wallThickness(room, opening.wall);
   const depth = localWallDepth(room, opening.wall);
   const trim = new THREE.MeshStandardMaterial({
     color: 0xf1eadc,

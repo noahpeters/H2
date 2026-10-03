@@ -4,18 +4,29 @@ import {roomPoints, roomSegments, roomWall, wallPoint} from './roomOutline';
 export const DEFAULT_WALL_THICKNESS = 4.5;
 export const MIN_WALL_THICKNESS = 1;
 export const MAX_WALL_THICKNESS = 24;
-export const wallThickness = (room: Room) =>
-  room.wallThickness ?? DEFAULT_WALL_THICKNESS;
+export const wallThickness = (room: Room, id?: Wall) =>
+  (id ? room.wallThicknesses?.[id] : undefined) ??
+  room.wallThickness ??
+  DEFAULT_WALL_THICKNESS;
+export const maxWallThickness = (room: Room) =>
+  Math.max(...roomSegments(room).map((s) => wallThickness(room, s.id)));
+export function pruneWallThicknesses(room: Room) {
+  if (!room.wallThicknesses) return;
+  const ids = new Set(roomSegments(room).map((s) => s.id));
+  room.wallThicknesses = Object.fromEntries(
+    Object.entries(room.wallThicknesses).filter(([id]) => ids.has(id as Wall)),
+  );
+}
 export const isPartition = (room: Room, id: Wall) =>
   room.partitions?.some((p) => p.id === id) ?? false;
 
 /** Perimeter coordinates are finished interior faces; partitions are centerlines. */
 export const wallFaceOffset = (room: Room, id: Wall) =>
-  isPartition(room, id) ? wallThickness(room) / 2 : 0;
+  isPartition(room, id) ? wallThickness(room, id) / 2 : 0;
 
 /** Depth along placeOnWall's local Z axis, in inches. */
 export function localWallDepth(room: Room, id: Wall) {
-  const t = wallThickness(room);
+  const t = wallThickness(room, id);
   if (isPartition(room, id)) return {min: -t / 2, max: t / 2};
   const s = roomWall(room, id);
   const inward = s.horizontal ? s.nz : -s.nx;
@@ -32,7 +43,7 @@ export function wallFootprint(
   end = roomWall(room, id).length,
 ) {
   const s = roomWall(room, id);
-  const t = wallThickness(room);
+  const t = wallThickness(room, id);
   const a = wallPoint(room, id, 0);
   const b = wallPoint(room, id, s.length);
   let footprint: {x: number; z: number}[];
@@ -57,8 +68,14 @@ export function wallFootprint(
             : undefined;
       // Only extend at actual segment endpoints, not at subdivisions around apertures.
       return {
-        x: p.x - s.nx * t - (neighbor ? neighbor.nx * t : 0),
-        z: p.z - s.nz * t - (neighbor ? neighbor.nz * t : 0),
+        x:
+          p.x -
+          s.nx * t -
+          (neighbor ? neighbor.nx * wallThickness(room, neighbor.id) : 0),
+        z:
+          p.z -
+          s.nz * t -
+          (neighbor ? neighbor.nz * wallThickness(room, neighbor.id) : 0),
       };
     };
     footprint = [a, b, outside(b), outside(a)];
