@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest';
 import * as THREE from 'three';
 import {
   islandOutline,
+  islandCountertopOutline,
   islandContainsElement,
   islandOverlapsElement,
   islandWorldBounds,
@@ -12,6 +13,8 @@ import {
   createDragUpdate,
   createDragEndUpdate,
   type Study,
+  blankStudy,
+  migrateStudy,
 } from './CabinetConfigurator';
 import {
   aisleClearance,
@@ -20,6 +23,7 @@ import {
   type RoomElement,
   type SeatingSide,
 } from './model';
+import {validStudy} from './savedRoomProtocol';
 import {validAutomaticPlacement} from './automaticPlacement';
 const room: Study['room'] = {
   width: 240,
@@ -82,10 +86,12 @@ describe('shared island outline', () => {
       const island = {...zone, seatingSide};
       expect(islandOutline(island)).toEqual({left, right, top, bottom});
       const box = new THREE.Box3().setFromObject(islandCountertop(island, []));
-      expect(box.min.x / 0.0254).toBeCloseTo(left);
-      expect(box.max.x / 0.0254).toBeCloseTo(right);
-      expect(box.min.z / 0.0254).toBeCloseTo(top);
-      expect(box.max.z / 0.0254).toBeCloseTo(bottom);
+      const finished = islandCountertopOutline(island, []);
+      expect(box.min.x / 0.0254).toBeCloseTo(finished.left);
+      expect(box.max.x / 0.0254).toBeCloseTo(finished.right);
+      expect(box.min.z / 0.0254).toBeCloseTo(finished.top);
+      expect(box.max.z / 0.0254).toBeCloseTo(finished.bottom);
+      if (seatingSide === 'south') expect(finished.bottom).toBe(bottom);
     },
   );
   it.each([0, 90, 180, 270, 45])(
@@ -203,5 +209,98 @@ describe('island membership on release', () => {
     const item = cabinet(121, 121);
     item.placement = {mode: 'floor', x: 121, z: 121, rotation: 45};
     expect(islandOverlapsElement(item, island)).toBe(false);
+  });
+});
+
+describe('island finished countertop coverage', () => {
+  it.each([0, 90, 180, 270, 45])(
+    'clears the rendered inset face frame by 1/8 inch at %s degrees',
+    (rotation) => {
+      const island = {
+        ...zone,
+        rotation,
+        width: 20,
+        depth: 24,
+        seatingSide: 'none' as const,
+        overhang: 0,
+      };
+      const item = atLocal(island, 0, 0, true);
+      const settings = {...room, overlay: 'inset' as const};
+      const outline = islandCountertopOutline(island, [item], settings);
+      expect(outline.left).toBeCloseTo(-10.125);
+      expect(outline.right).toBeCloseTo(10.125);
+      expect(outline.top).toBeCloseTo(-12.125);
+      expect(outline.bottom).toBeCloseTo(12.875);
+      const cabinet = cabinetGeometry(item, false, true, settings);
+      const frame = cabinet.getObjectByName('cabinet-face-frame')!;
+      const bounds = new THREE.Box3().setFromObject(frame);
+      expect(outline.bottom - bounds.max.z / 0.0254).toBeCloseTo(0.125);
+      const countertop = new THREE.Box3().setFromObject(
+        islandCountertop(island, [item], settings),
+      );
+      expect(countertop.max.z / 0.0254).toBeCloseTo(outline.bottom);
+      const world = islandWorldBounds(island, outline);
+      expect(aisleClearance(island, settings, [item]).left).toBeCloseTo(
+        world.left,
+      );
+    },
+  );
+  it('covers opposing face frames and honors the room allowance without changing placement', () => {
+    const island = {
+      ...zone,
+      width: 20,
+      depth: 48,
+      seatingSide: 'none' as const,
+    };
+    const front = atLocal(island, 0, 12, true);
+    const back = atLocal(island, 0, -12, true);
+    if (back.placement.mode === 'floor') back.placement.rotation = 180;
+    const outline = islandCountertopOutline(island, [front, back], {
+      ...room,
+      overlay: 'partial-overlay',
+      islandCountertopOverhang: 0.25,
+    });
+    expect(outline.left).toBeCloseTo(-10.25);
+    expect(outline.right).toBeCloseTo(10.25);
+    expect(outline.top).toBeCloseTo(-25);
+    expect(outline.bottom).toBeCloseTo(25);
+    expect(islandOutline(island)).toEqual({
+      left: -10,
+      right: 10,
+      top: -24,
+      bottom: 24,
+    });
+  });
+  it('applies the edge allowance to frameless cabinets and excludes other islands', () => {
+    const island = {...zone, seatingSide: 'none' as const};
+    const outsider = atLocal(island, 100, 100);
+    expect(islandCountertopOutline(island, [outsider], room)).toEqual({
+      left: -33.125,
+      right: 33.125,
+      top: -20.125,
+      bottom: 20.125,
+    });
+  });
+  it('saves room edge allowances, accepts legacy rooms, and rejects invalid values', () => {
+    const study = blankStudy();
+    expect(validStudy(study)).toBe(true);
+    for (const value of [0, 0.125, 0.25, 12]) {
+      const saved = JSON.parse(
+        JSON.stringify({
+          ...study,
+          room: {...study.room, islandCountertopOverhang: value},
+        }),
+      );
+      expect(validStudy(saved)).toBe(true);
+      expect(migrateStudy(saved).room.islandCountertopOverhang).toBe(value);
+    }
+    for (const value of [-0.125, 12.125, NaN, Infinity, '0.125', null]) {
+      expect(
+        validStudy({
+          ...study,
+          room: {...study.room, islandCountertopOverhang: value},
+        }),
+      ).toBe(false);
+    }
   });
 });

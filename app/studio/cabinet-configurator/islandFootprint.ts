@@ -1,6 +1,6 @@
-import type {Island, RoomElement} from './model';
+import type {Island, Room, RoomElement} from './model';
 
-/** The same outline is used by the plan, countertop, snapping, and grouping. */
+/** Island body and seating area used for snapping and grouping. */
 export function islandOutline(island: Island) {
   return {
     left:
@@ -12,6 +12,66 @@ export function islandOutline(island: Island) {
       (island.seatingSide === 'north' ? island.overhang : 0),
     bottom:
       island.depth / 2 + (island.seatingSide === 'south' ? island.overhang : 0),
+  };
+}
+
+export const DEFAULT_ISLAND_COUNTERTOP_OVERHANG = 0.125;
+
+/** Finished cabinet/frame coverage, separate from the body used for placement.
+ * Seating keeps its own reach; the small edge allowance applies elsewhere.
+ */
+export function islandCountertopOutline(
+  island: Island,
+  elements: RoomElement[],
+  room?: Pick<Room, 'overlay' | 'islandCountertopOverhang'>,
+) {
+  const edge =
+    room?.islandCountertopOverhang ?? DEFAULT_ISLAND_COUNTERTOP_OVERHANG;
+  const body = {
+    left: -island.width / 2,
+    right: island.width / 2,
+    top: -island.depth / 2,
+    bottom: island.depth / 2,
+  };
+  for (const item of elements) {
+    if (
+      item.islandId !== island.id ||
+      item.kind !== 'base' ||
+      item.placement.mode !== 'floor'
+    )
+      continue;
+    const frame =
+      room?.overlay === 'inset' || room?.overlay === 'partial-overlay'
+        ? 0.75
+        : 0;
+    // Face frames project from the local front (+z), not every cabinet side.
+    const footprint = islandElementFootprint(
+      {
+        ...item,
+        depth: item.depth + frame,
+        placement: {
+          ...item.placement,
+          x:
+            item.placement.x -
+            (frame / 2) * Math.sin((item.placement.rotation * Math.PI) / 180),
+          z:
+            item.placement.z +
+            (frame / 2) * Math.cos((item.placement.rotation * Math.PI) / 180),
+        },
+      },
+      island,
+    )!;
+    body.left = Math.min(body.left, ...footprint.map((p) => p.x));
+    body.right = Math.max(body.right, ...footprint.map((p) => p.x));
+    body.top = Math.min(body.top, ...footprint.map((p) => p.z));
+    body.bottom = Math.max(body.bottom, ...footprint.map((p) => p.z));
+  }
+  const seating = islandOutline(island);
+  return {
+    left: Math.min(seating.left, body.left - edge),
+    right: Math.max(seating.right, body.right + edge),
+    top: Math.min(seating.top, body.top - edge),
+    bottom: Math.max(seating.bottom, body.bottom + edge),
   };
 }
 
@@ -85,8 +145,11 @@ export function islandOverlapsElement(item: RoomElement, island: Island) {
   });
 }
 
-export function islandWorldBounds(island: Island) {
-  const b = islandOutline(island),
+export function islandWorldBounds(
+  island: Island,
+  outline = islandOutline(island),
+) {
+  const b = outline,
     angle = (island.rotation * Math.PI) / 180;
   const points = [
     [b.left, b.top],

@@ -84,3 +84,16 @@ reassignment. The last material cannot be removed. Material edits, assignments,
 and removal participate in Undo, online saving, local recovery, copied rooms,
 and sharing. Saved material ids are design-local; stale creation preferences do
 not add finishes from another design.
+
+
+### Island countertop edge allowance
+
+Room settings include **Island countertop edge overhang (in)**, defaulting to
+1/8 inch. This allowance is measured beyond the cabinet body or the projecting
+3/4-inch face frame for inset and partial-overlay rooms. It applies to every
+island, including islands with no seating and zero seating overhang. Each
+island's seating side keeps its separately configured overhang. Plan and 3D
+views, including aisle labels, use the same finished countertop outline.
+Cabinet placement and island membership continue to use the island body and
+seating area. Wall countertop geometry is unchanged. Saved rooms without this
+setting use the default; explicit zero creates a flush edge at the body/frame.

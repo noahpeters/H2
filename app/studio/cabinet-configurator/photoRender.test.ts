@@ -1,3 +1,5 @@
+import {denoisePhoto} from './photoDenoise';
+import {finishPhoto} from './photoFinish';
 import {afterEach, expect, test, vi} from 'vitest';
 import * as pathTracer from 'three-gpu-pathtracer';
 import * as THREE from 'three';
@@ -8,9 +10,15 @@ import {blankStudy} from './CabinetConfigurator';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import type {MaterialDefinition} from './materialDefinition';
 
+vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
+
+vi.mock('./photoFinish', () => ({finishPhoto: vi.fn()}));
+
+vi.mock('./photoDenoise', () => ({denoisePhoto: vi.fn()}));
+
 const pathTracerMock = vi.hoisted(() => ({
   dispose: vi.fn(),
-  settings: [] as unknown[],
+  settings: [] as {randomType: number; contactPaths: number}[],
 }));
 vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
   ...(await importOriginal<typeof import('three-gpu-pathtracer')>()),
@@ -24,7 +32,14 @@ vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
         }
       ).PhysicalPathTracingMaterial(),
     };
-    setScene = vi.fn();
+    target = {texture: new THREE.Texture()};
+    setScene = vi.fn(() => {
+      const material = this._pathTracer.material;
+      pathTracerMock.settings.push({
+        randomType: material.defines.RANDOM_TYPE,
+        contactPaths: material.uniforms.photoContactPaths.value,
+      });
+    });
     reset = () => {
       this.samples = 0;
     };
@@ -200,7 +215,11 @@ test('same-viewport photo and flash finish before returning PNG and release only
       domElement = canvas;
       shadowMap = {};
       extensions = {has: () => true};
-      getContext = () => ({isContextLost: () => false});
+      capabilities = {maxTextureSize: 8192};
+      getContext = () => ({
+        isContextLost: () => false,
+        getParameter: () => 8192,
+      });
       setPixelRatio = () => {};
       setSize = () => {};
       render = () => {};
@@ -222,6 +241,12 @@ test('same-viewport photo and flash finish before returning PNG and release only
   expect((await result).type).toBe('image/png');
   expect(host.children).toHaveLength(1);
   expect(host.firstChild).toBe(live);
+  expect(pathTracerMock.settings.at(-1)).toEqual({
+    randomType: 2,
+    contactPaths: 2,
+  });
+  expect(denoisePhoto).toHaveBeenCalledOnce();
+  expect(finishPhoto).toHaveBeenCalledOnce();
   expect(pathTracerMock.dispose).toHaveBeenCalledOnce();
   expect(dispose).toHaveBeenCalledOnce();
   expect(loseContext).toHaveBeenCalledOnce();

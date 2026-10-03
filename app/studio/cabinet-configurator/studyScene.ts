@@ -1,3 +1,4 @@
+import {continuousToeKicks} from './continuousToeKicks';
 import {roomSegments} from './roomOutline';
 import {ROOM_MATERIALS, applyRoomSurface} from './roomMaterials';
 import {continuousFrameNeighbors} from './continuousFaceFrames';
@@ -9,9 +10,9 @@ import {waitForMaterialTextures} from './materialRendering';
 import {fixtureGeometry} from './fixtureGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {countertopEdges, DEFAULT_COUNTERTOP_EDGES} from './countertopEdges';
-import {sinkAttachment} from './sinkAttachments';
 import {
   cabinetGeometry,
+  toeKickGeometry,
   roomGeometry,
   roomFloorGeometry,
   openingGeometry,
@@ -107,16 +108,16 @@ function desiredObjects(study: Study): Desired[] {
     if (!study.countertop) continue;
     desired.push({
       key: `island:${island.id}`,
-      // Sink cutouts depend on placement; ordinary cabinet movement does not.
+      // Cabinet positions and overlay determine finished frame coverage.
       signature: JSON.stringify([
         island,
         room.countertopMaterial,
-        study.elements.filter(
-          (item) => item.islandId === island.id && sinkAttachment(item),
-        ),
+        room.overlay,
+        room.islandCountertopOverhang,
+        study.elements.filter((item) => item.islandId === island.id),
       ]),
       build: () => {
-        const top = islandCountertop(island, study.elements);
+        const top = islandCountertop(island, study.elements, room);
         applyCountertops(top, room);
         return top;
       },
@@ -131,6 +132,7 @@ function desiredObjects(study: Study): Desired[] {
     });
   }
   const frameRuns = continuousFrameNeighbors(study.elements, room);
+  const toeRuns = continuousToeKicks(study.elements, room);
   for (const item of study.elements) {
     const shared = study.islands.some((island) => island.id === item.islandId);
     const edges =
@@ -140,6 +142,22 @@ function desiredObjects(study: Study): Desired[] {
           (item.applianceKind ?? 'dishwasher') === 'dishwasher'))
         ? countertopEdges(item, study.elements, room)
         : DEFAULT_COUNTERTOP_EDGES;
+    const toeRun = toeRuns.get(item.id);
+    if (toeRun && !toeRun.hidden)
+      desired.push({
+        key: `toe:${item.id}`,
+        signature: JSON.stringify([item, room.toeKick, toeRun]),
+        build: () => toeKickGeometry(item, room, toeRun),
+        place: (object) => {
+          const transform = elementTransform(item, room);
+          object.rotation.y = (-transform.rotation * Math.PI) / 180;
+          object.position.set(
+            (-room.width / 2 + transform.x) * INCH,
+            ((item.placement.elevation ?? 0) + item.height / 2) * INCH,
+            (-room.depth / 2 + transform.z) * INCH,
+          );
+        },
+      });
     desired.push({
       key: `element:${item.id}`,
       selectable: true,
@@ -154,6 +172,7 @@ function desiredObjects(study: Study): Desired[] {
         room.toeKick,
         room.overlay,
         frameRuns.get(item.id),
+        toeRuns.get(item.id),
         room.height,
       ]),
       build: () => {
@@ -180,6 +199,7 @@ function desiredObjects(study: Study): Desired[] {
                   room,
                   edges,
                   frameRuns.get(item.id),
+                  toeRun ? {...toeRun, hidden: true} : undefined,
                 );
         applyCountertops(body, room);
         body.userData.id = item.id;

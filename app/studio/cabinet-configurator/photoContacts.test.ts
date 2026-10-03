@@ -1,3 +1,4 @@
+import {deterministicPhotoTracer} from './photoTracer';
 import {expect, test} from 'vitest';
 import * as pathTracer from 'three-gpu-pathtracer';
 import type {ShaderMaterial} from 'three';
@@ -85,4 +86,23 @@ test('legacy API options without contact settings remain valid', () => {
   expect(() =>
     validatePhotoSettings({...DEFAULT_PHOTO_SETTINGS, contacts: undefined}),
   ).not.toThrow();
+});
+
+test('contact refinement composes with the current stratified sampler without exceeding its path rows', () => {
+  const material = new PhysicalPathTracingMaterial();
+  const tracer = {_pathTracer: {material}} as unknown as WebGLPathTracer;
+  deterministicPhotoTracer(tracer);
+  configurePhotoContacts(tracer, {...DEFAULT_PHOTO_CONTACTS, quality: 'fine'});
+  expect(material.defines.RANDOM_TYPE).toBe(2);
+  expect(material.uniforms.photoContactPaths.value).toBe(4);
+  expect(material.fragmentShader).toContain('sobolBounceIndex = 0u;');
+  expect(material.fragmentShader).toContain(
+    'pixelSeed = fract( photoContactSeed + float( contactPath ) * 0.61803398875 );',
+  );
+  const loop = material.fragmentShader.indexOf('for ( int contactPath');
+  const reset = material.fragmentShader.indexOf('sobolBounceIndex = 0u;', loop);
+  const bounce = material.fragmentShader.indexOf('sobolBounceIndex ++;', loop);
+  expect(reset).toBeGreaterThan(loop);
+  expect(reset).toBeLessThan(bounce);
+  material.dispose();
 });

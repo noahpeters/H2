@@ -1,5 +1,6 @@
 import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import type {PhotoContactSettings} from './photoContacts';
+import {PhotoCameraControls} from './PhotoCameraControls';
 import {PhotoDialog} from './PhotoDialog';
 import {createPhotoSnapshot, renderPhoto} from './photoRender';
 import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
@@ -10,7 +11,11 @@ import {
   syncDesignMaterials,
   type DesignMaterial,
 } from './designMaterials';
-import {islandOutline, islandOverlapsElement} from './islandFootprint';
+import {
+  islandCountertopOutline,
+  DEFAULT_ISLAND_COUNTERTOP_OVERHANG,
+  islandOverlapsElement,
+} from './islandFootprint';
 import {migrateFrontStyles, roomOverlay, type Overlay} from './overlay';
 import {
   CABINET_CATEGORIES,
@@ -730,7 +735,7 @@ export function ThreeStudy({
         throw new Error(
           'Room materials are loading. Please try again in a moment.',
         );
-      return createPhotoSnapshot(scene, camera);
+      return createPhotoSnapshot(scene, camera, controls.target);
     };
     let currentStudy = studyRef.current;
     const roomWidth = currentStudy.room.width * INCH;
@@ -952,9 +957,16 @@ export function ThreeStudy({
       )}
       {showControls && (
         <details className="cc-photo-settings">
-          <summary>Photo lighting and quality</summary>
+          <summary>Photo camera, lighting and quality</summary>
           <fieldset disabled={photoBusy}>
-            <legend>Opening light</legend>
+            <legend>Photo settings</legend>
+            <PhotoCameraControls
+              value={photoSettings.camera}
+              onChange={(camera) =>
+                setPhotoSettings((value) => ({...value, camera}))
+              }
+            />
+            <p>Opening light</p>
             {(['daylight', 'adjacent'] as const).map((kind) => (
               <div key={kind}>
                 <label>
@@ -1002,20 +1014,17 @@ export function ThreeStudy({
               </div>
             ))}
             <label>
-              Photo quality
-              <select
-                value={photoSettings.samples}
+              <input
+                type="checkbox"
+                checked={photoSettings.denoise}
                 onChange={(event) =>
                   setPhotoSettings((value) => ({
                     ...value,
-                    samples: Number(event.target.value),
+                    denoise: event.target.checked,
                   }))
                 }
-              >
-                <option value={32}>Quick (32 samples)</option>
-                <option value={96}>Standard (96 samples)</option>
-                <option value={256}>Fine (256 samples)</option>
-              </select>
+              />
+              Reduce photo noise
             </label>
             <label>
               Contact detail quality
@@ -1100,12 +1109,13 @@ export function ThreeStudy({
                 }
               >
                 <option value={1000}>1000 pixels</option>
-                <option value={1600}>1600 pixels</option>
-                <option value={2400}>2400 pixels</option>
+                <option value={1600}>1600 pixels — faster</option>
+                <option value={2400}>2400 pixels — detailed</option>
               </select>
             </label>
             <p>
-              Photos may take seconds to minutes. Closed doors block adjacent
+              Detailed photos may take several minutes. Fine quality uses more
+              pixels and samples than Standard. Closed doors block adjacent
               light; rooms without lit openings will be dark.
             </p>
           </fieldset>
@@ -1889,6 +1899,30 @@ export function CabinetConfigurator({
                 Share a single frame across adjacent cabinets with matching
                 height, depth, and material. Cabinet boundaries use one stile
                 instead of two.
+              </p>
+              <label>
+                Island countertop edge overhang (in)
+                <input
+                  type="number"
+                  min={0}
+                  max={12}
+                  step={0.125}
+                  value={
+                    study.room.islandCountertopOverhang ??
+                    DEFAULT_ISLAND_COUNTERTOP_OVERHANG
+                  }
+                  onChange={(event) => {
+                    const value = Number(event.currentTarget.value);
+                    if (Number.isFinite(value) && value >= 0 && value <= 12)
+                      update((d) => {
+                        d.room.islandCountertopOverhang = value;
+                      });
+                  }}
+                />
+              </label>
+              <p>
+                Measured beyond the cabinet body or face frame. Seating overhang
+                is set per island.
               </p>
               <fieldset>
                 <legend>Base and tall cabinet toe kicks</legend>
@@ -3342,8 +3376,12 @@ export function CabinetConfigurator({
                   );
                 })}
                 {study.islands.map((i) => {
-                  const c = aisleClearance(i, study.room);
-                  const outline = islandOutline(i);
+                  const c = aisleClearance(i, study.room, study.elements);
+                  const outline = islandCountertopOutline(
+                    i,
+                    study.elements,
+                    study.room,
+                  );
                   return (
                     <g
                       className="cc-island"

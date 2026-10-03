@@ -72,10 +72,11 @@ describe('front options', () => {
       {...cabinet(36), face: 'vertical-slat'},
       false,
     );
-    expect(
-      front.children.filter((child) => child.name === 'vertical-slat-groove')
-        .length,
-    ).toBeGreaterThan(8);
+    let grooves = 0;
+    front.traverse((child) => {
+      if (child.name === 'vertical-slat-groove') grooves++;
+    });
+    expect(grooves).toBeGreaterThan(8);
   });
   it.each(['refrigerator', 'dishwasher'] as const)(
     'renders %s wood panels only when requested',

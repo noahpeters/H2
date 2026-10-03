@@ -89,9 +89,18 @@ export function configurePhotoContacts(
       `
       int contactPaths = photoContactPathCount( cameraRay );
       vec4 photoContactSum = vec4( 0.0 );
+      #if RANDOM_TYPE == 2
+        vec4 photoContactSeed = pixelSeed;
+      #endif
       for ( int contactPath = 0; contactPath < 4; contactPath ++ ) {
         if ( contactPath >= contactPaths ) break;
         Ray ray = cameraRay;
+        // The pinned stratified texture contains rows for ONE transport path.
+        // Reset the row index and rotate its fixed pixel rank for each extra path.
+        sobolBounceIndex = 0u;
+        #if RANDOM_TYPE == 2
+          pixelSeed = fract( photoContactSeed + float( contactPath ) * 0.61803398875 );
+        #endif
         gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0 );
         ${markers[3]}`,
     )
