@@ -7,6 +7,8 @@ import {blankStudy} from './CabinetConfigurator';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import type {MaterialDefinition} from './materialDefinition';
 
+vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
+
 vi.mock('./photoDenoise', () => ({denoisePhoto: vi.fn()}));
 
 const pathTracerMock = vi.hoisted(() => ({

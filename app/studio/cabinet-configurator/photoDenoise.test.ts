@@ -3,9 +3,11 @@ import * as THREE from 'three';
 import {denoisePhoto} from './photoDenoise';
 import {photoNoiseOffsets} from './photoNoise';
 
+vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
+
 afterEach(() => vi.restoreAllMocks());
 
-test('guide/filter passes preserve source materials, geometry, texture ownership and renderer state', () => {
+test('guide/filter passes preserve source materials, geometry, texture ownership and renderer state', async () => {
   const scene = new THREE.Scene();
   const texture = new THREE.Texture();
   const original = new THREE.MeshStandardMaterial({
@@ -30,6 +32,7 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
       currentTarget = value;
     },
     render,
+    getContext: vi.fn(),
     toneMapping: THREE.ACESFilmicToneMapping,
     outputColorSpace: THREE.SRGBColorSpace,
     autoClear: false,
@@ -38,7 +41,7 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
   const releaseSource = vi.spyOn(original, 'dispose');
   const releaseGeometry = vi.spyOn(geometry, 'dispose');
   const releaseTarget = vi.spyOn(THREE.WebGLRenderTarget.prototype, 'dispose');
-  denoisePhoto(
+  await denoisePhoto(
     renderer as unknown as THREE.WebGLRenderer,
     scene,
     new THREE.PerspectiveCamera(),
@@ -69,7 +72,7 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
   expect(renderer.autoClear).toBe(false);
 });
 
-test('failed GPU guide rendering releases temporary targets and restores output configuration', () => {
+test('failed GPU guide rendering releases temporary targets and restores output configuration', async () => {
   const previous = new THREE.WebGLRenderTarget();
   let current = previous;
   const renderer = {
@@ -85,7 +88,7 @@ test('failed GPU guide rendering releases temporary targets and restores output 
     autoClear: false,
   };
   const dispose = vi.spyOn(THREE.WebGLRenderTarget.prototype, 'dispose');
-  expect(() =>
+  await expect(
     denoisePhoto(
       renderer as unknown as THREE.WebGLRenderer,
       new THREE.Scene(),
@@ -94,7 +97,7 @@ test('failed GPU guide rendering releases temporary targets and restores output 
       64,
       64,
     ),
-  ).toThrow('GPU failure');
+  ).rejects.toThrow('GPU failure');
   expect(dispose).toHaveBeenCalledTimes(4);
   expect(current).toBe(previous);
   expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
