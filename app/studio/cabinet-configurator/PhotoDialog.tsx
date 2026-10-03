@@ -1,6 +1,14 @@
 import {useEffect, useId, useRef, useState} from 'react';
 
-export function PhotoDialog({blob, close}: {blob: Blob; close: () => void}) {
+export function PhotoDialog({
+  blob,
+  close,
+  refine,
+}: {
+  blob: Blob;
+  close: () => void;
+  refine?: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [url, setUrl] = useState('');
@@ -32,6 +40,11 @@ export function PhotoDialog({blob, close}: {blob: Blob; close: () => void}) {
         />
       )}
       <div className="cc-photo-actions">
+        {refine && (
+          <button className="cc-photo-refine" type="button" onClick={refine}>
+            Render super high quality
+          </button>
+        )}
         <a href={url || undefined} download="cabinet-room-photo.png">
           Download PNG
         </a>

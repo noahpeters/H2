@@ -14,7 +14,8 @@ vi.mock('./photoRender', async (original) => ({
   ...(await original<typeof import('./photoRender')>()),
   renderPhoto: vi.fn(),
 }));
-vi.mock('./studyScene', () => ({
+vi.mock('./studyScene', async (original) => ({
+  ...(await original<typeof import('./studyScene')>()),
   StudyScene: class {
     root = new THREE.Group();
     ready = true;
@@ -94,7 +95,8 @@ test.each([
     fireEvent.click(screen.getByRole('button', {name: 'Try again'}));
     expect(screen.getByRole('dialog', {name: 'Say cheese!'})).toBe(failed);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(renderPhoto).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('value');
+    await waitFor(() => expect(renderPhoto).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole('button', {name: 'Cancel photo'}));
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
@@ -108,3 +110,63 @@ test.each([
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   },
 );
+
+test('super high quality rerenders the original capture and keeps the first photo after a failed or cancelled refinement', async () => {
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo');
+  vi.spyOn(URL, 'revokeObjectURL');
+  const first = new Blob(['first'], {type: 'image/png'});
+  vi.mocked(renderPhoto).mockResolvedValueOnce(first);
+  const view = render(<ThreeStudy study={blankStudy()} showControls />);
+  fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+  await screen.findByRole('dialog', {name: 'Your room photo'});
+  const captured = vi.mocked(renderPhoto).mock.calls[0];
+  const next = {...blankStudy(), room: {...blankStudy().room, width: 300}};
+  view.rerender(<ThreeStudy study={next} showControls />);
+  vi.mocked(renderPhoto).mockRejectedValueOnce(
+    new Error('Photo capture failed.'),
+  );
+  fireEvent.click(
+    screen.getByRole('button', {name: 'Render super high quality'}),
+  );
+  await screen.findByRole('dialog', {name: 'Photo could not be completed'});
+  const refined = vi.mocked(renderPhoto).mock.calls[1];
+  expect(refined[0].camera.position).toEqual(captured[0].camera.position);
+  expect(refined[0].camera.projectionMatrix).toEqual(
+    captured[0].camera.projectionMatrix,
+  );
+  expect(refined[0].target).toEqual(captured[0].target);
+  expect(refined[2]?.camera?.quality).toBe('ultra');
+  expect({
+    ...refined[2],
+    camera: {...refined[2]?.camera, quality: 'standard'},
+  }).toEqual(captured[2]);
+  fireEvent.click(screen.getByRole('button', {name: 'Close'}));
+  expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:photo');
+  vi.mocked(renderPhoto).mockImplementationOnce(
+    (_snapshot, _host, _settings, options) =>
+      new Promise((_resolve, reject) => {
+        options!.signal!.addEventListener(
+          'abort',
+          () => reject(new DOMException('Cancelled', 'AbortError')),
+          {once: true},
+        );
+      }),
+  );
+  fireEvent.click(
+    screen.getByRole('button', {name: 'Render super high quality'}),
+  );
+  await waitFor(() => expect(renderPhoto).toHaveBeenCalledTimes(3));
+  fireEvent.click(screen.getByRole('button', {name: 'Cancel photo'}));
+  await screen.findByRole('dialog', {name: 'Your room photo'});
+  expect(vi.mocked(URL.createObjectURL).mock.calls.at(-1)?.[0]).toBe(first);
+  const last = new Blob(['full'], {type: 'image/png'});
+  vi.mocked(renderPhoto).mockResolvedValueOnce(last);
+  fireEvent.click(
+    screen.getByRole('button', {name: 'Render super high quality'}),
+  );
+  await screen.findByRole('dialog', {name: 'Your room photo'});
+  expect(
+    screen.queryByRole('button', {name: 'Render super high quality'}),
+  ).not.toBeInTheDocument();
+  expect(vi.mocked(URL.createObjectURL).mock.calls.at(-1)?.[0]).toBe(last);
+});

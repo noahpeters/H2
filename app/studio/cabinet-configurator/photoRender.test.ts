@@ -3,7 +3,12 @@ import {finishPhoto} from './photoFinish';
 import {afterEach, expect, test, vi} from 'vitest';
 import * as pathTracer from 'three-gpu-pathtracer';
 import * as THREE from 'three';
-import {createPhotoSnapshot, easedGeometry, renderPhoto} from './photoRender';
+import {
+  clonePhotoSnapshot,
+  createPhotoSnapshot,
+  easedGeometry,
+  renderPhoto,
+} from './photoRender';
 import {createMaterial, mapMaterialPart} from './materialRendering';
 import {disposeStudyObject, StudyScene} from './studyScene';
 import {blankStudy} from './CabinetConfigurator';
@@ -17,6 +22,16 @@ import {
 } from './photoLighting';
 
 vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
+vi.mock('./photoConvergence', async (original) => ({
+  ...(await original<typeof import('./photoConvergence')>()),
+  PhotoConvergenceProbe: class {
+    width = 128;
+    async read() {
+      return new Float32Array(128 * 64 * 4);
+    }
+    dispose() {}
+  },
+}));
 
 vi.mock('./photoFinish', () => ({finishPhoto: vi.fn()}));
 
@@ -66,6 +81,8 @@ const definition: MaterialDefinition = {
   pbr: {color: '#ffffff', roughness: 0.5},
 };
 afterEach(() => {
+  vi.mocked(denoisePhoto).mockClear();
+  vi.mocked(finishPhoto).mockClear();
   pathTracerMock.stalled = false;
   pathTracerMock.dispose.mockClear();
   vi.restoreAllMocks();
@@ -428,62 +445,108 @@ test.each(['rectangle', 'l-shape'] as const)(
   },
 );
 
-test('same-viewport photo and flash finish before returning PNG and release only photo resources', async () => {
-  vi.useFakeTimers();
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    callback(0);
-    return 1;
-  });
-  const host = document.createElement('div');
-  document.body.append(host);
-  const live = document.createElement('canvas');
-  host.append(live);
-  const dispose = vi.fn();
-  const loseContext = vi.fn();
-  const canvas = document.createElement('canvas');
-  vi.spyOn(canvas, 'toBlob').mockImplementation((callback) =>
-    callback(new Blob(['png'], {type: 'image/png'})),
+test.each(['standard', 'ultra'] as const)(
+  '%s same-viewport photo and flash finish before returning PNG and release only photo resources',
+  async (quality) => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    const host = document.createElement('div');
+    document.body.append(host);
+    const live = document.createElement('canvas');
+    host.append(live);
+    const dispose = vi.fn();
+    const loseContext = vi.fn();
+    const canvas = document.createElement('canvas');
+    vi.spyOn(canvas, 'toBlob').mockImplementation((callback) =>
+      callback(new Blob(['png'], {type: 'image/png'})),
+    );
+    vi.spyOn(THREE, 'WebGLRenderer').mockImplementation(
+      class {
+        domElement = canvas;
+        shadowMap = {};
+        extensions = {has: () => true};
+        capabilities = {maxTextureSize: 8192};
+        getContext = () => ({
+          isContextLost: () => false,
+          getParameter: () => 8192,
+        });
+        setPixelRatio = () => {};
+        setSize = () => {};
+        render = () => {};
+        dispose = dispose;
+        forceContextLoss = loseContext;
+      } as unknown as typeof THREE.WebGLRenderer,
+    );
+    const snapshot = createPhotoSnapshot(
+      new THREE.Scene(),
+      new THREE.PerspectiveCamera(38, 1.6),
+    );
+    const completed = vi.fn();
+    const settings = structuredClone(DEFAULT_PHOTO_SETTINGS);
+    settings.camera!.quality = quality;
+    const result = renderPhoto(snapshot, host, settings, {
+      onComplete: completed,
+    });
+    await vi.waitFor(() =>
+      expect(host.querySelector('.cc-photo-flash')).not.toBeNull(),
+    );
+    expect(host.contains(canvas)).toBe(true);
+    expect(host.querySelector('.cc-photo-flash')).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(220);
+    expect((await result).type).toBe('image/png');
+    expect(host.children).toHaveLength(1);
+    expect(host.firstChild).toBe(live);
+    expect(pathTracerMock.settings.at(-1)).toEqual({
+      randomType: 2,
+      contactPaths: 2,
+    });
+    expect(completed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        samples: quality === 'ultra' ? 512 : 64,
+        converged: quality !== 'ultra',
+      }),
+    );
+    expect(denoisePhoto).toHaveBeenCalledTimes(quality === 'ultra' ? 1 : 4);
+    expect(finishPhoto).toHaveBeenCalledOnce();
+    expect(pathTracerMock.dispose).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(loseContext).toHaveBeenCalledOnce();
+    host.remove();
+    vi.useRealTimers();
+  },
+);
+
+test('prepared clones preserve exact geometry and UVs and own disposable resources', () => {
+  const scene = new THREE.Scene();
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 2, 3),
+    new THREE.MeshStandardMaterial(),
   );
-  vi.spyOn(THREE, 'WebGLRenderer').mockImplementation(
-    class {
-      domElement = canvas;
-      shadowMap = {};
-      extensions = {has: () => true};
-      capabilities = {maxTextureSize: 8192};
-      getContext = () => ({
-        isContextLost: () => false,
-        getParameter: () => 8192,
-      });
-      setPixelRatio = () => {};
-      setSize = () => {};
-      render = () => {};
-      dispose = dispose;
-      forceContextLoss = loseContext;
-    } as unknown as typeof THREE.WebGLRenderer,
-  );
+  scene.add(mesh);
   const snapshot = createPhotoSnapshot(
-    new THREE.Scene(),
-    new THREE.PerspectiveCamera(38, 1.6),
+    scene,
+    new THREE.PerspectiveCamera(),
+    new THREE.Vector3(1, 2, 3),
   );
-  const result = renderPhoto(snapshot, host);
-  await vi.waitFor(() =>
-    expect(host.querySelector('.cc-photo-flash')).not.toBeNull(),
+  const copy = clonePhotoSnapshot(snapshot);
+  const original = snapshot.scene.children[0] as THREE.Mesh;
+  const cloned = copy.scene.children[0] as THREE.Mesh;
+  expect(cloned.geometry).not.toBe(original.geometry);
+  expect(cloned.material).not.toBe(original.material);
+  for (const name of ['position', 'normal', 'uv'])
+    expect(cloned.geometry.getAttribute(name).array).toEqual(
+      original.geometry.getAttribute(name).array,
+    );
+  expect(copy.camera.projectionMatrix).toEqual(
+    snapshot.camera.projectionMatrix,
   );
-  expect(host.contains(canvas)).toBe(true);
-  expect(host.querySelector('.cc-photo-flash')).not.toBeNull();
-  await vi.advanceTimersByTimeAsync(220);
-  expect((await result).type).toBe('image/png');
-  expect(host.children).toHaveLength(1);
-  expect(host.firstChild).toBe(live);
-  expect(pathTracerMock.settings.at(-1)).toEqual({
-    randomType: 2,
-    contactPaths: 2,
-  });
-  expect(denoisePhoto).toHaveBeenCalledOnce();
-  expect(finishPhoto).toHaveBeenCalledOnce();
-  expect(pathTracerMock.dispose).toHaveBeenCalledOnce();
-  expect(dispose).toHaveBeenCalledOnce();
-  expect(loseContext).toHaveBeenCalledOnce();
-  host.remove();
-  vi.useRealTimers();
+  expect(copy.target).toEqual(snapshot.target);
+  const disposed = vi.spyOn(original.geometry, 'dispose');
+  disposeStudyObject(copy.scene);
+  expect(disposed).not.toHaveBeenCalled();
+  disposeStudyObject(snapshot.scene);
+  disposeStudyObject(scene);
 });

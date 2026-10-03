@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Photo convergence benchmark</title>
+  </head>
+  <body>
+    <h1>Photo convergence benchmark</h1>
+    <p id="status">Starting</p>
+    <div
+      id="images"
+      style="display: grid; grid-template-columns: repeat(2, 320px); gap: 16px"
+    ></div>
+    <div id="preview" class="cabinet-app"></div>
+    <pre id="results"></pre>
+    <script type="module">
+      import * as THREE from 'three';
+      import React from 'react';
+      import {createRoot} from 'react-dom/client';
+      import {PhotoDialog} from '/app/studio/cabinet-configurator/PhotoDialog.tsx';
+      import '/app/styles/cabinet-configurator.css';
+      const params = new URLSearchParams(location.search);
+      const dimension = Number(params.get('dimension')) || 320;
+      const modes = params.has('daylight-only')
+        ? ['daylight']
+        : ['daylight', 'dim-gloss'];
+      const preview = createRoot(document.querySelector('#preview'));
+
+      import {blankStudy} from '/app/studio/cabinet-configurator/CabinetConfigurator.tsx';
+      import {
+        StudyScene,
+        disposeStudyObject,
+      } from '/app/studio/cabinet-configurator/studyScene.ts';
+      import {
+        createPhotoSnapshot,
+        clonePhotoSnapshot,
+        renderPhoto,
+      } from '/app/studio/cabinet-configurator/photoRender.ts';
+      import {DEFAULT_PHOTO_SETTINGS} from '/app/studio/cabinet-configurator/photoLighting.ts';
+      const status = document.querySelector('#status'),
+        output = document.querySelector('#results');
+      const results = [];
+      try {
+        for (const mode of modes) {
+          const study = blankStudy();
+          study.room.width = 144;
+          study.room.depth = 120;
+          study.openings = [
+            {
+              id: 'window',
+              kind: 'window',
+              wall: 'back',
+              offset: 40,
+              width: 48,
+              height: 44,
+              sill: 38,
+            },
+          ];
+          study.elements = [
+            {
+              id: 'cabinet',
+              kind: 'base',
+              width: 48,
+              depth: 24,
+              height: 34.5,
+              face: 'slab',
+              material: 'rift-white-oak',
+              placement: {mode: 'wall', wall: 'back', offset: 36},
+            },
+          ];
+          const scene = new THREE.Scene();
+          scene.background = new THREE.Color(0xf0eee7);
+          const content = new StudyScene(scene);
+          await content.update(study);
+          if (mode === 'dim-gloss')
+            scene.traverse((o) => {
+              if (o instanceof THREE.Mesh && !o.userData.photoOpening) {
+                for (const m of Array.isArray(o.material)
+                  ? o.material
+                  : [o.material]) {
+                  if (m instanceof THREE.MeshStandardMaterial) {
+                    m.roughness = 0.12;
+                    m.metalness = 0.25;
+                  }
+                }
+              }
+            });
+          const camera = new THREE.PerspectiveCamera(38, 4 / 3, 0.01, 100);
+          camera.position.set(4, 3.5, 5);
+          camera.lookAt(0, 0.6, 0);
+          const master = createPhotoSnapshot(
+            scene,
+            camera,
+            new THREE.Vector3(0, 0.6, 0),
+          );
+          const blobs = [],
+            reports = [];
+          for (const quality of ['standard', 'full-standard']) {
+            const settings = structuredClone(DEFAULT_PHOTO_SETTINGS);
+            settings.maxDimension = dimension;
+            if (quality === 'full-standard') settings.camera = undefined;
+            else settings.camera.quality = quality;
+            if (mode === 'dim-gloss') settings.daylight.intensity = 20;
+            const blob = await renderPhoto(
+              clonePhotoSnapshot(master),
+              undefined,
+              settings,
+              {
+                onProgress: (p) =>
+                  (status.textContent =
+                    mode + ' ' + quality + ' ' + Math.round(p * 100) + '%'),
+                onComplete: (r) => {
+                  reports.push(r);
+                  output.textContent = JSON.stringify({mode, reports}, null, 2);
+                },
+              },
+            );
+            blobs.push(blob);
+            if (quality === 'standard') {
+              const button = document.createElement('button');
+              button.textContent = 'Preview ' + mode + ' adaptive photo';
+              button.onclick = () =>
+                preview.render(
+                  React.createElement(PhotoDialog, {
+                    blob,
+                    close: () => preview.render(null),
+                    refine: () => preview.render(null),
+                  }),
+                );
+              document.body.insertBefore(
+                button,
+                document.querySelector('#images'),
+              );
+            }
+
+            const img = document.createElement('img');
+            img.width = 320;
+            img.src = URL.createObjectURL(blob);
+            img.alt = mode + ' ' + quality;
+            document.querySelector('#images').append(img);
+          }
+          const arrays = [];
+          for (const blob of blobs) {
+            const bitmap = await createImageBitmap(blob),
+              canvas = document.createElement('canvas');
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bitmap, 0, 0);
+            arrays.push(
+              ctx.getImageData(0, 0, bitmap.width, bitmap.height).data,
+            );
+            bitmap.close();
+          }
+          let square = 0;
+          const errors = [];
+          for (let i = 0; i < arrays[0].length; i += 4) {
+            let s = 0;
+            for (let c = 0; c < 3; c++)
+              s += ((arrays[0][i + c] - arrays[1][i + c]) / 255) ** 2 / 3;
+            square += s;
+            errors.push(Math.sqrt(s));
+          }
+          errors.sort((a, b) => a - b);
+          results.push({
+            mode,
+            reports,
+            rmsVsFull: Math.sqrt(square / errors.length),
+            p95VsFull: errors[Math.floor(errors.length * 0.95)],
+          });
+          output.textContent = JSON.stringify(results, null, 2);
+          disposeStudyObject(master.scene);
+          content.dispose();
+        }
+        status.textContent = 'Complete';
+      } catch (error) {
+        status.textContent = 'Failed: ' + error.message;
+        console.error(error);
+      }
+    </script>
+  </body>
+</html>

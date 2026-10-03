@@ -5,11 +5,13 @@ export function PhotoProgressDialog({
   cancel,
   error,
   retry,
+  adaptive = false,
 }: {
   progress: number;
   cancel: () => void;
   error?: string;
   retry?: () => void;
+  adaptive?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
@@ -46,9 +48,17 @@ export function PhotoProgressDialog({
       </p>
       {!error && (
         <>
-          <progress aria-label="Photo rendering" value={progress} max={1} />
+          <progress
+            aria-label="Photo rendering"
+            value={adaptive && progress < 0.9 ? undefined : progress}
+            max={1}
+          />
           <p className="cc-photo-progress-caption">
-            Taking your photo · {Math.floor(progress * 100)}%
+            {adaptive
+              ? progress < 0.9
+                ? 'Refining lighting until the image is clear.'
+                : 'Finishing your photo.'
+              : `Taking your photo · ${Math.floor(progress * 100)}%`}
           </p>
         </>
       )}

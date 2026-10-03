@@ -1,3 +1,4 @@
+import {waitForMaterialTextures} from './materialRendering';
 import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import {
   DEFAULT_WALL_THICKNESS,
@@ -16,7 +17,11 @@ import {PhotoDialog} from './PhotoDialog';
 import {PhotoProgressDialog} from './PhotoProgressDialog';
 import {PositioningGuides} from './PlanPositioningGuides';
 import type {GuideTarget} from './positioningGuides';
-import {createPhotoSnapshot, renderPhoto} from './photoRender';
+import {
+  createPhotoSnapshot,
+  clonePhotoSnapshot,
+  renderPhoto,
+} from './photoRender';
 import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
 import {ROOM_MATERIALS} from './roomMaterials';
 import {MaterialsSection} from './MaterialsSection';
@@ -105,7 +110,8 @@ import {
   snapIslandEdges,
   snapRoomCorner,
 } from './placement';
-import {StudyScene, elementTransform} from './studyScene';
+import {StudyScene, elementTransform, disposeStudyObject} from './studyScene';
+import {DEFAULT_PHOTO_CAMERA} from './photoCamera';
 import {SceneInteractions} from './sceneInteractions';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {
@@ -657,15 +663,32 @@ export function ThreeStudy({
   const [photoSettings, setPhotoSettings] = useState(DEFAULT_PHOTO_SETTINGS);
   const [photoProgress, setPhotoProgress] = useState(0);
   const photoAbort = useRef<AbortController | null>(null);
-  useEffect(() => () => photoAbort.current?.abort(), []);
+  const photoCapture = useRef<{
+    snapshot: ReturnType<typeof createPhotoSnapshot>;
+    settings: typeof photoSettings;
+  } | null>(null);
+  const photoAttempt = useRef(false);
+  const releasePhotoCapture = useCallback(() => {
+    if (photoCapture.current)
+      disposeStudyObject(photoCapture.current.snapshot.scene);
+    photoCapture.current = null;
+  }, []);
+  useEffect(
+    () => () => {
+      photoAbort.current?.abort();
+      releasePhotoCapture();
+    },
+    [releasePhotoCapture],
+  );
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [photoFull, setPhotoFull] = useState(false);
   const photoRef = useRef<
     (() => ReturnType<typeof createPhotoSnapshot>) | null
   >(null);
   const takingPhoto = useRef(false);
-  const takePhoto = async () => {
+  const takePhoto = async (comprehensive = false, retry = false) => {
     if (takingPhoto.current) return;
-    if (!photoRef.current) {
+    if (!photoRef.current && !photoCapture.current) {
       setPhotoError(
         'The room is not ready for a photo yet. Wait for the 3D view to load, then try again.',
       );
@@ -676,16 +699,38 @@ export function ThreeStudy({
     setPhotoError('');
     setPhotoProgress(0);
     photoAbort.current = new AbortController();
+    photoAttempt.current = comprehensive;
     try {
-      const snapshot = photoRef.current();
+      if (!photoCapture.current || (!comprehensive && !retry)) {
+        releasePhotoCapture();
+        photoCapture.current = {
+          snapshot: photoRef.current!(),
+          settings: structuredClone(photoSettings),
+        };
+      }
+      const capture = photoCapture.current!;
+      const settings = structuredClone(capture.settings);
+      if (comprehensive)
+        settings.camera = {
+          ...(settings.camera ?? DEFAULT_PHOTO_CAMERA),
+          quality: 'ultra',
+        };
+      await waitForMaterialTextures(capture.snapshot.scene);
+      photoAbort.current.signal.throwIfAborted();
+      const snapshot = clonePhotoSnapshot(capture.snapshot);
       const blob = await renderPhoto(
         snapshot,
         hostRef.current ?? undefined,
-        photoSettings,
+        settings,
         {signal: photoAbort.current.signal, onProgress: setPhotoProgress},
       );
-      if (!photoAbort.current.signal.aborted) setPhotoBlob(blob);
+      if (!photoAbort.current.signal.aborted) {
+        setPhotoBlob(blob);
+        setPhotoFull(settings.camera?.quality === 'ultra');
+      }
     } catch (error) {
+      if (photoAbort.current.signal.aborted && !photoBlob)
+        releasePhotoCapture();
       if (!photoAbort.current.signal.aborted)
         setPhotoError(
           error instanceof Error && error.message.trim()
@@ -1157,10 +1202,17 @@ export function ThreeStudy({
         <PhotoProgressDialog
           progress={photoProgress}
           error={photoError}
-          retry={() => void takePhoto()}
+          adaptive={
+            !photoAttempt.current &&
+            photoCapture.current?.settings.camera?.quality !== 'ultra'
+          }
+          retry={() => void takePhoto(photoAttempt.current, true)}
           cancel={() => {
             if (photoBusy) photoAbort.current?.abort();
-            else setPhotoError('');
+            else {
+              setPhotoError('');
+              if (!photoBlob) releasePhotoCapture();
+            }
           }}
         />
       )}
@@ -1171,8 +1223,15 @@ export function ThreeStudy({
         aria-label="Interactive 3D room study"
         aria-busy={photoBusy}
       />
-      {photoBlob && (
-        <PhotoDialog blob={photoBlob} close={() => setPhotoBlob(null)} />
+      {photoBlob && !photoBusy && !photoError && (
+        <PhotoDialog
+          blob={photoBlob}
+          refine={!photoFull ? () => void takePhoto(true) : undefined}
+          close={() => {
+            setPhotoBlob(null);
+            releasePhotoCapture();
+          }}
+        />
       )}
     </>
   );
