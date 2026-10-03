@@ -25,6 +25,7 @@ import {
 import type {PhotoSettings} from './photoLighting';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
+import {denoisePhoto} from './photoDenoise';
 
 const INCH = 0.0254;
 /** Only box stock and extruded stock are rebuilt. Shaped/profiled stock is retained. */
@@ -304,6 +305,12 @@ export async function renderPhoto(
       antialias: true,
       preserveDrawingBuffer: true,
     });
+    if (renderer.debug)
+      renderer.debug.onShaderError = () => {
+        throw new Error(
+          'Photo graphics shader could not compile on this device.',
+        );
+      };
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = settings.toneMapping;
     renderer.toneMappingExposure = settings.exposure;
@@ -327,27 +334,49 @@ export async function renderPhoto(
     // Fixed sample sequence and count, independent of elapsed time and frame scheduling.
     deterministicPhotoTracer(tracer);
     tracer.bounces = settings.bounces;
+    tracer.filterGlossyFactor = 0.5;
     tracer.multipleImportanceSampling = true;
     tracer.tiles.set(3, 3);
     tracer.renderDelay = 0;
     tracer.fadeDuration = 0;
     tracer.minSamples = 1;
     tracer.rasterizeScene = false;
-    tracer.setScene(visiblePhotoScene(snapshot.scene), snapshot.camera);
+    const traceScene = visiblePhotoScene(snapshot.scene);
+    tracer.setScene(traceScene, snapshot.camera);
     tracer.reset();
     const started = performance.now();
     while (tracer.samples < settings.samples) {
-      options.signal?.throwIfAborted();
-      if (renderer.getContext().isContextLost())
-        throw new Error('Photo graphics context was lost. Please retry.');
-      if (performance.now() - started > 180000)
-        throw new Error(
-          'Photo exceeded three minutes. Try fewer samples or a smaller image.',
-        );
-      tracer.renderSample();
+      const frameStart = performance.now();
+      do {
+        options.signal?.throwIfAborted();
+        if (renderer.getContext().isContextLost())
+          throw new Error('Photo graphics context was lost. Please retry.');
+        if (performance.now() - started > 180000)
+          throw new Error(
+            'Photo exceeded three minutes. Try fewer samples or a smaller image.',
+          );
+        const previousSamples = tracer.samples;
+        tracer.renderSample();
+        // Shader compilation is asynchronous: yield instead of spinning at zero progress.
+        if (tracer.samples === previousSamples) break;
+      } while (
+        tracer.samples < settings.samples &&
+        performance.now() - frameStart < 12
+      );
       options.onProgress?.(Math.min(1, tracer.samples / settings.samples));
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => resolve()),
+      );
+    }
+    options.signal?.throwIfAborted();
+    if (settings.denoise) {
+      denoisePhoto(
+        renderer,
+        traceScene,
+        snapshot.camera,
+        tracer.target.texture,
+        width,
+        height,
       );
     }
     // Present the enhanced pass in the existing viewport before capturing it.
