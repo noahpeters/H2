@@ -1,4 +1,15 @@
 import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
+import {
+  DEFAULT_WALL_THICKNESS,
+  MIN_WALL_THICKNESS,
+  MAX_WALL_THICKNESS,
+  wallThickness,
+  maxWallThickness,
+  pruneWallThicknesses,
+  wallFaceOffset,
+  wallFootprint,
+} from './wallDimensions';
+import {WallThicknessControls} from './WallThicknessControls';
 import type {PhotoContactSettings} from './photoContacts';
 import {PhotoCameraControls} from './PhotoCameraControls';
 import {PhotoDialog} from './PhotoDialog';
@@ -155,6 +166,7 @@ export function reshapeStudy(study: Study, points: RoomPoint[]): Study {
     outline: points.map((p) => ({...p, x: p.x - x, z: p.z - z})),
   };
   const walls = roomSegments(next.room);
+  pruneWallThicknesses(next.room);
   for (const e of next.elements) {
     if (e.placement.mode === 'wall') {
       const wall = e.placement.wall;
@@ -219,6 +231,7 @@ function initialStudy(): Study {
       height: 96,
       floor: 'oak',
       walls: 'plaster',
+      wallThickness: DEFAULT_WALL_THICKNESS,
     },
     openings: [
       {
@@ -742,8 +755,12 @@ export function ThreeStudy({
       return createPhotoSnapshot(scene, camera, controls.target);
     };
     let currentStudy = studyRef.current;
-    const roomWidth = currentStudy.room.width * INCH;
-    const roomDepth = currentStudy.room.depth * INCH;
+    const roomWidth =
+      (currentStudy.room.width + 2 * maxWallThickness(currentStudy.room)) *
+      INCH;
+    const roomDepth =
+      (currentStudy.room.depth + 2 * maxWallThickness(currentStudy.room)) *
+      INCH;
     const roomHeight = currentStudy.room.height * INCH;
 
     const largest = Math.max(roomWidth, roomDepth);
@@ -760,8 +777,12 @@ export function ThreeStudy({
     const resize = () => {
       const bounds = host.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
-      const roomWidth = currentStudy.room.width * INCH;
-      const roomDepth = currentStudy.room.depth * INCH;
+      const roomWidth =
+        (currentStudy.room.width + 2 * maxWallThickness(currentStudy.room)) *
+        INCH;
+      const roomDepth =
+        (currentStudy.room.depth + 2 * maxWallThickness(currentStudy.room)) *
+        INCH;
       const roomHeight = currentStudy.room.height * INCH;
       camera.aspect = bounds.width / bounds.height;
       if (!hasNavigated.current) {
@@ -815,7 +836,8 @@ export function ThreeStudy({
       if (
         previous.width !== next.room.width ||
         previous.depth !== next.room.depth ||
-        previous.height !== next.room.height
+        previous.height !== next.room.height ||
+        maxWallThickness(previous) !== maxWallThickness(next.room)
       )
         resize();
       void content
@@ -1288,6 +1310,7 @@ export function CabinetConfigurator({
         setHistory((items) => [...items.slice(-29), clone(current)]);
         const next = clone(current);
         change(next);
+        pruneWallThicknesses(next.room);
         syncDesignMaterials(
           next,
           current.elements.find((e) => e.id === current.selected)?.materialId,
@@ -1384,11 +1407,11 @@ export function CabinetConfigurator({
     }
     return result;
   }, [study]);
-  const pad = 62,
-    scale = Math.min(
-      (780 - pad * 2) / study.room.width,
-      (560 - pad * 2) / study.room.depth,
-    );
+  const scale = Math.min(
+      (780 - 124) / (study.room.width + 2 * maxWallThickness(study.room)),
+      (560 - 124) / (study.room.depth + 2 * maxWallThickness(study.room)),
+    ),
+    pad = 62 + maxWallThickness(study.room) * scale;
   const placementContext = (item: RoomElement, draft: Study) => ({
     elementId:
       draft.selected &&
@@ -2072,6 +2095,47 @@ export function CabinetConfigurator({
                   </span>
                 </label>
               ))}
+              <label>
+                Default wall thickness
+                <span>
+                  <input
+                    type="number"
+                    min={MIN_WALL_THICKNESS}
+                    max={MAX_WALL_THICKNESS}
+                    step="0.25"
+                    value={wallThickness(study.room)}
+                    onChange={(event) => {
+                      const value = Number(event.currentTarget.value);
+                      if (
+                        !Number.isFinite(value) ||
+                        value < MIN_WALL_THICKNESS ||
+                        value > MAX_WALL_THICKNESS
+                      )
+                        return;
+                      update((d) => {
+                        d.room.wallThickness = value;
+                      });
+                    }}
+                  />{' '}
+                  in
+                </span>
+              </label>
+              <p className="cc-muted">
+                Room dimensions measure between finished interior wall faces.
+              </p>
+              <WallThicknessControls
+                room={study.room}
+                selectedWall={selectedWall}
+                onSelect={setSelectedWall}
+                onChange={(wall, thickness) =>
+                  update((d) => {
+                    d.room.wallThicknesses ??= {};
+                    if (thickness === undefined)
+                      delete d.room.wallThicknesses[wall];
+                    else d.room.wallThicknesses[wall] = thickness;
+                  })
+                }
+              />
             </div>
           </details>
           <details
@@ -3230,12 +3294,11 @@ export function CabinetConfigurator({
                 />
                 {roomSegments(study.room).map((s) => (
                   <g key={s.id}>
-                    <line
+                    <polygon
                       className="cc-room-line"
-                      x1={pad + s.a.x * scale}
-                      y1={pad + s.a.z * scale}
-                      x2={pad + s.b.x * scale}
-                      y2={pad + s.b.z * scale}
+                      points={wallFootprint(study.room, s.id)
+                        .map((p) => `${pad + p.x * scale},${pad + p.z * scale}`)
+                        .join(' ')}
                     />
                     <>
                       <line
@@ -3255,7 +3318,11 @@ export function CabinetConfigurator({
                           cursor: s.horizontal ? 'ns-resize' : 'ew-resize',
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') setSelectedWall(s.id);
+                          if (e.key === 'Enter') {
+                            setSelectedWall(s.id);
+                            if (roomControls.current)
+                              roomControls.current.open = true;
+                          }
                         }}
                         onPointerDown={(e) => {
                           if (e.button !== 0) return;
@@ -3263,6 +3330,8 @@ export function CabinetConfigurator({
                           e.currentTarget.setPointerCapture(e.pointerId);
                           setStudy((c) => ({...c, selected: null}));
                           setSelectedWall(s.id);
+                          if (roomControls.current)
+                            roomControls.current.open = true;
                           setOutlineError('');
                           setHistory((h) => [...h.slice(-29), clone(study)]);
                           const screenScale =
@@ -3366,9 +3435,13 @@ export function CabinetConfigurator({
                       )}
                       <rect
                         x="0"
-                        y="-4"
+                        y={
+                          (wallFaceOffset(study.room, o.wall) -
+                            wallThickness(study.room, o.wall)) *
+                          scale
+                        }
                         width={o.width * scale}
-                        height="8"
+                        height={wallThickness(study.room, o.wall) * scale}
                         fill={o.kind === 'window' ? '#a9c5d3' : '#f4f2ec'}
                         stroke={
                           warnings.has(o.id)
@@ -3380,7 +3453,11 @@ export function CabinetConfigurator({
                         strokeWidth="2"
                       />
                       {o.kind === 'door' ? (
-                        <DoorPlan opening={o} scale={scale} />
+                        <g
+                          transform={`translate(0 ${(wallFaceOffset(study.room, o.wall) - wallThickness(study.room, o.wall) / 2) * scale})`}
+                        >
+                          <DoorPlan opening={o} scale={scale} />
+                        </g>
                       ) : (
                         <line
                           x1="0"

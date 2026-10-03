@@ -233,9 +233,9 @@
   fill: url(#cc-paper);
 }
 .cc-room-line {
-  fill: none;
+  fill: #d8d4ca;
   stroke: var(--cc-ink);
-  stroke-width: 5;
+  stroke-width: 1;
 }
 .cc-dimensions path {
   fill: none;

@@ -3,6 +3,7 @@ import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import type {PhotoContactSettings} from './photoContacts';
 import type {Opening, Room} from './model';
 import {roomSegments} from './roomOutline';
+import {wallThickness, isPartition} from './wallDimensions';
 import {
   DEFAULT_PHOTO_CAMERA,
   validatePhotoCamera,
@@ -142,7 +143,13 @@ export function addPhotoLighting(scene: THREE.Scene, settings: PhotoSettings) {
         opening.height * inch,
       );
       // Outside the aperture, so existing panes, frames and closed door leaves occlude it.
-      emitter.position.copy(center).addScaledVector(inward, -0.04);
+      const wallDepth = wallThickness(room, opening.wall) * inch;
+      emitter.position
+        .copy(center)
+        .addScaledVector(
+          inward,
+          -(isPartition(room, opening.wall) ? wallDepth / 2 : wallDepth) - 0.04,
+        );
       emitter.lookAt(emitter.position.clone().add(inward));
       emitter.name = `photo-opening:${opening.id}:${side}`;
       scene.add(emitter);

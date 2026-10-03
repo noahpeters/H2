@@ -9,6 +9,7 @@ import {
   type Wall,
 } from './model';
 import {boxInRoom, roomSegments, roomPoints} from './roomOutline';
+import {isPartition, wallBounds} from './wallDimensions';
 import {snapRoomCorner} from './placement';
 
 export type PlacementLayout = {
@@ -112,6 +113,12 @@ export function validAutomaticPlacement(
     )
       return false;
   }
+  if (
+    layout.room.partitions?.some((p) =>
+      overlaps(box, wallBounds(layout.room, p.id)),
+    )
+  )
+    return false;
   return ![
     ...layout.elements,
     ...layout.openings.map((o) => openingVolume(o)),
@@ -243,20 +250,22 @@ export function elementPlacementCandidates(
         (wallIndex + 1) % walls.length === index);
     const tier = wall.id === activeWall ? 800 : adjacent ? 700 : 600;
     for (const offset of offsets)
-      add(
-        {
-          ...item,
-          islandId: undefined,
-          placement: {
-            mode: 'wall',
-            wall: wall.id,
-            offset,
-            elevation: elevation(item),
+      for (const side of isPartition(room, wall.id) ? [1, -1] : [1])
+        add(
+          {
+            ...item,
+            islandId: undefined,
+            placement: {
+              mode: 'wall',
+              wall: wall.id,
+              rotation: (wall.rotation + (side === -1 ? 180 : 0)) % 360,
+              offset,
+              elevation: elevation(item),
+            },
           },
-        },
-        tier,
-        'wall',
-      );
+          tier,
+          'wall',
+        );
   });
   if (item.kind !== 'wall-cabinet' && elevation(item) === 0) {
     for (const island of islands) {
