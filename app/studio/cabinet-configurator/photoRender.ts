@@ -14,7 +14,7 @@ import type {
   GrainAxis,
 } from './materialDefinition';
 import type {Room, Opening} from './model';
-import {roomSegments} from './roomOutline';
+import {pointInRoom, roomSegments} from './roomOutline';
 import {disposeStudyObject} from './studyScene';
 
 import {
@@ -152,7 +152,7 @@ function softenWallIntersections(scene: THREE.Scene) {
       const s = candidate.userData.photoWall.segment;
       return s.b.x === segment.a.x && s.b.z === segment.a.z;
     });
-    if (!previous) continue;
+    if (!previous || !wall.visible || !previous.visible) continue;
     const before = previous.userData.photoWall.segment as typeof segment;
     // Interior convex corners only; preserve recess silhouettes and opening voids.
     if (before.nx * segment.nz - before.nz * segment.nx <= 0) continue;
@@ -290,6 +290,35 @@ export function createPhotoSnapshot(
     });
     part.material = Array.isArray(part.material) ? cloned : cloned[0];
   });
+  // Classify the exact capture position against the room outline, including recesses.
+  // Only cloned photo resources change; interactive materials stay translucent.
+  let room: Room | undefined;
+  scene.traverse((part) => {
+    if (part.userData.photoWall) room = part.userData.photoWall.room as Room;
+  });
+  if (room) {
+    const position = camera.getWorldPosition(new THREE.Vector3());
+    const inside = pointInRoom(
+      room,
+      position.x / INCH + room.width / 2,
+      position.z / INCH + room.depth / 2,
+    );
+    scene.traverse((part) => {
+      if (part.userData.cutawayRoomWall === true) part.visible = inside;
+      if (
+        !(part instanceof THREE.Mesh) ||
+        part.userData.photoSurface !== 'wall'
+      )
+        return;
+      for (const material of Array.isArray(part.material)
+        ? part.material
+        : [part.material]) {
+        material.opacity = 1;
+        material.transparent = false;
+        material.depthWrite = true;
+      }
+    });
+  }
   softenWallIntersections(scene);
   return {scene, camera: camera.clone(), target: target?.clone()};
 }
