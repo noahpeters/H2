@@ -113,6 +113,7 @@ test('walls and openings only select or drag during room editing, and handles di
   const door = screen.getByLabelText('door on segment-divider wall');
   const window = screen.getByLabelText('window on back wall');
   const original = JSON.stringify(state.latest);
+  expect(screen.queryByLabelText(/Wall to edit/i)).not.toBeInTheDocument();
   for (const target of [wall, door, window]) {
     expect(target).not.toHaveAttribute('tabindex');
     expect(target).not.toHaveAttribute('role', 'button');
@@ -128,6 +129,11 @@ test('walls and openings only select or drag during room editing, and handles di
   expect(screen.queryByLabelText('Resize wall end')).not.toBeInTheDocument();
   fireEvent.click(screen.getByText('Edit room outline'));
   fireEvent.keyDown(wall, {key: 'Enter'});
+  expect(screen.getByLabelText(/Wall to edit/i)).toHaveValue('segment-divider');
+  fireEvent.change(screen.getByLabelText(/Selected wall thickness/i), {
+    target: {value: '8'},
+  });
+  expect(state.latest!.room.wallThicknesses?.['segment-divider']).toBe(8);
   expect(screen.getByLabelText('Resize wall end')).toBeInTheDocument();
   fireEvent.keyDown(screen.getByLabelText('Resize wall end'), {key: 'ArrowUp'});
   expect(state.latest!.room.partitions![0].length).toBe(119);
@@ -141,6 +147,7 @@ test('walls and openings only select or drag during room editing, and handles di
   });
   expect(state.latest!.openings[1].offset).not.toBe(12);
   fireEvent.click(screen.getByText('Done editing outline'));
+  expect(screen.queryByLabelText(/Wall to edit/i)).not.toBeInTheDocument();
   expect(state.latest!.selected).toBeNull();
   expect(screen.queryByLabelText('Resize wall end')).not.toBeInTheDocument();
   const stopped = JSON.stringify(state.latest);

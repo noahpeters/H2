@@ -187,6 +187,22 @@ test('wall fillets are photo-only and preserve opaque wall materials', async () 
     (part) => part.name === 'photo-wall-fillet',
   );
   expect(fillets).toHaveLength(4);
+  for (const fillet of fillets) {
+    const box = new THREE.Box3().setFromObject(fillet);
+    const {width, depth} = blankStudy().room;
+    expect(
+      Math.min(
+        Math.abs(box.min.x + (width / 2) * 0.0254),
+        Math.abs(box.max.x - (width / 2) * 0.0254),
+      ),
+    ).toBeLessThan(1e-6);
+    expect(
+      Math.min(
+        Math.abs(box.min.z + (depth / 2) * 0.0254),
+        Math.abs(box.max.z - (depth / 2) * 0.0254),
+      ),
+    ).toBeLessThan(1e-6);
+  }
   expect(scene.getObjectByName('photo-wall-fillet')).toBeUndefined();
   expect(
     fillets.filter(

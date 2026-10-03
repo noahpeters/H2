@@ -4,6 +4,7 @@ import {validSink, canAttachSink} from './sinkAttachments';
 import {FIXTURE_CATALOG} from './fixtures';
 import {configurationCategory} from './custom-unit/designConfigurations';
 import {DOOR_TYPES} from './model';
+import {MIN_WALL_THICKNESS, MAX_WALL_THICKNESS} from './wallDimensions';
 import {CABINET_MATERIALS, CABINET_PAINTS} from './materials';
 import {validMaterialDefinition} from './materialDefinition';
 import {validStorage} from './openStorage';
@@ -50,6 +51,13 @@ export function validStudy(value: any): boolean {
     value.version !== 2 ||
     !value.room ||
     !['width', 'depth', 'height'].every((k) => dimension(value.room[k]))
+  )
+    return false;
+  if (
+    value.room.wallThickness !== undefined &&
+    (!num(value.room.wallThickness) ||
+      value.room.wallThickness < MIN_WALL_THICKNESS ||
+      value.room.wallThickness > MAX_WALL_THICKNESS)
   )
     return false;
   if (
@@ -113,6 +121,20 @@ export function validStudy(value: any): boolean {
     return false;
   const walls = roomSegments(value.room).map((s) => s.id);
   if (new Set(walls).size !== walls.length) return false;
+  if (
+    value.room.wallThicknesses !== undefined &&
+    (!value.room.wallThicknesses ||
+      typeof value.room.wallThicknesses !== 'object' ||
+      Array.isArray(value.room.wallThicknesses) ||
+      Object.entries(value.room.wallThicknesses).some(
+        ([id, thickness]) =>
+          !walls.includes(id as (typeof walls)[number]) ||
+          !num(thickness) ||
+          Number(thickness) < MIN_WALL_THICKNESS ||
+          Number(thickness) > MAX_WALL_THICKNESS,
+      ))
+  )
+    return false;
   if (
     (value.room.countertopMaterial !== undefined &&
       !['white-quartz', 'taj-mahal', 'dark-granite'].includes(

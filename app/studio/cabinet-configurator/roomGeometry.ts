@@ -1,4 +1,5 @@
 import type {ToeKickRun} from './continuousToeKicks';
+import {wallThickness, wallFootprint, localWallDepth} from './wallDimensions';
 import type {FrameNeighbors} from './continuousFaceFrames';
 import {cabinetFaceFrame} from './faceFrame';
 import {islandCountertopOutline} from './islandFootprint';
@@ -882,16 +883,27 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
           })
         )
           continue;
-        box(
-          wallGroup,
-          xs[i] - xs[i - 1],
-          ys[j] - ys[j - 1],
-          1.5,
-          x - length / 2,
-          y,
-          0,
+        const shape = new THREE.Shape();
+        wallFootprint(room, wall, xs[i - 1], xs[i]).forEach((p, index) => {
+          const localX =
+            (segment.horizontal ? p.x - segment.x : p.z - segment.z) -
+            length / 2;
+          const localZ = segment.horizontal ? p.z - segment.z : segment.x - p.x;
+          if (index === 0) shape.moveTo(localX * inch, -localZ * inch);
+          else shape.lineTo(localX * inch, -localZ * inch);
+        });
+        shape.closePath();
+        const mesh = new THREE.Mesh(
+          new THREE.ExtrudeGeometry(shape, {
+            depth: (ys[j] - ys[j - 1]) * inch,
+            bevelEnabled: false,
+          }),
           mat,
         );
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.y = ys[j - 1] * inch;
+        mesh.receiveShadow = true;
+        wallGroup.add(mesh);
       }
     placeOnWall(wallGroup, wall, length / 2, room);
     groups.push(wallGroup);
@@ -904,6 +916,8 @@ export function openingGeometry(opening: Opening, room: Room) {
   group.userData.cutawayRoomWall = segment.nx < 0 || segment.nz < 0;
   const {width: w, height: h} = opening;
   const sill = opening.kind === 'window' ? (opening.sill ?? 42) : 0;
+  const thickness = wallThickness(room, opening.wall);
+  const depth = localWallDepth(room, opening.wall);
   const trim = new THREE.MeshStandardMaterial({
     color: 0xf1eadc,
     roughness: 0.6,
@@ -925,13 +939,13 @@ export function openingGeometry(opening: Opening, room: Room) {
     roughness: 0.3,
   });
   for (const side of [-1, 1]) {
-    box(group, 1.5, h, 1.5, side * (w / 2 - 0.75), sill + h / 2, 0, trim);
+    box(group, 1.5, h, thickness, side * (w / 2 - 0.75), sill + h / 2, 0, trim);
     if (opening.kind !== 'opening' || side === 1)
       box(
         group,
         w,
         1.5,
-        1.5,
+        thickness,
         0,
         sill + (side === 1 ? h - 0.75 : 0.75),
         0,
@@ -988,6 +1002,9 @@ export function openingGeometry(opening: Opening, room: Room) {
     }
   }
 
+  // Center jambs and leaves within the wall, spanning both finished faces.
+  for (const part of group.children)
+    part.position.z += ((depth.min + depth.max) / 2) * inch;
   placeOnWall(group, opening.wall, opening.offset + w / 2, room);
   group.userData.id = opening.id;
   group.userData.photoOpening = {opening, room};

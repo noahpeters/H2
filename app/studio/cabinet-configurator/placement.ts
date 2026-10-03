@@ -1,3 +1,4 @@
+import {isPartition, wallFaceOffset} from './wallDimensions';
 import {
   islandContainsElement,
   islandOverlapsElement,
@@ -26,7 +27,7 @@ export function snapRoomCorner(item: RoomElement, room: Room, threshold = 3) {
   const corners = roomPoints(room);
   const segments = roomSegments(room);
   const candidates = corners.flatMap((corner, index) => {
-    const prev = segments[(index + segments.length - 1) % segments.length],
+    const prev = segments[(index + corners.length - 1) % corners.length],
       next = segments[index];
     const nx = prev.nx + next.nx,
       nz = prev.nz + next.nz;
@@ -74,16 +75,24 @@ export function snapWall(item: RoomElement, room: Room, threshold = 3) {
     distance: number;
     offset: number;
     length: number;
-  }[] = roomSegments(room).map((s) => ({
-    wall: s.id,
-    distance: Math.abs(
-      s.horizontal
-        ? z - (s.z + (s.nz * item.depth) / 2)
-        : x - (s.x + (s.nx * item.depth) / 2),
-    ),
-    offset: (s.horizontal ? x - s.x : z - s.z) - item.width / 2,
-    length: s.length,
-  }));
+    rotation: number;
+  }[] = roomSegments(room).flatMap((s) =>
+    (isPartition(room, s.id) ? [1, -1] : [1]).map((side) => ({
+      wall: s.id,
+      distance: Math.abs(
+        s.horizontal
+          ? z -
+              (s.z +
+                side * s.nz * (wallFaceOffset(room, s.id) + item.depth / 2))
+          : x -
+              (s.x +
+                side * s.nx * (wallFaceOffset(room, s.id) + item.depth / 2)),
+      ),
+      offset: (s.horizontal ? x - s.x : z - s.z) - item.width / 2,
+      length: s.length,
+      rotation: (s.rotation + (side === -1 ? 180 : 0)) % 360,
+    })),
+  );
   const target = candidates
     .filter(
       (c) =>
@@ -98,6 +107,7 @@ export function snapWall(item: RoomElement, room: Room, threshold = 3) {
               placement: {
                 mode: 'wall',
                 wall: c.wall,
+                rotation: c.rotation,
                 offset: Math.max(
                   0,
                   Math.min(c.length - item.width, Math.round(c.offset)),
@@ -114,6 +124,7 @@ export function snapWall(item: RoomElement, room: Room, threshold = 3) {
   item.placement = {
     mode: 'wall',
     wall: target.wall,
+    rotation: target.rotation,
     offset: Math.max(
       0,
       Math.min(target.length - item.width, Math.round(target.offset)),
