@@ -102,10 +102,15 @@ export function addPhotoLighting(scene: THREE.Scene, settings: PhotoSettings) {
   // Background is visual only: no arbitrary environment fill through enclosing walls.
   scene.environment = null;
   const sources: {opening: Opening; room: Room}[] = [];
-  scene.traverseVisible((object) => {
+  // Cutaway visibility removes wall/opening geometry, not the room's illumination.
+  // Still honor other hidden ancestors (for example an intentionally hidden room).
+  const collectOpenings = (object: THREE.Object3D) => {
+    if (!object.visible && object.userData.cutawayRoomWall !== true) return;
     if (object.userData.photoOpening)
       sources.push(object.userData.photoOpening);
-  });
+    object.children.forEach(collectOpenings);
+  };
+  collectOpenings(scene);
   for (const {opening, room} of sources) {
     const segment = roomSegments(room).find((s) => s.id === opening.wall);
     if (!segment || segment.length <= 0) continue;

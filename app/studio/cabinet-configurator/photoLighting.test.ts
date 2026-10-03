@@ -146,6 +146,40 @@ test('hidden ancestors are pruned only in the tracing view', () => {
   expect(scene.children[0].children).toHaveLength(1);
 });
 
+test('cutaway opening lights retain overrides while other hidden ancestors remain excluded', () => {
+  const scene = new THREE.Scene();
+  const room = blankStudy().room;
+  for (const [id, intensity] of [['lit', 27], ['off', 0]] as const) {
+    const opening = openingGeometry(
+      {id, kind: 'window', wall: 'front', offset: 12, width: 36, height: 48},
+      room,
+    );
+    opening.visible = false;
+    scene.add(opening);
+    expect(opening.userData.cutawayRoomWall).toBe(true);
+    if (intensity === 27) {
+      const hiddenParent = new THREE.Group();
+      hiddenParent.visible = false;
+      hiddenParent.add(opening.clone());
+      scene.add(hiddenParent);
+    }
+  }
+  addPhotoLighting(scene, {
+    ...DEFAULT_PHOTO_SETTINGS,
+    openings: {
+      lit: {intensity: 27, temperature: 4000},
+      off: {intensity: 0},
+    },
+  });
+  const lights = visiblePhotoScene(scene).children.filter(
+    (o) => o instanceof THREE.RectAreaLight,
+  ) as THREE.RectAreaLight[];
+  expect(lights).toHaveLength(1);
+  expect(lights[0].name).toBe('photo-opening:lit:1');
+  expect(lights[0].intensity).toBe(27);
+  expect(lights[0].color).toEqual(temperatureColor(4000));
+});
+
 test('settings reject unbounded work and invalid colors; warm colors remain finite', () => {
   expect(() =>
     validatePhotoSettings({...DEFAULT_PHOTO_SETTINGS, samples: Infinity}),
