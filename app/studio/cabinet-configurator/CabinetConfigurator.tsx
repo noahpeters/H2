@@ -8,7 +8,11 @@ import {
   syncDesignMaterials,
   type DesignMaterial,
 } from './designMaterials';
-import {islandOutline, islandOverlapsElement} from './islandFootprint';
+import {
+  islandCountertopOutline,
+  DEFAULT_ISLAND_COUNTERTOP_OVERHANG,
+  islandOverlapsElement,
+} from './islandFootprint';
 import {migrateFrontStyles, roomOverlay, type Overlay} from './overlay';
 import {
   CABINET_CATEGORIES,
@@ -1830,6 +1834,30 @@ export function CabinetConfigurator({
                 height, depth, and material. Cabinet boundaries use one stile
                 instead of two.
               </p>
+              <label>
+                Island countertop edge overhang (in)
+                <input
+                  type="number"
+                  min={0}
+                  max={12}
+                  step={0.125}
+                  value={
+                    study.room.islandCountertopOverhang ??
+                    DEFAULT_ISLAND_COUNTERTOP_OVERHANG
+                  }
+                  onChange={(event) => {
+                    const value = Number(event.currentTarget.value);
+                    if (Number.isFinite(value) && value >= 0 && value <= 12)
+                      update((d) => {
+                        d.room.islandCountertopOverhang = value;
+                      });
+                  }}
+                />
+              </label>
+              <p>
+                Measured beyond the cabinet body or face frame. Seating overhang
+                is set per island.
+              </p>
               <fieldset>
                 <legend>Base and tall cabinet toe kicks</legend>
                 {(['height', 'setback'] as const).map((field) => (
@@ -3282,8 +3310,12 @@ export function CabinetConfigurator({
                   );
                 })}
                 {study.islands.map((i) => {
-                  const c = aisleClearance(i, study.room);
-                  const outline = islandOutline(i);
+                  const c = aisleClearance(i, study.room, study.elements);
+                  const outline = islandCountertopOutline(
+                    i,
+                    study.elements,
+                    study.room,
+                  );
                   return (
                     <g
                       className="cc-island"

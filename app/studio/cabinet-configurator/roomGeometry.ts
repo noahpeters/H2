@@ -1,6 +1,6 @@
 import type {FrameNeighbors} from './continuousFaceFrames';
 import {cabinetFaceFrame} from './faceFrame';
-import {islandOutline} from './islandFootprint';
+import {islandCountertopOutline} from './islandFootprint';
 import {sinkAttachment} from './sinkAttachments';
 import {sinkGeometry, sinkCutout} from './fixtureGeometry';
 import {cabinetToeKick, cabinetCompositionEnvelope} from './cabinetEnvelope';
@@ -27,9 +27,13 @@ import {
   type Island,
 } from './model';
 const inch = 0.0254;
-export function islandCountertop(island: Island, elements: RoomElement[]) {
+export function islandCountertop(
+  island: Island,
+  elements: RoomElement[],
+  room?: Pick<Room, 'overlay' | 'islandCountertopOverhang'>,
+) {
   const shape = new THREE.Shape();
-  const b = islandOutline(island);
+  const b = islandCountertopOutline(island, elements, room);
   shape.moveTo(b.left * inch, b.top * inch);
   shape.lineTo(b.right * inch, b.top * inch);
   shape.lineTo(b.right * inch, b.bottom * inch);

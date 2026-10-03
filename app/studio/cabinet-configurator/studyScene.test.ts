@@ -338,3 +338,53 @@ test('rebuilds continuous frames when neighbors move or the room option changes'
     load.mockRestore();
   }
 });
+
+test('island tops rebuild when frame coverage, edge allowance, or member positions change', async () => {
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    });
+  const content = new StudyScene(new THREE.Scene());
+  const study = sample();
+  study.countertop = true;
+  study.islands = [
+    {
+      id: 'island',
+      x: 30,
+      z: 30,
+      width: 30,
+      depth: 24,
+      rotation: 0,
+      seatingSide: 'none',
+      overhang: 0,
+    },
+  ];
+  study.elements[0].islandId = 'island';
+  const top = () => content.root.getObjectByName('island-countertop')!;
+  const front = () => new THREE.Box3().setFromObject(top()).max.z / 0.0254;
+  try {
+    await content.update(study);
+    const first = top();
+    const initialFront = front();
+    study.room.overlay = 'inset';
+    await content.update(study);
+    expect(top()).not.toBe(first);
+    expect(front() - initialFront).toBeCloseTo(0.75);
+    const framed = top();
+    study.room.islandCountertopOverhang = 0.25;
+    await content.update(study);
+    expect(top()).not.toBe(framed);
+    expect(front() - initialFront).toBeCloseTo(0.875);
+    const adjusted = top();
+    study.elements[0].placement = {mode: 'floor', x: 30, z: 31, rotation: 0};
+    await content.update(study);
+    expect(top()).not.toBe(adjusted);
+    expect(front() - initialFront).toBeCloseTo(1.875);
+  } finally {
+    content.dispose();
+    load.mockRestore();
+  }
+});
