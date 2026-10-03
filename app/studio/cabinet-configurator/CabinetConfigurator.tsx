@@ -3,6 +3,8 @@ import type {PhotoContactSettings} from './photoContacts';
 import {PhotoCameraControls} from './PhotoCameraControls';
 import {PhotoDialog} from './PhotoDialog';
 import {PhotoProgressDialog} from './PhotoProgressDialog';
+import {PositioningGuides} from './PlanPositioningGuides';
+import type {GuideTarget} from './positioningGuides';
 import {createPhotoSnapshot, renderPhoto} from './photoRender';
 import {DEFAULT_PHOTO_SETTINGS} from './photoLighting';
 import {ROOM_MATERIALS} from './roomMaterials';
@@ -1256,6 +1258,10 @@ export function CabinetConfigurator({
       typeof window === 'undefined' ? undefined : window.localStorage,
     );
   const drag = useRef<ActiveDrag | null>(null);
+  const [guideTarget, setGuideTarget] = useState<GuideTarget | null>(null);
+  useEffect(() => {
+    setGuideTarget(null);
+  }, [study.view, editingRoom]);
   const rooms = useSavedRooms(
     study,
     setStudy,
@@ -1524,6 +1530,7 @@ export function CabinetConfigurator({
   };
   const startDrag = (ev: React.PointerEvent<SVGGElement>, e: RoomElement) => {
     if (e.placement.mode === 'hosted') return;
+    setGuideTarget({kind: 'element', id: e.id});
     ev.currentTarget.setPointerCapture(ev.pointerId);
     setHistory((h) => [...h.slice(-29), clone(study)]);
     drag.current =
@@ -3096,6 +3103,9 @@ export function CabinetConfigurator({
                     else if (roomDrag.current) setStudy(roomDrag.current.study);
                     endDrag.current = null;
                     roomDrag.current = null;
+                    openingDrag.current = null;
+                    drag.current = null;
+                    setGuideTarget(null);
                   }
                 }}
                 onPointerLeave={() => {
@@ -3170,6 +3180,7 @@ export function CabinetConfigurator({
                   }));
                 }}
                 onPointerUp={() => {
+                  setGuideTarget(null);
                   panDrag.current = null;
                   openingDrag.current = null;
                   roomDrag.current = null;
@@ -3180,6 +3191,7 @@ export function CabinetConfigurator({
                   setStudy(createDragEndUpdate(active.id));
                 }}
                 onPointerCancel={() => {
+                  setGuideTarget(null);
                   panDrag.current = null;
                   openingDrag.current = null;
                   roomDrag.current = null;
@@ -3187,6 +3199,7 @@ export function CabinetConfigurator({
                   drag.current = null;
                 }}
                 onLostPointerCapture={() => {
+                  setGuideTarget(null);
                   panDrag.current = null;
                   openingDrag.current = null;
                   roomDrag.current = null;
@@ -3263,6 +3276,7 @@ export function CabinetConfigurator({
                             scale: scale * screenScale,
                             horizontal: s.horizontal,
                           };
+                          setGuideTarget({kind: 'wall', id: s.id});
                         }}
                       />
                       <text
@@ -3326,6 +3340,7 @@ export function CabinetConfigurator({
                           scale: scale * screenScale,
                           pointerId: event.pointerId,
                         };
+                        setGuideTarget({kind: 'opening', id: o.id});
                         setHistory((h) => [...h.slice(-29), clone(study)]);
                         setStudy((c) => ({...c, selected: o.id}));
                         if (selectedControls.current)
@@ -3413,6 +3428,7 @@ export function CabinetConfigurator({
                           clientX: event.clientX,
                           clientY: event.clientY,
                         };
+                        setGuideTarget({kind: 'island', id: i.id});
                         setStudy((c) => ({...c, selected: i.id}));
                       }}
                       key={i.id}
@@ -3667,6 +3683,10 @@ export function CabinetConfigurator({
                             end,
                             pointerId: event.pointerId,
                           };
+                          setGuideTarget({
+                            kind: 'wall',
+                            id: selectedPartition.id,
+                          });
                         }}
                         onKeyDown={(event) => {
                           const delta = horizontal
@@ -3703,6 +3723,15 @@ export function CabinetConfigurator({
                       />
                     );
                   })}
+                <PositioningGuides
+                  study={study}
+                  target={guideTarget}
+                  pad={pad}
+                  scale={scale}
+                  screenScale={Math.abs(
+                    planSvg.current?.getScreenCTM()?.a ?? 1,
+                  )}
+                />
               </svg>
             </div>
             <div className="cc-panel cc-three-panel">
