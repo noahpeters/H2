@@ -1,0 +1,84 @@
+<!doctype html>
+<title>Photo finishing GPU regression</title>
+<p id="status">Running</p>
+<script type="module">
+  import * as THREE from 'three';
+  import {finishPhoto} from '/app/studio/cabinet-configurator/photoFinish.ts';
+  import {denoisePhoto} from '/app/studio/cabinet-configurator/photoDenoise.ts';
+  import {DEFAULT_PHOTO_CAMERA} from '/app/studio/cabinet-configurator/photoCamera.ts';
+  const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
+  renderer.setSize(96, 96);
+  document.body.append(renderer.domElement);
+  renderer.debug.onShaderError = () => {
+    throw new Error('Shader compilation failed');
+  };
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+  camera.position.z = 2;
+  const scene = new THREE.Scene();
+  scene.add(
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 10),
+      new THREE.MeshStandardMaterial({color: new THREE.Color(0.5, 0.5, 0.5)}),
+    ),
+  );
+  const data = new Float32Array(96 * 96 * 4);
+  for (let y = 0; y < 96; y++)
+    for (let x = 0; x < 96; x++) {
+      const value = x < 32 ? 0.2 : x < 64 ? 4 : 16;
+      data.set([value, value, value, 1], (y * 96 + x) * 4);
+    }
+  const radiance = new THREE.DataTexture(
+    data,
+    96,
+    96,
+    THREE.RGBAFormat,
+    THREE.FloatType,
+  );
+  radiance.needsUpdate = true;
+  const linear = new THREE.WebGLRenderTarget(96, 96, {
+    type: THREE.HalfFloatType,
+  });
+  try {
+    const results = [];
+    for (const denoise of [false, true]) {
+      if (denoise)
+        await denoisePhoto(
+          renderer,
+          scene,
+          camera,
+          radiance,
+          96,
+          96,
+          undefined,
+          linear,
+        );
+      const metered = await finishPhoto(
+        renderer,
+        scene,
+        camera,
+        denoise ? linear.texture : radiance,
+        64,
+        64,
+        {...DEFAULT_PHOTO_CAMERA, autoExposure: false},
+        1,
+      );
+      const pixels = new Uint8Array(64 * 64 * 4);
+      const gl = renderer.getContext();
+      gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      const values = [8, 32, 56].map((x) => pixels[(32 * 64 + x) * 4]);
+      if (!(values[0] > 40 && values[0] < values[1] && values[1] < values[2]))
+        throw new Error('AgX lost HDR highlight separation: ' + values);
+      if (gl.getError() !== gl.NO_ERROR) throw new Error('GPU error');
+      results.push({denoise, values, metered});
+    }
+    document.querySelector('#status').textContent =
+      'Passed: ' + JSON.stringify(results);
+  } catch (error) {
+    document.querySelector('#status').textContent = 'Failed: ' + error.message;
+    throw error;
+  } finally {
+    radiance.dispose();
+    linear.dispose();
+    renderer.dispose();
+  }
+</script>

@@ -12,6 +12,7 @@ export async function denoisePhoto(
   width: number,
   height: number,
   signal?: AbortSignal,
+  linearOutput?: THREE.WebGLRenderTarget,
 ) {
   const target = () =>
     new THREE.WebGLRenderTarget(width, height, {
@@ -200,14 +201,17 @@ export async function denoisePhoto(
       const finalPass = pass === 3;
       material.uniforms.firstPass.value = pass === 0;
       material.uniforms.finalPass.value = finalPass;
+      material.toneMapped = !linearOutput;
       material.uniforms.stepSize.value = 2 ** pass;
       material.uniforms.image.value =
         pass === 0 ? radiance : buffers[(pass - 1) % 2].texture;
-      if (finalPass) {
+      if (finalPass && !linearOutput) {
         renderer.toneMapping = previous.toneMapping;
         renderer.outputColorSpace = previous.colorSpace;
       }
-      renderer.setRenderTarget(finalPass ? previous.target : buffers[pass % 2]);
+      renderer.setRenderTarget(
+        finalPass ? (linearOutput ?? previous.target) : buffers[pass % 2],
+      );
       quad.render(renderer);
       await waitForPhotoGpu(renderer.getContext(), signal);
     }

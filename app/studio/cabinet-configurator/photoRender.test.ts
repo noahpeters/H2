@@ -9,6 +9,8 @@ import type {MaterialDefinition} from './materialDefinition';
 
 vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
 
+vi.mock('./photoFinish', () => ({finishPhoto: vi.fn()}));
+
 vi.mock('./photoDenoise', () => ({denoisePhoto: vi.fn()}));
 
 const pathTracerMock = vi.hoisted(() => ({
@@ -205,7 +207,11 @@ test('same-viewport photo and flash finish before returning PNG and release only
       domElement = canvas;
       shadowMap = {};
       extensions = {has: () => true};
-      getContext = () => ({isContextLost: () => false});
+      capabilities = {maxTextureSize: 8192};
+      getContext = () => ({
+        isContextLost: () => false,
+        getParameter: () => 8192,
+      });
       setPixelRatio = () => {};
       setSize = () => {};
       render = () => {};

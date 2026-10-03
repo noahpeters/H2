@@ -1,9 +1,15 @@
 import * as THREE from 'three';
 import type {Opening, Room} from './model';
 import {roomSegments} from './roomOutline';
+import {
+  DEFAULT_PHOTO_CAMERA,
+  validatePhotoCamera,
+  type PhotoCameraSettings,
+} from './photoCamera';
 
 export type OpeningLightSettings = {temperature: number; intensity: number};
 export type PhotoSettings = {
+  camera?: PhotoCameraSettings;
   daylight: OpeningLightSettings;
   adjacent: OpeningLightSettings;
   openings: Record<string, Partial<OpeningLightSettings>>;
@@ -15,15 +21,16 @@ export type PhotoSettings = {
   toneMapping: THREE.ToneMapping;
 };
 export const DEFAULT_PHOTO_SETTINGS: PhotoSettings = {
+  camera: DEFAULT_PHOTO_CAMERA,
   daylight: {temperature: 6500, intensity: 100},
   adjacent: {temperature: 3000, intensity: 12},
   openings: {},
   samples: 256,
   denoise: true,
   bounces: 6,
-  maxDimension: 2400,
+  maxDimension: 1600,
   exposure: 1,
-  toneMapping: THREE.ACESFilmicToneMapping,
+  toneMapping: THREE.AgXToneMapping,
 };
 
 /** Approximate black-body chromaticity, converted from display RGB to linear RGB. */
@@ -50,6 +57,7 @@ export function temperatureColor(kelvin: number) {
 }
 
 export function validatePhotoSettings(settings: PhotoSettings) {
+  if (settings.camera) validatePhotoCamera(settings.camera);
   const bounded = (v: number, min: number, max: number) =>
     Number.isFinite(v) && v >= min && v <= max;
   const light = (v: OpeningLightSettings) =>

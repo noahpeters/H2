@@ -28,6 +28,13 @@ import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
 import {denoisePhoto} from './photoDenoise';
 import {waitForPhotoGpu} from './photoGpu';
 
+import {
+  architecturalPhotoCamera,
+  DEFAULT_PHOTO_CAMERA,
+  PHOTO_QUALITY,
+} from './photoCamera';
+import {finishPhoto} from './photoFinish';
+
 const INCH = 0.0254;
 /** Only box stock and extruded stock are rebuilt. Shaped/profiled stock is retained. */
 export function easedGeometry(
@@ -217,6 +224,7 @@ function softenWallIntersections(scene: THREE.Scene) {
 export function createPhotoSnapshot(
   source: THREE.Scene,
   camera: THREE.PerspectiveCamera,
+  target?: THREE.Vector3,
 ) {
   const scene = source.clone(true);
   const materials = new Map<THREE.Material, THREE.Material>();
@@ -282,7 +290,7 @@ export function createPhotoSnapshot(
     part.material = Array.isArray(part.material) ? cloned : cloned[0];
   });
   softenWallIntersections(scene);
-  return {scene, camera: camera.clone()};
+  return {scene, camera: camera.clone(), target: target?.clone()};
 }
 
 /** Separate GPU/context lifetime, supersampled PNG. No interactive renderer settings change. */
@@ -295,6 +303,7 @@ export async function renderPhoto(
   let renderer: THREE.WebGLRenderer | undefined;
   let flash: HTMLDivElement | undefined;
   let tracer: WebGLPathTracer | undefined;
+  let linearOutput: THREE.WebGLRenderTarget | undefined;
   try {
     // Copy options before yielding so later control edits cannot change this capture.
     settings = structuredClone(settings);
@@ -320,14 +329,36 @@ export async function renderPhoto(
         'Photo lighting requires WebGL2 floating-point rendering on this device.',
       );
     }
-    const aspect = snapshot.camera.aspect;
+    const cameraSettings = settings.camera ?? DEFAULT_PHOTO_CAMERA;
+    const camera = architecturalPhotoCamera(
+      snapshot.camera,
+      cameraSettings,
+      snapshot.target,
+    );
+    const quality = PHOTO_QUALITY[cameraSettings.quality];
+    const samples = settings.camera ? quality.samples : settings.samples;
+    const aspect = camera.aspect;
     const width =
       aspect >= 1
         ? settings.maxDimension
         : Math.round(settings.maxDimension * aspect);
     const height = Math.round(width / aspect);
+    const renderWidth = Math.round(width * quality.scale);
+    const renderHeight = Math.round(height * quality.scale);
+    if (
+      Math.max(renderWidth, renderHeight) >
+      Math.min(
+        renderer.capabilities.maxTextureSize,
+        renderer
+          .getContext()
+          .getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE),
+      )
+    )
+      throw new Error(
+        'Photo quality exceeds this device’s image limit. Choose a smaller image or Quick quality.',
+      );
     renderer.setPixelRatio(1);
-    renderer.setSize(width, height, false);
+    renderer.setSize(renderWidth, renderHeight, false);
     renderer.domElement.className = 'cc-photo-canvas';
     renderer.domElement.setAttribute('aria-label', 'Photo render');
     host?.append(renderer.domElement);
@@ -343,7 +374,7 @@ export async function renderPhoto(
     tracer.minSamples = 1;
     tracer.rasterizeScene = false;
     const traceScene = visiblePhotoScene(snapshot.scene);
-    tracer.setScene(traceScene, snapshot.camera);
+    tracer.setScene(traceScene, camera);
     tracer.reset();
     const started = performance.now();
     // Work grows with pixel area and sample count. Give detailed photos time to
@@ -352,10 +383,12 @@ export async function renderPhoto(
       900000,
       Math.max(
         180000,
-        180000 * (settings.maxDimension / 1600) ** 2 * (settings.samples / 256),
+        180000 *
+          ((settings.maxDimension * quality.scale) / 1600) ** 2 *
+          (samples / 256),
       ),
     );
-    while (tracer.samples < settings.samples) {
+    while (tracer.samples < samples) {
       const frameStart = performance.now();
       let tilesSubmitted = 0;
       do {
@@ -372,28 +405,45 @@ export async function renderPhoto(
         // Shader compilation is asynchronous: yield instead of spinning at zero progress.
         if (tracer.samples === previousSamples) break;
       } while (
-        tracer.samples < settings.samples &&
+        tracer.samples < samples &&
         tilesSubmitted < 3 &&
         performance.now() - frameStart < 12
       );
-      options.onProgress?.(Math.min(1, tracer.samples / settings.samples));
+      options.onProgress?.(Math.min(1, tracer.samples / samples));
       await waitForPhotoGpu(renderer.getContext(), options.signal);
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => resolve()),
       );
     }
     options.signal?.throwIfAborted();
+    let radiance = tracer.target.texture;
     if (settings.denoise) {
+      linearOutput = new THREE.WebGLRenderTarget(renderWidth, renderHeight, {
+        type: THREE.HalfFloatType,
+      });
       await denoisePhoto(
         renderer,
         traceScene,
-        snapshot.camera,
-        tracer.target.texture,
-        width,
-        height,
+        camera,
+        radiance,
+        renderWidth,
+        renderHeight,
         options.signal,
+        linearOutput,
       );
+      radiance = linearOutput.texture;
     }
+    await finishPhoto(
+      renderer,
+      traceScene,
+      camera,
+      radiance,
+      width,
+      height,
+      cameraSettings,
+      settings.exposure,
+      options.signal,
+    );
     // Present the enhanced pass in the existing viewport before capturing it.
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
@@ -415,6 +465,7 @@ export async function renderPhoto(
     return blob;
   } finally {
     try {
+      linearOutput?.dispose();
       if (tracer) disposePhotoTracer(tracer);
     } finally {
       disposeStudyObject(snapshot.scene);
