@@ -10,7 +10,11 @@ import {blankStudy} from './CabinetConfigurator';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import type {MaterialDefinition} from './materialDefinition';
 import {presetOutline} from './roomOutline';
-import {visiblePhotoScene} from './photoLighting';
+import {
+  addPhotoLighting,
+  DEFAULT_PHOTO_SETTINGS,
+  visiblePhotoScene,
+} from './photoLighting';
 
 vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
 
@@ -299,7 +303,17 @@ test.each(['rectangle', 'l-shape'] as const)(
               (o) => o.name === 'photo-wall-fillet',
             ),
           ).toHaveLength(inside ? 4 : 1);
+          addPhotoLighting(snapshot.scene, DEFAULT_PHOTO_SETTINGS);
           const renderScene = visiblePhotoScene(snapshot.scene);
+          const lights = renderScene.children.filter(
+            (o) => o instanceof THREE.RectAreaLight,
+          ) as THREE.RectAreaLight[];
+          // Camera cutaways must not remove the near window/door illumination.
+          expect(lights.map((o) => [o.name, o.intensity])).toEqual([
+            ['photo-opening:near-window:1', 100],
+            ['photo-opening:near-door:1', 12],
+            ['photo-opening:far-window:1', 100],
+          ]);
           const renderObjects: THREE.Object3D[] = [];
           renderScene.traverse((o) => renderObjects.push(o));
           if (!inside)
