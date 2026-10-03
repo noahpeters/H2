@@ -34,7 +34,13 @@ describe('open storage', () => {
       const layout = storageLayout(item),
         group = cabinetGeometry(item, true);
       const count = (name: string) =>
-        group.children.filter((c) => c.name === name).length;
+        (() => {
+          let count = 0;
+          group.traverse((c) => {
+            if (c.name === name) count++;
+          });
+          return count;
+        })();
       expect(count('storage-shelf')).toBe(
         type === 'floating-shelves' ? 0 : layout.shelfYs.length,
       );

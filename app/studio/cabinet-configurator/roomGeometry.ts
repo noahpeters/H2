@@ -1,3 +1,4 @@
+import type {ToeKickRun} from './continuousToeKicks';
 import type {FrameNeighbors} from './continuousFaceFrames';
 import {cabinetFaceFrame} from './faceFrame';
 import {islandCountertopOutline} from './islandFootprint';
@@ -112,18 +113,29 @@ function addToeKick(
   group: THREE.Group,
   item: RoomElement,
   toe: {height: number; setback: number},
+  run?: ToeKickRun,
 ) {
+  if (run?.hidden) return;
   return (box(
     group,
-    item.width - 0.5,
+    run?.width ?? item.width,
     toe.height,
     item.depth - toe.setback,
-    0,
+    run?.x ?? 0,
     -item.height / 2 + toe.height / 2,
     -toe.setback / 2,
     createCabinetMaterial(item, 0.6),
     'rail',
   ).name = 'room-toe-kick');
+}
+export function toeKickGeometry(
+  item: RoomElement,
+  room: Room,
+  run: ToeKickRun,
+) {
+  const group = new THREE.Group();
+  addToeKick(group, item, cabinetToeKick(item, room), run);
+  return group;
 }
 export function cabinetGeometry(
   item: RoomElement,
@@ -132,6 +144,7 @@ export function cabinetGeometry(
   room?: Pick<Room, 'toeKick' | 'overlay'>,
   edges: CountertopEdges = DEFAULT_COUNTERTOP_EDGES,
   frameNeighbors: FrameNeighbors = {},
+  toeRun?: ToeKickRun,
 ) {
   if (item.customCabinet) {
     const toe = cabinetToeKick(item, room);
@@ -164,7 +177,7 @@ export function cabinetGeometry(
     body.position.y = (-item.height / 2 + toe.height) * inch;
     body.name = 'custom-cabinet-body';
     group.add(body);
-    if (toe.height) addToeKick(group, item, toe);
+    if (toe.height) addToeKick(group, item, toe, toeRun);
     if (countertop && item.kind === 'base')
       addBaseCountertop(group, item, sharedCountertop, edges);
     return group;
@@ -250,7 +263,7 @@ export function cabinetGeometry(
   const support = cabinetToeKick(item, room);
   const toe = support.height;
   const bottom = -h / 2 + toe;
-  if (toe) addToeKick(group, item, support);
+  if (toe) addToeKick(group, item, support, toeRun);
   for (const side of [-1, 1])
     box(
       group,
@@ -292,6 +305,7 @@ export function cabinetGeometry(
     y: number,
     drawer: boolean,
   ) => {
+    const firstChild = group.children.length;
     const inset = room?.overlay === 'inset';
     const faceZ = inset
       ? d / 2 + 0.375
@@ -391,6 +405,55 @@ export function cabinetGeometry(
         faceZ + 0.7,
         steel,
       );
+    // Keep the complete face and hardware together, including shaker members.
+    group.updateMatrixWorld(true);
+    for (const child of group.children.slice(firstChild))
+      if (child !== frontPanel) frontPanel.attach(child);
+    const origin = frontPanel.position.clone();
+    const side = x > 0 || (x === 0 && item.hinge === 'right') ? -1 : 1;
+    const travel = Math.max(1, d - 2) * inch;
+    if (drawer) {
+      const drawerBox = new THREE.Group();
+      drawerBox.name = 'storage-drawer-box';
+      const innerWidth = Math.max(0.5, width - 1);
+      const innerHeight = Math.max(0.5, height - 1);
+      box(
+        drawerBox,
+        innerWidth,
+        0.5,
+        travel / inch,
+        0,
+        -innerHeight / 2,
+        -travel / inch / 2 - 0.25,
+        wood,
+        'shelf',
+      );
+      for (const edge of [-1, 1])
+        box(
+          drawerBox,
+          0.5,
+          innerHeight,
+          travel / inch,
+          (edge * (innerWidth - 0.5)) / 2,
+          0,
+          -travel / inch / 2 - 0.25,
+          wood,
+          'drawer-side',
+        );
+      box(drawerBox, innerWidth, innerHeight, 0.5, 0, 0, -travel / inch, wood);
+      frontPanel.add(drawerBox);
+    }
+    frontPanel.userData.updateOpening = (value: number) => {
+      const amount = Math.max(0, Math.min(1, value));
+      if (drawer) frontPanel.position.z = origin.z + amount * travel;
+      else {
+        const angle = (-side * amount * Math.PI) / 2;
+        const radius = (side * width * inch) / 2;
+        frontPanel.rotation.y = angle;
+        frontPanel.position.x = origin.x - radius + radius * Math.cos(angle);
+        frontPanel.position.z = origin.z - radius * Math.sin(angle);
+      }
+    };
   };
   const usable = h - toe - 0.25;
   const config = item.configuration ?? 'single-door';
@@ -476,16 +539,6 @@ export function cabinetGeometry(
         low - h / 2 + (i + 0.5) * height,
         true,
       );
-      box(
-        group,
-        inner - 1,
-        Math.max(2, height - 1),
-        d - 3,
-        0,
-        low - h / 2 + (i + 0.5) * height,
-        -0.5,
-        wood,
-      ).name = 'storage-drawer-box';
     }
     if (item.storage.doors && high - low - drawerZone > 1) {
       const count = w > 30 ? 2 : 1;

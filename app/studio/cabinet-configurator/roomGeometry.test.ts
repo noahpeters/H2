@@ -18,6 +18,11 @@ const base: RoomElement = {
   face: 'shaker',
   placement: {mode: 'wall', wall: 'front', offset: 18, elevation: 0},
 };
+function descendants(object: THREE.Object3D) {
+  const children: THREE.Object3D[] = [];
+  object.traverse((child) => children.push(child));
+  return children;
+}
 describe('four wall room geometry', () => {
   it('centers standard tall cabinet handles 36 inches above the floor', () => {
     for (const height of [72, 84, 96])
@@ -33,7 +38,7 @@ describe('four wall room geometry', () => {
             },
             false,
           );
-          const handles = group.children.filter(
+          const handles = descendants(group).filter(
             (child) =>
               child instanceof THREE.Mesh &&
               Math.abs(child.geometry.parameters.width - 0.35 * 0.0254) <
@@ -43,7 +48,9 @@ describe('four wall room geometry', () => {
           expect(handles).toHaveLength(width > 30 ? 2 : 1);
           for (const handle of handles)
             expect(
-              handle.position.y / 0.0254 + height / 2 + elevation,
+              handle.getWorldPosition(new THREE.Vector3()).y / 0.0254 +
+                height / 2 +
+                elevation,
             ).toBeCloseTo(36);
         }
   });
@@ -59,7 +66,7 @@ describe('four wall room geometry', () => {
           const doors = group.children.filter(
             (child) => child.name === 'cabinet-front' && child.position.y > 0,
           ) as THREE.Mesh<THREE.BoxGeometry>[];
-          const handles = group.children.filter(
+          const handles = descendants(group).filter(
             (child) =>
               child instanceof THREE.Mesh &&
               Math.abs(child.geometry.parameters.width - 0.35 * 0.0254) <
@@ -70,7 +77,9 @@ describe('four wall room geometry', () => {
           expect(doors).toHaveLength(handles.length);
           for (let i = 0; i < handles.length; i++) {
             const height = doors[i].geometry.parameters.height;
-            expect(handles[i].position.y).toBeCloseTo(
+            expect(
+              handles[i].getWorldPosition(new THREE.Vector3()).y,
+            ).toBeCloseTo(
               doors[i].position.y -
                 height / 2 +
                 Math.min(4 * 0.0254, height / 2),
@@ -104,9 +113,12 @@ describe('four wall room geometry', () => {
           );
         }
         for (const front of fronts) {
-          expect(new THREE.Box3().setFromObject(front).max.z).toBeLessThan(
-            (base.depth / 2 + 0.75) * 0.0254,
-          );
+          const mesh = front as THREE.Mesh;
+          mesh.geometry.computeBoundingBox();
+          expect(
+            mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld)
+              .max.z,
+          ).toBeLessThan((base.depth / 2 + 0.75) * 0.0254);
         }
       }
     },
