@@ -1,15 +1,17 @@
 import * as THREE from 'three';
 import {FullScreenQuad} from 'three/examples/jsm/postprocessing/Pass.js';
+import {waitForPhotoGpu} from './photoGpu';
 
 /** Photo-only radiance filter. Original albedo is restored after filtering lighting,
  * while normal/depth guides stop averaging across geometry boundaries. */
-export function denoisePhoto(
+export async function denoisePhoto(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
   radiance: THREE.Texture,
   width: number,
   height: number,
+  signal?: AbortSignal,
 ) {
   const target = () =>
     new THREE.WebGLRenderTarget(width, height, {
@@ -167,11 +169,13 @@ export function denoisePhoto(
       part.mesh.material = part.normal;
     });
     renderer.render(guide, camera);
+    await waitForPhotoGpu(renderer.getContext(), signal);
     guideParts.forEach((part) => {
       part.mesh.material = part.albedo;
     });
     renderer.setRenderTarget(albedo);
     renderer.render(guide, camera);
+    await waitForPhotoGpu(renderer.getContext(), signal);
     // Three bounded à-trous passes: 25 taps each, at pixel spacing 1, 2 and 4.
     for (let pass = 0; pass < 3; pass++) {
       const finalPass = pass === 2;
@@ -186,6 +190,7 @@ export function denoisePhoto(
       }
       renderer.setRenderTarget(finalPass ? previous.target : buffers[pass % 2]);
       quad.render(renderer);
+      await waitForPhotoGpu(renderer.getContext(), signal);
     }
   } finally {
     renderer.setRenderTarget(previous.target);

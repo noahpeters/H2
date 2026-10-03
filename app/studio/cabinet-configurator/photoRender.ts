@@ -26,6 +26,7 @@ import type {PhotoSettings} from './photoLighting';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
 import {denoisePhoto} from './photoDenoise';
+import {waitForPhotoGpu} from './photoGpu';
 
 const INCH = 0.0254;
 /** Only box stock and extruded stock are rebuilt. Shaped/profiled stock is retained. */
@@ -364,19 +365,21 @@ export async function renderPhoto(
         performance.now() - frameStart < 12
       );
       options.onProgress?.(Math.min(1, tracer.samples / settings.samples));
+      await waitForPhotoGpu(renderer.getContext(), options.signal);
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => resolve()),
       );
     }
     options.signal?.throwIfAborted();
     if (settings.denoise) {
-      denoisePhoto(
+      await denoisePhoto(
         renderer,
         traceScene,
         snapshot.camera,
         tracer.target.texture,
         width,
         height,
+        options.signal,
       );
     }
     // Present the enhanced pass in the existing viewport before capturing it.
