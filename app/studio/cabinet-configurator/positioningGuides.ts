@@ -1,6 +1,7 @@
 import type {Study} from './CabinetConfigurator';
 import {bounds} from './model';
 import {roomSegments, wallPoint} from './roomOutline';
+import {isPartition, wallBounds} from './wallDimensions';
 import {islandCountertopOutline, islandWorldBounds} from './islandFootprint';
 
 export type GuideTarget = {
@@ -48,10 +49,14 @@ function references(study: Study): Reference[] {
       };
     }),
     ...roomSegments(study.room).map((s) => ({
-      left: Math.min(s.a.x, s.b.x),
-      right: Math.max(s.a.x, s.b.x),
-      top: Math.min(s.a.z, s.b.z),
-      bottom: Math.max(s.a.z, s.b.z),
+      ...(isPartition(study.room, s.id)
+        ? wallBounds(study.room, s.id)
+        : {
+            left: Math.min(s.a.x, s.b.x),
+            right: Math.max(s.a.x, s.b.x),
+            top: Math.min(s.a.z, s.b.z),
+            bottom: Math.max(s.a.z, s.b.z),
+          }),
       kind: 'wall' as const,
       id: s.id,
     })),

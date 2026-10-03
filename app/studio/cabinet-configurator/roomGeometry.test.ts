@@ -303,7 +303,7 @@ describe('four wall room geometry', () => {
       const b = new THREE.Box3().setFromObject(mesh);
       const horizontal = wall === 'back' || wall === 'front';
       const size = b.getSize(new THREE.Vector3());
-      expect(horizontal ? size.z : size.x).toBeLessThan(0.07);
+      expect(horizontal ? size.z : size.x).toBeCloseTo(4.5 * 0.0254);
       expect(horizontal ? mesh.position.z : mesh.position.x).toBeCloseTo(
         (wall === 'back'
           ? -60

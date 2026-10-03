@@ -1,4 +1,5 @@
 import type {Partition, Room} from './model';
+import {wallThickness} from './wallDimensions';
 import {boxInRoom, pointInRoom, roomSegments, roomPoints} from './roomOutline';
 type Point = {x: number; z: number};
 const minimum = 6;
@@ -38,10 +39,10 @@ export function wallFits(room: Room, p: Partition) {
   return (
     p.length >= minimum &&
     boxInRoom(room, {
-      left: p.x,
-      right: p.x + (horizontal ? p.length : 0),
-      top: p.z,
-      bottom: p.z + (horizontal ? 0 : p.length),
+      left: p.x - (horizontal ? 0 : wallThickness(room) / 2),
+      right: p.x + (horizontal ? p.length : wallThickness(room) / 2),
+      top: p.z - (horizontal ? wallThickness(room) / 2 : 0),
+      bottom: p.z + (horizontal ? wallThickness(room) / 2 : p.length),
     }) &&
     breaks
       .slice(1)
@@ -56,7 +57,10 @@ export function wallFits(room: Room, p: Partition) {
       (s) =>
         s.horizontal === horizontal &&
         Math.abs((horizontal ? s.z : s.x) - (horizontal ? p.z : p.x)) <
-          epsilon &&
+          (room.partitions?.some((p) => p.id === s.id)
+            ? wallThickness(room)
+            : wallThickness(room) / 2) -
+            epsilon &&
         Math.max(start, horizontal ? s.x : s.z) <
           Math.min(end, (horizontal ? s.x : s.z) + s.length) - epsilon,
     )

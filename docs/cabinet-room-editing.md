@@ -2,6 +2,10 @@
 
 The Room accordion owns room dimensions/outline, Add opening, opening properties (doors, windows and doorless openings), and island definitions. Add to room now contains only cabinets and appliances.
 
+**Wall thickness** defaults to 4.5 inches and is adjustable from 1 to 24 inches in Room controls (quarter-inch input steps). Room width/depth and perimeter outline coordinates measure to finished interior faces; perimeter walls grow outward, with solid mitered corners. Interior partition coordinates remain centerlines and their solid walls extend half the thickness on each side. Cabinet backs snap to finished faces, including either side of an interior partition. Increasing thickness preserves perimeter room dimensions and wall-mounted cabinet offsets; partition-mounted cabinets follow their wall face. Floor-placed objects remain in place and receive collision warnings if a thicker partition reaches them. Automatic placement also checks partition volume.
+
+Plan and 3D use the same wall footprints. Doors, windows and doorless openings cut through the entire thickness, with full-depth jambs/reveals and leaves/glazing centered within the wall. Photo light sources remain outside the full wall depth, and photo corner fillets meet the finished interior faces. Optional `room.wallThickness` saves with version-2 rooms, including copy/share and undo; rooms without it use 4.5 inches. Validation rejects non-finite, non-numeric and out-of-range thicknesses.
+
 While Edit room outline is active:
 
 - Drag an opening along its wall or onto another wall. Its center follows the pointer without jumping at pickup, then projects onto the nearest wall long enough to contain its width. Offsets use whole inches and clamp to the wall endpoints. This works with rectangular, recess and alcove walls. Width, height, sill and type are preserved.

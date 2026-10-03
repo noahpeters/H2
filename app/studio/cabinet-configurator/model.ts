@@ -1,3 +1,4 @@
+import {isPartition, wallFaceOffset, wallBounds} from './wallDimensions';
 import {islandWorldBounds, islandCountertopOutline} from './islandFootprint';
 import {migrateFrontStyles, type Overlay} from './overlay';
 import {sinkAttachment, sinkFits} from './sinkAttachments';
@@ -216,6 +217,7 @@ export type Island = {
   seatingSide: SeatingSide;
 };
 export type Room = {
+  wallThickness?: number;
   overlay?: Overlay;
   continuousFaceFrames?: boolean;
   toeKick?: {height: number; setback: number};
@@ -295,42 +297,19 @@ export function wallToFloor(
           rotation: element.placement.rotation,
         };
   const {wall, offset} = element.placement;
-  if (room.outline) {
-    const s = roomWall(room, wall),
-      p = wallPoint(room, wall, offset + element.width / 2);
-    return {
-      mode: 'floor',
-      x: p.x + (s.nx * element.depth) / 2,
-      z: p.z + (s.nz * element.depth) / 2,
-      rotation: element.placement.rotation ?? s.rotation,
-    };
-  }
-  if (wall === 'front')
-    return {
-      mode: 'floor',
-      x: offset + element.width / 2,
-      z: room.depth - element.depth / 2,
-      rotation: element.placement.rotation ?? 180,
-    };
-  if (wall === 'back')
-    return {
-      mode: 'floor',
-      x: offset + element.width / 2,
-      z: element.depth / 2,
-      rotation: element.placement.rotation ?? 0,
-    };
-  if (wall === 'left')
-    return {
-      mode: 'floor',
-      x: element.depth / 2,
-      z: offset + element.width / 2,
-      rotation: element.placement.rotation ?? 270,
-    };
+  const s = roomWall(room, wall);
+  const p = wallPoint(room, wall, offset + element.width / 2);
+  const rotation = element.placement.rotation ?? s.rotation;
+  const side =
+    isPartition(room, wall) && (rotation - s.rotation + 360) % 360 === 180
+      ? -1
+      : 1;
+  const distance = side * (wallFaceOffset(room, wall) + element.depth / 2);
   return {
     mode: 'floor',
-    x: room.width - element.depth / 2,
-    z: offset + element.width / 2,
-    rotation: element.placement.rotation ?? 90,
+    x: p.x + s.nx * distance,
+    z: p.z + s.nz * distance,
+    rotation,
   };
 }
 
@@ -393,12 +372,12 @@ export function validateLayout(elements: RoomElement[], room: Room) {
     const box = bounds(element, room);
     if (!boxInRoom(room, box)) add(element.id, 'Outside room bounds');
     for (const p of room.partitions ?? []) {
-      const horizontal = p.orientation === 'horizontal';
+      const wall = wallBounds(room, p.id);
       if (
-        box.left < p.x + (horizontal ? p.length : 0) &&
-        box.right > p.x &&
-        box.top < p.z + (horizontal ? 0 : p.length) &&
-        box.bottom > p.z
+        box.left < wall.right - 1e-7 &&
+        box.right > wall.left + 1e-7 &&
+        box.top < wall.bottom - 1e-7 &&
+        box.bottom > wall.top + 1e-7
       )
         add(element.id, `Crosses ${p.name || 'an interior wall'}`);
     }

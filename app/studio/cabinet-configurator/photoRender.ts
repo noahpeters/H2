@@ -15,6 +15,7 @@ import type {
 } from './materialDefinition';
 import type {Room, Opening} from './model';
 import {pointInRoom, roomSegments} from './roomOutline';
+import {isPartition} from './wallDimensions';
 import {disposeStudyObject} from './studyScene';
 
 import {
@@ -148,11 +149,13 @@ function softenWallIntersections(scene: THREE.Scene) {
       room: Room;
       openings: Opening[];
     };
+    if (isPartition(room, segment.id)) continue;
     const previous = walls.find((candidate) => {
       const s = candidate.userData.photoWall.segment;
       return s.b.x === segment.a.x && s.b.z === segment.a.z;
     });
     if (!previous || !wall.visible || !previous.visible) continue;
+    if (isPartition(room, previous.userData.photoWall.segment.id)) continue;
     const before = previous.userData.photoWall.segment as typeof segment;
     // Interior convex corners only; preserve recess silhouettes and opening voids.
     if (before.nx * segment.nz - before.nz * segment.nx <= 0) continue;
@@ -172,13 +175,9 @@ function softenWallIntersections(scene: THREE.Scene) {
     ) as THREE.Mesh | undefined;
     if (!currentMesh || !previousMesh) continue;
     const radius = 0.025; // 25mm plaster corner fillet, independent of 1mm stock easing.
-    const thickness = 0.75 * INCH;
-    const x =
-      (segment.a.x - room.width / 2) * INCH +
-      (segment.nx + before.nx) * thickness;
-    const z =
-      (segment.a.z - room.depth / 2) * INCH +
-      (segment.nz + before.nz) * thickness;
+    // Perimeter wall coordinates now describe the finished interior faces.
+    const x = (segment.a.x - room.width / 2) * INCH;
+    const z = (segment.a.z - room.depth / 2) * INCH;
     const a = new THREE.Vector2(
       x + before.nx * radius,
       -(z + before.nz * radius),

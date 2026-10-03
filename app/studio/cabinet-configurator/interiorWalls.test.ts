@@ -3,6 +3,7 @@ import {
   moveInteriorWall,
   previewInteriorWall,
   resizeInteriorWall,
+  wallFits,
 } from './interiorWalls';
 import {presetOutline} from './roomOutline';
 import type {Room, Partition} from './model';
@@ -21,6 +22,16 @@ const wall: Partition = {
   orientation: 'vertical',
 };
 describe('plan wall gestures', () => {
+  it('keeps the full partition width inside the room and clear of parallel walls', () => {
+    expect(wallFits(room, {...wall, x: 1})).toBe(false);
+    expect(wallFits(room, {...wall, x: 2.25})).toBe(true);
+    expect(wallFits({...room, wallThickness: 6}, {...wall, x: 2.25})).toBe(
+      false,
+    );
+    const r = {...room, partitions: [wall]};
+    expect(wallFits(r, {...wall, id: 'segment-second', x: 75})).toBe(false);
+    expect(wallFits(r, {...wall, id: 'segment-second', x: 76.5})).toBe(true);
+  });
   it('spans perpendicular to the nearest wall without needing a name', () => {
     expect(previewInteriorWall(room, {x: 60, z: 10})).toMatchObject({
       x: 60,

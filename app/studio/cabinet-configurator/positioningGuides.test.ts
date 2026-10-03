@@ -150,7 +150,7 @@ test('wall edits measure opposing walls and update against the current dimension
   ];
   expect(
     positioningGuides(study, {kind: 'wall', id: 'segment-divider'}).some(
-      (g) => g.distance === 80,
+      (g) => g.distance === 80 - 4.5 / 2,
     ),
   ).toBe(true);
 });
