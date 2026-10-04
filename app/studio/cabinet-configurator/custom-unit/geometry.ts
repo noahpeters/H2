@@ -64,13 +64,14 @@ export function customUnitGeometry(
         ? 'shaker'
         : appearance?.face);
     let geometry: THREE.BufferGeometry;
-    if (part.arch === 'simple' && part.kind === 'door') {
+    if (part.outline || (part.arch === 'simple' && part.kind === 'door')) {
       const shape = new THREE.Shape();
-      simpleArchProfile(part.width, part.height).points.forEach(
-        (point, index) =>
-          index
-            ? shape.lineTo(point.x - part.width / 2, point.y - part.height / 2)
-            : shape.moveTo(point.x - part.width / 2, point.y - part.height / 2),
+      (
+        part.outline ?? simpleArchProfile(part.width, part.height).points
+      ).forEach((point, index) =>
+        index
+          ? shape.lineTo(point.x - part.width / 2, point.y - part.height / 2)
+          : shape.moveTo(point.x - part.width / 2, point.y - part.height / 2),
       );
       shape.closePath();
       geometry = new THREE.ExtrudeGeometry(shape, {

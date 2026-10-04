@@ -1,3 +1,4 @@
+import {cabinetOpeningChoices} from './frontLayout';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
@@ -734,6 +735,30 @@ export function CustomUnitEditor({
         </section>
         <aside className="cu-panel cu-inspector">
           <h2>04 / Part details</h2>
+          <fieldset className="cu-opening-profiles">
+            <legend>Face-framed openings</legend>
+            {cabinetOpeningChoices(definition).map((opening, index) => (
+              <label className="cu-checkbox" key={opening.id}>
+                <input
+                  type="checkbox"
+                  checked={
+                    definition.archedOpenings?.includes(opening.id) ?? false
+                  }
+                  onChange={(event) =>
+                    update({
+                      ...definition,
+                      archedOpenings: event.currentTarget.checked
+                        ? [...(definition.archedOpenings ?? []), opening.id]
+                        : (definition.archedOpenings ?? []).filter(
+                            (id) => id !== opening.id,
+                          ),
+                    })
+                  }
+                />
+                Arched opening {index + 1}
+              </label>
+            ))}
+          </fieldset>
           {selected ? (
             <>
               <label>
@@ -780,18 +805,6 @@ export function CustomUnitEditor({
               </p>
               {selected.kind === 'door' && (
                 <>
-                  <label className="cu-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selected.arch === 'simple'}
-                      onChange={(event) =>
-                        patch({
-                          arch: event.target.checked ? 'simple' : undefined,
-                        })
-                      }
-                    />
-                    Arched opening
-                  </label>
                   <h3>Door operation</h3>
                   {selected.door?.mechanism === 'pocket' &&
                     selected.width > definition.depth - 1.5 && (

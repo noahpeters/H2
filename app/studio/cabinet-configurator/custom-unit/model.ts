@@ -67,6 +67,8 @@ export type CabinetPart = {
     opening: {x: number; y: number; width: number; height: number};
     heights: number[];
   };
+  /** Generated authoritative front outline, local to this stock component. */
+  outline?: Array<{x: number; y: number}>;
   profileMode?: 'cabinet' | 'independent';
   shape?: 'rectangular' | 'round-left' | 'round-right';
   edges?: {
@@ -88,6 +90,8 @@ export type CustomUnitDefinition = {
   root: CustomUnitNode;
   /** Optional explicit physical layout. Legacy region definitions remain supported. */
   parts?: CabinetPart[];
+  /** Opening-owned arch choices; IDs refer to doors or open/shelved sections. */
+  archedOpenings?: string[];
   curve?: CabinetCurve;
   /** One front outline shared by all cabinet parts unless explicitly detached. */
   profile?: NonNullable<CabinetPart['edges']>;
@@ -508,6 +512,15 @@ export function validateCustomUnit(value: unknown): string[] {
       }
     }
   }
+  if (
+    unit.archedOpenings !== undefined &&
+    (!Array.isArray(unit.archedOpenings) ||
+      unit.archedOpenings.some(
+        (id) => typeof id !== 'string' || !/^(door|section):.+/.test(id),
+      ) ||
+      new Set(unit.archedOpenings).size !== unit.archedOpenings.length)
+  )
+    errors.push('Invalid arched opening selection');
   validateNode(unit.root, 'root', errors);
   if (!errors.length && !unit.parts) {
     const {errors: layoutErrors} = layoutCustomUnit(
