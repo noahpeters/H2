@@ -175,3 +175,42 @@ test('Command keeps the elevation alignment hint visible without committing its 
   fireEvent.keyUp(window, {key: 'Meta', metaKey: false});
   expect(hint()).toBeDefined();
 });
+
+test.each(['wall', 'floor'] as const)(
+  'raised %s panels keep their floor height and stay below the ceiling when resized',
+  (mode) => {
+    const study = {...blankStudy(), view: 'plan' as const};
+    study.room.height = 96;
+    study.elements = [
+      {
+        id: 'panel',
+        kind: 'panel',
+        width: 0.75,
+        depth: 24,
+        height: 30,
+        face: 'slab',
+        placement:
+          mode === 'wall'
+            ? {mode: 'wall', wall: 'back', offset: 20, elevation: 0}
+            : {mode: 'floor', x: 48, z: 48, rotation: 0, elevation: 0},
+      },
+    ];
+    study.selected = 'panel';
+    state.initial = study;
+    render(<CabinetConfigurator />);
+    const bottom = screen.getByLabelText('Bottom height above floor (in)');
+    const height = screen.getByLabelText('Height (in)');
+    fireEvent.change(bottom, {target: {value: '20'}});
+    expect(state.latest!.elements[0].placement.elevation).toBe(20);
+    expect(height).toHaveAttribute('max', '76');
+    fireEvent.change(bottom, {target: {value: '-1'}});
+    fireEvent.change(bottom, {target: {value: '67'}});
+    expect(state.latest!.elements[0].placement.elevation).toBe(20);
+    fireEvent.change(height, {target: {value: '77'}});
+    expect(state.latest!.elements[0].height).toBe(30);
+    fireEvent.change(height, {target: {value: '76'}});
+    expect(state.latest!.elements[0].height).toBe(76);
+    expect(state.latest!.elements[0].placement.elevation).toBe(20);
+    expect(bottom).toHaveAttribute('max', '20');
+  },
+);
