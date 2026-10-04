@@ -14,6 +14,10 @@ export function positioningResolution(
     : DEFAULT_POSITIONING_RESOLUTION;
 }
 
+/** Alignment attraction is measured in room inches, independently of zoom. */
+export const snappingDistance = (room: Pick<Room, 'positioningResolution'>) =>
+  2 * positioningResolution(room);
+
 // Coordinates and derived faces share integer comparison units. This only removes
 // floating-point noise; it never rounds geometry to the user's (much larger) grid.
 const UNITS_PER_INCH = 10_000_000;

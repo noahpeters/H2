@@ -259,3 +259,58 @@ test('numeric elevation commits a visible bottom/top guide for a vertical stack'
     screen.queryByText(/Overlaps another element/),
   ).not.toBeInTheDocument();
 });
+
+test('Command temporarily disables snapping, permits Command-drag, and never snaps on release while held', () => {
+  state.initial!.room.partitions = [];
+  state.initial!.elements = [
+    {
+      id: 'active',
+      kind: 'base',
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      face: 'slab',
+      placement: {mode: 'floor', x: 60, z: 60, rotation: 0},
+    },
+    {
+      id: 'neighbor',
+      kind: 'base',
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      face: 'slab',
+      placement: {mode: 'floor', x: 84, z: 60, rotation: 0},
+    },
+  ];
+  state.initial!.selected = 'active';
+  render(<CabinetConfigurator />);
+  const plan = screen.getByLabelText('Dimensioned room plan');
+  const active = document.querySelector('.cc-cab.selected');
+  expect(active).not.toBeNull();
+  const quarterInch =
+    Number(active!.querySelector('rect')!.getAttribute('width')) / 24 / 4;
+  fireEvent.pointerDown(active!, {
+    clientX: 0,
+    clientY: 0,
+    button: 0,
+    metaKey: true,
+  });
+  fireEvent.pointerMove(plan, {
+    clientX: quarterInch,
+    clientY: 0,
+    metaKey: true,
+  });
+  expect(state.latest!.elements[0].placement).toMatchObject({x: 60.25});
+  expect(screen.queryByLabelText('Positioning aids')).not.toBeInTheDocument();
+  fireEvent.keyUp(window, {key: 'Meta', metaKey: false});
+  expect(state.latest!.elements[0].placement).toMatchObject({x: 60});
+  expect(screen.getByLabelText('Positioning aids')).toBeInTheDocument();
+  fireEvent.keyDown(window, {key: 'Meta', metaKey: true});
+  expect(state.latest!.elements[0].placement).toMatchObject({x: 60.25});
+  fireEvent.pointerUp(plan, {metaKey: true});
+  expect(state.latest!.elements[0].placement).toMatchObject({x: 60.25});
+  fireEvent.blur(window);
+  fireEvent.pointerDown(active!, {clientX: 0, clientY: 0, button: 0});
+  fireEvent.pointerMove(plan, {clientX: 0, clientY: 0});
+  expect(state.latest!.elements[0].placement).toMatchObject({x: 60});
+});

@@ -1,7 +1,7 @@
 import {
   canonicalCoordinate,
   coordinateUnits,
-  positioningResolution,
+  snappingDistance,
   intervalsOverlap,
 } from './positioningPrecision';
 import type {Study} from './CabinetConfigurator';
@@ -73,7 +73,7 @@ function references(study: Study): Reference[] {
 export function positioningGuides(
   study: Study,
   target: GuideTarget | null,
-  tolerance = positioningResolution(study.room) / 2,
+  tolerance = snappingDistance(study.room),
 ): PositioningGuide[] {
   if (!target) return [];
   const all = references(study);
@@ -311,7 +311,7 @@ export function elevationGuide(
         const delta = canonicalCoordinate(at - anchor);
         const nextBottom = bottom + delta;
         if (
-          Math.abs(delta) <= positioningResolution(study.room) / 2 &&
+          Math.abs(delta) <= snappingDistance(study.room) &&
           nextBottom >= 0 &&
           nextBottom + item.height <= study.room.height &&
           (!best || Math.abs(delta) < Math.abs(best.delta))
