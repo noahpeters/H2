@@ -1,4 +1,3 @@
-import {BACK_PANEL_STYLES, type BackPanelStyle} from '../backPanels';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
@@ -12,6 +11,7 @@ import {
   CABINET_PAINTS,
   materialPreviewNote,
 } from '../materials';
+import {BACK_PANEL_STYLES, type BackPanelStyle} from '../backPanels';
 import type {PlacementKind} from './openingPlacement';
 import {useState, type ReactNode} from 'react';
 import {
