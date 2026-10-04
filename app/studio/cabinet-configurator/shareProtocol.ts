@@ -1,3 +1,7 @@
+import {
+  validMetaAttribution,
+  type MetaAttribution,
+} from '~/lib/intake/metaAttribution';
 export const CONTACT_CONSENT =
   'From Trees may contact me about my cabinet project';
 export type ShareDetails = {
@@ -9,6 +13,7 @@ export type ShareDetails = {
   consent: boolean;
   marketingConsent?: 'granted' | 'not_provided';
   sourceQuery?: string;
+  metaAttribution?: MetaAttribution;
   requestId: string;
   slug: string;
   editKey: string;
@@ -26,6 +31,8 @@ export function validShare(value: any): value is ShareDetails {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   return (
     !!value &&
+    (value.metaAttribution === undefined ||
+      validMetaAttribution(value.metaAttribution)) &&
     name(value.senderName) &&
     name(value.recipientName) &&
     email(value.senderEmail) &&

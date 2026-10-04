@@ -1,3 +1,4 @@
+import {validMetaAttribution, type MetaAttribution} from './metaAttribution';
 /** Shared wire contract between Oxygen and H2's authenticated durable intake service. */
 export const MARKETING_VERSION = 'website-inquiry-v1';
 export const MARKETING_DISCLOSURE =
@@ -10,6 +11,7 @@ export const UTM_KEYS = [
   'utm_term',
 ] as const;
 export type Intake = {
+  metaAttribution?: MetaAttribution;
   submissionId: string;
   name: string;
   email: string;
@@ -43,6 +45,8 @@ export function validIntake(value: unknown): value is Intake {
   if (!value || typeof value !== 'object') return false;
   const v = value as Intake;
   return (
+    (v.metaAttribution === undefined ||
+      validMetaAttribution(v.metaAttribution)) &&
     typeof v.submissionId === 'string' &&
     UUID.test(v.submissionId) &&
     typeof v.email === 'string' &&
@@ -107,6 +111,9 @@ export function resendEvent(v: StoredIntake) {
 export function ftopsEvent(v: StoredIntake) {
   return {
     externalEventId: v.submissionId,
+    ...(v.metaAttribution && Object.keys(v.metaAttribution).length
+      ? {metaAttribution: v.metaAttribution}
+      : {}),
     email: v.email,
     name: v.name,
     phone: v.phone,

@@ -1,3 +1,4 @@
+import {readMetaAttribution} from '~/lib/intake/metaAttribution';
 import {useEffect, useRef, useState} from 'react';
 import {MARKETING_DISCLOSURE} from '~/lib/intake/protocol';
 import {useNonce} from '@shopify/hydrogen';
@@ -186,6 +187,7 @@ export function ShareRoomForm({
                   ? 'granted'
                   : 'not_provided',
               sourceQuery: window.location.search,
+              metaAttribution: readMetaAttribution(),
               ...(form.get('consent') === 'on' && form.get('senderPhone')
                 ? {senderPhone: String(form.get('senderPhone')).trim()}
                 : {}),

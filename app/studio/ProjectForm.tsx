@@ -1,3 +1,4 @@
+import {readMetaAttribution} from '~/lib/intake/metaAttribution';
 import {useRef, type ChangeEvent} from 'react';
 import {MARKETING_DISCLOSURE} from '~/lib/intake/protocol';
 import {Form, useFetcher, useNavigation, useLocation} from 'react-router';
@@ -65,9 +66,16 @@ export function ProjectForm({
           ) => onValuesChange(name, event.currentTarget.value),
         }
       : {defaultValue: initial};
+  const captureMeta = (event: React.FormEvent<HTMLFormElement>) => {
+    const input = event.currentTarget.elements.namedItem(
+      'metaAttribution',
+    ) as HTMLInputElement;
+    input.value = JSON.stringify(readMetaAttribution());
+  };
   const contents = (
     <>
       <input type="hidden" name="submissionId" value={stableId.current} />
+      <input type="hidden" name="metaAttribution" defaultValue="{}" />
       <input type="hidden" name="sourceQuery" value={location.search} />
       {configuratorSource && (
         <input type="hidden" name="studySummary" value={project} />
@@ -220,11 +228,16 @@ export function ProjectForm({
     </>
   );
   return inPlace ? (
-    <fetcher.Form method="post" action="/contact" className="project-form">
+    <fetcher.Form
+      onSubmitCapture={captureMeta}
+      method="post"
+      action="/contact"
+      className="project-form"
+    >
       {contents}
     </fetcher.Form>
   ) : (
-    <Form method="post" className="project-form">
+    <Form onSubmitCapture={captureMeta} method="post" className="project-form">
       {contents}
     </Form>
   );
