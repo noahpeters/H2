@@ -1,3 +1,4 @@
+import {shakerFrameWidth} from '../hardwarePlacement';
 import type {Overlay} from '../overlay';
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -112,7 +113,7 @@ export function facePreviewGeometry(
         -d / 4,
       );
   } else if (style !== 'slab') {
-    const rail = Math.min(2, w / 5, h / 4);
+    const rail = shakerFrameWidth(w, h);
     frame(w, h, rail, d, 0);
     box(w - rail * 2, h - rail * 2, d / 3, 0, 0, d / 3);
   } else box(w, h, d, 0, 0, 0);

@@ -21,7 +21,8 @@ import {
 } from './materialRendering';
 import {storageLayout} from './openStorage';
 import {applianceGeometry} from './applianceGeometry';
-import {doorHandlePosition} from './hardwarePlacement';
+import {frontPullLayout, shakerFrameWidth} from './hardwarePlacement';
+import {mountedPull} from './pullGeometry';
 import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
 import {pointInSimpleArch, simpleArchProfile} from './simpleArch';
 import {
@@ -321,7 +322,8 @@ export function cabinetGeometry(
       : room?.overlay === 'partial-overlay'
         ? d / 2 + 0.75
         : d / 2;
-    const glass = item.face === 'shaker-glass' && item.kind === 'wall-cabinet';
+    const glass =
+      item.face === 'shaker-glass' && item.kind === 'wall-cabinet' && !drawer;
     const frontPanel = box(
       group,
       width,
@@ -357,8 +359,8 @@ export function cabinetGeometry(
           dark,
         ).name = 'vertical-slat-groove';
     }
-    if (item.face === 'shaker' || glass) {
-      const rail = Math.min(2, width / 5, height / 4);
+    if (item.face === 'shaker' || item.face === 'shaker-glass') {
+      const rail = shakerFrameWidth(width, height);
       for (const side of [-1, 1]) {
         box(
           group,
@@ -384,33 +386,25 @@ export function cabinetGeometry(
         );
       }
     }
-    if (drawer)
-      box(group, Math.min(6, width * 0.5), 0.35, 1, x, y, faceZ + 0.7, steel);
-    else {
-      const hingeSide =
-        x < 0 ? 'left' : x > 0 ? 'right' : (item.hinge ?? 'left');
-      const handle = doorHandlePosition({
-        width,
-        height,
-        absoluteTop: (item.placement.elevation ?? 0) + h / 2 + y + height / 2,
-        faceStyle: item.face,
-        hingeSide,
-      });
-      box(
-        group,
-        0.35,
-        4,
-        1,
-        x + handle.x,
-        y + handle.y,
-        faceZ + 0.7,
-        steel,
-      ).name = 'cabinet-door-handle';
-    }
-    // Keep the complete face and hardware together, including shaker members.
     group.updateMatrixWorld(true);
     for (const child of group.children.slice(firstChild))
       if (child !== frontPanel) frontPanel.attach(child);
+    const hingeSide = x < 0 ? 'left' : x > 0 ? 'right' : (item.hinge ?? 'left');
+    const layout = frontPullLayout({
+      width,
+      height,
+      absoluteTop: (item.placement.elevation ?? 0) + h / 2 + y + height / 2,
+      faceStyle: item.face,
+      hingeSide,
+      horizontal: drawer,
+      drawer,
+      edge: drawer ? 'top' : undefined,
+    });
+    const handle = mountedPull(frontPanel, layout, 1, inch);
+    if (handle) {
+      handle.name = drawer ? 'cabinet-drawer-handle' : 'cabinet-door-handle';
+      frontPanel.add(handle);
+    }
     const origin = frontPanel.position.clone();
     const side = x > 0 || (x === 0 && item.hinge === 'right') ? -1 : 1;
     const travel = Math.max(1, d - 2) * inch;
