@@ -1394,12 +1394,10 @@ export function CabinetConfigurator({
     null,
   );
   const commandPressed = useRef(false);
-  const [snappingDisabled, setSnappingDisabled] = useState(false);
   useEffect(() => {
     const change = (disabled: boolean) => {
       if (commandPressed.current === disabled) return;
       commandPressed.current = disabled;
-      setSnappingDisabled(disabled);
       const pointer = lastDragPointer.current;
       if (drag.current && pointer)
         setStudy(
@@ -1744,7 +1742,6 @@ export function CabinetConfigurator({
   const startDrag = (ev: React.PointerEvent<SVGGElement>, e: RoomElement) => {
     if (e.placement.mode === 'hosted') return;
     commandPressed.current = ev.metaKey;
-    setSnappingDisabled(ev.metaKey);
     lastDragPointer.current = null;
     setGuideTarget({kind: 'element', id: e.id});
     ev.currentTarget.setPointerCapture(ev.pointerId);
@@ -1806,7 +1803,6 @@ export function CabinetConfigurator({
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
     commandPressed.current = ev.metaKey;
-    setSnappingDisabled(ev.metaKey);
     if (editingRoom && endDrag.current) {
       const a = endDrag.current,
         point = planPoint(ev);
@@ -3015,7 +3011,7 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {!snappingDisabled && elevationGuide(study, selected.id) && (
+                {elevationGuide(study, selected.id) && (
                   <small role="status">
                     {elevationGuide(study, selected.id)!.alignment} alignment at{' '}
                     {elevationGuide(study, selected.id)!.at}″
@@ -3852,7 +3848,6 @@ export function CabinetConfigurator({
                           clientY: event.clientY,
                         };
                         commandPressed.current = event.metaKey;
-                        setSnappingDisabled(event.metaKey);
                         lastDragPointer.current = null;
                         setGuideTarget({kind: 'island', id: i.id});
                         setStudy((c) => ({...c, selected: i.id}));
@@ -4152,7 +4147,7 @@ export function CabinetConfigurator({
                   })}
                 <PositioningGuides
                   study={study}
-                  target={snappingDisabled ? null : guideTarget}
+                  target={guideTarget}
                   pad={pad}
                   scale={scale}
                   screenScale={Math.abs(
