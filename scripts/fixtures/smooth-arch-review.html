@@ -1,0 +1,27 @@
+<!doctype html><html><head><title>Smooth arches review</title><style>body{font:16px system-ui;background:#eee8df;color:#213e32}main{display:flex;gap:12px}figure{margin:0}figcaption{text-align:center;padding:14px}canvas{display:block}</style></head><body><h1>Smooth semicircle and unchanged cabinet sides</h1><main></main><script type="module">
+import * as THREE from 'three';
+import {roomGeometry,openingGeometry} from '/app/studio/cabinet-configurator/roomGeometry.ts';
+import {createCustomUnit} from '/app/studio/cabinet-configurator/custom-unit/model.ts';
+import {customUnitGeometry} from '/app/studio/cabinet-configurator/custom-unit/geometry.ts';
+import {cabinetArchChoices} from '/app/studio/cabinet-configurator/custom-unit/frontLayout.ts';
+for (const type of ['wall','before','after']) {
+ const figure=document.createElement('figure'), canvas=document.createElement('canvas'), caption=document.createElement('figcaption');
+ caption.textContent=type==='wall'?'Continuous semicircular opening and trim':type==='before'?'Cabinet before arch':'Top arch · same side boards';
+ figure.append(canvas,caption);document.querySelector('main').append(figure);
+ const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setSize(380,620);renderer.setPixelRatio(devicePixelRatio);
+ const scene=new THREE.Scene();scene.background=new THREE.Color('#eee8df');scene.add(new THREE.HemisphereLight(0xffffff,0x665544,2));
+ const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(-20,60,-80);scene.add(light);
+ let camera;
+ if(type==='wall') {
+  const room={width:120,depth:100,height:96,walls:'plaster',floor:'oak'}, opening={id:'arch',kind:'opening',wall:'back',offset:30,width:36,height:80,arch:'simple'};
+  scene.add(roomGeometry(room,[opening],0xd9d1bd)[0],openingGeometry(opening,room));
+  camera=new THREE.OrthographicCamera(-.76,.76,1.24,-1.24,.01,500);camera.position.set(.05,1.25,2.8);camera.lookAt(-.3,1.25,-1.27);
+ }else{
+  const unit=createCustomUnit({width:24,height:80,depth:16,root:{id:'shelves',type:'section',sectionType:'shelves',properties:{shelfCount:4}}});
+  if(type==='after')unit.archedOpenings=[cabinetArchChoices(unit)[0].id];
+  scene.add(customUnitGeometry(unit,{}, {face:'slab',overlay:'inset',material:'paint-grade'}));
+  camera=new THREE.OrthographicCamera(-27,27,44,-44,.01,500);camera.position.set(30,45,-130);camera.lookAt(0,40,0);
+ }
+ renderer.render(scene,camera);
+}
+</script></body></html>

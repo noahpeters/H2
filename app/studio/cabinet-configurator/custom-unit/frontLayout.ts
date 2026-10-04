@@ -60,6 +60,7 @@ export function roomFrontParts(
   overlay: Overlay,
   joined: {left?: boolean; right?: boolean} = {},
 ): RoomFrontPart[] {
+  const eligible = new Set(cabinetArchChoices(unit).map((c) => c.id));
   const exteriorParts = new Set<CabinetPart>();
   const projectedParts = (unit.parts ?? []).flatMap((part) => {
     if (
@@ -68,11 +69,15 @@ export function roomFrontParts(
       part.drawerArray?.face === 'internal' ||
       part.door?.mechanism === 'tambour'
     )
-      return expandDrawerArray(part, unit.reveal);
+      return expandDrawerArray(part, unit.reveal).map((p) => ({
+        ...p,
+        arch: eligible.has(`door:${p.id}`) ? p.arch : undefined,
+      }));
     const opening = part.drawerArray?.opening ?? frontOpening(unit, part);
     const bounds = drawerBounds(unit, opening, 'external', 'full-overlay');
     const projected = {
       ...part,
+      arch: eligible.has(`door:${part.id}`) ? part.arch : undefined,
       ...bounds,
       z: -part.depth,
     };
@@ -90,18 +95,50 @@ export function roomFrontParts(
     expanded.forEach((part) => exteriorParts.add(part));
     return expanded;
   });
-  const selectedArches = new Set(unit.archedOpenings ?? []);
+  const selectedArches = new Set(
+    (unit.archedOpenings ?? []).filter((id) => eligible.has(id)),
+  );
   projectedParts.forEach((p) => {
-    if (p.arch === 'simple') selectedArches.add(`door:${p.id}`);
+    if (p.arch === 'simple' && eligible.has(`door:${p.id}`))
+      selectedArches.add(`door:${p.id}`);
   });
   if (overlay === 'full-overlay' && !selectedArches.size) return projectedParts;
   const exterior = projectedParts.filter((part) => exteriorParts.has(part));
-  const openCells = cabinetOpeningChoices(unit).filter(
-    (c) =>
-      c.id.startsWith('section:') &&
-      [...selectedArches].some((id) => id.startsWith('section:')),
-  );
-  if (!exterior.length && !openCells.length) return projectedParts;
+  const physicalOpenings = cabinetOpenings(unit);
+  const openCells = cabinetArchChoices(unit)
+    .filter((c) => c.id.startsWith('section:') && selectedArches.has(c.id))
+    .map((c) => ({
+      ...physicalOpenings[Number(c.id.split(':').at(-1))],
+      id: c.id,
+    }));
+  // Open cabinetry already has physical side boards and shelf edges. An arch
+  // adds a shaped top rail only; it must not introduce a wider replacement frame.
+  if (!exterior.length) {
+    return [...projectedParts, ...openCells.map((arch) => archRail(arch, 0))];
+  }
+  if (overlay === 'full-overlay') {
+    const doorArches = cabinetArchChoices(unit).filter(
+      (c) => c.id.startsWith('door:') && selectedArches.has(c.id),
+    );
+    return [
+      ...projectedParts.map((part) => {
+        const opening = doorArches.find((c) => c.id === `door:${part.id}`);
+        return opening
+          ? {
+              ...part,
+              roomOpening: opening,
+              outline: insetArchProfile(
+                opening.width,
+                opening.height,
+                part.x - opening.x,
+                128,
+              ),
+            }
+          : part;
+      }),
+      ...[...openCells, ...doorArches].map((arch) => archRail(arch, 0)),
+    ];
+  }
   const frame = cabinetFaceFrame(
     [...exterior, ...openCells],
     {x: 0, y: 0, width: unit.width, height: unit.height},
@@ -174,32 +211,7 @@ export function roomFrontParts(
       faceFrame: 'rail',
       materialApplication: {grainAxis: 'x'},
     });
-  for (const arch of arches) {
-    const profile = simpleArchProfile(arch.width, arch.height, 48);
-    const outerTop = arch.height + frame.width;
-    const outline = [
-      {x: 0, y: outerTop - profile.spring},
-      {x: arch.width, y: outerTop - profile.spring},
-      ...profile.points
-        .slice(2)
-        .map((p) => ({x: p.x, y: p.y - profile.spring})),
-      {x: 0, y: 0},
-    ];
-    result.push({
-      id: `room-frame-arch-${arch.id}`,
-      name: 'Arched face frame rail',
-      kind: 'panel',
-      x: arch.x,
-      y: arch.y + profile.spring,
-      z: -0.75,
-      width: arch.width,
-      height: outerTop - profile.spring,
-      depth: 0.75,
-      outline,
-      faceFrame: 'rail',
-      materialApplication: {grainAxis: 'x'},
-    });
-  }
+  for (const arch of arches) result.push(archRail(arch, frame.width));
   return result;
 }
 
@@ -234,4 +246,42 @@ export function cabinetOpeningChoices(unit: CustomUnitDefinition) {
     });
   }
   return cells;
+}
+
+/** Arch choices are limited to the uppermost row of physical front openings. */
+export function cabinetArchChoices(unit: CustomUnitDefinition) {
+  const choices = cabinetOpeningChoices(unit);
+  const top = Math.max(...choices.map((c) => c.y + c.height));
+  return choices.filter(
+    (c) => Math.abs(c.y + c.height - top) < 0.01 && c.height >= c.width / 2,
+  );
+}
+
+function archRail(
+  arch: {id: string; x: number; y: number; width: number; height: number},
+  topRail: number,
+): RoomFrontPart {
+  const profile = simpleArchProfile(arch.width, arch.height, 128);
+  const outerTop = arch.height + topRail;
+  return {
+    id: `room-frame-arch-${arch.id}`,
+    name: 'Arched face frame rail',
+    kind: 'panel',
+    x: arch.x,
+    y: arch.y + profile.spring,
+    z: -0.75,
+    width: arch.width,
+    height: outerTop - profile.spring,
+    depth: 0.75,
+    outline: [
+      {x: 0, y: outerTop - profile.spring},
+      {x: arch.width, y: outerTop - profile.spring},
+      ...profile.points
+        .slice(2)
+        .map((p) => ({x: p.x, y: p.y - profile.spring})),
+      {x: 0, y: 0},
+    ],
+    faceFrame: 'rail',
+    materialApplication: {grainAxis: 'x'},
+  };
 }

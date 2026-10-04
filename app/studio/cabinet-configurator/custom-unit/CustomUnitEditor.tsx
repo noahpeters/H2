@@ -1,4 +1,4 @@
-import {cabinetOpeningChoices} from './frontLayout';
+import {cabinetArchChoices} from './frontLayout';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
@@ -738,7 +738,7 @@ export function CustomUnitEditor({
           <h2>04 / Part details</h2>
           <fieldset className="cu-opening-profiles">
             <legend>Face-framed openings</legend>
-            {cabinetOpeningChoices(definition).map((opening, index) => (
+            {cabinetArchChoices(definition).map((opening, index) => (
               <label className="cu-checkbox" key={opening.id}>
                 <input
                   type="checkbox"
@@ -756,7 +756,7 @@ export function CustomUnitEditor({
                     })
                   }
                 />
-                Arched opening {index + 1}
+                Arched top opening {index + 1}
               </label>
             ))}
           </fieldset>

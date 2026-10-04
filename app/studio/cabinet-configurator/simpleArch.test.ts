@@ -4,7 +4,11 @@ import {
   serializeCustomUnit,
   deserializeCustomUnit,
 } from './custom-unit/model';
-import {cabinetOpeningChoices, roomFrontParts} from './custom-unit/frontLayout';
+import {
+  cabinetOpeningChoices,
+  cabinetArchChoices,
+  roomFrontParts,
+} from './custom-unit/frontLayout';
 import {customUnitLayoutParts} from './custom-unit/layoutParts';
 import {resolveFabrication} from './fabrication/resolve';
 import {DEFAULT_CONSTRUCTION} from './fabrication/profile';
@@ -108,4 +112,100 @@ it('uses the opening circle for the matching door reveal and exports both curved
 
 it('retains the bottom reveal for short wide arch doors', () => {
   expect(insetArchProfile(36, 12, 0.125).every((p) => p.y >= 0)).toBe(true);
+});
+
+it('offers only top openings and keeps all existing cabinet boards and side widths', () => {
+  const unit = createCustomUnit({
+    width: 24,
+    height: 80,
+    depth: 16,
+    root: {
+      id: 'shelves',
+      type: 'section',
+      sectionType: 'shelves',
+      properties: {shelfCount: 4},
+    },
+  });
+  const original = customUnitLayoutParts(unit);
+  const choices = cabinetOpeningChoices(unit);
+  const eligible = cabinetArchChoices(unit);
+  expect(choices.length).toBeGreaterThan(1);
+  expect(eligible).toHaveLength(1);
+  expect(eligible[0].y).toBe(Math.max(...choices.map((c) => c.y)));
+  unit.archedOpenings = choices.map((c) => c.id);
+  const result = roomFrontParts({...unit, parts: original as any}, 'inset');
+  expect(result.filter((p) => p.outline)).toHaveLength(1);
+  expect(result.filter((p) => !p.outline)).toEqual(original);
+  expect(result.some((p) => p.name === 'Face frame stile')).toBe(false);
+  const arch = result.find((p) => p.outline)!;
+  const left = original.find(
+    (p) => p.kind === 'carcass' && p.x === 0 && p.width < 1,
+  )!;
+  expect(arch.x).toBe(left.x + left.width);
+  expect(arch.width).toBe(unit.width - 2 * left.width);
+});
+
+it.each(['inset', 'partial-overlay', 'full-overlay'] as const)(
+  'preserves %s door and stile dimensions when adding an arch',
+  (overlay) => {
+    const unit = createCustomUnit({
+      width: 24,
+      height: 36,
+      root: {
+        id: 'door',
+        type: 'section',
+        sectionType: 'doors',
+        properties: {doorCount: 1},
+      },
+    });
+    const parts = customUnitLayoutParts(unit);
+    const before = roomFrontParts({...unit, parts: parts as any}, overlay);
+    const choices = cabinetArchChoices(unit);
+    unit.archedOpenings = [choices[0].id];
+    const after = roomFrontParts({...unit, parts: parts as any}, overlay);
+    for (const part of before.filter(
+      (p) =>
+        p.kind === 'door' || p.faceFrame === 'left' || p.faceFrame === 'right',
+    )) {
+      const changed = after.find((p) => p.id === part.id)!;
+      expect([
+        changed.x,
+        changed.y,
+        changed.width,
+        changed.height,
+        changed.depth,
+      ]).toEqual([part.x, part.y, part.width, part.height, part.depth]);
+    }
+    expect(
+      after.filter((p) => p.faceFrame === 'left' || p.faceFrame === 'right'),
+    ).toEqual(
+      before.filter((p) => p.faceFrame === 'left' || p.faceFrame === 'right'),
+    );
+  },
+);
+
+it('suppresses legacy lower-door arches without mutating the saved cabinet', () => {
+  const unit = createCustomUnit({width: 24, height: 80});
+  const original = customUnitLayoutParts(unit);
+  unit.parts = [
+    ...original,
+    ...[1, 41].map((y, i) => ({
+      id: `door-${i}`,
+      name: `Door ${i}`,
+      kind: 'door' as const,
+      x: 1,
+      y,
+      z: -0.75,
+      width: 22,
+      height: 38,
+      depth: 0.75,
+      arch: 'simple' as const,
+    })),
+  ] as any;
+  const saved = JSON.stringify(unit);
+  const parts = roomFrontParts(unit, 'full-overlay');
+  expect(parts.find((p) => p.id === 'door-0')!.arch).toBeUndefined();
+  expect(parts.find((p) => p.id === 'door-0')!.outline).toBeUndefined();
+  expect(parts.find((p) => p.id === 'door-1')!.outline).toBeDefined();
+  expect(JSON.stringify(unit)).toBe(saved);
 });

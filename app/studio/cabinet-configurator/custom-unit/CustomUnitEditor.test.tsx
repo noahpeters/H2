@@ -1,6 +1,7 @@
 import {fireEvent, render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
 import {CustomUnitEditor} from './CustomUnitEditor';
+import {createCustomUnit} from './model';
 vi.mock('./PartViewport', async () => {
   const {cabinetOpenings, partInOpening} = await import('./openingPlacement');
   return {
@@ -325,4 +326,25 @@ it('allows drawer height edits while the overall cabinet envelope is locked', as
   expect(
     screen.queryByRole('spinbutton', {name: 'height'}),
   ).not.toBeInTheDocument();
+});
+
+it('offers an arch only for the uppermost shelf opening', () => {
+  const unit = createCustomUnit({
+    width: 24,
+    height: 80,
+    depth: 16,
+    root: {
+      id: 'shelves',
+      type: 'section',
+      sectionType: 'shelves',
+      properties: {shelfCount: 4},
+    },
+  });
+  const onChange = vi.fn();
+  render(<CustomUnitEditor initialDefinition={unit} onChange={onChange} />);
+  const choices = screen.getAllByRole('checkbox', {name: /Arched top opening/});
+  expect(choices).toHaveLength(1);
+  fireEvent.click(choices[0]);
+  expect(onChange.mock.lastCall![0].archedOpenings).toHaveLength(1);
+  expect(screen.queryByLabelText('Arched opening 1')).not.toBeInTheDocument();
 });
