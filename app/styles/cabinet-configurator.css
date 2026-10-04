@@ -330,7 +330,7 @@
 .cc-elevation-item path { fill:none; stroke:#68736f; }
 .cc-elevation-appliance rect { fill:#d9ddda; }
 .cc-elevation-fixture rect { fill:#e5eeee; }
-.cc-elevation-opening rect { fill:#fff; stroke:#496668; stroke-width:1.5; }
+.cc-elevation-opening rect, .cc-elevation-opening path { fill:#fff; stroke:#496668; stroke-width:1.5; }
 .cc-elevation-sheet text { font:8px DM Mono,monospace; fill:#34413e; text-anchor:middle; text-transform:capitalize; }
 .cc-elevation-dimension { fill:none; stroke:#9b5b36 !important; stroke-width:.8; }
 .cc-elevation-sheet .cc-dimension-text { fill:#8e4d2f; font-size:7px; text-transform:none; }

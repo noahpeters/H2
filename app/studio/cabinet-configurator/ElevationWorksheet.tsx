@@ -1,7 +1,14 @@
+import {simpleArchProfile} from './simpleArch';
+import {useMemo} from 'react';
 import type {Study} from './CabinetConfigurator';
-import {APPLIANCE_CATALOG, type RoomElement, type Wall} from './model';
+import {APPLIANCE_CATALOG, wallToFloor, type RoomElement} from './model';
 import {OPEN_STORAGE} from './openStorage';
-import {roomSegments} from './roomOutline';
+import * as THREE from 'three';
+import {cabinetGeometry} from './roomGeometry';
+import {applianceGeometry} from './applianceGeometry';
+import {fixtureGeometry} from './fixtureGeometry';
+import {disposeStudyObject} from './studyScene';
+import {roomSegments, wallPoint} from './roomOutline';
 
 type ElevationItem = {
   id: string;
@@ -12,6 +19,7 @@ type ElevationItem = {
   height: number;
   kind: RoomElement['kind'];
   face?: RoomElement['face'];
+  lines: number[][];
 };
 
 export type ElevationSheet = {
@@ -33,75 +41,252 @@ const itemLabel = (item: RoomElement) =>
         ? OPEN_STORAGE[item.storage.type]
         : item.kind.replace('-', ' ');
 
-/** Produce only useful wall elevations plus every exposed face of cabinetry islands. */
+const INCH = 0.0254;
+type Plane = {x: number; z: number; ux: number; uz: number};
+
+/** Orthographic projection of the actual scene geometry, with no perspective. */
+function projectedItem(
+  item: RoomElement,
+  study: Study,
+  plane: Plane,
+): ElevationItem {
+  const position = wallToFloor(item, study.room);
+  const a = (position.rotation * Math.PI) / 180;
+  const project = (x: number, z: number) =>
+    (position.x + x * Math.cos(a) - z * Math.sin(a) - plane.x) * plane.ux +
+    (position.z + x * Math.sin(a) + z * Math.cos(a) - plane.z) * plane.uz;
+  const corners = [-1, 1].flatMap((x) =>
+    [-1, 1].map((z) => project((x * item.width) / 2, (z * item.depth) / 2)),
+  );
+  const left = Math.min(...corners),
+    right = Math.max(...corners);
+  const bottom = item.placement.elevation ?? 0;
+  const group =
+    String(item.kind) === 'panel'
+      ? new THREE.Mesh(
+          new THREE.BoxGeometry(
+            item.width * INCH,
+            item.height * INCH,
+            item.depth * INCH,
+          ),
+          new THREE.MeshBasicMaterial(),
+        )
+      : item.kind === 'fixture'
+        ? fixtureGeometry(item, study.room)
+        : item.kind === 'appliance'
+          ? applianceGeometry(
+              item.applianceKind ?? 'dishwasher',
+              item.width * INCH,
+              item.height * INCH,
+              item.depth * INCH,
+              item.applianceFront,
+              item.rangeHood,
+            )
+          : cabinetGeometry(item, false, false, study.room);
+  group.updateMatrixWorld(true);
+  const meshes: THREE.Mesh[] = [];
+  group.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.visible) meshes.push(object);
+  });
+  // Camera direction expressed in this item's local scene coordinates.
+  const nx = -plane.uz,
+    nz = plane.ux;
+  const outward = new THREE.Vector3(
+    nx * Math.cos(a) + nz * Math.sin(a),
+    0,
+    -nx * Math.sin(a) + nz * Math.cos(a),
+  );
+  const reach = Math.max(item.width, item.depth, item.height) * INCH * 3 + 1;
+  const ray = new THREE.Raycaster();
+  const visible = (point: THREE.Vector3) => {
+    ray.set(
+      point.clone().addScaledVector(outward, reach),
+      outward.clone().negate(),
+    );
+    const hit = ray.intersectObjects(meshes, false).find((hit) => {
+      const material = (hit.object as THREE.Mesh).material;
+      return !(Array.isArray(material) ? material : [material]).every(
+        (m) => m.transparent && m.opacity < 0.5,
+      );
+    });
+    return !hit || hit.distance >= reach - 0.0001;
+  };
+  const lines: number[][] = [];
+  const seen = new Set<string>();
+  group.traverse((object) => {
+    if (!(object instanceof THREE.Mesh) || !object.visible) return;
+    const edges = new THREE.EdgesGeometry(object.geometry, 25);
+    const positions = edges.getAttribute('position');
+    for (let i = 0; i < positions.count; i += 2) {
+      const points = [i, i + 1].map((index) =>
+        new THREE.Vector3()
+          .fromBufferAttribute(positions, index)
+          .applyMatrix4(object.matrixWorld),
+      );
+      if (!visible(points[0].clone().lerp(points[1], 0.5))) continue;
+      const line = points.flatMap((p) => [
+        project(p.x / INCH, p.z / INCH),
+        bottom + item.height / 2 + p.y / INCH,
+      ]);
+      if (Math.hypot(line[0] - line[2], line[1] - line[3]) < 0.01) continue;
+      const key = [
+        line
+          .slice(0, 2)
+          .map((v) => v.toFixed(3))
+          .join(','),
+        line
+          .slice(2)
+          .map((v) => v.toFixed(3))
+          .join(','),
+      ]
+        .sort()
+        .join(':');
+      if (!seen.has(key)) {
+        seen.add(key);
+        lines.push(line);
+      }
+    }
+    edges.dispose();
+  });
+  disposeStudyObject(group);
+  return {
+    id: item.id,
+    label: itemLabel(item),
+    x: left,
+    y: bottom,
+    width: right - left,
+    height: item.height,
+    kind: item.kind,
+    face: item.face,
+    lines,
+  };
+}
+
 export function elevationSheets(study: Study): ElevationSheet[] {
+  const counterHeight = (items: RoomElement[]) =>
+    study.countertop
+      ? Math.max(
+          0,
+          ...items
+            .filter(
+              (i) =>
+                i.kind === 'base' ||
+                (i.kind === 'appliance' && i.applianceKind === 'dishwasher'),
+            )
+            .map((i) => (i.placement.elevation ?? 0) + i.height),
+        ) || undefined
+      : undefined;
   const walls = roomSegments(study.room).flatMap((wall) => {
     const items = study.elements.filter(
-      (item) =>
-        item.placement.mode === 'wall' && item.placement.wall === wall.id,
+      (i) => i.placement.mode === 'wall' && i.placement.wall === wall.id,
     );
-    const openings = study.openings.filter(
-      (opening) => opening.wall === wall.id,
-    );
+    const openings = study.openings.filter((o) => o.wall === wall.id);
     if (!items.length && !openings.length) return [];
+    const plane = {
+      x: wall.a.x,
+      z: wall.a.z,
+      ux: (wall.b.x - wall.a.x) / wall.length,
+      uz: (wall.b.z - wall.a.z) / wall.length,
+    };
     return [
       {
         id: wall.id,
         title: `${wall.label === wall.id ? `${wall.label[0].toUpperCase()}${wall.label.slice(1)} wall` : wall.label} — front elevation`,
         width: wall.length,
         height: study.room.height,
-        items: items.map((item) => ({
-          id: item.id,
-          label: itemLabel(item),
-          x: item.placement.mode === 'wall' ? item.placement.offset : 0,
-          y: item.placement.elevation ?? 0,
-          width: item.width,
-          height: item.height,
-          kind: item.kind,
-          face: item.face,
-        })),
-        openings,
-        countertop: study.countertop
-          ? Math.max(
-              0,
-              ...items
-                .filter((item) => item.kind === 'base')
-                .map((item) => (item.placement.elevation ?? 0) + item.height),
-            ) || undefined
-          : undefined,
-      } satisfies ElevationSheet,
+        items: items.map((i) => projectedItem(i, study, plane)),
+        openings: openings.map((o) => {
+          const p = wallPoint(study.room, wall.id, o.offset);
+          const x = (p.x - plane.x) * plane.ux + (p.z - plane.z) * plane.uz;
+          return {
+            ...o,
+            offset: Math.min(
+              x,
+              x + o.width * (wall.horizontal ? plane.ux : plane.uz),
+            ),
+          };
+        }),
+        countertop: counterHeight(items),
+      },
     ];
   });
-
-  const islands = study.islands.flatMap((island) => {
-    const items = study.elements.filter((item) => item.islandId === island.id);
-    if (!items.length) return [];
+  const groups = study.islands.map((island) => ({
+    ...island,
+    items: study.elements.filter((i) => i.islandId === island.id),
+    label: 'Island',
+  }));
+  const free = study.elements.filter(
+    (i) => i.placement.mode === 'floor' && !i.islandId,
+  );
+  if (free.length) {
+    const points = free.flatMap((i) => {
+      const p = wallToFloor(i, study.room),
+        a = (p.rotation * Math.PI) / 180;
+      return [-1, 1].flatMap((x) =>
+        [-1, 1].map((z) => ({
+          x:
+            p.x +
+            ((x * i.width) / 2) * Math.cos(a) -
+            ((z * i.depth) / 2) * Math.sin(a),
+          z:
+            p.z +
+            ((x * i.width) / 2) * Math.sin(a) +
+            ((z * i.depth) / 2) * Math.cos(a),
+        })),
+      );
+    });
+    const loX = Math.min(...points.map((p) => p.x)),
+      hiX = Math.max(...points.map((p) => p.x)),
+      loZ = Math.min(...points.map((p) => p.z)),
+      hiZ = Math.max(...points.map((p) => p.z));
+    groups.push({
+      id: 'freestanding',
+      x: (loX + hiX) / 2,
+      z: (loZ + hiZ) / 2,
+      width: hiX - loX,
+      depth: hiZ - loZ,
+      rotation: 0,
+      overhang: 0,
+      seatingSide: 'none',
+      items: free,
+      label: 'Freestanding cabinetry',
+    });
+  }
+  const freestanding = groups.flatMap((group) => {
+    if (!group.items.length) return [];
+    const angle = (group.rotation * Math.PI) / 180;
     return (['front', 'back', 'left', 'right'] as const).map((side) => {
       const horizontal = side === 'front' || side === 'back';
-      const width = horizontal ? island.width : island.depth;
+      const width = horizontal ? group.width : group.depth;
+      const direction =
+        side === 'front'
+          ? [1, 0]
+          : side === 'back'
+            ? [-1, 0]
+            : side === 'left'
+              ? [0, 1]
+              : [0, -1];
+      const ux =
+          direction[0] * Math.cos(angle) - direction[1] * Math.sin(angle),
+        uz = direction[0] * Math.sin(angle) + direction[1] * Math.cos(angle);
+      const plane = {
+        x: group.x - (ux * width) / 2,
+        z: group.z - (uz * width) / 2,
+        ux,
+        uz,
+      };
       return {
-        id: `${island.id}-${side}`,
-        title: `Island — ${side} elevation`,
+        id: `${group.id}-${side}`,
+        title: `${group.label} — ${side} elevation`,
         width,
         height: study.room.height,
-        items: items.map((item) => ({
-          id: `${item.id}-${side}`,
-          label: itemLabel(item),
-          x: Math.max(0, (width - item.width) / 2),
-          y: item.placement.elevation ?? 0,
-          width: Math.min(item.width, width),
-          height: item.height,
-          kind: item.kind,
-          face: item.face,
-        })),
+        items: group.items.map((i) => projectedItem(i, study, plane)),
         openings: [],
-        countertop: study.countertop
-          ? Math.max(...items.map((item) => item.height))
-          : undefined,
+        countertop: counterHeight(group.items),
       };
     });
   });
-  return [...walls, ...islands];
+  return [...walls, ...freestanding];
 }
 
 const tick = (x: number, y: number, vertical = false) =>
@@ -133,12 +318,26 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
           const sill = opening.sill ?? 0;
           return (
             <g className="cc-elevation-opening" key={opening.id}>
-              <rect
-                x={sx(opening.offset)}
-                y={sy(sill + opening.height)}
-                width={opening.width * scale}
-                height={opening.height * scale}
-              />
+              {(opening as typeof opening & {arch?: 'simple'}).arch ===
+              'simple' ? (
+                <path
+                  d={
+                    simpleArchProfile(opening.width, opening.height)
+                      .points.map(
+                        (p, i) =>
+                          `${i ? 'L' : 'M'}${sx(opening.offset + p.x)},${sy(sill + p.y)}`,
+                      )
+                      .join(' ') + 'Z'
+                  }
+                />
+              ) : (
+                <rect
+                  x={sx(opening.offset)}
+                  y={sy(sill + opening.height)}
+                  width={opening.width * scale}
+                  height={opening.height * scale}
+                />
+              )}
               <text
                 x={sx(opening.offset + opening.width / 2)}
                 y={sy(sill + opening.height / 2)}
@@ -159,15 +358,14 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
               width={item.width * scale}
               height={item.height * scale}
             />
-            {item.kind !== 'fixture' && (
-              <path
-                d={
-                  item.face === 'shaker'
-                    ? `M${sx(item.x + 2)},${sy(item.y + item.height - 2)}h${Math.max(0, (item.width - 4) * scale)}v${Math.max(0, (item.height - 4) * scale)}h${Math.max(0, -(item.width - 4) * scale)}z`
-                    : `M${sx(item.x + item.width / 2)},${sy(item.y)}V${sy(item.y + item.height)}`
-                }
-              />
-            )}
+            <path
+              d={item.lines
+                .map(
+                  ([x1, y1, x2, y2]) =>
+                    `M${sx(x1)},${sy(y1)}L${sx(x2)},${sy(y2)}`,
+                )
+                .join(' ')}
+            />
             <text
               x={sx(item.x + item.width / 2)}
               y={sy(item.y + item.height / 2)}
@@ -183,7 +381,14 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
               x={sx(item.x + item.width / 2)}
               y={pad - 18}
             >
-              {item.width}″
+              {Number(item.width.toFixed(3))}″
+            </text>
+            <text
+              className="cc-dimension-text"
+              x={sx(item.x + item.width / 2)}
+              y={sy(item.y) - 5}
+            >
+              {item.height}″ high{item.y ? ` · bottom ${item.y}″` : ''}
             </text>
           </g>
         ))}
@@ -225,13 +430,13 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
 }
 
 export function ElevationWorksheet({study}: {study: Study}) {
-  const sheets = elevationSheets(study);
+  const sheets = useMemo(() => elevationSheets(study), [study]);
   return (
     <section className="cc-elevation" aria-label="Elevation worksheet">
       <header>
         <div>
           <span>Elevation worksheet</span>
-          <strong>Orthographic · not for fabrication</strong>
+          <strong>Orthographic elevations</strong>
         </div>
         <p>Cabinetry-facing views · dimensions require field verification</p>
       </header>

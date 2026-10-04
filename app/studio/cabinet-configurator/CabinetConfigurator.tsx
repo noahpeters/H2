@@ -1428,6 +1428,9 @@ export function CabinetConfigurator({
     roomDrag.current = null;
     openingDrag.current = null;
     endDrag.current = null;
+    drag.current = null;
+    lastDragPointer.current = null;
+    panDrag.current = null;
     if (!editingRoom)
       setStudy((current) =>
         current.openings.some((o) => o.id === current.selected)

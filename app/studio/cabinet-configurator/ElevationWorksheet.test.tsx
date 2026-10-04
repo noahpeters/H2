@@ -89,3 +89,70 @@ describe('elevationSheets', () => {
     ).toEqual([]);
   });
 });
+
+it('projects separate island members without centering or clamping and uses depth in side views', () => {
+  const next = structuredClone(study);
+  const first = next.elements[2];
+  next.elements = [
+    first,
+    {
+      ...structuredClone(first),
+      id: 'neighbor',
+      placement: {mode: 'floor', x: 90, z: 48, rotation: 0, elevation: 4},
+    },
+  ];
+  const sheets = elevationSheets(next);
+  const front = sheets.find((s) => s.id === 'island-front')!;
+  expect(front.items.map((i) => [i.x, i.width])).toEqual([
+    [0, 36],
+    [36, 36],
+  ]);
+  const back = sheets.find((s) => s.id === 'island-back')!;
+  expect(back.items[0].x).toBeCloseTo(36, 6);
+  expect(back.items[1].x).toBeCloseTo(0, 6);
+  const side = sheets.find((s) => s.id === 'island-left')!;
+  expect(side.items.map((i) => i.width)).toEqual([24, 24]);
+  expect(front.countertop).toBe(38.5);
+  expect(front.items[0].lines.length).toBeGreaterThan(4);
+});
+
+it('retains identical projections when the island and members rotate together', () => {
+  const next = structuredClone(study);
+  next.elements = [next.elements[2]];
+  next.openings = [];
+  const before = elevationSheets(next);
+  next.islands[0].rotation = 90;
+  next.elements[0].placement = {
+    mode: 'floor',
+    x: 84,
+    z: 42,
+    rotation: 90,
+    elevation: 0,
+  };
+  const after = elevationSheets(next);
+  after.forEach((sheet, i) => {
+    expect(sheet.items[0].x).toBeCloseTo(before[i].items[0].x, 6);
+    expect(sheet.items[0].width).toBeCloseTo(before[i].items[0].width, 6);
+  });
+});
+
+it('generates freestanding elevations without requiring an island container', () => {
+  const next = structuredClone(study);
+  next.elements = [{...next.elements[2], islandId: undefined}];
+  next.islands = [];
+  next.openings = [];
+  expect(elevationSheets(next)).toHaveLength(4);
+  expect(elevationSheets(next)[0].items[0].x).toBe(0);
+});
+
+it('hides front hardware and door details behind the opaque cabinet back', () => {
+  const next = structuredClone(study);
+  next.openings = [];
+  next.elements = [{...next.elements[2], face: 'shaker'}];
+  const sheets = elevationSheets(next);
+  const front = sheets.find((s) => s.id === 'island-front')!;
+  const back = sheets.find((s) => s.id === 'island-back')!;
+  expect(front.items[0].lines.length).toBeGreaterThan(
+    back.items[0].lines.length,
+  );
+});
