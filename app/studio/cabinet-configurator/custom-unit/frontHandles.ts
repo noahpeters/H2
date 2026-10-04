@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import type {RoomElement} from '../model';
 import {cabinetProfilePoint, edgeSetback} from './curves';
 import type {CabinetPart, CustomUnitDefinition} from './model';
+import {doorHandlePosition, type HardwareFaceStyle} from '../hardwarePlacement';
 
 export type RoomHandleContext = Pick<
   RoomElement,
-  'kind' | 'hinge' | 'tallConfiguration'
+  'kind' | 'face' | 'hinge' | 'tallConfiguration'
 > & {bodyElevation: number};
 
 /** Render-only hardware, in the definition's inch coordinates. */
@@ -52,32 +53,21 @@ export function addFrontHandle(
       : part.x + part.width / 2 > definition.width / 2
         ? 'right'
         : 'left');
-  const x = horizontal ? 0 : part.width * 0.33 * (side === 'right' ? -1 : 1);
+  const faceStyle = (part.faceStyle ?? context.face) as HardwareFaceStyle;
+  const placement = doorHandlePosition({
+    width: part.width,
+    height: part.height,
+    absoluteTop: context.bodyElevation + part.y + part.height,
+    faceStyle,
+    hingeSide: side,
+  });
+  const x = horizontal ? 0 : placement.x;
   let y = 0;
   if (mechanism === 'lift-up')
     y = -part.height / 2 + Math.min(4, part.height / 2);
   else if (mechanism === 'pull-down')
     y = part.height / 2 - Math.min(4, part.height / 2);
-  else if (part.kind === 'door') {
-    if (
-      context.kind === 'wall-cabinet' ||
-      (context.kind === 'tall' &&
-        ['one-oven', 'two-oven', 'coffee-maker'].includes(
-          context.tallConfiguration ?? '',
-        ))
-    )
-      y = -part.height / 2 + Math.min(4, part.height / 2);
-    else if (context.kind === 'tall') {
-      const clearance = Math.min(2.5, part.height / 2);
-      y = Math.max(
-        -part.height / 2 + clearance,
-        Math.min(
-          part.height / 2 - clearance,
-          36 - context.bodyElevation - part.y - part.height / 2,
-        ),
-      );
-    } else y = part.height * 0.22;
-  }
+  else if (part.kind === 'door') y = placement.y;
   const localX = x + part.width / 2;
   const followsProfile =
     part.profileMode !== 'independent' &&
