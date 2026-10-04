@@ -1,3 +1,4 @@
+import {BACK_PANEL_STYLES, type BackPanelStyle} from '../backPanels';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
@@ -745,6 +746,23 @@ export function CustomUnitEditor({
                   onChange={(event) => patch({name: event.target.value})}
                 />
               </label>
+              {selected.kind === 'panel' && selected.depth <= 0.75 && (
+                <label>
+                  Back panel style
+                  <select
+                    value={selected.backStyle ?? 'flat'}
+                    onChange={(event) =>
+                      patch({backStyle: event.target.value as BackPanelStyle})
+                    }
+                  >
+                    {Object.entries(BACK_PANEL_STYLES).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {(selected.kind === 'door' || selected.kind === 'drawer') && (
                 <label>
                   Part face style

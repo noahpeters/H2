@@ -11,12 +11,8 @@ export const OPEN_STORAGE = {
   'floating-shelves': 'Wall-mounted floating shelves',
 } as const;
 export type StorageKind = keyof typeof OPEN_STORAGE;
-export const BACK_PANEL_STYLES = {
-  flat: 'Flat',
-  'vertical-shiplap': 'Vertical shiplap',
-  'vertical-plank': 'Vertical plank / slat',
-} as const;
-export type BackPanelStyle = keyof typeof BACK_PANEL_STYLES;
+export {BACK_PANEL_STYLES, type BackPanelStyle} from './backPanels';
+import {BACK_PANEL_STYLES, type BackPanelStyle} from './backPanels';
 export type OpenStorage = {
   type: StorageKind;
   shelves: number;

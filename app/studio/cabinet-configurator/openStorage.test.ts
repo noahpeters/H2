@@ -88,7 +88,9 @@ describe('open storage', () => {
       group.children.filter((c) => c.name === 'cabinet-back-panel'),
     ).toHaveLength(1);
     expect(
-      group.children.filter((c) => c.name === `back-panel-${style}-line`),
+      group.children
+        .find((c) => c.name === 'cabinet-back-panel')!
+        .children.filter((c) => c.name === `back-panel-${style}-line`),
     ).toHaveLength(lines);
     expect(
       group.children.filter((c) => c.name === 'storage-shelf'),

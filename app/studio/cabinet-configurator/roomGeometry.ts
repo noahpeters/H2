@@ -1,3 +1,4 @@
+import {decorateBackPanel} from './backPanels';
 import type {ToeKickRun} from './continuousToeKicks';
 import {wallThickness, wallFootprint, localWallDepth} from './wallDimensions';
 import type {FrameNeighbors} from './continuousFaceFrames';
@@ -284,25 +285,11 @@ export function cabinetGeometry(
     box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, wood, 'shelf').name =
       'cabinet-top';
   if (!item.storage || item.storage.back) {
-    box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood).name =
-      'cabinet-back-panel';
-    const backStyle = item.storage?.backStyle ?? 'flat';
-    if (backStyle !== 'flat') {
-      const spacing = backStyle === 'vertical-shiplap' ? 5 : 2.5;
-      const count = Math.max(2, Math.floor(w / spacing));
-      for (let index = 1; index < count; index++)
-        box(
-          group,
-          backStyle === 'vertical-shiplap' ? 0.12 : 0.2,
-          Math.max(0.5, h - toe - 0.5),
-          backStyle === 'vertical-shiplap' ? 0.08 : 0.14,
-          -w / 2 + (index * w) / count,
-          toe / 2,
-          -d / 2 + 0.54,
-          dark,
-        ).name = `back-panel-${backStyle}-line`;
-    }
+    const panel = box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
+    panel.name = 'cabinet-back-panel';
+    decorateBackPanel(panel, item.storage?.backStyle, w, h - toe, 0.5, inch);
   }
+
   const frontCells: {
     width: number;
     height: number;
