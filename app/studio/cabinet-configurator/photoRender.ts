@@ -127,6 +127,40 @@ export function easedGeometry(
     !source.parameters.options.extrudePath
   ) {
     const {shapes, options} = source.parameters;
+    // Constructor parameters retain the original shape coordinates, whereas
+    // cabinet stock is translated after extrusion to its local mesh origin.
+    // Rebuilding from parameters alone would detach it from the assembly.
+    const original = new THREE.ExtrudeGeometry(shapes, options);
+    const before = original.getAttribute('position');
+    const after = source.getAttribute('position');
+    const offset = new THREE.Vector3();
+    let translated = before.count === after.count;
+    if (translated) {
+      offset.subVectors(
+        new THREE.Vector3().fromBufferAttribute(after, 0),
+        new THREE.Vector3().fromBufferAttribute(before, 0),
+      );
+      const bounds = new THREE.Box3().setFromBufferAttribute(
+        before as THREE.BufferAttribute,
+      );
+      const tolerance =
+        Math.max(1, bounds.getSize(new THREE.Vector3()).length()) * 1e-6;
+      const delta = new THREE.Vector3();
+      const point = new THREE.Vector3();
+      for (let i = 0; i < before.count; i++) {
+        delta
+          .fromBufferAttribute(after, i)
+          .sub(point.fromBufferAttribute(before, i));
+        if (delta.distanceTo(offset) > tolerance) {
+          translated = false;
+          break;
+        }
+      }
+    }
+    original.dispose();
+    // Rotated, scaled or independently reshaped stock retains its captured
+    // geometry rather than being reconstructed from stale shape parameters.
+    if (!translated) return source.clone();
     const depth = options.depth ?? 1;
     const r = Math.min(radius, depth / 4);
     // Inset the caps; the central contour stays at the original perimeter.
@@ -138,7 +172,7 @@ export function easedGeometry(
       bevelThickness: r,
       bevelOffset: -r,
       bevelSegments: 3,
-    }).translate(0, 0, r);
+    }).translate(offset.x, offset.y, offset.z + r);
   }
   return source.clone();
 }

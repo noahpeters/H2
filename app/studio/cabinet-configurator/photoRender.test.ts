@@ -550,3 +550,132 @@ test('prepared clones preserve exact geometry and UVs and own disposable resourc
   disposeStudyObject(snapshot.scene);
   disposeStudyObject(scene);
 });
+
+test('easing preserves translated extrusions and retains independently transformed stock', () => {
+  const shape = new THREE.Shape()
+    .moveTo(0, 0)
+    .lineTo(24, 0)
+    .lineTo(24, 18)
+    .lineTo(0, 18)
+    .closePath();
+  const original = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.75,
+    bevelEnabled: false,
+  });
+  original.translate(-12, -9, -0.375);
+  const unchanged = Array.from(original.getAttribute('position').array);
+  const eased = easedGeometry(original, 0.04);
+  original.computeBoundingBox();
+  eased.computeBoundingBox();
+  for (const axis of ['x', 'y', 'z'] as const) {
+    expect(eased.boundingBox!.min[axis]).toBeCloseTo(
+      original.boundingBox!.min[axis],
+      5,
+    );
+    expect(eased.boundingBox!.max[axis]).toBeCloseTo(
+      original.boundingBox!.max[axis],
+      5,
+    );
+  }
+  expect(Array.from(original.getAttribute('position').array)).toEqual(
+    unchanged,
+  );
+  for (const transform of [
+    new THREE.Matrix4().makeRotationY(0.4),
+    new THREE.Matrix4().makeScale(1.2, 0.8, 1),
+  ]) {
+    const transformed = original.clone().applyMatrix4(transform);
+    const photo = easedGeometry(transformed, 0.04);
+    expect(photo.getAttribute('position').array).toEqual(
+      transformed.getAttribute('position').array,
+    );
+    expect(photo.getAttribute('normal').array).toEqual(
+      transformed.getAttribute('normal').array,
+    );
+    photo.dispose();
+    transformed.dispose();
+  }
+  original.dispose();
+  eased.dispose();
+});
+
+test.each(['open', 'doors'] as const)(
+  'photo snapshots keep %s cabinet arches attached to the same cabinet and pose',
+  async (kind) => {
+    const {createCustomUnit} = await import('./custom-unit/model');
+    const {customUnitGeometry} = await import('./custom-unit/geometry');
+    const unit = createCustomUnit({
+      width: 36,
+      height: 72,
+      depth: 14,
+      root: {
+        id: 'shelves',
+        type: 'section',
+        sectionType: kind === 'open' ? 'shelves' : 'doors',
+        properties: kind === 'open' ? {shelfCount: 5} : {doorCount: 2},
+      },
+    });
+    unit.frontArch = 'simple';
+    const source = new THREE.Scene();
+    const cabinet = customUnitGeometry(
+      unit,
+      {},
+      {overlay: 'inset', face: 'shaker-glass', material: 'paint-grade'},
+    );
+    cabinet.scale.setScalar(0.0254);
+    cabinet.rotation.y = 0.7;
+    cabinet.position.set(2, 0.3, -1);
+    source.add(cabinet);
+    source.updateMatrixWorld(true);
+    const before = new Map<
+      string,
+      {matrix: THREE.Matrix4; bounds: THREE.Box3; positions: unknown}
+    >();
+    cabinet.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      before.set(object.uuid, {
+        matrix: object.matrixWorld.clone(),
+        bounds: new THREE.Box3().setFromObject(object),
+        positions: Array.from(object.geometry.getAttribute('position').array),
+      });
+    });
+    const snapshot = createPhotoSnapshot(source, new THREE.PerspectiveCamera());
+    const captured = snapshot.scene.children[0];
+    snapshot.scene.updateMatrixWorld(true);
+    const liveMeshes: THREE.Mesh[] = [],
+      photoMeshes: THREE.Mesh[] = [];
+    cabinet.traverse((object) => {
+      if (object instanceof THREE.Mesh) liveMeshes.push(object);
+    });
+    captured.traverse((object) => {
+      if (object instanceof THREE.Mesh) photoMeshes.push(object);
+    });
+    expect(photoMeshes).toHaveLength(liveMeshes.length);
+    for (let i = 0; i < liveMeshes.length; i++) {
+      const live = liveMeshes[i],
+        photo = photoMeshes[i],
+        expected = before.get(live.uuid)!;
+      expect(photo.matrixWorld.elements).toEqual(expected.matrix.elements);
+      const bounds = new THREE.Box3().setFromObject(photo);
+      // Edge easing preserves the cabinet assembly envelope within its 1mm radius.
+      expect(bounds.min.distanceTo(expected.bounds.min)).toBeLessThan(0.002);
+      expect(bounds.max.distanceTo(expected.bounds.max)).toBeLessThan(0.002);
+      expect(Array.from(live.geometry.getAttribute('position').array)).toEqual(
+        expected.positions,
+      );
+    }
+    const archIndex = liveMeshes.findIndex(
+      (mesh) =>
+        mesh.name === 'cabinet-face-frame' &&
+        mesh.geometry instanceof THREE.ExtrudeGeometry,
+    );
+    expect(archIndex).toBeGreaterThanOrEqual(0);
+    expect(
+      photoMeshes[archIndex].geometry.getAttribute('position').count,
+    ).toBeGreaterThan(
+      liveMeshes[archIndex].geometry.getAttribute('position').count,
+    );
+    disposeStudyObject(snapshot.scene);
+    disposeStudyObject(source);
+  },
+);
