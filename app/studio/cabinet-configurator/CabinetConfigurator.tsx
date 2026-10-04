@@ -56,6 +56,7 @@ import {
   applyCabinetType,
 } from './cabinetTypes';
 import {FixturePlan} from './FixturePlan';
+import {createRoomPanel} from './roomPanels';
 import {
   FIXTURE_CATALOG,
   createFixture,
@@ -2548,13 +2549,15 @@ export function CabinetConfigurator({
               <div className="cc-fields">
                 <div className="cc-selected-heading">
                   <strong>
-                    {selected.fixtureKind
-                      ? FIXTURE_CATALOG[selected.fixtureKind].label
-                      : selected.storage
-                        ? OPEN_STORAGE[selected.storage.type]
-                        : selected.applianceKind
-                          ? APPLIANCE_CATALOG[selected.applianceKind].label
-                          : selected.kind}
+                    {selected.kind === 'panel'
+                      ? 'Room panel'
+                      : selected.fixtureKind
+                        ? FIXTURE_CATALOG[selected.fixtureKind].label
+                        : selected.storage
+                          ? OPEN_STORAGE[selected.storage.type]
+                          : selected.applianceKind
+                            ? APPLIANCE_CATALOG[selected.applianceKind].label
+                            : selected.kind}
                   </strong>
                   <button
                     onClick={() =>
@@ -2645,7 +2648,8 @@ export function CabinetConfigurator({
                   </>
                 )}
                 {selected.kind !== 'appliance' &&
-                  selected.kind !== 'fixture' && (
+                  selected.kind !== 'fixture' &&
+                  selected.kind !== 'panel' && (
                     <>
                       <button onClick={() => setCustomizing(selected)}>
                         Customize this cabinet
@@ -2740,7 +2744,8 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {(selected.kind === 'appliance' ||
+                {(selected.kind === 'panel' ||
+                  selected.kind === 'appliance' ||
                   (selected.kind === 'fixture' &&
                     selected.fixtureKind !== 'mirror')) &&
                   selected.placement.mode !== 'floor' && (
@@ -2793,7 +2798,8 @@ export function CabinetConfigurator({
                     <small>Edit shared finishes in Materials.</small>
                   </label>
                 )}
-                {selected.kind !== 'fixture' &&
+                {selected.kind !== 'panel' &&
+                  selected.kind !== 'fixture' &&
                   selected.kind !== 'appliance' &&
                   (!selected.storage ||
                     selected.storage.doors ||
@@ -2829,7 +2835,8 @@ export function CabinetConfigurator({
                       </VisualSelect>
                     </div>
                   )}
-                {selected.kind !== 'fixture' &&
+                {selected.kind !== 'panel' &&
+                  selected.kind !== 'fixture' &&
                   selected.kind !== 'appliance' &&
                   (!selected.storage || selected.storage.doors) &&
                   selected.width <= 30 &&
@@ -2912,7 +2919,8 @@ export function CabinetConfigurator({
                       selected.applianceKind === 'refrigerator') ||
                     (selected.kind === 'fixture' &&
                       selected.fixtureKind !== 'glass-shower') ||
-                    selected.kind === 'wall-cabinet') && (
+                    selected.kind === 'wall-cabinet' ||
+                    selected.kind === 'panel') && (
                     <label>
                       Height (in)
                       <input
@@ -3080,7 +3088,7 @@ export function CabinetConfigurator({
                   </>
                 )}
                 <label>
-                  Width
+                  {selected.kind === 'panel' ? 'Thickness' : 'Width'}
                   <span>
                     <input
                       type="number"
@@ -3111,6 +3119,7 @@ export function CabinetConfigurator({
                     selected.kind === 'base' ||
                     selected.kind === 'tall' ||
                     selected.kind === 'wall-cabinet' ||
+                    selected.kind === 'panel' ||
                     selected.applianceKind === 'refrigerator') && (
                     <label>
                       Depth
@@ -3294,6 +3303,23 @@ export function CabinetConfigurator({
                         ))}
                     </div>
                   </details>
+                  <button
+                    onClick={() =>
+                      update((d) => {
+                        const item = createRoomPanel(makeId(), d.room);
+                        d.elements.push(
+                          automaticallyPlaceElement(
+                            item,
+                            d,
+                            placementContext(item, d),
+                          ),
+                        );
+                        d.selected = item.id;
+                      })
+                    }
+                  >
+                    + Room panel
+                  </button>
                 </div>
               )}
               {editingRoom && (

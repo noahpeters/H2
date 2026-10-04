@@ -59,6 +59,7 @@ export type ElementKind =
   | 'base'
   | 'wall-cabinet'
   | 'tall'
+  | 'panel'
   | 'appliance'
   | 'fixture';
 export type ApplianceKind =
