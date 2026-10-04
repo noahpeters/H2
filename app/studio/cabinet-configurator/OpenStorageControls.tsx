@@ -1,5 +1,5 @@
 import type {Room, RoomElement} from './model';
-import {storageLayout} from './openStorage';
+import {BACK_PANEL_STYLES, storageLayout} from './openStorage';
 export function OpenStorageControls({
   item,
   room,
@@ -120,6 +120,29 @@ export function OpenStorageControls({
               onChange={(event) => storage('back', event.currentTarget.checked)}
             />
           </label>
+          {s.back && (
+            <label>
+              Back panel style
+              <select
+                value={s.backStyle ?? 'flat'}
+                onChange={(event) =>
+                  change({
+                    storage: {
+                      ...s,
+                      backStyle: event.currentTarget
+                        .value as keyof typeof BACK_PANEL_STYLES,
+                    },
+                  })
+                }
+              >
+                {Object.entries(BACK_PANEL_STYLES).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {s.type === 'shoes' && (
             <label>
               Angled shoe shelves

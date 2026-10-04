@@ -26,11 +26,27 @@ it('edits dimensions, interiors, doors and back without changing type', () => {
   });
   fireEvent.click(screen.getByLabelText('Doors'));
   fireEvent.click(screen.getByLabelText('Finished back'));
-  const item = JSON.parse(container.querySelector('output')!.textContent!) as any;
+  const item = JSON.parse(
+    container.querySelector('output')!.textContent!,
+  ) as any;
   expect(item).toMatchObject({
     depth: 20,
     storage: {shelves: 3, doors: true, back: false},
   });
   expect(item.storage.type).toBe('shelving');
   expect(screen.queryByLabelText('Open storage type')).not.toBeInTheDocument();
+});
+
+it('selects a decorative style on the back panel', () => {
+  const {container} = render(<Harness />);
+  fireEvent.change(screen.getByLabelText('Back panel style'), {
+    target: {value: 'vertical-shiplap'},
+  });
+  const item = JSON.parse(
+    container.querySelector('output')!.textContent!,
+  ) as any;
+  expect(item.storage.backStyle).toBe('vertical-shiplap');
+
+  fireEvent.click(screen.getByLabelText('Finished back'));
+  expect(screen.queryByLabelText('Back panel style')).not.toBeInTheDocument();
 });
