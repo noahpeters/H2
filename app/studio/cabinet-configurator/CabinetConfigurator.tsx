@@ -56,7 +56,6 @@ import {
   applyCabinetType,
 } from './cabinetTypes';
 import {FixturePlan} from './FixturePlan';
-import {ElevationWorksheet} from './ElevationWorksheet';
 import {
   FIXTURE_CATALOG,
   createFixture,
@@ -123,6 +122,7 @@ import {
   snapIslandEdges,
   snapRoomCorner,
 } from './placement';
+import {ElevationWorksheet} from './ElevationWorksheet';
 import {StudyScene, elementTransform, disposeStudyObject} from './studyScene';
 import {DEFAULT_PHOTO_CAMERA} from './photoCamera';
 import {SceneInteractions} from './sceneInteractions';
