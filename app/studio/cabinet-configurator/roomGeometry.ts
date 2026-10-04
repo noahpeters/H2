@@ -803,7 +803,11 @@ export function placeOnWall(
 ) {
   const s = roomWall(room, wall),
     p = wallPoint(room, wall, center);
-  group.rotation.y = s.horizontal ? 0 : -Math.PI / 2;
+  group.rotation.y = s.horizontal
+    ? 0
+    : s.tx === 0
+      ? -Math.PI / 2
+      : (-s.rotation * Math.PI) / 180;
   group.position.set(
     (p.x - room.width / 2) * inch,
     0,
@@ -891,10 +895,20 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
           continue;
         const shape = new THREE.Shape();
         wallFootprint(room, wall, xs[i - 1], xs[i]).forEach((p, index) => {
+          const dx = p.x - segment.a.x,
+            dz = p.z - segment.a.z;
           const localX =
-            (segment.horizontal ? p.x - segment.x : p.z - segment.z) -
+            (segment.horizontal
+              ? p.x - segment.x
+              : segment.tx === 0
+                ? p.z - segment.z
+                : dx * segment.tx + dz * segment.tz) -
             length / 2;
-          const localZ = segment.horizontal ? p.z - segment.z : segment.x - p.x;
+          const localZ = segment.horizontal
+            ? p.z - segment.z
+            : segment.tx === 0
+              ? segment.x - p.x
+              : dx * segment.nx + dz * segment.nz;
           if (index === 0) shape.moveTo(localX * inch, -localZ * inch);
           else shape.lineTo(localX * inch, -localZ * inch);
         });

@@ -1,4 +1,5 @@
 import type {Room, Wall} from './model';
+import {quantizePosition} from './positioningPrecision';
 export type RoomPoint = {id: Wall; x: number; z: number};
 export function roomPoints(room: Room): RoomPoint[] {
   return (
@@ -33,6 +34,8 @@ export function roomSegments(room: Room) {
     const dx = b.x - a.x,
       dz = b.z - a.z;
     const length = Math.hypot(dx, dz);
+    const tx = dx / length,
+      tz = dz / length;
     const nx = -dz / length,
       nz = dx / length;
     return {
@@ -40,12 +43,23 @@ export function roomSegments(room: Room) {
       a,
       b,
       length,
+      tx,
+      tz,
       horizontal: dz === 0,
       x: Math.min(a.x, b.x),
       z: Math.min(a.z, b.z),
       nx,
       nz,
-      rotation: nz > 0 ? 0 : nx < 0 ? 90 : nz < 0 ? 180 : 270,
+      rotation:
+        dz === 0
+          ? nz > 0
+            ? 0
+            : 180
+          : dx === 0
+            ? nx < 0
+              ? 90
+              : 270
+            : (Math.atan2(tz, tx) * 180) / Math.PI,
       label,
     };
   });
@@ -55,9 +69,13 @@ export function roomWall(room: Room, id: Wall) {
 }
 export function wallPoint(room: Room, id: Wall, offset: number) {
   const s = roomWall(room, id);
+  // Keep persisted orthogonal offsets compatible with the original room model.
+  // Angled segments use their endpoint-defined tangent.
+  if (s.horizontal) return {x: s.x + offset, z: s.z};
+  if (s.tx === 0) return {x: s.x, z: s.z + offset};
   return {
-    x: s.x + (s.horizontal ? offset : 0),
-    z: s.z + (s.horizontal ? 0 : offset),
+    x: s.a.x + s.tx * offset,
+    z: s.a.z + s.tz * offset,
   };
 }
 export function validOutline(value: unknown): value is RoomPoint[] {
@@ -81,26 +99,64 @@ export function validOutline(value: unknown): value is RoomPoint[] {
   if (new Set(points.map((p) => p.id)).size !== points.length) return false;
   let area = 0;
   const edges = points.map((a, i) => ({a, b: points[(i + 1) % points.length]}));
+  const intersects = (
+    a: RoomPoint,
+    b: RoomPoint,
+    c: RoomPoint,
+    d: RoomPoint,
+  ) => {
+    const side = (p: RoomPoint, q: RoomPoint, r: RoomPoint) =>
+      (q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x);
+    return (
+      Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x)) <=
+        Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) &&
+      Math.max(Math.min(a.z, b.z), Math.min(c.z, d.z)) <=
+        Math.min(Math.max(a.z, b.z), Math.max(c.z, d.z)) &&
+      side(a, b, c) * side(a, b, d) <= 0 &&
+      side(c, d, a) * side(c, d, b) <= 0
+    );
+  };
   for (let i = 0; i < edges.length; i++) {
     const {a, b} = edges[i];
-    if ((a.x === b.x) === (a.z === b.z) || Math.hypot(b.x - a.x, b.z - a.z) < 6)
-      return false;
+    if (Math.hypot(b.x - a.x, b.z - a.z) < 6) return false;
     const c = edges[(i + 1) % edges.length].b;
-    if ((a.x === b.x) === (b.x === c.x)) return false;
+    const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+    if (Math.abs(cross) < 1e-7) return false;
     area += a.x * b.z - b.x * a.z;
     for (let j = i + 2; j < edges.length; j++) {
       if (i === 0 && j === edges.length - 1) continue;
       const {a: u, b: v} = edges[j];
-      if (
-        Math.max(Math.min(a.x, b.x), Math.min(u.x, v.x)) <=
-          Math.min(Math.max(a.x, b.x), Math.max(u.x, v.x)) &&
-        Math.max(Math.min(a.z, b.z), Math.min(u.z, v.z)) <=
-          Math.min(Math.max(a.z, b.z), Math.max(u.z, v.z))
-      )
-        return false;
+      if (intersects(a, b, u, v)) return false;
     }
   }
   return area >= 72;
+}
+
+/** Move a perimeter vertex. The vertex is shared by its two neighboring walls,
+ * so editing can never introduce a boundary gap. Without free movement, retain
+ * the dragged wall's original axis as the normal orthogonal editing behavior. */
+export function moveRoomEndpoint(
+  room: Room,
+  id: Wall,
+  end: 'start' | 'end',
+  point: {x: number; z: number},
+  free = false,
+) {
+  const points = roomPoints(room).map((p) => ({...p}));
+  const wallIndex = points.findIndex((p) => p.id === id);
+  if (wallIndex < 0) return null;
+  const index = end === 'start' ? wallIndex : (wallIndex + 1) % points.length;
+  const segment = roomWall(room, id);
+  const next = {
+    x: quantizePosition(point.x, room),
+    z: quantizePosition(point.z, room),
+  };
+  if (!free) {
+    if (segment.horizontal) next.z = points[index].z;
+    else next.x = points[index].x;
+  }
+  Object.assign(points[index], next);
+  return validOutline(points) ? points : null;
 }
 export function pointInRoom(room: Room, x: number, z: number) {
   const points = roomPoints(room);

@@ -82,18 +82,24 @@ export function wallFootprint(
   }
   // Clip the complete mitered polygon at aperture subdivisions. Constructing a
   // separate miter at each cut can invert narrow pieces beside concave corners.
-  const axis = s.horizontal ? 'x' : 'z';
-  const origin = s[axis];
   const clip = (points: typeof footprint, value: number, greater: boolean) => {
     const result: typeof footprint = [];
+    const along = (p: {x: number; z: number}) =>
+      s.horizontal
+        ? p.x - s.x
+        : s.tx === 0
+          ? p.z - s.z
+          : (p.x - s.a.x) * s.tx + (p.z - s.a.z) * s.tz;
     for (let i = 0; i < points.length; i++) {
       const a = points[i],
         b = points[(i + 1) % points.length];
-      const insideA = greater ? a[axis] >= value : a[axis] <= value;
-      const insideB = greater ? b[axis] >= value : b[axis] <= value;
+      const aAlong = along(a),
+        bAlong = along(b);
+      const insideA = greater ? aAlong >= value : aAlong <= value;
+      const insideB = greater ? bAlong >= value : bAlong <= value;
       if (insideA) result.push(a);
       if (insideA !== insideB) {
-        const ratio = (value - a[axis]) / (b[axis] - a[axis]);
+        const ratio = (value - aAlong) / (bAlong - aAlong);
         result.push({
           x: a.x + ratio * (b.x - a.x),
           z: a.z + ratio * (b.z - a.z),
@@ -102,8 +108,8 @@ export function wallFootprint(
     }
     return result;
   };
-  if (start > 0) footprint = clip(footprint, origin + start, true);
-  if (end < s.length) footprint = clip(footprint, origin + end, false);
+  if (start > 0) footprint = clip(footprint, start, true);
+  if (end < s.length) footprint = clip(footprint, end, false);
   return footprint;
 }
 

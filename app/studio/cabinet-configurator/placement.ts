@@ -85,22 +85,29 @@ export function snapWall(
     offset: number;
     length: number;
     rotation: number;
+    angled: boolean;
   }[] = roomSegments(room).flatMap((s) =>
-    (isPartition(room, s.id) ? [1, -1] : [1]).map((side) => ({
-      wall: s.id,
-      distance: Math.abs(
-        s.horizontal
-          ? z -
-              (s.z +
-                side * s.nz * (wallFaceOffset(room, s.id) + item.depth / 2))
-          : x -
-              (s.x +
-                side * s.nx * (wallFaceOffset(room, s.id) + item.depth / 2)),
-      ),
-      offset: (s.horizontal ? x - s.x : z - s.z) - item.width / 2,
-      length: s.length,
-      rotation: (s.rotation + (side === -1 ? 180 : 0)) % 360,
-    })),
+    (isPartition(room, s.id) ? [1, -1] : [1]).map((side) => {
+      const dx = x - s.a.x,
+        dz = z - s.a.z;
+      const along = s.horizontal
+        ? x - s.x
+        : s.tx === 0
+          ? z - s.z
+          : dx * s.tx + dz * s.tz;
+      return {
+        wall: s.id,
+        distance: Math.abs(
+          dx * s.nx +
+            dz * s.nz -
+            side * (wallFaceOffset(room, s.id) + item.depth / 2),
+        ),
+        offset: along - item.width / 2,
+        length: s.length,
+        rotation: (s.rotation + (side === -1 ? 180 : 0)) % 360,
+        angled: !s.horizontal && s.tx !== 0,
+      };
+    }),
   );
   const target = candidates
     .filter(
@@ -108,28 +115,29 @@ export function snapWall(
         c.distance <= threshold &&
         c.offset >= -threshold &&
         c.offset + item.width <= c.length + threshold &&
-        boxInRoom(
-          room,
-          bounds(
-            {
-              ...item,
-              placement: {
-                mode: 'wall',
-                wall: c.wall,
-                rotation: c.rotation,
-                offset: Math.max(
-                  0,
-                  Math.min(
-                    c.length - item.width,
-                    quantizePosition(c.offset, room),
-                  ),
-                ),
-                elevation,
-              },
-            },
+        (c.angled ||
+          boxInRoom(
             room,
-          ),
-        ),
+            bounds(
+              {
+                ...item,
+                placement: {
+                  mode: 'wall',
+                  wall: c.wall,
+                  rotation: c.rotation,
+                  offset: Math.max(
+                    0,
+                    Math.min(
+                      c.length - item.width,
+                      quantizePosition(c.offset, room),
+                    ),
+                  ),
+                  elevation,
+                },
+              },
+              room,
+            ),
+          )),
     )
     .sort((a, b) => a.distance - b.distance)[0];
   if (!target) return;

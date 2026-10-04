@@ -8,6 +8,7 @@ import {
   validOutline,
   boxInRoom,
   moveRoomWall,
+  moveRoomEndpoint,
   addRoomRecess,
 } from './roomOutline';
 import {
@@ -20,11 +21,7 @@ import {
 import {snapWall, snapRoomCorner} from './placement';
 import {reshapeStudy, type Study} from './CabinetConfigurator';
 import {validStudy} from './savedRoomProtocol';
-import {
-  roomGeometry,
-  roomFloorGeometry,
-  openingGeometry,
-} from './roomGeometry';
+import {roomGeometry, roomFloorGeometry, openingGeometry} from './roomGeometry';
 const room: Room = {
   width: 144,
   depth: 120,
@@ -52,6 +49,55 @@ const sample: Study = {
   view: 'split',
 };
 describe('editable orthogonal room outlines', () => {
+  it('moves a shared endpoint freely on Command drag and aligns placement to the angled wall', () => {
+    const points = moveRoomEndpoint(
+      room,
+      'back',
+      'end',
+      {x: 132.4, z: 24.4},
+      true,
+    )!;
+    expect(points[1]).toMatchObject({x: 132.375, z: 24.375});
+    const angled = {...room, outline: points};
+    const wall = roomWall(angled, 'back');
+    expect(wall.length).toBeCloseTo(Math.hypot(132.375, 24.375));
+    expect(wall.rotation).toBeCloseTo(
+      (Math.atan2(24.375, 132.375) * 180) / Math.PI,
+    );
+    expect(roomWall(angled, 'right').a).toEqual(wall.b);
+
+    const item: RoomElement = {
+      ...base,
+      width: 12,
+      depth: 12,
+      placement: {
+        mode: 'floor',
+        x: wall.a.x + wall.tx * 30 + wall.nx * 6,
+        z: wall.a.z + wall.tz * 30 + wall.nz * 6,
+        rotation: 0,
+      },
+    };
+    snapWall(item, angled);
+    expect(item.placement).toMatchObject({
+      mode: 'wall',
+      wall: 'back',
+      rotation: wall.rotation,
+    });
+    const center = wallToFloor(item, angled);
+    expect(
+      (center.x - wall.a.x) * wall.nx + (center.z - wall.a.z) * wall.nz,
+    ).toBeCloseTo(6);
+  });
+
+  it('keeps default endpoint movement orthogonal and uses room resolution', () => {
+    const points = moveRoomEndpoint(
+      {...room, positioningResolution: 1 / 16},
+      'back',
+      'end',
+      {x: 130.25, z: 20},
+    )!;
+    expect(points[1]).toMatchObject({x: 130.25, z: 0});
+  });
   it('removes inward and outward detours on any wall, including wrapped indices', () => {
     for (const wall of ['back', 'right', 'front', 'left'] as const)
       for (const outward of [false, true]) {
@@ -141,7 +187,7 @@ describe('editable orthogonal room outlines', () => {
       validOutline(p.map((v, i) => (i === 1 ? {...v, id: 'back'} : v))),
     ).toBe(false);
     expect(validOutline(p.map((v, i) => (i === 1 ? {...v, z: 20} : v)))).toBe(
-      false,
+      true,
     );
     expect(moveRoomWall(room, 'right', 3)).toBeNull();
     expect(validStudy({...sample, room: {...room, outline: [{}]}})).toBe(false);
