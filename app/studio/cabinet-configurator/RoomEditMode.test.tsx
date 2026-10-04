@@ -182,6 +182,51 @@ test('split-view 3D opening selection obeys room edit mode', () => {
   expect(state.latest!.selected).toBeNull();
 });
 
+test('only auto-expands the selected object section when selection changes', () => {
+  state.initial!.islands = [
+    {
+      id: 'first-island',
+      x: 48,
+      z: 48,
+      width: 36,
+      depth: 24,
+      rotation: 0,
+      overhang: 0,
+      seatingSide: 'none',
+    },
+    {
+      id: 'second-island',
+      x: 96,
+      z: 48,
+      width: 36,
+      depth: 24,
+      rotation: 0,
+      overhang: 0,
+      seatingSide: 'none',
+    },
+  ];
+  state.initial!.selected = 'first-island';
+  render(<CabinetConfigurator />);
+
+  const materials = screen.getByText('Materials').closest('details')!;
+  const room = screen.getByText('Room').closest('details')!;
+  const selection = screen.getByText('Selected object').closest('details')!;
+  expect(materials.open).toBe(false);
+  expect(room.open).toBe(false);
+  expect(selection.open).toBe(true);
+
+  fireEvent.click(screen.getByText('Materials'));
+  fireEvent.click(screen.getByText('Room'));
+  expect(materials.open).toBe(true);
+  expect(room.open).toBe(true);
+
+  fireEvent.keyDown(screen.getByLabelText('Select island 2'), {key: 'Enter'});
+  expect(state.latest!.selected).toBe('second-island');
+  expect(materials.open).toBe(false);
+  expect(room.open).toBe(false);
+  expect(selection.open).toBe(true);
+});
+
 test('room precision persists and controls numeric cabinet placement on all axes', () => {
   state.initial!.room.partitions = [];
   state.initial!.elements = [

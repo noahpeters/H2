@@ -1368,6 +1368,7 @@ export function CabinetConfigurator({
     pointerId: number;
   } | null>(null);
   const roomControls = useRef<HTMLDetailsElement>(null);
+  const materialsControls = useRef<HTMLDetailsElement>(null);
   const selectedControls = useRef<HTMLDetailsElement>(null);
   const openingDrag = useRef<{
     id: string;
@@ -1910,6 +1911,12 @@ export function CabinetConfigurator({
   const selectedPartition = study.room.partitions?.find(
     (p) => p.id === selectedWall,
   );
+  useEffect(() => {
+    if (!study.selected) return;
+    if (materialsControls.current) materialsControls.current.open = false;
+    if (roomControls.current) roomControls.current.open = false;
+    if (selectedControls.current) selectedControls.current.open = true;
+  }, [study.selected]);
   const beginWall = () => {
     setAddingWall(true);
     setWallPreview(null);
@@ -2075,7 +2082,11 @@ export function CabinetConfigurator({
         }}
       >
         <aside className="cc-tools" aria-label="Design controls">
-          <MaterialsSection study={study} update={update} />
+          <MaterialsSection
+            study={study}
+            update={update}
+            detailsRef={materialsControls}
+          />
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
