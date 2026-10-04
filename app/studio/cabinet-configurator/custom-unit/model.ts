@@ -92,7 +92,9 @@ export type CustomUnitDefinition = {
   root: CustomUnitNode;
   /** Optional explicit physical layout. Legacy region definitions remain supported. */
   parts?: CabinetPart[];
-  /** Opening-owned arch choices; IDs refer to doors or open/shelved sections. */
+  /** One continuous arch across the full cabinet front. */
+  frontArch?: 'simple';
+  /** Legacy opening-owned arch choices; IDs refer to doors or open/shelved sections. */
   archedOpenings?: string[];
   curve?: CabinetCurve;
   /** One front outline shared by all cabinet parts unless explicitly detached. */
@@ -520,6 +522,17 @@ export function validateCustomUnit(value: unknown): string[] {
       }
     }
   }
+  if (unit.frontArch !== undefined && unit.frontArch !== 'simple')
+    errors.push('Invalid cabinet front arch');
+  if (
+    unit.frontArch === 'simple' &&
+    typeof unit.height === 'number' &&
+    typeof unit.width === 'number' &&
+    unit.height < unit.width / 2 + 0.75
+  )
+    errors.push(
+      'Cabinet height must leave room for its full semicircular arch above the bottom rail',
+    );
   if (
     unit.archedOpenings !== undefined &&
     (!Array.isArray(unit.archedOpenings) ||

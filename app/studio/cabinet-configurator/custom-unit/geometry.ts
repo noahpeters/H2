@@ -1,3 +1,4 @@
+import {archedFrontGeometry} from './archedFrontGeometry';
 import {decorateBackPanel} from '../backPanels';
 import type {FrameNeighbors} from '../continuousFaceFrames';
 import {roomFrontParts} from './frontLayout';
@@ -65,7 +66,9 @@ export function customUnitGeometry(
         ? 'shaker'
         : appearance?.face);
     let geometry: THREE.BufferGeometry;
-    if (part.outline || (part.arch === 'simple' && part.kind === 'door')) {
+    if (part.outline) {
+      geometry = archedFrontGeometry(part, face);
+    } else if (part.arch === 'simple' && part.kind === 'door') {
       const shape = new THREE.Shape();
       (
         part.outline ?? simpleArchProfile(part.width, part.height).points

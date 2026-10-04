@@ -1,4 +1,4 @@
-import {simpleArchProfile, insetArchProfile} from '../simpleArch';
+import {hasCabinetArch, clipCabinetArch, type CabinetArch} from './cabinetArch';
 import {cabinetOpenings} from './openingPlacement';
 import {customUnitLayoutParts} from './layoutParts';
 import {cabinetFaceFrame} from '../faceFrame';
@@ -7,6 +7,7 @@ import type {CabinetPart, CustomUnitDefinition} from './model';
 import type {Overlay} from '../overlay';
 
 export type RoomFrontPart = CabinetPart & {
+  cabinetArch?: CabinetArch;
   arrayId?: string;
   roomOpening?: Opening;
   outline?: Array<{x: number; y: number}>;
@@ -60,6 +61,108 @@ export function roomFrontParts(
   overlay: Overlay,
   joined: {left?: boolean; right?: boolean} = {},
 ): RoomFrontPart[] {
+  if (hasCabinetArch(unit)) {
+    const baseline = roomFrontParts(
+      {
+        ...unit,
+        frontArch: undefined,
+        archedOpenings: undefined,
+        parts: unit.parts?.map((part) => ({...part, arch: undefined})),
+      },
+      overlay,
+      joined,
+    );
+    const framed = baseline.some((part) => part.faceFrame);
+    const margin = framed ? 1.5 : 0.75;
+    const left = framed
+      ? baseline.find((part) => part.faceFrame === 'left')!
+      : undefined;
+    const right = framed
+      ? baseline.find((part) => part.faceFrame === 'right')!
+      : undefined;
+    const start = left ? left.x + left.width : margin;
+    const end = right ? right.x : unit.width - margin;
+    const radius = (end - start) / 2;
+    // A semicircle is sized from cabinet width, even when it crosses shelves.
+    const arch = {
+      center: (start + end) / 2,
+      radius,
+      spring: unit.height - margin - radius,
+    };
+    const offset =
+      overlay === 'inset'
+        ? unit.reveal
+        : overlay === 'partial-overlay'
+          ? unit.reveal - margin / 2
+          : unit.reveal - margin;
+    const doorArch = {...arch, radius: radius - offset};
+    const result: RoomFrontPart[] = baseline
+      .filter(
+        (part) =>
+          !(part.faceFrame === 'rail' && part.y >= unit.height - margin - 1e-6),
+      )
+      .flatMap((part) => {
+        if (
+          !['door', 'drawer'].includes(part.kind) ||
+          part.z > 0 ||
+          part.drawerArray?.face === 'internal' ||
+          part.door?.mechanism === 'tambour'
+        )
+          return [part];
+        const outline = clipCabinetArch(doorArch, part);
+        if (outline.length < 3) return [];
+        if (
+          outline.length === 4 &&
+          outline.every(
+            (point) =>
+              (Math.abs(point.x) < 1e-8 ||
+                Math.abs(point.x - part.width) < 1e-8) &&
+              (Math.abs(point.y) < 1e-8 ||
+                Math.abs(point.y - part.height) < 1e-8),
+          )
+        )
+          return [
+            {
+              ...part,
+              z: overlay === 'full-overlay' ? -0.75 - part.depth : part.z,
+            },
+          ];
+        return [
+          {
+            ...part,
+            z: overlay === 'full-overlay' ? -0.75 - part.depth : part.z,
+            outline,
+            cabinetArch: doorArch,
+          },
+        ];
+      });
+    const outline = [
+      {x: 0, y: radius + margin},
+      {x: 2 * radius, y: radius + margin},
+    ];
+    for (let i = 0; i <= 128; i++) {
+      const angle = (i * Math.PI) / 128;
+      outline.push({
+        x: radius + radius * Math.cos(angle),
+        y: radius * Math.sin(angle),
+      });
+    }
+    result.push({
+      id: 'room-frame-cabinet-arch',
+      name: 'Arched face frame rail',
+      kind: 'panel',
+      x: start,
+      y: arch.spring,
+      z: -0.75,
+      width: 2 * radius,
+      height: radius + margin,
+      depth: 0.75,
+      outline,
+      faceFrame: 'rail',
+      materialApplication: {grainAxis: 'x'},
+    });
+    return result;
+  }
   const exteriorParts = new Set<CabinetPart>();
   const projectedParts = (unit.parts ?? []).flatMap((part) => {
     if (
@@ -90,33 +193,17 @@ export function roomFrontParts(
     expanded.forEach((part) => exteriorParts.add(part));
     return expanded;
   });
-  const selectedArches = new Set(unit.archedOpenings ?? []);
-  projectedParts.forEach((p) => {
-    if (p.arch === 'simple') selectedArches.add(`door:${p.id}`);
-  });
-  if (overlay === 'full-overlay' && !selectedArches.size) return projectedParts;
+  if (overlay === 'full-overlay') return projectedParts;
   const exterior = projectedParts.filter((part) => exteriorParts.has(part));
-  const openCells = cabinetOpeningChoices(unit).filter(
-    (c) =>
-      c.id.startsWith('section:') &&
-      [...selectedArches].some((id) => id.startsWith('section:')),
-  );
-  if (!exterior.length && !openCells.length) return projectedParts;
+  if (!exterior.length) return projectedParts;
   const frame = cabinetFaceFrame(
-    [...exterior, ...openCells],
+    exterior,
     {x: 0, y: 0, width: unit.width, height: unit.height},
     joined,
   );
   const openings = new Map(
     exterior.map((part, i) => [part, frame.openings[i]]),
   );
-  const arches = [
-    ...exterior.map((p, i) => ({id: `door:${p.id}`, ...frame.openings[i]})),
-    ...openCells.map((c, i) => ({
-      id: c.id,
-      ...frame.openings[exterior.length + i],
-    })),
-  ].filter((c) => selectedArches.has(c.id));
   const result: RoomFrontPart[] = projectedParts.map((part) => {
     const opening = openings.get(part);
     if (!opening) return part;
@@ -129,9 +216,6 @@ export function roomFrontParts(
       height: opening.height + 2 * overlap - 2 * unit.reveal,
       z: overlay === 'inset' ? -0.75 : -0.75 - part.depth,
       roomOpening: opening,
-      outline: selectedArches.has(`door:${part.id}`)
-        ? insetArchProfile(opening.width, opening.height, unit.reveal - overlap)
-        : undefined,
     };
   });
   for (const [i, r] of frame.stiles.entries())
@@ -145,25 +229,7 @@ export function roomFrontParts(
       faceFrame: i === 0 ? 'left' : i === 1 ? 'right' : 'interior',
       materialApplication: {grainAxis: 'y'},
     });
-  const rails = frame.rails.flatMap((rail) => {
-    let spans = [rail];
-    for (const arch of arches) {
-      if (Math.abs(rail.y - arch.y - arch.height) > 0.01) continue;
-      spans = spans.flatMap((r) => {
-        const start = Math.max(r.x, arch.x),
-          end = Math.min(r.x + r.width, arch.x + arch.width);
-        if (end <= start) return [r];
-        return [
-          r.x < start ? {...r, width: start - r.x} : undefined,
-          end < r.x + r.width
-            ? {...r, x: end, width: r.x + r.width - end}
-            : undefined,
-        ].filter((r): r is typeof rail => !!r);
-      });
-    }
-    return spans;
-  });
-  for (const [i, r] of rails.entries())
+  for (const [i, r] of frame.rails.entries())
     result.push({
       id: `room-frame-rail-${i}`,
       name: 'Face frame rail',
@@ -174,32 +240,6 @@ export function roomFrontParts(
       faceFrame: 'rail',
       materialApplication: {grainAxis: 'x'},
     });
-  for (const arch of arches) {
-    const profile = simpleArchProfile(arch.width, arch.height, 48);
-    const outerTop = arch.height + frame.width;
-    const outline = [
-      {x: 0, y: outerTop - profile.spring},
-      {x: arch.width, y: outerTop - profile.spring},
-      ...profile.points
-        .slice(2)
-        .map((p) => ({x: p.x, y: p.y - profile.spring})),
-      {x: 0, y: 0},
-    ];
-    result.push({
-      id: `room-frame-arch-${arch.id}`,
-      name: 'Arched face frame rail',
-      kind: 'panel',
-      x: arch.x,
-      y: arch.y + profile.spring,
-      z: -0.75,
-      width: arch.width,
-      height: outerTop - profile.spring,
-      depth: 0.75,
-      outline,
-      faceFrame: 'rail',
-      materialApplication: {grainAxis: 'x'},
-    });
-  }
   return result;
 }
 

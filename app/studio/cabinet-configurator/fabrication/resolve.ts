@@ -1,3 +1,6 @@
+import {shakerFrameWidth} from '../hardwarePlacement';
+import {cabinetArchPane} from '../custom-unit/cabinetArch';
+import type {RoomFrontPart} from '../custom-unit/frontLayout';
 import {continuousFrameNeighbors} from '../continuousFaceFrames';
 import {cabinetFaceFrame} from '../faceFrame';
 import {wallToFloor, type RoomElement, type Room} from '../model';
@@ -235,7 +238,7 @@ export function resolveFabrication(
       );
     };
     const front = (
-      part: CabinetPart,
+      part: RoomFrontPart,
       makeBox: boolean,
       opening?: {x: number; y: number; width: number; height: number},
     ) => {
@@ -278,15 +281,42 @@ export function resolveFabrication(
         return;
       }
       if (part.outline) {
+        const style = part.faceStyle ?? item.face;
+        const rail = shakerFrameWidth(part.width, part.height);
+        const pane = ['shaker', 'shaker-glass', 'inset-shaker'].includes(style)
+          ? cabinetArchPane(part, rail)
+          : [];
         const board = add(
-          'Arched door',
+          part.kind === 'drawer'
+            ? 'Arched drawer front'
+            : pane.length >= 3
+              ? 'Arched door frame'
+              : 'Arched door',
           [part.x, part.z, part.y],
           [part.width, part.depth, part.height],
           'solid',
           material,
           2,
         );
-        outlinedStock(board, part.outline);
+        outlinedStock(board, part.outline, pane.length >= 3 ? [pane] : []);
+        if (pane.length >= 3) {
+          const thickness = Math.min(
+            profile.shakerPanelThickness,
+            part.depth / 3,
+          );
+          const panel = add(
+            style === 'shaker-glass'
+              ? 'Arched glass panel'
+              : 'Arched door panel',
+            [part.x, part.z + (part.depth * 2) / 3, part.y],
+            [part.width, thickness, part.height],
+            'solid',
+            style === 'shaker-glass' ? 'glass' : material,
+            2,
+          );
+          outlinedStock(panel, pane);
+        }
+        if (makeBox && opening) drawerBox(part, opening);
         return;
       }
       const style = part.faceStyle ?? item.face;

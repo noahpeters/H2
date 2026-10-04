@@ -171,25 +171,41 @@ export function shapedStock(
 export function outlinedStock(
   part: FabricationPart,
   outline: Array<{x: number; y: number}>,
+  holes: Array<Array<{x: number; y: number}>> = [],
 ) {
-  const points = outline
-    .filter(
-      (p, i) =>
-        !i || Math.hypot(p.x - outline[i - 1].x, p.y - outline[i - 1].y) > 1e-8,
-    )
-    .map((p) => new Vector2(p.x, p.y));
-  if (points[0].distanceTo(points[points.length - 1]) < 1e-8) points.pop();
-  const n = points.length;
+  const clean = (outline: Array<{x: number; y: number}>) => {
+    const points = outline
+      .filter(
+        (p, i) =>
+          !i ||
+          Math.hypot(p.x - outline[i - 1].x, p.y - outline[i - 1].y) > 1e-8,
+      )
+      .map((p) => new Vector2(p.x, p.y));
+    if (points[0].distanceTo(points[points.length - 1]) < 1e-8) points.pop();
+    return points;
+  };
+  const outer = clean(outline),
+    inner = holes.map(clean);
+  const rings = [outer, ...inner],
+    points = rings.flat(),
+    n = points.length;
   const vertices: Vec3[] = [0, part.size[1]].flatMap((z) =>
     points.map((p) => [p.x, z, p.y] as Vec3),
   );
-  const faces = ShapeUtils.triangulateShape(points, []).flatMap(([a, b, c]) => [
-    [a, c, b],
-    [a + n, b + n, c + n],
-  ]);
-  for (let i = 0; i < n; i++) {
-    const next = (i + 1) % n;
-    faces.push([i, next, next + n], [i, next + n, i + n]);
+  const faces = ShapeUtils.triangulateShape(outer, inner).flatMap(
+    ([a, b, c]) => [
+      [a, c, b],
+      [a + n, b + n, c + n],
+    ],
+  );
+  let start = 0;
+  for (const ring of rings) {
+    for (let j = 0; j < ring.length; j++) {
+      const i = start + j,
+        next = start + ((j + 1) % ring.length);
+      faces.push([i, next, next + n], [i, next + n, i + n]);
+    }
+    start += ring.length;
   }
   part.mesh = {vertices, faces};
 }

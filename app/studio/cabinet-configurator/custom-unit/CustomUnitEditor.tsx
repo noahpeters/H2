@@ -1,4 +1,4 @@
-import {cabinetOpeningChoices} from './frontLayout';
+import {hasCabinetArch} from './cabinetArch';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
@@ -737,28 +737,27 @@ export function CustomUnitEditor({
         <aside className="cu-panel cu-inspector">
           <h2>04 / Part details</h2>
           <fieldset className="cu-opening-profiles">
-            <legend>Face-framed openings</legend>
-            {cabinetOpeningChoices(definition).map((opening, index) => (
-              <label className="cu-checkbox" key={opening.id}>
-                <input
-                  type="checkbox"
-                  checked={
-                    definition.archedOpenings?.includes(opening.id) ?? false
-                  }
-                  onChange={(event) =>
-                    update({
-                      ...definition,
-                      archedOpenings: event.currentTarget.checked
-                        ? [...(definition.archedOpenings ?? []), opening.id]
-                        : (definition.archedOpenings ?? []).filter(
-                            (id) => id !== opening.id,
-                          ),
-                    })
-                  }
-                />
-                Arched opening {index + 1}
-              </label>
-            ))}
+            <legend>Cabinet front</legend>
+            <label className="cu-checkbox">
+              <input
+                type="checkbox"
+                checked={hasCabinetArch(definition)}
+                onChange={(event) =>
+                  update({
+                    ...definition,
+                    frontArch: event.currentTarget.checked
+                      ? 'simple'
+                      : undefined,
+                    archedOpenings: undefined,
+                    parts: definition.parts?.map((part) => ({
+                      ...part,
+                      arch: undefined,
+                    })),
+                  })
+                }
+              />
+              Arched cabinet front
+            </label>
           </fieldset>
           {selected ? (
             <>

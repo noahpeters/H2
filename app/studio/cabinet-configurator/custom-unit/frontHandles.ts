@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type {RoomElement} from '../model';
 import {mountedPull} from '../pullGeometry';
-import type {CabinetPart, CustomUnitDefinition} from './model';
+import type {CustomUnitDefinition} from './model';
+import type {RoomFrontPart} from './frontLayout';
 import {frontPullLayout, type HardwareFaceStyle} from '../hardwarePlacement';
 
 export type RoomHandleContext = Pick<
@@ -12,7 +13,7 @@ export type RoomHandleContext = Pick<
 /** Render-only hardware, in the definition's inch coordinates. */
 export function addFrontHandle(
   front: THREE.Object3D,
-  part: CabinetPart,
+  part: RoomFrontPart,
   definition: CustomUnitDefinition,
   context: RoomHandleContext,
 ) {
@@ -71,6 +72,36 @@ export function addFrontHandle(
           ? 'top'
           : undefined,
   });
+  if (part.cabinetArch && !horizontal) {
+    const {center, spring, radius} = part.cabinetArch;
+    // A single arched door's latch stile can end well below the nominal top.
+    // Keep both ends of the pull inside that curved outer edge.
+    const farX = Math.max(
+      ...[-1, 1].map((sign) =>
+        Math.abs(
+          part.x +
+            part.width / 2 +
+            placement.x +
+            (sign * placement.width) / 2 -
+            center,
+        ),
+      ),
+    );
+    const roof = Math.min(
+      part.y + part.height,
+      spring + Math.sqrt(Math.max(0, radius ** 2 - farX ** 2)),
+    );
+    const available = Math.max(0.01, roof - part.y - 0.5);
+    placement.height = Math.min(placement.height, available);
+    placement.y = Math.min(
+      placement.y,
+      roof - part.y - part.height / 2 - placement.height / 2 - 0.25,
+    );
+    placement.y = Math.max(
+      placement.y,
+      -part.height / 2 + placement.height / 2 + 0.25,
+    );
+  }
   const handle = mountedPull(front, placement, -1);
   if (!handle) return;
   handle.name = 'custom-unit-handle';
