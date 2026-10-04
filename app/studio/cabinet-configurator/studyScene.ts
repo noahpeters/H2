@@ -8,6 +8,7 @@ import {elementCenter, wallToFloor, type RoomElement, type Room} from './model';
 import {cabinetColor} from './materials';
 import {waitForMaterialTextures} from './materialRendering';
 import {fixtureGeometry} from './fixtureGeometry';
+import {panelGeometry} from './panelGeometry';
 import {applianceGeometry} from './applianceGeometry';
 import {countertopEdges, DEFAULT_COUNTERTOP_EDGES} from './countertopEdges';
 import {
@@ -177,30 +178,32 @@ function desiredObjects(study: Study): Desired[] {
       ]),
       build: () => {
         const body =
-          item.kind === 'fixture'
-            ? fixtureGeometry(item, room)
-            : item.kind === 'appliance'
-              ? applianceGeometry(
-                  item.applianceKind ?? 'dishwasher',
-                  item.width * INCH,
-                  item.height * INCH,
-                  item.depth * INCH,
-                  item.applianceFront,
-                  item.rangeHood,
-                  cabinetColor(item),
-                  study.countertop && !item.islandId,
-                  item,
-                  edges,
-                )
-              : cabinetGeometry(
-                  item,
-                  study.countertop,
-                  shared,
-                  room,
-                  edges,
-                  frameRuns.get(item.id),
-                  toeRun ? {...toeRun, hidden: true} : undefined,
-                );
+          item.kind === 'panel'
+            ? panelGeometry(item)
+            : item.kind === 'fixture'
+              ? fixtureGeometry(item, room)
+              : item.kind === 'appliance'
+                ? applianceGeometry(
+                    item.applianceKind ?? 'dishwasher',
+                    item.width * INCH,
+                    item.height * INCH,
+                    item.depth * INCH,
+                    item.applianceFront,
+                    item.rangeHood,
+                    cabinetColor(item),
+                    study.countertop && !item.islandId,
+                    item,
+                    edges,
+                  )
+                : cabinetGeometry(
+                    item,
+                    study.countertop,
+                    shared,
+                    room,
+                    edges,
+                    frameRuns.get(item.id),
+                    toeRun ? {...toeRun, hidden: true} : undefined,
+                  );
         applyCountertops(body, room);
         body.userData.id = item.id;
         return body;

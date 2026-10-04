@@ -393,7 +393,19 @@ export function resolveFabrication(
       }
       continue;
     }
-    if (!item.customCabinet && item.storage?.type === 'floating-shelves') {
+    if (item.kind === 'panel') {
+      add(
+        'Room panel',
+        [0, 0, 0],
+        [item.width, item.depth, item.height],
+        'sheet',
+        material,
+        2,
+      );
+    } else if (
+      !item.customCabinet &&
+      item.storage?.type === 'floating-shelves'
+    ) {
       const count = Math.max(1, item.storage.shelves),
         depth = Math.max(6, item.depth);
       for (let i = 0; i < count; i++) {

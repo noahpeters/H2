@@ -213,10 +213,20 @@ export function validStudy(value: any): boolean {
     value.elements.every(
       (e: any) =>
         e &&
-        ['base', 'wall-cabinet', 'tall', 'appliance', 'fixture'].includes(
-          e.kind,
-        ) &&
+        [
+          'base',
+          'wall-cabinet',
+          'tall',
+          'panel',
+          'appliance',
+          'fixture',
+        ].includes(e.kind) &&
         validSink(e.sink) &&
+        (e.kind !== 'panel' ||
+          (e.storage === undefined &&
+            e.customCabinet === undefined &&
+            e.sink == null &&
+            e.placement?.mode !== 'hosted')) &&
         (e.materialDefinition === undefined ||
           (validMaterialDefinition(e.materialDefinition) &&
             e.materialDefinition.id === (e.material ?? 'rift-white-oak'))) &&
