@@ -331,6 +331,6 @@ export function validStudy(value: any): boolean {
         dimension(i.depth),
     ) &&
     typeof value.countertop === 'boolean' &&
-    ['plan', 'split', 'three'].includes(value.view)
+    ['plan', 'split', 'three', 'elevation'].includes(value.view)
   );
 }

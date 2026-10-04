@@ -72,6 +72,8 @@
   grid-template-columns: 294px minmax(0, 1fr);
   height: calc(100vh - 72px);
 }
+.cc-main.cc-read-only-view { grid-template-columns: minmax(0, 1fr); }
+.cc-main.cc-read-only-view .cc-tools { display: none; }
 .cc-tools {
   overflow: auto;
   border-right: 1px solid var(--cc-line);
@@ -188,7 +190,9 @@
   grid-template-columns: 1fr 1fr;
 }
 .cc-canvas-grid.cc-plan .cc-three-panel,
-.cc-canvas-grid.cc-three .cc-plan-panel {
+.cc-canvas-grid.cc-three .cc-plan-panel,
+.cc-canvas-grid.cc-elevation .cc-plan-panel,
+.cc-canvas-grid.cc-elevation .cc-three-panel {
   display: none;
 }
 .cc-panel {
@@ -310,6 +314,28 @@
   min-width: 0;
   min-height: 0;
 }
+.cc-elevation { overflow:auto; padding:22px; background:#dedbd2; }
+.cc-elevation > header { display:flex; align-items:end; justify-content:space-between; gap:24px; max-width:1120px; margin:0 auto 14px; font:11px DM Mono,monospace; color:var(--cc-muted); }
+.cc-elevation > header div { display:grid; gap:4px; }
+.cc-elevation > header span { color:var(--cc-ink); font-size:16px; text-transform:uppercase; letter-spacing:.08em; }
+.cc-elevation > header strong { font-weight:400; color:var(--cc-accent); }
+.cc-elevation > header p { margin:0; }
+.cc-elevation-pages { display:grid; grid-template-columns:repeat(auto-fit,minmax(430px,1fr)); gap:16px; max-width:1120px; margin:auto; }
+.cc-elevation-sheet { min-width:0; margin:0; padding:16px; border:1px solid #aaa79d; background:#fbfaf6; box-shadow:0 2px 8px #443d3214; }
+.cc-elevation-sheet figcaption { padding-bottom:10px; border-bottom:1px solid #d4d0c5; font:500 11px DM Mono,monospace; text-transform:uppercase; letter-spacing:.06em; }
+.cc-elevation-sheet svg { display:block; width:100%; max-height:390px; }
+.cc-elevation-sheet rect, .cc-elevation-sheet path { vector-effect:non-scaling-stroke; }
+.cc-elevation-wall { fill:#f5f3ed; stroke:#78776f; }
+.cc-elevation-item rect { fill:#ece8dd; stroke:#263b37; stroke-width:1.4; }
+.cc-elevation-item path { fill:none; stroke:#68736f; }
+.cc-elevation-appliance rect { fill:#d9ddda; }
+.cc-elevation-fixture rect { fill:#e5eeee; }
+.cc-elevation-opening rect, .cc-elevation-opening path { fill:#fff; stroke:#496668; stroke-width:1.5; }
+.cc-elevation-sheet text { font:8px DM Mono,monospace; fill:#34413e; text-anchor:middle; text-transform:capitalize; }
+.cc-elevation-dimension { fill:none; stroke:#9b5b36 !important; stroke-width:.8; }
+.cc-elevation-sheet .cc-dimension-text { fill:#8e4d2f; font-size:7px; text-transform:none; }
+.cc-elevation-counter { fill:none; stroke:#172b28 !important; stroke-width:3; }
+.cc-elevation-empty { max-width:1120px; margin:40px auto; padding:50px; text-align:center; border:1px dashed var(--cc-line); background:var(--cc-panel); }
 .cc-status {
   border-top: 1px solid var(--cc-line);
   display: flex;
