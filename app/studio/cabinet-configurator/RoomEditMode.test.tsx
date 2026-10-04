@@ -301,7 +301,7 @@ test('Command temporarily disables snapping, permits Command-drag, and never sna
     metaKey: true,
   });
   expect(state.latest!.elements[0].placement).toMatchObject({x: 60.25});
-  expect(screen.queryByLabelText('Positioning aids')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Positioning aids')).toBeInTheDocument();
   fireEvent.keyUp(window, {key: 'Meta', metaKey: false});
   expect(state.latest!.elements[0].placement).toMatchObject({x: 60});
   expect(screen.getByLabelText('Positioning aids')).toBeInTheDocument();
