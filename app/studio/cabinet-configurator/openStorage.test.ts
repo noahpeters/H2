@@ -75,6 +75,27 @@ describe('open storage', () => {
       closed.children.length - 1,
     );
   });
+  it.each([
+    ['flat', 0],
+    ['vertical-shiplap', 6],
+    ['vertical-plank', 13],
+  ] as const)('renders a %s back independently of shelves', (style, lines) => {
+    const item = createOpenStorage('shelving', style);
+    item.width = 36;
+    item.storage!.backStyle = style;
+    const group = cabinetGeometry(item, false);
+    expect(
+      group.children.filter((c) => c.name === 'cabinet-back-panel'),
+    ).toHaveLength(1);
+    expect(
+      group.children
+        .find((c) => c.name === 'cabinet-back-panel')!
+        .children.filter((c) => c.name === `back-panel-${style}-line`),
+    ).toHaveLength(lines);
+    expect(
+      group.children.filter((c) => c.name === 'storage-shelf'),
+    ).toHaveLength(storageLayout(item).shelfYs.length);
+  });
   it('bounds counts and keeps fitted shelves inside short and shallow units', () => {
     const item = createOpenStorage('shoes', 's');
     item.height = 12;
@@ -87,5 +108,8 @@ describe('open storage', () => {
     expect(validStorage({...item.storage, shelves: 100000})).toBe(false);
     expect(validStorage({...item.storage, type: 'unknown'})).toBe(false);
     expect(validStorage({...item.storage, doors: 'yes'})).toBe(false);
+    expect(validStorage({...item.storage, backStyle: 'beadboard'})).toBe(false);
+    const {backStyle: _legacyStyle, ...legacy} = item.storage!;
+    expect(validStorage(legacy)).toBe(true);
   });
 });

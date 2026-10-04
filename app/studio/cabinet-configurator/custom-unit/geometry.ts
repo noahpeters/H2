@@ -1,3 +1,4 @@
+import {decorateBackPanel} from '../backPanels';
 import type {FrameNeighbors} from '../continuousFaceFrames';
 import {roomFrontParts} from './frontLayout';
 import {migrateFrontStyles} from '../overlay';
@@ -166,6 +167,16 @@ export function customUnitGeometry(
     mesh.name = part.faceFrame
       ? 'cabinet-face-frame'
       : `custom-unit-${part.kind}`;
+    if (part.kind === 'panel')
+      decorateBackPanel(
+        mesh,
+        part.backStyle,
+        part.width,
+        part.height,
+        part.depth,
+        1,
+        -1,
+      );
     mesh.userData.sectionId = part.sectionId;
     mesh.userData.partId = part.arrayId ?? part.id;
     mesh.castShadow = true;

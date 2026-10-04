@@ -1,3 +1,4 @@
+import {BACK_PANEL_STYLES, type BackPanelStyle} from '../backPanels';
 import {migrateFrontStyles} from '../overlay';
 import {validMaterialApplication} from '../materialDefinition';
 import {drawerArrayErrors} from './drawerArrays';
@@ -46,6 +47,7 @@ export type CabinetPart = {
   id: string;
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
   name?: string;
+  backStyle?: BackPanelStyle;
   faceStyle?: 'slab' | 'shaker' | 'vertical-slat' | 'shaker-glass';
   door?: {
     mechanism: DoorMechanism;
@@ -364,6 +366,12 @@ export function validateCustomUnit(value: unknown): string[] {
         errors.push(...drawerArrayErrors(unit as CustomUnitDefinition, part));
         if (!validMaterialApplication(part.materialApplication))
           errors.push('Invalid part material application');
+        if (
+          part.backStyle !== undefined &&
+          (part.kind !== 'panel' ||
+            !Object.hasOwn(BACK_PANEL_STYLES, part.backStyle))
+        )
+          errors.push('Invalid back panel style');
         if (typeof part.id !== 'string' || !part.id || ids.has(part.id))
           errors.push('Parts need unique IDs');
         ids.add(part.id);

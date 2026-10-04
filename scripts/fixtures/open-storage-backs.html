@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Open cabinet back styles</title>
+    <style>
+      body {
+        margin: 0;
+        background: #ece8df;
+        font: 16px system-ui;
+        color: #263b37;
+      }
+      h1,
+      p {
+        margin: 20px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        padding: 20px;
+      }
+      figure {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      figcaption {
+        text-align: center;
+        padding: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Open cabinet back styles</h1>
+    <p>
+      The same cabinet and shelves, with only the finished back style changed.
+    </p>
+    <main></main>
+    <p id="status">Loading</p>
+    <script type="module">
+      import * as THREE from 'three';
+      import {createCustomUnit} from '/app/studio/cabinet-configurator/custom-unit/model.ts';
+      import {
+        customUnitGeometry,
+        customUnitLayoutParts,
+      } from '/app/studio/cabinet-configurator/custom-unit/geometry.ts';
+      import {
+        createOpenStorage,
+        BACK_PANEL_STYLES,
+      } from '/app/studio/cabinet-configurator/openStorage.ts';
+      import {cabinetGeometry} from '/app/studio/cabinet-configurator/roomGeometry.ts';
+      import {waitForMaterialTextures} from '/app/studio/cabinet-configurator/materialRendering.ts';
+      try {
+        for (const custom of [false, true])
+          for (const [style, label] of Object.entries(BACK_PANEL_STYLES)) {
+            const figure = document.createElement('figure'),
+              canvas = document.createElement('canvas'),
+              caption = document.createElement('figcaption');
+            caption.textContent = `${custom ? 'Custom panel' : 'Room shelving'} — ${label}`;
+            figure.append(canvas, caption);
+            document.querySelector('main').append(figure);
+            const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+            renderer.setSize(360, 520);
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color('#ece8df');
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x756348, 2));
+            const light = new THREE.DirectionalLight(0xffffff, 3);
+            light.position.set(3, 5, 5);
+            scene.add(light);
+            const item = createOpenStorage('shelving', style);
+            item.width = 36;
+            item.height = 84;
+            item.storage.backStyle = style;
+            const unit = createCustomUnit({width: 36, height: 84, depth: 16});
+            unit.parts = customUnitLayoutParts(unit).map((part, index) => ({
+              ...part,
+              id: `part-${index}`,
+            }));
+            unit.parts.push({
+              id: 'back',
+              kind: 'panel',
+              name: 'Back',
+              x: 0,
+              y: 0,
+              z: 15.5,
+              width: 36,
+              height: 84,
+              depth: 0.5,
+              backStyle: style,
+            });
+            const cabinet = custom
+              ? customUnitGeometry(
+                  unit,
+                  {},
+                  {
+                    face: 'slab',
+                    overlay: 'full-overlay',
+                    material: 'rift-white-oak',
+                  },
+                )
+              : cabinetGeometry(item, false);
+            if (custom) {
+              cabinet.scale.setScalar(0.0254);
+              cabinet.rotation.y = Math.PI;
+              cabinet.position.y = -42 * 0.0254;
+            }
+            scene.add(cabinet);
+            await waitForMaterialTextures(cabinet);
+            const camera = new THREE.PerspectiveCamera(
+              32,
+              360 / 520,
+              0.01,
+              100,
+            );
+            camera.position.set(0.5, 0.15, 4.1);
+            camera.lookAt(0, 0, 0);
+            renderer.render(scene, camera);
+          }
+        document.querySelector('#status').textContent =
+          'All three styles rendered successfully';
+      } catch (error) {
+        document.querySelector('#status').textContent = String(error);
+        throw error;
+      }
+    </script>
+  </body>
+</html>

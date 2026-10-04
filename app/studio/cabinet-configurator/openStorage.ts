@@ -11,6 +11,8 @@ export const OPEN_STORAGE = {
   'floating-shelves': 'Wall-mounted floating shelves',
 } as const;
 export type StorageKind = keyof typeof OPEN_STORAGE;
+export {BACK_PANEL_STYLES, type BackPanelStyle} from './backPanels';
+import {BACK_PANEL_STYLES, type BackPanelStyle} from './backPanels';
 export type OpenStorage = {
   type: StorageKind;
   shelves: number;
@@ -21,6 +23,8 @@ export type OpenStorage = {
   dividerPercent: number;
   doors: boolean;
   back: boolean;
+  /** Missing on legacy rooms and interpreted as flat. */
+  backStyle?: BackPanelStyle;
   angled: boolean;
 };
 export function storageDefaults(type: StorageKind): OpenStorage {
@@ -43,6 +47,7 @@ export function storageDefaults(type: StorageKind): OpenStorage {
     dividerPercent: 40,
     doors: false,
     back: true,
+    backStyle: 'flat',
     angled: type === 'shoes',
   };
 }
@@ -89,7 +94,8 @@ export function validStorage(value: unknown): value is OpenStorage {
     range(s.lowerRodHeight, 6, 120) &&
     range(s.shelfSpacing, 0, 36) &&
     range(s.dividerPercent, 20, 80) &&
-    [s.doors, s.back, s.angled].every((v) => typeof v === 'boolean')
+    [s.doors, s.back, s.angled].every((v) => typeof v === 'boolean') &&
+    (s.backStyle === undefined || Object.hasOwn(BACK_PANEL_STYLES, s.backStyle))
   );
 }
 /** Shared physical layout, inches relative to the cabinet bottom. */
