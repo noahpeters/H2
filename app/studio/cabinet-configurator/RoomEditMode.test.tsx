@@ -107,6 +107,27 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+test('preserves a saved room outline while exposing only wall geometry editing', () => {
+  const outline = [
+    {id: 'back' as const, x: 0, z: 0},
+    {id: 'right' as const, x: 144, z: 0},
+    {id: 'front' as const, x: 144, z: 120},
+    {id: 'left' as const, x: 0, z: 120},
+  ];
+  state.initial!.room.outline = outline;
+
+  render(<CabinetConfigurator />);
+
+  expect(state.latest!.room.outline).toEqual(outline);
+  expect(screen.queryByLabelText('Room outline preset')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText('Edit room outline'));
+  fireEvent.change(screen.getByLabelText(/Selected wall thickness/i), {
+    target: {value: '7'},
+  });
+  expect(state.latest!.room.outline).toEqual(outline);
+  expect(state.latest!.room.wallThicknesses?.back).toBe(7);
+});
+
 test('walls and openings only select or drag during room editing, and handles disappear on exit', () => {
   render(<CabinetConfigurator />);
   const wall = screen.getByLabelText(/Edit Interior wall 1/);
