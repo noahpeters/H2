@@ -807,9 +807,8 @@ export function resolveFabrication(
         addFront('drawer', w - 0.25, usable, 0.125, 0.125);
       else paired(0.125, usable);
       const framed =
-        fronts.length > 0 &&
-        (design.room.overlay === 'inset' ||
-          design.room.overlay === 'partial-overlay');
+        design.room.overlay === 'inset' ||
+        design.room.overlay === 'partial-overlay';
       const neighbors = frameRuns.get(item.id);
       const frame = cabinetFaceFrame(
         fronts.map((e) => e.part),
