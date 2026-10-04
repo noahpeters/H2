@@ -107,7 +107,7 @@ describe('shared island outline', () => {
           {room, elements: [], islands: [island], openings: []},
         ),
       ).toBe(true);
-      const nearEdge = atLocal(island, 0, 18);
+      const nearEdge = atLocal(island, 0, 19.97);
       snapIslandEdges(nearEdge, [island], room);
       expect(nearEdge.placement).toMatchObject(item.placement);
       const b = islandWorldBounds(island),

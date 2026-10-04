@@ -1,3 +1,4 @@
+import {POSITIONING_RESOLUTIONS} from './positioningPrecision';
 import {validDesignMaterials, FLAT_GRAIN_OPTIONS} from './designMaterials';
 import {OVERLAY_OPTIONS} from './overlay';
 import {validSink, canAttachSink} from './sinkAttachments';
@@ -51,6 +52,11 @@ export function validStudy(value: any): boolean {
     value.version !== 2 ||
     !value.room ||
     !['width', 'depth', 'height'].every((k) => dimension(value.room[k]))
+  )
+    return false;
+  if (
+    value.room.positioningResolution !== undefined &&
+    !POSITIONING_RESOLUTIONS.includes(value.room.positioningResolution)
   )
     return false;
   if (

@@ -1,6 +1,8 @@
+import {intervalsOverlap} from './positioningPrecision';
 import {islandContainsElement, islandOutline} from './islandFootprint';
 import {
   bounds,
+  footprintsOverlap,
   elementCenter,
   type RoomElement,
   type Room,
@@ -26,12 +28,10 @@ export type PlacementCandidate = {
   reason: 'run' | 'wall' | 'corner' | 'island' | 'space';
 };
 const overlaps = (a: ReturnType<typeof bounds>, b: ReturnType<typeof bounds>) =>
-  a.left < b.right - 1e-7 &&
-  a.right > b.left + 1e-7 &&
-  a.top < b.bottom - 1e-7 &&
-  a.bottom > b.top + 1e-7;
+  intervalsOverlap(a.left, a.right, b.left, b.right) &&
+  intervalsOverlap(a.top, a.bottom, b.top, b.bottom);
 const verticalOverlap = (a: number, ah: number, b: number, bh: number) =>
-  a < b + bh - 1e-7 && a + ah > b + 1e-7;
+  intervalsOverlap(a, a + ah, b, b + bh);
 const elevation = (e: RoomElement) =>
   e.kind === 'base' || e.kind === 'tall' ? 0 : (e.placement.elevation ?? 0);
 const compatible = (a: RoomElement, b: RoomElement) =>
@@ -132,7 +132,7 @@ export function validAutomaticPlacement(
         elevation(other),
         other.height,
       ) &&
-      overlaps(box, bounds(other, layout.room)),
+      footprintsOverlap(item, other, layout.room),
   );
 }
 

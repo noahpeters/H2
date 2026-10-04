@@ -9,6 +9,7 @@ jobs:
   validate:
     uses: ./.github/workflows/ci.yml
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: validate
     name: Deploy to Oxygen
     timeout-minutes: 30

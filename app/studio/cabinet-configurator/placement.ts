@@ -1,3 +1,4 @@
+import {positioningResolution, quantizePosition} from './positioningPrecision';
 import {isPartition, wallFaceOffset} from './wallDimensions';
 import {
   islandContainsElement,
@@ -16,7 +17,11 @@ import {
 } from './model';
 import {roomSegments, roomPoints, boxInRoom} from './roomOutline';
 /** Corner footprints sit flush against both walls; the notch points inward. */
-export function snapRoomCorner(item: RoomElement, room: Room, threshold = 3) {
+export function snapRoomCorner(
+  item: RoomElement,
+  room: Room,
+  threshold = positioningResolution(room) / 2,
+) {
   if (
     item.kind !== 'base' ||
     item.configuration !== 'corner' ||
@@ -67,7 +72,11 @@ export function snapRoomCorner(item: RoomElement, room: Room, threshold = 3) {
   delete item.islandId;
   return true;
 }
-export function snapWall(item: RoomElement, room: Room, threshold = 3) {
+export function snapWall(
+  item: RoomElement,
+  room: Room,
+  threshold = positioningResolution(room) / 2,
+) {
   if (item.placement.mode !== 'floor') return;
   const {x, z, elevation = 0} = item.placement;
   const candidates: {
@@ -110,7 +119,10 @@ export function snapWall(item: RoomElement, room: Room, threshold = 3) {
                 rotation: c.rotation,
                 offset: Math.max(
                   0,
-                  Math.min(c.length - item.width, Math.round(c.offset)),
+                  Math.min(
+                    c.length - item.width,
+                    quantizePosition(c.offset, room),
+                  ),
                 ),
                 elevation,
               },
@@ -127,7 +139,10 @@ export function snapWall(item: RoomElement, room: Room, threshold = 3) {
     rotation: target.rotation,
     offset: Math.max(
       0,
-      Math.min(target.length - item.width, Math.round(target.offset)),
+      Math.min(
+        target.length - item.width,
+        quantizePosition(target.offset, room),
+      ),
     ),
     elevation,
   };
@@ -166,14 +181,20 @@ export function positionElement(
     };
     return;
   }
-  item.placement = {...wallToFloor(item, room), mode: 'floor', x, z, elevation};
+  item.placement = {
+    ...wallToFloor(item, room),
+    mode: 'floor',
+    x: quantizePosition(x, room),
+    z: quantizePosition(z, room),
+    elevation,
+  };
 }
 /** Snap the footprint inside an island boundary, in the island's local axes. */
 export function snapIslandEdges(
   item: RoomElement,
   islands: Island[],
   room: Room,
-  threshold = 3,
+  threshold = positioningResolution(room) / 2,
 ) {
   if (item.placement.mode !== 'floor') return;
   const island = islands.find((i) => i.id === islandAt(item, islands, room));
@@ -214,7 +235,7 @@ export function snapAdjacent(
   item: RoomElement,
   items: RoomElement[],
   room: Room,
-  threshold = 3,
+  threshold = positioningResolution(room) / 2,
 ) {
   if (item.placement.mode === 'wall') {
     const p = item.placement;

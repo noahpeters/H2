@@ -1,3 +1,7 @@
+import {
+  intervalsOverlap,
+  type PositioningResolution,
+} from './positioningPrecision';
 import {isPartition, wallFaceOffset, wallBounds} from './wallDimensions';
 import {islandWorldBounds, islandCountertopOutline} from './islandFootprint';
 import {migrateFrontStyles, type Overlay} from './overlay';
@@ -217,6 +221,7 @@ export type Island = {
   seatingSide: SeatingSide;
 };
 export type Room = {
+  positioningResolution?: PositioningResolution;
   wallThickness?: number;
   wallThicknesses?: Partial<Record<Wall, number>>;
   overlay?: Overlay;
@@ -359,6 +364,50 @@ export function bounds(element: RoomElement, room: Room) {
   };
 }
 
+/** Separating-axis test in the same coordinate units as placement. Unlike
+ * bounding boxes, this also handles touching cabinets on rotated islands. */
+export function footprintsOverlap(a: RoomElement, b: RoomElement, room: Room) {
+  const corners = (item: RoomElement) => {
+    const center = elementCenter(item, room);
+    const angle = (wallToFloor(item, room).rotation * Math.PI) / 180;
+    const c = Math.cos(angle),
+      s = Math.sin(angle);
+    return [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ].map(([x, z]) => ({
+      x: center.x + ((x * item.width) / 2) * c - ((z * item.depth) / 2) * s,
+      z: center.z + ((x * item.width) / 2) * s + ((z * item.depth) / 2) * c,
+    }));
+  };
+  const first = corners(a),
+    second = corners(b);
+  for (const item of [a, b]) {
+    const angle = (wallToFloor(item, room).rotation * Math.PI) / 180;
+    for (const [x, z] of [
+      [Math.cos(angle), Math.sin(angle)],
+      [-Math.sin(angle), Math.cos(angle)],
+    ]) {
+      const project = (points: {x: number; z: number}[]) =>
+        points.map((p) => p.x * x + p.z * z);
+      const av = project(first),
+        bv = project(second);
+      if (
+        !intervalsOverlap(
+          Math.min(...av),
+          Math.max(...av),
+          Math.min(...bv),
+          Math.max(...bv),
+        )
+      )
+        return false;
+    }
+  }
+  return true;
+}
+
 export function validateLayout(elements: RoomElement[], room: Room) {
   const warnings = new Map<string, string[]>();
   const add = (id: string, message: string) =>
@@ -375,39 +424,24 @@ export function validateLayout(elements: RoomElement[], room: Room) {
     for (const p of room.partitions ?? []) {
       const wall = wallBounds(room, p.id);
       if (
-        box.left < wall.right - 1e-7 &&
-        box.right > wall.left + 1e-7 &&
-        box.top < wall.bottom - 1e-7 &&
-        box.bottom > wall.top + 1e-7
+        intervalsOverlap(box.left, box.right, wall.left, wall.right) &&
+        intervalsOverlap(box.top, box.bottom, wall.top, wall.bottom)
       )
         add(element.id, `Crosses ${p.name || 'an interior wall'}`);
     }
     elements.slice(index + 1).forEach((other) => {
-      const fixturePair =
-        element.kind === 'fixture' || other.kind === 'fixture';
-      if (fixturePair) {
-        const bottom = element.placement.elevation ?? 0;
-        const otherBottom = other.placement.elevation ?? 0;
-        if (
-          bottom >= otherBottom + other.height ||
-          otherBottom >= bottom + element.height
-        )
-          return;
-      }
+      const bottom = element.placement.elevation ?? 0;
+      const otherBottom = other.placement.elevation ?? 0;
       if (
-        !fixturePair &&
-        element.placement.mode === 'wall' &&
-        other.placement.mode === 'wall' &&
-        (element.kind === 'wall-cabinet') !== (other.kind === 'wall-cabinet')
+        !intervalsOverlap(
+          bottom,
+          bottom + element.height,
+          otherBottom,
+          otherBottom + other.height,
+        )
       )
         return;
-      const second = bounds(other, room);
-      if (
-        box.left < second.right &&
-        box.right > second.left &&
-        box.top < second.bottom &&
-        box.bottom > second.top
-      ) {
+      if (footprintsOverlap(element, other, room)) {
         add(element.id, 'Overlaps another element');
         add(other.id, 'Overlaps another element');
       }
