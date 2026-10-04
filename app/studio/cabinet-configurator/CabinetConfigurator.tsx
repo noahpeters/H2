@@ -2964,7 +2964,8 @@ export function CabinetConfigurator({
                         max={
                           study.room.height -
                           (selected.fixtureKind === 'mirror' ||
-                          selected.kind === 'wall-cabinet'
+                          selected.kind === 'wall-cabinet' ||
+                          selected.kind === 'panel'
                             ? (selected.placement.elevation ?? 0)
                             : 0)
                         }
@@ -2981,7 +2982,8 @@ export function CabinetConfigurator({
                             height >
                               study.room.height -
                                 (selected.fixtureKind === 'mirror' ||
-                                selected.kind === 'wall-cabinet'
+                                selected.kind === 'wall-cabinet' ||
+                                selected.kind === 'panel'
                                   ? (selected.placement.elevation ?? 0)
                                   : 0)
                           )
@@ -2997,6 +2999,7 @@ export function CabinetConfigurator({
                     </label>
                   )}
                 {(selected.kind === 'wall-cabinet' ||
+                  selected.kind === 'panel' ||
                   selected.fixtureKind === 'mirror') && (
                   <label>
                     Bottom height above floor (in)
