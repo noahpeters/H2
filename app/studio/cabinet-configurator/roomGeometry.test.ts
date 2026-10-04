@@ -24,70 +24,68 @@ function descendants(object: THREE.Object3D) {
   return children;
 }
 describe('four wall room geometry', () => {
-  it('centers standard tall cabinet handles 36 inches above the floor', () => {
-    for (const height of [72, 84, 96])
-      for (const width of [30, 36])
-        for (const elevation of [0, 6]) {
-          const group = cabinetGeometry(
-            {
-              ...base,
-              kind: 'tall',
-              height,
-              width,
-              placement: {mode: 'wall', wall: 'back', offset: 0, elevation},
-            },
-            false,
+  it.each([
+    ['base', 0, 'top'],
+    ['wall-cabinet', 0, 'top'],
+    ['wall-cabinet', 54, 'bottom'],
+    ['tall', 0, 'bottom'],
+  ] as const)(
+    'places each %s door from its absolute top at %s inches (%s edge)',
+    (kind, elevation, expectedEdge) => {
+      for (const face of ['shaker', 'slab'] as const) {
+        const height = kind === 'tall' ? 84 : kind === 'base' ? 34.5 : 30;
+        const group = cabinetGeometry(
+          {
+            ...base,
+            kind,
+            width: 36,
+            height,
+            face,
+            placement: {...base.placement, elevation},
+          },
+          false,
+        );
+        const doors = group.children.filter(
+          (child) => child.name === 'cabinet-front',
+        ) as THREE.Mesh<THREE.BoxGeometry>[];
+        expect(doors).toHaveLength(2);
+        for (const door of doors) {
+          const handle = door.getObjectByName('cabinet-door-handle')!;
+          const margin = face === 'shaker' ? 1 : 4;
+          expect(handle.position.y / 0.0254).toBeCloseTo(
+            (expectedEdge === 'top' ? 1 : -1) *
+              (door.geometry.parameters.height / 0.0254 / 2 - margin),
           );
-          const handles = descendants(group).filter(
-            (child) =>
-              child instanceof THREE.Mesh &&
-              Math.abs(child.geometry.parameters.width - 0.35 * 0.0254) <
-                1e-6 &&
-              Math.abs(child.geometry.parameters.height - 4 * 0.0254) < 1e-6,
-          );
-          expect(handles).toHaveLength(width > 30 ? 2 : 1);
-          for (const handle of handles)
-            expect(
-              handle.getWorldPosition(new THREE.Vector3()).y / 0.0254 +
-                height / 2 +
-                elevation,
-            ).toBeCloseTo(36);
         }
-  });
-  it.each(['one-oven', 'two-oven', 'coffee-maker'] as const)(
-    'places upper door handles near the bottom for %s cabinets',
-    (tallConfiguration) => {
-      for (const width of [30, 36])
-        for (const face of ['shaker', 'slab'] as const) {
-          const group = cabinetGeometry(
-            {...base, kind: 'tall', height: 84, width, face, tallConfiguration},
-            false,
-          );
-          const doors = group.children.filter(
-            (child) => child.name === 'cabinet-front' && child.position.y > 0,
-          ) as THREE.Mesh<THREE.BoxGeometry>[];
-          const handles = descendants(group).filter(
-            (child) =>
-              child instanceof THREE.Mesh &&
-              Math.abs(child.geometry.parameters.width - 0.35 * 0.0254) <
-                1e-6 &&
-              Math.abs(child.geometry.parameters.height - 4 * 0.0254) < 1e-6,
-          ) as THREE.Mesh[];
-          expect(handles).toHaveLength(width > 30 ? 2 : 1);
-          expect(doors).toHaveLength(handles.length);
-          for (let i = 0; i < handles.length; i++) {
-            const height = doors[i].geometry.parameters.height;
-            expect(
-              handles[i].getWorldPosition(new THREE.Vector3()).y,
-            ).toBeCloseTo(
-              doors[i].position.y -
-                height / 2 +
-                Math.min(4 * 0.0254, height / 2),
-            );
-          }
-        }
+      }
     },
   );
+  it('evaluates doors in a multi-door tall cabinet independently', () => {
+    const group = cabinetGeometry(
+      {
+        ...base,
+        kind: 'tall',
+        width: 36,
+        height: 84,
+        tallConfiguration: 'one-oven',
+      },
+      false,
+    );
+    const doors = group.children.filter(
+      (child) =>
+        child.name === 'cabinet-front' &&
+        child.getObjectByName('cabinet-door-handle'),
+    ) as THREE.Mesh<THREE.BoxGeometry>[];
+    expect(doors).toHaveLength(2);
+    for (const door of doors) {
+      const handle = door.getObjectByName('cabinet-door-handle')!;
+      const absoluteTop =
+        84 / 2 +
+        door.position.y / 0.0254 +
+        door.geometry.parameters.height / 0.0254 / 2;
+      expect(Math.sign(handle.position.y)).toBe(absoluteTop <= 35 ? 1 : -1);
+    }
+  });
   it.each(['base', 'tall', 'wall-cabinet'] as const)(
     'renders inset shaker %s fronts inside a flush face frame',
     (kind) => {

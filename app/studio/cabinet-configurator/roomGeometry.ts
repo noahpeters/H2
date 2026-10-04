@@ -20,6 +20,7 @@ import {
 } from './materialRendering';
 import {storageLayout} from './openStorage';
 import {applianceGeometry} from './applianceGeometry';
+import {doorHandlePosition} from './hardwarePlacement';
 import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
 import {
   type RoomElement,
@@ -165,6 +166,7 @@ export function cabinetGeometry(
       },
       {
         kind: item.kind,
+        face: item.face,
         hinge: item.hinge,
         tallConfiguration: item.tallConfiguration,
         bodyElevation: (item.placement.elevation ?? 0) + toe.height,
@@ -378,34 +380,27 @@ export function cabinetGeometry(
     }
     if (drawer)
       box(group, Math.min(6, width * 0.5), 0.35, 1, x, y, faceZ + 0.7, steel);
-    else
+    else {
+      const hingeSide =
+        x < 0 ? 'left' : x > 0 ? 'right' : (item.hinge ?? 'left');
+      const handle = doorHandlePosition({
+        width,
+        height,
+        absoluteTop: (item.placement.elevation ?? 0) + h / 2 + y + height / 2,
+        faceStyle: item.face,
+        hingeSide,
+      });
       box(
         group,
         0.35,
         4,
         1,
-        x +
-          width *
-            0.33 *
-            (x > 0 ? -1 : x < 0 ? 1 : item.hinge === 'right' ? -1 : 1),
-        item.kind === 'wall-cabinet' ||
-          (item.kind === 'tall' &&
-            ['one-oven', 'two-oven', 'coffee-maker'].includes(
-              item.tallConfiguration ?? '',
-            ))
-          ? y - height / 2 + Math.min(4, height / 2)
-          : item.kind === 'tall'
-            ? Math.max(
-                y - height / 2 + Math.min(2.5, height / 2),
-                Math.min(
-                  y + height / 2 - Math.min(2.5, height / 2),
-                  36 - (item.placement.elevation ?? 0) - h / 2,
-                ),
-              )
-            : y + height * 0.22,
+        x + handle.x,
+        y + handle.y,
         faceZ + 0.7,
         steel,
-      );
+      ).name = 'cabinet-door-handle';
+    }
     // Keep the complete face and hardware together, including shaker members.
     group.updateMatrixWorld(true);
     for (const child of group.children.slice(firstChild))

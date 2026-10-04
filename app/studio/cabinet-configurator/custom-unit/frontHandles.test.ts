@@ -78,7 +78,7 @@ describe('custom cabinet room handles', () => {
       }
     },
   );
-  it('keeps tall handles 36 inches above the floor, including toe kick and elevation', () => {
+  it('evaluates each tall door from its top elevation, including toe kick and elevation', () => {
     const item = {
       ...cabinet,
       kind: 'tall' as const,
@@ -95,16 +95,18 @@ describe('custom cabinet room handles', () => {
     });
     group.position.y = (item.height / 2 + 6) * 0.0254;
     group.updateMatrixWorld(true);
-    for (const handle of handles(group))
-      expect(
-        handle.getWorldPosition(new THREE.Vector3()).y / 0.0254,
-      ).toBeCloseTo(36);
+    for (const handle of handles(group)) {
+      const front = handle.parent as THREE.Mesh<THREE.BoxGeometry>;
+      const top = new THREE.Box3().setFromObject(front).max.y / 0.0254;
+      expect(Math.sign(handle.position.y)).toBe(top <= 35 ? 1 : -1);
+    }
     expect(handles(group).length).toBeGreaterThan(0);
   });
   it('places wall-cabinet pulls near the bottom of each door', () => {
     const unit = createCustomUnit({parts: [door]});
     const group = customUnitGeometry(unit, {}, undefined, {
       kind: 'wall-cabinet',
+      face: 'shaker',
       bodyElevation: 54,
     });
     group.updateMatrixWorld(true);
@@ -113,7 +115,7 @@ describe('custom cabinet room handles', () => {
     const bottom =
       front.geometry.boundingBox ??
       (front.geometry.computeBoundingBox(), front.geometry.boundingBox!);
-    expect(pull.position.y - bottom.min.y).toBeCloseTo(4);
+    expect(pull.position.y - bottom.min.y).toBeCloseTo(1);
   });
   it.each([
     'hinged',
@@ -132,6 +134,7 @@ describe('custom cabinet room handles', () => {
       const unit = createCustomUnit({parts: [part]});
       const group = customUnitGeometry(unit, {}, undefined, {
         kind: 'base',
+        face: 'shaker',
         bodyElevation: 4,
       });
       const pull = handles(group)[0];
@@ -160,6 +163,7 @@ describe('custom cabinet room handles', () => {
       handles(
         customUnitGeometry(createCustomUnit(), {}, undefined, {
           kind: 'base',
+          face: 'shaker',
           bodyElevation: 4,
         }),
       ),
@@ -172,7 +176,11 @@ describe('custom cabinet room handles', () => {
       curve: {scope: 'front', profile: 'arc', radius: 30, direction: 'inward'},
     });
     const pull = handles(
-      customUnitGeometry(unit, {}, undefined, {kind: 'base', bodyElevation: 4}),
+      customUnitGeometry(unit, {}, undefined, {
+        kind: 'base',
+        face: 'shaker',
+        bodyElevation: 4,
+      }),
     )[0];
     expect(Math.abs(pull.rotation.y)).toBeGreaterThan(0.1);
     expect(pull.position.z).toBeGreaterThan(-door.depth / 2 - 0.7);
