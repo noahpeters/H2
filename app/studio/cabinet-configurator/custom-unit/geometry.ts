@@ -7,6 +7,7 @@ import {createCabinetMaterial, mapMaterialPart} from '../materialRendering';
 import {doorPreview} from './doorGeometry';
 import {addFrontHandle, type RoomHandleContext} from './frontHandles';
 import {cabinetProfilePoint, edgeSetback} from './curves';
+import {simpleArchProfile} from '../simpleArch';
 import * as THREE from 'three';
 import {type CustomUnitDefinition, type CabinetPart} from './model';
 
@@ -62,26 +63,42 @@ export function customUnitGeometry(
       (part.kind === 'drawer' && appearance?.face === 'shaker-glass'
         ? 'shaker'
         : appearance?.face);
-    const geometry =
-      face &&
-      (part.kind === 'door' || part.kind === 'drawer') &&
-      part.door?.mechanism !== 'tambour'
-        ? facePreviewGeometry(
-            part.width,
-            part.height,
-            part.depth,
-            face,
-            Boolean(followsProfile || localEdges),
-            part.kind === 'drawer' ? 'x' : 'y',
-          )
-        : new THREE.BoxGeometry(
-            part.width,
-            part.height,
-            part.depth,
-            followsProfile || localEdges ? 64 : 1,
-            1,
-            followsProfile || localShape?.startsWith('round-') ? 64 : 1,
-          );
+    let geometry: THREE.BufferGeometry;
+    if (part.arch === 'simple' && part.kind === 'door') {
+      const shape = new THREE.Shape();
+      simpleArchProfile(part.width, part.height).points.forEach(
+        (point, index) =>
+          index
+            ? shape.lineTo(point.x - part.width / 2, point.y - part.height / 2)
+            : shape.moveTo(point.x - part.width / 2, point.y - part.height / 2),
+      );
+      shape.closePath();
+      geometry = new THREE.ExtrudeGeometry(shape, {
+        depth: part.depth,
+        bevelEnabled: false,
+      });
+      geometry.translate(0, 0, -part.depth / 2);
+    } else
+      geometry =
+        face &&
+        (part.kind === 'door' || part.kind === 'drawer') &&
+        part.door?.mechanism !== 'tambour'
+          ? facePreviewGeometry(
+              part.width,
+              part.height,
+              part.depth,
+              face,
+              Boolean(followsProfile || localEdges),
+              part.kind === 'drawer' ? 'x' : 'y',
+            )
+          : new THREE.BoxGeometry(
+              part.width,
+              part.height,
+              part.depth,
+              followsProfile || localEdges ? 64 : 1,
+              1,
+              followsProfile || localShape?.startsWith('round-') ? 64 : 1,
+            );
     mapMaterialPart(
       geometry,
       material,

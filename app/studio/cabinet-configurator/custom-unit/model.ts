@@ -40,6 +40,8 @@ export type CustomUnitDivision = {
 export type CustomUnitNode = CustomUnitSection | CustomUnitDivision;
 
 export type CabinetPart = {
+  /** The opening and this corresponding door use the shared circular arch. */
+  arch?: import('../simpleArch').SimpleArch;
   materialApplication?: import('../materialDefinition').MaterialApplication;
   id: string;
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
@@ -361,6 +363,11 @@ export function validateCustomUnit(value: unknown): string[] {
         if (typeof part.id !== 'string' || !part.id || ids.has(part.id))
           errors.push('Parts need unique IDs');
         ids.add(part.id);
+        if (
+          part.arch !== undefined &&
+          (part.arch !== 'simple' || part.kind !== 'door')
+        )
+          errors.push('Only doors may use the simple opening arch');
         if (
           part.faceStyle !== undefined &&
           (!['door', 'drawer'].includes(part.kind) ||

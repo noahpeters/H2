@@ -309,7 +309,9 @@ export function validStudy(value: any): boolean {
         (o.sill === undefined || num(o.sill)) &&
         (o.doorType === undefined ||
           DOOR_TYPES.some(([type]) => type === o.doorType)) &&
-        (o.handing === undefined || ['left', 'right'].includes(o.handing)),
+        (o.handing === undefined || ['left', 'right'].includes(o.handing)) &&
+        (o.arch === undefined ||
+          (o.arch === 'simple' && ['door', 'opening'].includes(o.kind))),
     ) &&
     value.islands.every(
       (i: any) =>

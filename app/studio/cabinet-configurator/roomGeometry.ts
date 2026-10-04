@@ -22,6 +22,7 @@ import {storageLayout} from './openStorage';
 import {applianceGeometry} from './applianceGeometry';
 import {doorHandlePosition} from './hardwarePlacement';
 import {roomSegments, roomWall, wallPoint, roomPoints} from './roomOutline';
+import {pointInSimpleArch, simpleArchProfile} from './simpleArch';
 import {
   type RoomElement,
   type Opening,
@@ -847,6 +848,13 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
       0,
       length,
       ...holes.flatMap((o) => [o.offset, o.offset + o.width]),
+      ...holes.flatMap((o) =>
+        o.arch === 'simple'
+          ? simpleArchProfile(o.width, o.height, 24).points.map(
+              (point) => o.offset + point.x,
+            )
+          : [],
+      ),
     ]
       .map((x) => Math.max(0, Math.min(length, x)))
       .sort((a, b) => a - b);
@@ -855,7 +863,11 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
       room.height,
       ...holes.flatMap((o) => {
         const y = o.kind === 'window' ? (o.sill ?? 42) : 0;
-        return [y, y + o.height];
+        return o.arch === 'simple'
+          ? simpleArchProfile(o.width, o.height, 24).points.map(
+              (point) => y + point.y,
+            )
+          : [y, y + o.height];
       }),
     ]
       .map((y) => Math.max(0, Math.min(room.height, y)))
@@ -869,12 +881,12 @@ export function roomGeometry(room: Room, openings: Opening[], color: number) {
           ys[j] === ys[j - 1] ||
           holes.some((o) => {
             const sill = o.kind === 'window' ? (o.sill ?? 42) : 0;
-            return (
-              x > o.offset &&
-              x < o.offset + o.width &&
-              y > sill &&
-              y < sill + o.height
-            );
+            return o.arch === 'simple'
+              ? pointInSimpleArch(x - o.offset, y - sill, o.width, o.height)
+              : x > o.offset &&
+                  x < o.offset + o.width &&
+                  y > sill &&
+                  y < sill + o.height;
           })
         )
           continue;
@@ -963,16 +975,37 @@ export function openingGeometry(opening: Opening, room: Room) {
     for (let i = 0; i < count; i++) {
       const center = -w / 2 + 1.5 + panelWidth * (i + 0.5);
       const depth = type.startsWith('sliding') ? (i ? 0.6 : -0.6) : 0;
-      box(
-        group,
-        panelWidth - 0.2,
-        h - 3,
-        0.8,
-        center,
-        h / 2,
-        depth,
-        type === 'sliding-glass' || type === 'double-swing' ? glass : leaf,
-      );
+      if (opening.arch === 'simple' && type === 'swing') {
+        const panelW = panelWidth - 0.2,
+          panelH = h - 3;
+        const profile = simpleArchProfile(panelW, panelH);
+        const shape = new THREE.Shape();
+        profile.points.forEach((point, index) =>
+          index
+            ? shape.lineTo((point.x - panelW / 2) * inch, point.y * inch)
+            : shape.moveTo((point.x - panelW / 2) * inch, point.y * inch),
+        );
+        shape.closePath();
+        const panel = new THREE.Mesh(
+          new THREE.ExtrudeGeometry(shape, {
+            depth: 0.8 * inch,
+            bevelEnabled: false,
+          }),
+          leaf,
+        );
+        panel.position.set(center * inch, 1.5 * inch, (depth - 0.4) * inch);
+        group.add(panel);
+      } else
+        box(
+          group,
+          panelWidth - 0.2,
+          h - 3,
+          0.8,
+          center,
+          h / 2,
+          depth,
+          type === 'sliding-glass' || type === 'double-swing' ? glass : leaf,
+        );
       for (const side of [-1, 1])
         box(
           group,

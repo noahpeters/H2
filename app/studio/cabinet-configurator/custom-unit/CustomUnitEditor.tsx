@@ -780,6 +780,18 @@ export function CustomUnitEditor({
               </p>
               {selected.kind === 'door' && (
                 <>
+                  <label className="cu-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selected.arch === 'simple'}
+                      onChange={(event) =>
+                        patch({
+                          arch: event.target.checked ? 'simple' : undefined,
+                        })
+                      }
+                    />
+                    Arched opening
+                  </label>
                   <h3>Door operation</h3>
                   {selected.door?.mechanism === 'pocket' &&
                     selected.width > definition.depth - 1.5 && (
