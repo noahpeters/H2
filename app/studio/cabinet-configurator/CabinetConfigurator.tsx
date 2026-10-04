@@ -108,6 +108,7 @@ import {
   wallPoint,
   validOutline,
   moveRoomWall,
+  moveRoomEndpoint,
   addRoomRecess,
   removeRoomRecess,
   presetOutline,
@@ -1360,6 +1361,12 @@ export function CabinetConfigurator({
     end: 'start' | 'end';
     pointerId: number;
   } | null>(null);
+  const outlineEndDrag = useRef<{
+    study: Study;
+    wall: Wall;
+    end: 'start' | 'end';
+    pointerId: number;
+  } | null>(null);
   const roomControls = useRef<HTMLDetailsElement>(null);
   const selectedControls = useRef<HTMLDetailsElement>(null);
   const openingDrag = useRef<{
@@ -1803,6 +1810,30 @@ export function CabinetConfigurator({
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
     commandPressed.current = ev.metaKey;
+    if (editingRoom && outlineEndDrag.current) {
+      const a = outlineEndDrag.current,
+        point = planPoint(ev);
+      if (point && a.pointerId === ev.pointerId) {
+        const points = moveRoomEndpoint(
+          a.study.room,
+          a.wall,
+          a.end,
+          {
+            x: quantizePosition(point.x, a.study.room),
+            z: quantizePosition(point.z, a.study.room),
+          },
+          ev.metaKey,
+        );
+        if (points) {
+          setStudy(reshapeStudy(a.study, points));
+          setOutlineError('');
+        } else
+          setOutlineError(
+            'Walls cannot cross, overlap, or be shorter than 6 inches.',
+          );
+      }
+      return;
+    }
     if (editingRoom && endDrag.current) {
       const a = endDrag.current,
         point = planPoint(ev);
@@ -3464,7 +3495,7 @@ export function CabinetConfigurator({
                       ? 'Move over the room · click to place · Esc to cancel'
                       : selectedPartition
                         ? 'Drag wall to move · drag square ends to shorten or connect'
-                        : `Drag the selected ${roomWall(study.room, selectedWall).label} wall to move it, or add a recess or alcove`}
+                        : `Drag the selected ${roomWall(study.room, selectedWall).label} wall to move it · drag square ends to reshape · hold Command for any angle`}
                   </span>
                 </div>
               )}
@@ -3579,6 +3610,7 @@ export function CabinetConfigurator({
                   openingDrag.current = null;
                   roomDrag.current = null;
                   endDrag.current = null;
+                  outlineEndDrag.current = null;
                   const active = drag.current;
                   drag.current = null;
                   if (!active) return;
@@ -3596,6 +3628,7 @@ export function CabinetConfigurator({
                   openingDrag.current = null;
                   roomDrag.current = null;
                   endDrag.current = null;
+                  outlineEndDrag.current = null;
                   drag.current = null;
                 }}
                 onLostPointerCapture={() => {
@@ -3604,6 +3637,7 @@ export function CabinetConfigurator({
                   openingDrag.current = null;
                   roomDrag.current = null;
                   endDrag.current = null;
+                  outlineEndDrag.current = null;
                   drag.current = null;
                 }}
               >
@@ -4051,6 +4085,45 @@ export function CabinetConfigurator({
                     </text>
                   </g>
                 )}
+                {editingRoom &&
+                  !selectedPartition &&
+                  !addingWall &&
+                  (['start', 'end'] as const).map((end) => {
+                    const segment = roomWall(study.room, selectedWall);
+                    const point = end === 'start' ? segment.a : segment.b;
+                    return (
+                      <rect
+                        key={end}
+                        role="slider"
+                        tabIndex={0}
+                        aria-label={`Move wall ${end} endpoint`}
+                        aria-valuetext={`${Math.round(point.x)}, ${Math.round(point.z)} inches`}
+                        x={pad + point.x * scale - 6 / viewport.zoom}
+                        y={pad + point.z * scale - 6 / viewport.zoom}
+                        width={12 / viewport.zoom}
+                        height={12 / viewport.zoom}
+                        fill="#fffaf1"
+                        stroke="#b57d45"
+                        strokeWidth={2 / viewport.zoom}
+                        style={{cursor: 'move', touchAction: 'none'}}
+                        onPointerDown={(event) => {
+                          if (event.button !== 0) return;
+                          event.stopPropagation();
+                          event.currentTarget.setPointerCapture(
+                            event.pointerId,
+                          );
+                          setHistory((h) => [...h.slice(-29), clone(study)]);
+                          outlineEndDrag.current = {
+                            study: clone(study),
+                            wall: selectedWall,
+                            end,
+                            pointerId: event.pointerId,
+                          };
+                          setGuideTarget({kind: 'wall', id: selectedWall});
+                        }}
+                      />
+                    );
+                  })}
                 {editingRoom &&
                   selectedPartition &&
                   !addingWall &&

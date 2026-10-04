@@ -15,7 +15,13 @@ export function placeOpening(
   );
   for (const wall of segments) {
     if (wall.length < opening.width) continue;
-    const along = wall.horizontal ? x - wall.x : z - wall.z;
+    const dx = x - wall.a.x,
+      dz = z - wall.a.z,
+      along = wall.horizontal
+        ? x - wall.x
+        : wall.tx === 0
+          ? z - wall.z
+          : dx * wall.tx + dz * wall.tz;
     const offset = Math.max(
       0,
       Math.min(
@@ -23,8 +29,9 @@ export function placeOpening(
         Math.round(along - opening.width / 2),
       ),
     );
-    const centerX = wall.x + (wall.horizontal ? offset + opening.width / 2 : 0);
-    const centerZ = wall.z + (wall.horizontal ? 0 : offset + opening.width / 2);
+    const center = wallPointAt(wall, offset + opening.width / 2);
+    const centerX = center.x;
+    const centerZ = center.z;
     const next = Math.hypot(x - centerX, z - centerZ);
     if (next < distance) {
       distance = next;
@@ -32,4 +39,13 @@ export function placeOpening(
     }
   }
   return best;
+}
+
+function wallPointAt(
+  wall: ReturnType<typeof roomSegments>[number],
+  offset: number,
+) {
+  if (wall.horizontal) return {x: wall.x + offset, z: wall.z};
+  if (wall.tx === 0) return {x: wall.x, z: wall.z + offset};
+  return {x: wall.a.x + wall.tx * offset, z: wall.a.z + wall.tz * offset};
 }
