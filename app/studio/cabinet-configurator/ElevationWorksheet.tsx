@@ -4,7 +4,8 @@ import type {Study} from './CabinetConfigurator';
 import {APPLIANCE_CATALOG, wallToFloor, type RoomElement} from './model';
 import {OPEN_STORAGE} from './openStorage';
 import * as THREE from 'three';
-import {cabinetGeometry} from './roomGeometry';
+import {cabinetGeometry, islandCountertop} from './roomGeometry';
+import {countertopEdges} from './countertopEdges';
 import {applianceGeometry} from './applianceGeometry';
 import {fixtureGeometry} from './fixtureGeometry';
 import {disposeStudyObject} from './studyScene';
@@ -20,6 +21,7 @@ type ElevationItem = {
   kind: RoomElement['kind'];
   face?: RoomElement['face'];
   lines: number[][];
+  countertops: CountertopSpan[];
 };
 
 export type ElevationSheet = {
@@ -29,8 +31,63 @@ export type ElevationSheet = {
   height: number;
   items: ElevationItem[];
   openings: Study['openings'];
-  countertop?: number;
+  countertops: CountertopSpan[];
 };
+
+type CountertopSpan = {x: number; y: number; width: number; height: number};
+
+/** Project the actual stone meshes, including their overhangs and thickness. */
+function countertopSpans(
+  group: THREE.Object3D,
+  project: (x: number, z: number) => number,
+  elevation: number,
+): CountertopSpan[] {
+  const spans: CountertopSpan[] = [];
+  group.updateMatrixWorld(true);
+  group.traverse((object) => {
+    if (
+      !(object instanceof THREE.Mesh) ||
+      !object.visible ||
+      !object.name.endsWith('-countertop')
+    )
+      return;
+    const positions = object.geometry.getAttribute('position');
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    const point = new THREE.Vector3();
+    for (let i = 0; i < positions.count; i++) {
+      point.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld);
+      const x = project(point.x / INCH, point.z / INCH),
+        y = elevation + point.y / INCH;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+    spans.push({x: minX, y: minY, width: maxX - minX, height: maxY - minY});
+  });
+  return spans;
+}
+
+function mergeCountertops(spans: CountertopSpan[]) {
+  const merged: CountertopSpan[] = [];
+  for (const span of [...spans].sort(
+    (a, b) => a.y - b.y || a.height - b.height || a.x - b.x,
+  )) {
+    const last = merged.at(-1);
+    if (
+      last &&
+      Math.abs(last.y - span.y) < 0.001 &&
+      Math.abs(last.height - span.height) < 0.001 &&
+      span.x <= last.x + last.width + 0.001
+    )
+      last.width = Math.max(last.x + last.width, span.x + span.width) - last.x;
+    else merged.push({...span});
+  }
+  return merged;
+}
 
 const itemLabel = (item: RoomElement) =>
   item.applianceKind
@@ -61,6 +118,8 @@ function projectedItem(
   const left = Math.min(...corners),
     right = Math.max(...corners);
   const bottom = item.placement.elevation ?? 0;
+  const shared = study.islands.some((island) => island.id === item.islandId);
+  const edges = countertopEdges(item, study.elements, study.room);
   const group =
     String(item.kind) === 'panel'
       ? new THREE.Mesh(
@@ -81,8 +140,12 @@ function projectedItem(
               item.depth * INCH,
               item.applianceFront,
               item.rangeHood,
+              undefined,
+              study.countertop && !shared,
+              item,
+              edges,
             )
-          : cabinetGeometry(item, false, false, study.room);
+          : cabinetGeometry(item, study.countertop, shared, study.room, edges);
   group.updateMatrixWorld(true);
   const meshes: THREE.Mesh[] = [];
   group.traverse((object) => {
@@ -111,10 +174,12 @@ function projectedItem(
     });
     return !hit || hit.distance >= reach - 0.0001;
   };
+  const countertops = countertopSpans(group, project, bottom + item.height / 2);
   const lines: number[][] = [];
   const seen = new Set<string>();
   group.traverse((object) => {
     if (!(object instanceof THREE.Mesh) || !object.visible) return;
+    if (object.name.endsWith('-countertop')) return;
     const edges = new THREE.EdgesGeometry(object.geometry, 25);
     const positions = edges.getAttribute('position');
     for (let i = 0; i < positions.count; i += 2) {
@@ -159,23 +224,11 @@ function projectedItem(
     kind: item.kind,
     face: item.face,
     lines,
+    countertops,
   };
 }
 
 export function elevationSheets(study: Study): ElevationSheet[] {
-  const counterHeight = (items: RoomElement[]) =>
-    study.countertop
-      ? Math.max(
-          0,
-          ...items
-            .filter(
-              (i) =>
-                i.kind === 'base' ||
-                (i.kind === 'appliance' && i.applianceKind === 'dishwasher'),
-            )
-            .map((i) => (i.placement.elevation ?? 0) + i.height),
-        ) || undefined
-      : undefined;
   const walls = roomSegments(study.room).flatMap((wall) => {
     const items = study.elements.filter(
       (i) => i.placement.mode === 'wall' && i.placement.wall === wall.id,
@@ -188,25 +241,28 @@ export function elevationSheets(study: Study): ElevationSheet[] {
       ux: (wall.b.x - wall.a.x) / wall.length,
       uz: (wall.b.z - wall.a.z) / wall.length,
     };
+    const projected = items.map((i) => projectedItem(i, study, plane));
     return [
       {
         id: wall.id,
         title: `${wall.label === wall.id ? `${wall.label[0].toUpperCase()}${wall.label.slice(1)} wall` : wall.label} — front elevation`,
         width: wall.length,
         height: study.room.height,
-        items: items.map((i) => projectedItem(i, study, plane)),
+        items: projected,
         openings: openings.map((o) => {
           const p = wallPoint(study.room, wall.id, o.offset);
+          const end = wallPoint(study.room, wall.id, o.offset + o.width);
           const x = (p.x - plane.x) * plane.ux + (p.z - plane.z) * plane.uz;
+          const endX =
+            (end.x - plane.x) * plane.ux + (end.z - plane.z) * plane.uz;
           return {
             ...o,
-            offset: Math.min(
-              x,
-              x + o.width * (wall.horizontal ? plane.ux : plane.uz),
-            ),
+            offset: Math.min(x, endX),
           };
         }),
-        countertop: counterHeight(items),
+        countertops: mergeCountertops(
+          projected.flatMap((item) => item.countertops),
+        ),
       },
     ];
   });
@@ -275,14 +331,27 @@ export function elevationSheets(study: Study): ElevationSheet[] {
         ux,
         uz,
       };
+      const projected = group.items.map((i) => projectedItem(i, study, plane));
+      const island = study.islands.find((island) => island.id === group.id);
+      let countertops = projected.flatMap((item) => item.countertops);
+      if (island && study.countertop) {
+        const top = islandCountertop(island, study.elements, study.room);
+        const project = (x: number, z: number) =>
+          (island.x + x * Math.cos(angle) - z * Math.sin(angle) - plane.x) *
+            plane.ux +
+          (island.z + x * Math.sin(angle) + z * Math.cos(angle) - plane.z) *
+            plane.uz;
+        countertops = countertopSpans(top, project, 36);
+        disposeStudyObject(top);
+      }
       return {
         id: `${group.id}-${side}`,
         title: `${group.label} — ${side} elevation`,
         width,
         height: study.room.height,
-        items: group.items.map((i) => projectedItem(i, study, plane)),
+        items: projected,
         openings: [],
-        countertop: counterHeight(group.items),
+        countertops: mergeCountertops(countertops),
       };
     });
   });
@@ -315,7 +384,7 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
           height={height}
         />
         {sheet.openings.map((opening) => {
-          const sill = opening.sill ?? 0;
+          const sill = opening.kind === 'window' ? (opening.sill ?? 42) : 0;
           return (
             <g className="cc-elevation-opening" key={opening.id}>
               {(opening as typeof opening & {arch?: 'simple'}).arch ===
@@ -392,12 +461,24 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
             </text>
           </g>
         ))}
-        {sheet.countertop && (
-          <path
-            className="cc-elevation-counter"
-            d={`M${pad - 3},${sy(sheet.countertop)}H${pad + width + 3}`}
-          />
-        )}
+        {sheet.countertops.map((top, index) => (
+          <g key={index}>
+            <rect
+              className="cc-elevation-counter"
+              x={sx(top.x)}
+              y={sy(top.y + top.height)}
+              width={top.width * scale}
+              height={top.height * scale}
+            />
+            <text
+              className="cc-dimension-text"
+              x={sx(top.x + top.width / 2)}
+              y={sy(top.y + top.height) - 5}
+            >
+              counter {Number((top.y + top.height).toFixed(3))}″
+            </text>
+          </g>
+        ))}
         <path
           className="cc-elevation-dimension"
           d={`M${pad},${pad + height + 17}H${pad + width} ${tick(pad, pad + height + 17)} ${tick(pad + width, pad + height + 17)} M${pad + width + 17},${pad}V${pad + height} ${tick(pad + width + 17, pad, true)} ${tick(pad + width + 17, pad + height, true)}`}
@@ -415,15 +496,6 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
         >
           {sheet.height}″ ceiling
         </text>
-        {sheet.countertop && (
-          <text
-            className="cc-dimension-text"
-            x={pad + 5}
-            y={sy(sheet.countertop) - 5}
-          >
-            counter {sheet.countertop}″
-          </text>
-        )}
       </svg>
     </figure>
   );
