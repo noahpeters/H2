@@ -1,5 +1,6 @@
 import {
   positioningResolution,
+  snappingDistance,
   quantizePosition,
   quantizeElementPosition,
   type PositioningResolution,
@@ -116,6 +117,7 @@ import * as THREE from 'three';
 import {
   islandAt,
   positionElement,
+  snapAdjacent,
   snapWall,
   snapIslandEdges,
   snapRoomCorner,
@@ -550,6 +552,7 @@ export function createDragUpdate(
   clientX: number,
   clientY: number,
   screenScale: number,
+  disableSnapping = false,
 ) {
   return (current: Study): Study => {
     const next = clone(current);
@@ -569,6 +572,8 @@ export function createDragUpdate(
       };
       next.elements = moveIsland(island, next.elements, target);
       Object.assign(island, target);
+      if (!disableSnapping)
+        commitPositioningGuides(next, {kind: 'island', id: island.id});
       return next;
     }
     const element = next.elements.find((item) => item.id === active.id);
@@ -592,7 +597,10 @@ export function createDragUpdate(
         next.room,
       );
       const island = next.islands.find((i) => i.id === element.islandId);
-      if (!island || !islandOverlapsElement(element, island)) {
+      if (
+        !disableSnapping &&
+        (!island || !islandOverlapsElement(element, island))
+      ) {
         if (snapRoomCorner(element, next.room)) return next;
         snapWall(element, next.room);
       }
@@ -611,19 +619,22 @@ export function createDragUpdate(
         ),
       );
     }
-    if (element) {
+    if (element && !disableSnapping) {
+      snapAdjacent(element, next.elements, next.room);
       snapIslandEdges(element, next.islands, next.room);
+      commitPositioningGuides(next, {kind: 'element', id: element.id});
     }
     return next;
   };
 }
-export function createDragEndUpdate(id: string) {
+export function createDragEndUpdate(id: string, disableSnapping = false) {
   return (current: Study): Study => {
     const next = clone(current);
-    commitPositioningGuides(next, {
-      kind: next.islands.some((i) => i.id === id) ? 'island' : 'element',
-      id,
-    });
+    if (!disableSnapping)
+      commitPositioningGuides(next, {
+        kind: next.islands.some((i) => i.id === id) ? 'island' : 'element',
+        id,
+      });
     const item = next.elements.find((e) => e.id === id);
     if (item?.placement.mode === 'floor')
       item.islandId = islandAt(item, next.islands, next.room);
@@ -1377,6 +1388,39 @@ export function CabinetConfigurator({
       typeof window === 'undefined' ? undefined : window.localStorage,
     );
   const drag = useRef<ActiveDrag | null>(null);
+  const lastDragPointer = useRef<{x: number; y: number; scale: number} | null>(
+    null,
+  );
+  const commandPressed = useRef(false);
+  const [snappingDisabled, setSnappingDisabled] = useState(false);
+  useEffect(() => {
+    const change = (disabled: boolean) => {
+      if (commandPressed.current === disabled) return;
+      commandPressed.current = disabled;
+      setSnappingDisabled(disabled);
+      const pointer = lastDragPointer.current;
+      if (drag.current && pointer)
+        setStudy(
+          createDragUpdate(
+            drag.current,
+            pointer.x,
+            pointer.y,
+            pointer.scale,
+            disabled,
+          ),
+        );
+    };
+    const key = (event: KeyboardEvent) => change(event.metaKey);
+    const blur = () => change(false);
+    window.addEventListener('keydown', key);
+    window.addEventListener('keyup', key);
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keydown', key);
+      window.removeEventListener('keyup', key);
+      window.removeEventListener('blur', blur);
+    };
+  }, []);
   const [guideTarget, setGuideTarget] = useState<GuideTarget | null>(null);
   useEffect(() => {
     setGuideTarget(null);
@@ -1443,7 +1487,8 @@ export function CabinetConfigurator({
           const previous = current.elements.find((e) => e.id === item.id);
           if (
             previous &&
-            previous.placement.elevation !== item.placement.elevation
+            previous.placement.elevation !== item.placement.elevation &&
+            !commandPressed.current
           )
             commitElevationGuide(next, item.id);
           if (item.kind === 'base' || item.kind === 'tall')
@@ -1452,7 +1497,10 @@ export function CabinetConfigurator({
             item.height = next.room.height;
         }
         for (const item of next.elements) {
-          if (!current.elements.some((e) => e.id === item.id))
+          if (
+            !commandPressed.current &&
+            !current.elements.some((e) => e.id === item.id)
+          )
             commitPositioningGuides(next, {kind: 'element', id: item.id});
         }
         return next;
@@ -1690,6 +1738,9 @@ export function CabinetConfigurator({
   };
   const startDrag = (ev: React.PointerEvent<SVGGElement>, e: RoomElement) => {
     if (e.placement.mode === 'hosted') return;
+    commandPressed.current = ev.metaKey;
+    setSnappingDisabled(ev.metaKey);
+    lastDragPointer.current = null;
     setGuideTarget({kind: 'element', id: e.id});
     ev.currentTarget.setPointerCapture(ev.pointerId);
     setHistory((h) => [...h.slice(-29), clone(study)]);
@@ -1727,7 +1778,7 @@ export function CabinetConfigurator({
     return {x: (p.x - pad) / scale, z: (p.y - pad) / scale};
   };
   const snapTolerance = () =>
-    8 / (scale * (planSvg.current?.getScreenCTM()?.a ?? 1));
+    commandPressed.current ? 0 : snappingDistance(study.room);
   const changePartition = (original: Study, partition: Partition) => {
     const next = clone(original),
       previous = next.room.partitions!.find((p) => p.id === partition.id)!;
@@ -1749,6 +1800,8 @@ export function CabinetConfigurator({
     return next;
   };
   const moveDrag = (ev: React.PointerEvent<SVGSVGElement>) => {
+    commandPressed.current = ev.metaKey;
+    setSnappingDisabled(ev.metaKey);
     if (editingRoom && endDrag.current) {
       const a = endDrag.current,
         point = planPoint(ev);
@@ -1815,7 +1868,8 @@ export function CabinetConfigurator({
     const a = drag.current,
       ss = scale * (ev.currentTarget.getScreenCTM()?.a ?? 1);
     const {clientX, clientY} = ev;
-    setStudy(createDragUpdate(a, clientX, clientY, ss));
+    lastDragPointer.current = {x: clientX, y: clientY, scale: ss};
+    setStudy(createDragUpdate(a, clientX, clientY, ss, ev.metaKey));
   };
   const selectedIsland = study.islands.find((i) => i.id === study.selected);
   const opening = editingRoom
@@ -2011,6 +2065,11 @@ export function CabinetConfigurator({
                   <option value={1}>Coarse · 1 in</option>
                 </select>
               </label>
+              <small>
+                Snaps within twice this increment. Hold ⌘ Command to disable
+                snapping.
+              </small>
+
               {(['walls', 'floor', 'countertop'] as const).map((surface) => (
                 <label key={surface}>
                   {surface === 'walls'
@@ -2926,7 +2985,7 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
-                {elevationGuide(study, selected.id) && (
+                {!snappingDisabled && elevationGuide(study, selected.id) && (
                   <small role="status">
                     {elevationGuide(study, selected.id)!.alignment} alignment at{' '}
                     {elevationGuide(study, selected.id)!.at}″
@@ -3434,8 +3493,7 @@ export function CabinetConfigurator({
                     !panMode &&
                     event.button !== 2 &&
                     !event.shiftKey &&
-                    !event.ctrlKey &&
-                    !event.metaKey
+                    !event.ctrlKey
                   )
                     return;
                   event.preventDefault();
@@ -3470,7 +3528,7 @@ export function CabinetConfigurator({
                     y: current.y - dy,
                   }));
                 }}
-                onPointerUp={() => {
+                onPointerUp={(event) => {
                   setGuideTarget(null);
                   panDrag.current = null;
                   openingDrag.current = null;
@@ -3479,7 +3537,13 @@ export function CabinetConfigurator({
                   const active = drag.current;
                   drag.current = null;
                   if (!active) return;
-                  setStudy(createDragEndUpdate(active.id));
+                  setStudy(
+                    createDragEndUpdate(
+                      active.id,
+                      event.metaKey || commandPressed.current,
+                    ),
+                  );
+                  lastDragPointer.current = null;
                 }}
                 onPointerCancel={() => {
                   setGuideTarget(null);
@@ -3738,6 +3802,9 @@ export function CabinetConfigurator({
                           clientX: event.clientX,
                           clientY: event.clientY,
                         };
+                        commandPressed.current = event.metaKey;
+                        setSnappingDisabled(event.metaKey);
+                        lastDragPointer.current = null;
                         setGuideTarget({kind: 'island', id: i.id});
                         setStudy((c) => ({...c, selected: i.id}));
                       }}
@@ -4036,7 +4103,7 @@ export function CabinetConfigurator({
                   })}
                 <PositioningGuides
                   study={study}
-                  target={guideTarget}
+                  target={snappingDisabled ? null : guideTarget}
                   pad={pad}
                   scale={scale}
                   screenScale={Math.abs(

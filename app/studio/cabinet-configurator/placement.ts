@@ -1,4 +1,4 @@
-import {positioningResolution, quantizePosition} from './positioningPrecision';
+import {snappingDistance, quantizePosition} from './positioningPrecision';
 import {isPartition, wallFaceOffset} from './wallDimensions';
 import {
   islandContainsElement,
@@ -20,7 +20,7 @@ import {roomSegments, roomPoints, boxInRoom} from './roomOutline';
 export function snapRoomCorner(
   item: RoomElement,
   room: Room,
-  threshold = positioningResolution(room) / 2,
+  threshold = snappingDistance(room),
 ) {
   if (
     item.kind !== 'base' ||
@@ -75,7 +75,7 @@ export function snapRoomCorner(
 export function snapWall(
   item: RoomElement,
   room: Room,
-  threshold = positioningResolution(room) / 2,
+  threshold = snappingDistance(room),
 ) {
   if (item.placement.mode !== 'floor') return;
   const {x, z, elevation = 0} = item.placement;
@@ -194,7 +194,7 @@ export function snapIslandEdges(
   item: RoomElement,
   islands: Island[],
   room: Room,
-  threshold = positioningResolution(room) / 2,
+  threshold = snappingDistance(room),
 ) {
   if (item.placement.mode !== 'floor') return;
   const island = islands.find((i) => i.id === islandAt(item, islands, room));
@@ -235,7 +235,7 @@ export function snapAdjacent(
   item: RoomElement,
   items: RoomElement[],
   room: Room,
-  threshold = positioningResolution(room) / 2,
+  threshold = snappingDistance(room),
 ) {
   if (item.placement.mode === 'wall') {
     const p = item.placement;

@@ -284,3 +284,102 @@ describe('guide commit and intersections', () => {
     expect(overlap(study)).toBe(true);
   });
 });
+
+describe('precision-sized adjacency snapping', () => {
+  test.each([1 / 16, 1 / 8, 1] as const)(
+    'snaps cabinet edges only within twice %s inch',
+    (step) => {
+      const study = sample();
+      study.room.positioningResolution = step;
+      study.elements.push(cabinet('neighbor', 84));
+      const drag = {
+        id: 'active',
+        mode: 'floor' as const,
+        x: 60,
+        z: 60,
+        clientX: 0,
+        clientY: 0,
+      };
+      const atLimit = createDragUpdate(drag, 2 * step, 0, 1)(study);
+      expect(atLimit.elements[0].placement).toMatchObject({x: 60});
+      expect(overlap(atLimit)).toBe(false);
+      const outside = createDragUpdate(drag, -3 * step, 0, 1)(study);
+      expect(outside.elements[0].placement).toMatchObject({x: 60 - 3 * step});
+      const bypassed = createDragUpdate(drag, 2 * step, 0, 1, true)(study);
+      expect(bypassed.elements[0].placement).toMatchObject({x: 60 + 2 * step});
+      expect(
+        createDragEndUpdate('active', true)(bypassed).elements[0].placement,
+      ).toEqual(bypassed.elements[0].placement);
+      expect(
+        createDragEndUpdate('active')(bypassed).elements[0].placement,
+      ).toMatchObject({x: 60});
+    },
+  );
+  test.each([1 / 16, 1 / 8, 1] as const)(
+    'uses twice %s inch for walls and bypasses wall attachment',
+    (step) => {
+      const study = sample();
+      study.room.positioningResolution = step;
+      const drag = {
+        id: 'active',
+        mode: 'floor' as const,
+        x: 60,
+        z: 60,
+        clientX: 0,
+        clientY: 0,
+      };
+      expect(
+        createDragUpdate(drag, 0, -48 + 2 * step, 1)(study).elements[0]
+          .placement,
+      ).toMatchObject({mode: 'wall', wall: 'back'});
+      expect(
+        createDragUpdate(drag, 0, -48 + 3 * step, 1)(study).elements[0]
+          .placement,
+      ).toMatchObject({mode: 'floor', z: 12 + 3 * step});
+      expect(
+        createDragUpdate(drag, 0, -48 + 2 * step, 1, true)(study).elements[0]
+          .placement,
+      ).toMatchObject({mode: 'floor', z: 12 + 2 * step});
+    },
+  );
+  test.each([1 / 16, 1 / 8, 1] as const)(
+    'uses twice %s inch for island boundaries and bypasses island-edge snapping',
+    (step) => {
+      const study = sample();
+      study.room.positioningResolution = step;
+      study.islands = [
+        {
+          id: 'zone',
+          x: 60,
+          z: 60,
+          width: 72,
+          depth: 48,
+          rotation: 0,
+          overhang: 0,
+          seatingSide: 'none',
+        },
+      ];
+      study.elements[0].islandId = 'zone';
+      const drag = {
+        id: 'active',
+        mode: 'floor' as const,
+        x: 60,
+        z: 60,
+        clientX: 0,
+        clientY: 0,
+      };
+      expect(
+        createDragUpdate(drag, 24 - 2 * step, 0, 1)(study).elements[0]
+          .placement,
+      ).toMatchObject({x: 84});
+      expect(
+        createDragUpdate(drag, 24 - 3 * step, 0, 1)(study).elements[0]
+          .placement,
+      ).toMatchObject({x: 84 - 3 * step});
+      expect(
+        createDragUpdate(drag, 24 - 2 * step, 0, 1, true)(study).elements[0]
+          .placement,
+      ).toMatchObject({x: 84 - 2 * step});
+    },
+  );
+});

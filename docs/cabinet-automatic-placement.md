@@ -25,7 +25,7 @@ movement, wall offsets, island movement, and numeric X/Z/bottom-height edits
 use the same resolution. Changing the resolution does not move existing parts.
 
 The previous three-inch magnetic ranges have been removed. Guides activate
-within half the selected increment, independent of zoom, and releasing a plan
+within twice the selected increment, independent of zoom, and dragging snaps to nearby walls, cabinet edges, and island boundaries. Releasing a plan
 drag commits the visible edge/face/center alignment exactly. Exact reference
 geometry takes priority over the grid, so fractional cabinet dimensions can
 remain flush. Conflicting guides on an axis are suppressed. Bottom-height edits
@@ -37,3 +37,7 @@ Placement and intersection checks share integer coordinate comparisons at
 small real overlaps as contact, even in coarse mode. Collision checks include
 vertical intervals and oriented footprints, covering stacked wall cabinets and
 rotated island adjacency. Automatic placement uses the same comparisons.
+
+Hold the Mac Command key to disable snapping during a drag, including release.
+The room precision grid remains active. Releasing Command restores snapping at
+the current pointer position, even without moving the pointer.
