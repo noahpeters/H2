@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, type Ref} from 'react';
 import type {Study} from './CabinetConfigurator';
 import {VisualSelect} from './VisualChoices';
 import {
@@ -14,16 +14,18 @@ import {removeDesignMaterial, type FlatGrain} from './designMaterials';
 export function MaterialsSection({
   study,
   update,
+  detailsRef,
 }: {
   study: Study;
   update: (change: (draft: Study) => void) => void;
+  detailsRef?: Ref<HTMLDetailsElement>;
 }) {
   const [removing, setRemoving] = useState<string>();
   const [replacement, setReplacement] = useState('');
   const [expanded, setExpanded] = useState<string>();
   const materials = study.materials ?? [];
   return (
-    <details className="cc-accordion cc-materials" open>
+    <details className="cc-accordion cc-materials" ref={detailsRef}>
       <summary>Materials</summary>
       <div className="cc-fields">
         <p className="cc-muted">
