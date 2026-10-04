@@ -22,7 +22,7 @@ describe('shared simple arch', () => {
   });
 });
 
-it('arches only the chosen physical open compartment and retains its horizontal shelves', () => {
+it('migrates a legacy opening flag to one cabinet-wide arch and retains its dividers', () => {
   let unit = createCustomUnit({width: 48, height: 48});
   unit = splitSection(unit, unit.root.id, 'vertical');
   const cells = cabinetOpeningChoices(unit);
@@ -35,7 +35,8 @@ it('arches only the chosen physical open compartment and retains its horizontal 
   const arches = fronts.filter((p) => p.outline);
   expect(arches).toHaveLength(1);
   expect(arches[0].name).toBe('Arched face frame rail');
-  expect(arches[0].x + arches[0].width).toBeLessThan(unit.width / 2 + 1);
+  expect(arches[0].width).toBe(46.5);
+  expect(arches[0].x).toBe(0.75);
   expect(fronts.filter((p) => p.kind === 'divider')).toEqual(
     layout.filter((p) => p.kind === 'divider'),
   );
@@ -59,16 +60,12 @@ it('uses the opening circle for the matching door reveal and exports both curved
     'inset',
   );
   const door = parts.find((p) => p.kind === 'door')!;
-  const opening = door.roomOpening!;
-  const radius = Math.min(opening.width / 2, opening.height) - unit.reveal;
-  const spring =
-    opening.height - Math.min(opening.width / 2, opening.height) - unit.reveal;
-  const curved = door.outline!.filter((p) => p.y > spring + 0.01);
+  const {center, radius, spring} = door.cabinetArch!;
+  const curved = door.outline!.filter((p) => door.y + p.y > spring + 0.01);
   curved.forEach((p) =>
-    expect(Math.hypot(p.x - door.width / 2, p.y - spring)).toBeCloseTo(
-      radius,
-      6,
-    ),
+    expect(
+      Math.hypot(door.x + p.x - center, door.y + p.y - spring),
+    ).toBeCloseTo(radius, 2),
   );
   const study = blankStudy();
   study.room.overlay = 'inset';
@@ -108,4 +105,74 @@ it('uses the opening circle for the matching door reveal and exports both curved
 
 it('retains the bottom reveal for short wide arch doors', () => {
   expect(insetArchProfile(36, 12, 0.125).every((p) => p.y >= 0)).toBe(true);
+});
+
+it('uses one cabinet-width circle across paired doors and retains the normal stiles', () => {
+  const unit = createCustomUnit({
+    width: 36,
+    height: 60,
+    root: {
+      id: 'pair',
+      type: 'section',
+      sectionType: 'doors',
+      properties: {doorCount: 2},
+    },
+  });
+  const layout = customUnitLayoutParts(unit);
+  const baseline = roomFrontParts({...unit, parts: layout as any}, 'inset');
+  unit.frontArch = 'simple';
+  const result = roomFrontParts({...unit, parts: layout as any}, 'inset');
+  const doors = result.filter((part) => part.kind === 'door');
+  expect(doors).toHaveLength(2);
+  expect(doors[0].cabinetArch).toEqual(doors[1].cabinetArch);
+  expect(doors[0].cabinetArch!.radius).toBe(16.5 - unit.reveal);
+  expect(
+    result.filter((part) => part.faceFrame && part.faceFrame !== 'rail'),
+  ).toEqual(
+    baseline.filter((part) => part.faceFrame && part.faceFrame !== 'rail'),
+  );
+  expect(result.filter((part) => part.kind === 'carcass')).toEqual(
+    layout.filter((part) => part.kind === 'carcass'),
+  );
+  for (const door of doors) {
+    const curve = door.outline!.filter(
+      (point) => point.y + door.y > door.cabinetArch!.spring + 0.01,
+    );
+    expect(curve.length).toBeGreaterThan(30);
+    for (const point of curve)
+      expect(
+        Math.hypot(
+          point.x + door.x - 18,
+          point.y + door.y - door.cabinetArch!.spring,
+        ),
+      ).toBeCloseTo(door.cabinetArch!.radius, 2);
+  }
+  expect(deserializeCustomUnit(serializeCustomUnit(unit)).frontArch).toBe(
+    'simple',
+  );
+});
+
+it('spans several shelf openings without changing the shelves or adding wider stiles', () => {
+  const unit = createCustomUnit({
+    width: 36,
+    height: 72,
+    root: {
+      id: 'shelves',
+      type: 'section',
+      sectionType: 'shelves',
+      properties: {shelfCount: 5},
+    },
+  });
+  const layout = customUnitLayoutParts(unit);
+  const result = roomFrontParts(
+    {...unit, frontArch: 'simple', parts: layout as any},
+    'inset',
+  );
+  const arch = result.find((part) => part.outline)!;
+  expect(arch.width).toBe(34.5);
+  expect(arch.y).toBe(54);
+  expect(result.filter((part) => part.kind === 'shelf')).toEqual(
+    layout.filter((part) => part.kind === 'shelf'),
+  );
+  expect(result.filter((part) => part.faceFrame)).toHaveLength(1);
 });

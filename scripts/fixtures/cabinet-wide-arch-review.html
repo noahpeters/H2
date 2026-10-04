@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Cabinet-wide arch review</title><style>body{font:16px system-ui;background:#eee8df;color:#213e32;margin:24px}main{display:flex}figure{margin:0}figcaption{text-align:center;padding:14px}canvas{display:block}</style></head><body><h1>One cabinet arch, with or without doors</h1><main><figure><canvas id="open"></canvas><figcaption>Open shelves · rectangular carcass</figcaption></figure><figure><canvas id="doors"></canvas><figcaption>Paired arched glass doors · same cabinet-wide curve</figcaption></figure></main><script type="module">
+import * as THREE from 'three';
+import {createCustomUnit} from '/app/studio/cabinet-configurator/custom-unit/model.ts';
+import {customUnitLayoutParts} from '/app/studio/cabinet-configurator/custom-unit/layoutParts.ts';
+import {customUnitGeometry} from '/app/studio/cabinet-configurator/custom-unit/geometry.ts';
+const unit=createCustomUnit({width:36,height:60,depth:14,root:{id:'shelves',type:'section',sectionType:'shelves',properties:{shelfCount:4}}});unit.frontArch='simple';
+for(const kind of ['open','doors']){
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById(kind),antialias:true});renderer.setSize(460,640);renderer.setPixelRatio(devicePixelRatio);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#eee8df');scene.add(new THREE.HemisphereLight(0xffffff,0x665544,2));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(-40,80,-80);scene.add(light);
+let definition=unit;
+if(kind==='doors'){const pair=createCustomUnit({width:36,height:60,depth:14,root:{id:'pair',type:'section',sectionType:'doors',properties:{doorCount:2}}}); definition={...unit,parts:[...customUnitLayoutParts(unit),...customUnitLayoutParts(pair).filter(p=>p.kind==='door').map((p,i)=>({...p,id:'door'+i,faceStyle:'shaker-glass'}))]};}
+scene.add(customUnitGeometry(definition,{}, {overlay:'inset',face:'shaker-glass',material:'rift-white-oak'}));
+const camera=new THREE.OrthographicCamera(-26,26,36,-36,.1,500);camera.position.set(-36,43,-115);camera.lookAt(0,30,0);renderer.setAnimationLoop(()=>renderer.render(scene,camera));
+}
+</script></body></html>

@@ -326,3 +326,19 @@ it('allows drawer height edits while the overall cabinet envelope is locked', as
     screen.queryByRole('spinbutton', {name: 'height'}),
   ).not.toBeInTheDocument();
 });
+
+it('offers one cabinet arch control and can clear legacy arch selections', async () => {
+  const {createCustomUnit} = await import('./model');
+  const initial = createCustomUnit({width: 36, height: 72});
+  initial.archedOpenings = ['section:old:0'];
+  const onChange = vi.fn();
+  render(<CustomUnitEditor initialDefinition={initial} onChange={onChange} />);
+  const checkbox = screen.getByRole('checkbox', {name: 'Arched cabinet front'});
+  expect(checkbox).toBeChecked();
+  expect(screen.queryByText('Arched opening 1')).not.toBeInTheDocument();
+  fireEvent.click(checkbox);
+  expect(onChange.mock.lastCall![0].archedOpenings).toBeUndefined();
+  expect(onChange.mock.lastCall![0].frontArch).toBeUndefined();
+  fireEvent.click(checkbox);
+  expect(onChange.mock.lastCall![0].frontArch).toBe('simple');
+});
