@@ -1,0 +1,11 @@
+<!doctype html><html><head><title>Smooth wall arch review</title><style>body{font:16px system-ui;background:#eee8df;color:#213e32}canvas{display:block}figure{margin:0;width:480px}figcaption{text-align:center;padding:14px}</style></head><body><h1>Semicircular wall opening</h1><figure><canvas></canvas><figcaption>Continuous arch through the wall and curved trim</figcaption></figure><script type="module">
+import * as THREE from 'three';
+import {roomGeometry,openingGeometry} from '/app/studio/cabinet-configurator/roomGeometry.ts';
+const renderer=new THREE.WebGLRenderer({canvas:document.querySelector('canvas'),antialias:true});renderer.setSize(480,640);renderer.setPixelRatio(devicePixelRatio);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#eee8df');scene.add(new THREE.HemisphereLight(0xffffff,0x665544,2));
+const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(-20,60,-80);scene.add(light);
+const room={width:120,depth:100,height:96,walls:'plaster',floor:'oak'}, opening={id:'arch',kind:'opening',wall:'back',offset:30,width:36,height:80,arch:'simple'};
+scene.add(roomGeometry(room,[opening],0xd9d1bd)[0],openingGeometry(opening,room));
+const camera=new THREE.OrthographicCamera(-.9,.9,1.2,-1.2,.01,500);camera.position.set(.05,1.25,2.8);camera.lookAt(-.3,1.25,-1.27);
+renderer.render(scene,camera);
+</script></body></html>
