@@ -1,3 +1,7 @@
+import {validStudy} from './savedRoomProtocol';
+import {blankStudy} from './CabinetConfigurator';
+import {resolveFabrication} from './fabrication/resolve';
+import {DEFAULT_CONSTRUCTION} from './fabrication/profile';
 import {describe, expect, it} from 'vitest';
 import {
   automaticallyPlaceElement,
@@ -97,5 +101,48 @@ describe('standalone room panels', () => {
 
     expect(panel.islandId).toBe('island');
     expect(panel.placement).toMatchObject({mode: 'floor', rotation: 90});
+  });
+});
+
+it('saves, reloads and edits standalone panels without cabinet ownership', () => {
+  const study = blankStudy();
+  const panel = createRoomPanel('saved-panel', study.room);
+  panel.placement = {mode: 'floor', x: 60, z: 60, rotation: 90, elevation: 0};
+  study.elements = [panel];
+  const saved = JSON.parse(JSON.stringify(study)) as typeof study;
+  expect(validStudy(saved)).toBe(true);
+  if (!validStudy(saved)) throw new Error('Panel save was rejected');
+  saved.elements[0].height = 80;
+  saved.elements[0].depth = 30;
+  expect(validStudy(saved)).toBe(true);
+  expect(saved.elements[0]).toMatchObject({
+    kind: 'panel',
+    width: 0.75,
+    height: 80,
+    depth: 30,
+  });
+  expect(
+    validStudy({
+      ...saved,
+      elements: [
+        {...saved.elements[0], placement: {mode: 'hosted', hostId: 'other'}},
+      ],
+    }),
+  ).toBe(false);
+});
+
+it('exports a panel as exactly one solid stock component without a cabinet carcass', () => {
+  const study = blankStudy();
+  study.elements = [createRoomPanel('export-panel', study.room)];
+  const manifest = resolveFabrication(
+    study,
+    {slug: 'test', revision: 1, updatedAt: '2026-10-04'},
+    DEFAULT_CONSTRUCTION,
+  );
+  expect(manifest.parts).toHaveLength(1);
+  expect(manifest.parts[0]).toMatchObject({
+    name: 'Room panel',
+    size: [0.75, 24, study.room.height],
+    pockets: [],
   });
 });
