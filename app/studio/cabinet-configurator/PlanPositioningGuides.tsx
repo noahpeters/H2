@@ -18,7 +18,7 @@ export function PositioningGuides({
   scale: number;
   screenScale: number;
 }) {
-  const guides = positioningGuides(study, target, 6 / (scale * screenScale));
+  const guides = positioningGuides(study, target);
   if (!guides.length) return null;
   const unit = 1 / screenScale;
   return (

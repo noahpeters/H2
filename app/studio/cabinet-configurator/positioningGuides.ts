@@ -1,6 +1,12 @@
+import {
+  canonicalCoordinate,
+  coordinateUnits,
+  positioningResolution,
+  intervalsOverlap,
+} from './positioningPrecision';
 import type {Study} from './CabinetConfigurator';
-import {bounds} from './model';
-import {roomSegments, wallPoint} from './roomOutline';
+import {bounds, moveIsland} from './model';
+import {roomSegments, wallPoint, roomWall} from './roomOutline';
 import {isPartition, wallBounds} from './wallDimensions';
 import {islandCountertopOutline, islandWorldBounds} from './islandFootprint';
 
@@ -67,7 +73,7 @@ function references(study: Study): Reference[] {
 export function positioningGuides(
   study: Study,
   target: GuideTarget | null,
-  tolerance = 2,
+  tolerance = positioningResolution(study.room) / 2,
 ): PositioningGuide[] {
   if (!target) return [];
   const all = references(study);
@@ -104,6 +110,15 @@ export function positioningGuides(
       (box[min] + box[max]) / 2,
       box[max],
     ];
+    const item =
+      target.kind === 'element'
+        ? study.elements.find((e) => e.id === target.id)
+        : undefined;
+    const allowed =
+      item?.placement.mode !== 'wall' ||
+      roomWall(study.room, item.placement.wall).horizontal === (axis === 'x');
+    const axisTolerance = allowed ? tolerance : 0;
+    const correction = nearestAlignment(active, others, axis, axisTolerance);
     // One line per edge or center, extended through every matching reference.
     for (const anchor of [...new Set(anchors(active))]) {
       let best: {anchor: number; box: Reference; delta: number} | undefined;
@@ -111,7 +126,9 @@ export function positioningGuides(
         for (const otherAnchor of anchors(box)) {
           const delta = Math.abs(anchor - otherAnchor);
           if (
-            delta <= tolerance &&
+            delta <= axisTolerance &&
+            coordinateUnits(otherAnchor - anchor) ===
+              coordinateUnits(correction ?? Infinity) &&
             (!best ||
               delta < best.delta ||
               (delta === best.delta &&
@@ -122,7 +139,9 @@ export function positioningGuides(
         }
       if (best) {
         const matched = others.filter((box) =>
-          anchors(box).some((value) => Math.abs(value - best!.anchor) < 1e-7),
+          anchors(box).some(
+            (value) => coordinateUnits(value) === coordinateUnits(best!.anchor),
+          ),
         );
         guides.push({
           kind: 'alignment',
@@ -175,4 +194,138 @@ export function positioningGuides(
 
 export function guideDistanceLabel(inches: number) {
   return `${Number(inches.toFixed(1))}″`;
+}
+
+/** Select one compatible translation per axis, shared by visible guides and commit.
+ * Stable reference order breaks equal-distance ties; conflicting lines are hidden. */
+function nearestAlignment(
+  active: Box,
+  others: Box[],
+  axis: 'x' | 'z',
+  tolerance: number,
+) {
+  const anchors = (box: Box) =>
+    axis === 'x'
+      ? [box.left, (box.left + box.right) / 2, box.right]
+      : [box.top, (box.top + box.bottom) / 2, box.bottom];
+  let best: number | undefined;
+  for (const anchor of anchors(active))
+    for (const box of others)
+      for (const other of anchors(box)) {
+        const delta = canonicalCoordinate(other - anchor);
+        if (
+          Math.abs(delta) <= tolerance &&
+          (best === undefined || Math.abs(delta) < Math.abs(best))
+        )
+          best = delta;
+      }
+  return best;
+}
+
+/** Commit the same edge/face/center alignment displayed in the plan. Exact
+ * reference geometry wins over grid rounding, including fractional-size parts. */
+export function commitPositioningGuides(study: Study, target: GuideTarget) {
+  const guides = positioningGuides(study, target);
+  const all = references(study);
+  const active = all.find((r) => r.kind === target.kind && r.id === target.id);
+  if (!active) return;
+  const delta = (axis: 'x' | 'z') => {
+    const anchors =
+      axis === 'x'
+        ? [active.left, (active.left + active.right) / 2, active.right]
+        : [active.top, (active.top + active.bottom) / 2, active.bottom];
+    const lines = guides.filter(
+      (g) => g.kind === 'alignment' && g.axis === (axis === 'x' ? 'z' : 'x'),
+    );
+    return (
+      lines
+        .flatMap((g) => anchors.map((a) => canonicalCoordinate(g.at - a)))
+        .sort((a, b) => Math.abs(a) - Math.abs(b))[0] ?? 0
+    );
+  };
+  if (target.kind === 'island') {
+    const island = study.islands.find((i) => i.id === target.id)!;
+    const next = {
+      x: canonicalCoordinate(island.x + delta('x')),
+      z: canonicalCoordinate(island.z + delta('z')),
+      rotation: island.rotation,
+    };
+    study.elements = moveIsland(island, study.elements, next);
+    Object.assign(island, next);
+  } else if (target.kind === 'element') {
+    const item = study.elements.find((e) => e.id === target.id)!;
+    const p = item.placement;
+    if (p.mode === 'floor') {
+      const dx = delta('x'),
+        dz = delta('z');
+      if (dx) p.x = canonicalCoordinate(p.x + dx);
+      if (dz) p.z = canonicalCoordinate(p.z + dz);
+    } else if (p.mode === 'wall') {
+      const wall = roomWall(study.room, p.wall);
+      p.offset = canonicalCoordinate(
+        p.offset + delta(wall.horizontal ? 'x' : 'z'),
+      );
+    }
+  }
+}
+
+export type ElevationGuide = {
+  at: number;
+  delta: number;
+  alignment: 'bottom' | 'center' | 'top';
+};
+export function elevationGuide(
+  study: Study,
+  id: string,
+): ElevationGuide | undefined {
+  const item = study.elements.find((e) => e.id === id);
+  if (
+    !item ||
+    item.placement.mode === 'hosted' ||
+    item.kind === 'base' ||
+    item.kind === 'tall'
+  )
+    return;
+  const box = bounds(item, study.room);
+  const bottom = item.placement.elevation ?? 0;
+  let best: ElevationGuide | undefined;
+  for (const other of study.elements) {
+    if (other.id === id || other.placement.mode === 'hosted') continue;
+    const b = bounds(other, study.room);
+    if (
+      !intervalsOverlap(box.left, box.right, b.left, b.right) ||
+      !intervalsOverlap(box.top, box.bottom, b.top, b.bottom)
+    )
+      continue;
+    const otherBottom = other.placement.elevation ?? 0;
+    for (const [anchor, alignment] of [
+      [bottom, 'bottom'],
+      [bottom + item.height / 2, 'center'],
+      [bottom + item.height, 'top'],
+    ] as const)
+      for (const at of [
+        otherBottom,
+        otherBottom + other.height / 2,
+        otherBottom + other.height,
+      ]) {
+        const delta = canonicalCoordinate(at - anchor);
+        const nextBottom = bottom + delta;
+        if (
+          Math.abs(delta) <= positioningResolution(study.room) / 2 &&
+          nextBottom >= 0 &&
+          nextBottom + item.height <= study.room.height &&
+          (!best || Math.abs(delta) < Math.abs(best.delta))
+        )
+          best = {at, delta, alignment};
+      }
+  }
+  return best;
+}
+export function commitElevationGuide(study: Study, id: string) {
+  const guide = elevationGuide(study, id);
+  const item = study.elements.find((e) => e.id === id);
+  if (guide && item)
+    item.placement.elevation = canonicalCoordinate(
+      (item.placement.elevation ?? 0) + guide.delta,
+    );
 }

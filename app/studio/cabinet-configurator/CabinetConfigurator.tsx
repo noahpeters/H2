@@ -1,3 +1,14 @@
+import {
+  positioningResolution,
+  quantizePosition,
+  quantizeElementPosition,
+  type PositioningResolution,
+} from './positioningPrecision';
+import {
+  commitPositioningGuides,
+  commitElevationGuide,
+  elevationGuide,
+} from './positioningGuides';
 import {waitForMaterialTextures} from './materialRendering';
 import {DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import {
@@ -105,7 +116,6 @@ import * as THREE from 'three';
 import {
   islandAt,
   positionElement,
-  snapAdjacent,
   snapWall,
   snapIslandEdges,
   snapRoomCorner,
@@ -547,8 +557,14 @@ export function createDragUpdate(
       const island = next.islands.find((i) => i.id === active.id);
       if (!island) return current;
       const target = {
-        x: active.x + (clientX - active.clientX) / screenScale,
-        z: active.z + (clientY - active.clientY) / screenScale,
+        x: quantizePosition(
+          active.x + (clientX - active.clientX) / screenScale,
+          next.room,
+        ),
+        z: quantizePosition(
+          active.z + (clientY - active.clientY) / screenScale,
+          next.room,
+        ),
         rotation: island.rotation,
       };
       next.elements = moveIsland(island, next.elements, target);
@@ -565,8 +581,14 @@ export function createDragUpdate(
     ) {
       positionElement(
         element,
-        Math.round(active.x + (clientX - active.clientX) / screenScale),
-        Math.round(active.z + (clientY - active.clientY) / screenScale),
+        quantizePosition(
+          active.x + (clientX - active.clientX) / screenScale,
+          next.room,
+        ),
+        quantizePosition(
+          active.z + (clientY - active.clientY) / screenScale,
+          next.room,
+        ),
         next.room,
       );
       const island = next.islands.find((i) => i.id === element.islandId);
@@ -582,12 +604,14 @@ export function createDragUpdate(
         0,
         Math.min(
           roomWall(next.room, active.wall).length - element.width,
-          Math.round(active.offset + (pointer - active.pointer) / screenScale),
+          quantizePosition(
+            active.offset + (pointer - active.pointer) / screenScale,
+            next.room,
+          ),
         ),
       );
     }
     if (element) {
-      snapAdjacent(element, next.elements, next.room);
       snapIslandEdges(element, next.islands, next.room);
     }
     return next;
@@ -596,6 +620,10 @@ export function createDragUpdate(
 export function createDragEndUpdate(id: string) {
   return (current: Study): Study => {
     const next = clone(current);
+    commitPositioningGuides(next, {
+      kind: next.islands.some((i) => i.id === id) ? 'island' : 'element',
+      id,
+    });
     const item = next.elements.find((e) => e.id === id);
     if (item?.placement.mode === 'floor')
       item.islandId = islandAt(item, next.islands, next.room);
@@ -1394,10 +1422,38 @@ export function CabinetConfigurator({
           current.elements.find((e) => e.id === current.selected)?.materialId,
         );
         for (const item of next.elements) {
+          const groupMoved =
+            item.islandId &&
+            next.islands.some((island) => {
+              const previous = current.islands.find((i) => i.id === island.id);
+              return (
+                island.id === item.islandId &&
+                previous &&
+                (island.x !== previous.x ||
+                  island.z !== previous.z ||
+                  island.rotation !== previous.rotation)
+              );
+            });
+          if (!groupMoved)
+            quantizeElementPosition(
+              item,
+              next.room,
+              current.elements.find((e) => e.id === item.id),
+            );
+          const previous = current.elements.find((e) => e.id === item.id);
+          if (
+            previous &&
+            previous.placement.elevation !== item.placement.elevation
+          )
+            commitElevationGuide(next, item.id);
           if (item.kind === 'base' || item.kind === 'tall')
             item.placement.elevation = 0;
           if (item.fixtureKind === 'glass-shower')
             item.height = next.room.height;
+        }
+        for (const item of next.elements) {
+          if (!current.elements.some((e) => e.id === item.id))
+            commitPositioningGuides(next, {kind: 'element', id: item.id});
         }
         return next;
       }),
@@ -1613,7 +1669,10 @@ export function CabinetConfigurator({
           x: target.x,
           z: target.z,
           rotation: target.rotation,
-          [key]: Number(value),
+          [key]:
+            key === 'rotation'
+              ? Number(value)
+              : quantizePosition(Number(value), d.room),
         };
         d.elements = moveIsland(target, d.elements, next);
         Object.assign(target, next);
@@ -1934,6 +1993,24 @@ export function CabinetConfigurator({
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
+              <label>
+                Positioning resolution
+                <select
+                  value={positioningResolution(study.room)}
+                  onChange={(event) => {
+                    const value = Number(
+                      event.currentTarget.value,
+                    ) as PositioningResolution;
+                    update((d) => {
+                      d.room.positioningResolution = value;
+                    });
+                  }}
+                >
+                  <option value={1 / 16}>Fine · 1/16 in</option>
+                  <option value={1 / 8}>Default · 1/8 in</option>
+                  <option value={1}>Coarse · 1 in</option>
+                </select>
+              </label>
               {(['walls', 'floor', 'countertop'] as const).map((surface) => (
                 <label key={surface}>
                   {surface === 'walls'
@@ -2829,7 +2906,7 @@ export function CabinetConfigurator({
                       type="number"
                       min="0"
                       max={study.room.height - selected.height}
-                      step="1"
+                      step={positioningResolution(study.room)}
                       value={selected.placement.elevation ?? 0}
                       onChange={(event) => {
                         const elevation = Number(event.currentTarget.value);
@@ -2849,8 +2926,76 @@ export function CabinetConfigurator({
                     />
                   </label>
                 )}
+                {elevationGuide(study, selected.id) && (
+                  <small role="status">
+                    {elevationGuide(study, selected.id)!.alignment} alignment at{' '}
+                    {elevationGuide(study, selected.id)!.at}″
+                  </small>
+                )}
+                {selected.placement.mode === 'wall' && (
+                  <label>
+                    Wall offset (in)
+                    <input
+                      type="number"
+                      min={0}
+                      max={
+                        roomWall(study.room, selected.placement.wall).length -
+                        selected.width
+                      }
+                      step={positioningResolution(study.room)}
+                      value={selected.placement.offset}
+                      onChange={(event) => {
+                        const offset = Number(event.currentTarget.value);
+                        if (
+                          !Number.isFinite(offset) ||
+                          offset < 0 ||
+                          selected.placement.mode !== 'wall' ||
+                          offset + selected.width >
+                            roomWall(study.room, selected.placement.wall).length
+                        )
+                          return;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item?.placement.mode === 'wall')
+                            item.placement.offset = offset;
+                        });
+                      }}
+                    />
+                  </label>
+                )}
                 {selected.placement.mode === 'floor' && (
                   <>
+                    {(['x', 'z'] as const).map((axis) => (
+                      <label key={axis}>
+                        {axis.toUpperCase()} position (in)
+                        <input
+                          type="number"
+                          step={positioningResolution(study.room)}
+                          value={
+                            selected.placement.mode === 'floor'
+                              ? selected.placement[axis]
+                              : 0
+                          }
+                          onChange={(event) => {
+                            const value = Number(event.currentTarget.value);
+                            if (
+                              !Number.isFinite(value) ||
+                              Math.abs(value) > 10000
+                            )
+                              return;
+                            update((d) => {
+                              const item = d.elements.find(
+                                (e) => e.id === selected.id,
+                              );
+                              if (item?.placement.mode === 'floor')
+                                item.placement[axis] = value;
+                            });
+                          }}
+                        />
+                      </label>
+                    ))}
                     <label>
                       Rotation
                       <select
@@ -3333,7 +3478,7 @@ export function CabinetConfigurator({
                   endDrag.current = null;
                   const active = drag.current;
                   drag.current = null;
-                  if (!active || active.mode === 'island') return;
+                  if (!active) return;
                   setStudy(createDragEndUpdate(active.id));
                 }}
                 onPointerCancel={() => {

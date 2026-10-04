@@ -181,3 +181,81 @@ test('split-view 3D opening selection obeys room edit mode', () => {
   pick();
   expect(state.latest!.selected).toBeNull();
 });
+
+test('room precision persists and controls numeric cabinet placement on all axes', () => {
+  state.initial!.room.partitions = [];
+  state.initial!.elements = [
+    {
+      id: 'cabinet',
+      kind: 'wall-cabinet',
+      width: 24,
+      depth: 24,
+      height: 24,
+      face: 'slab',
+      placement: {mode: 'floor', x: 60, z: 60, rotation: 0, elevation: 54},
+    },
+  ];
+  state.initial!.selected = 'cabinet';
+  render(<CabinetConfigurator />);
+  const precision = screen.getByLabelText('Positioning resolution');
+  expect(precision).toHaveValue('0.125');
+  for (const step of [1 / 16, 1 / 8, 1]) {
+    fireEvent.change(precision, {target: {value: String(step)}});
+    expect(state.latest!.room.positioningResolution).toBe(step);
+    expect(screen.getByLabelText('X position (in)')).toHaveAttribute(
+      'step',
+      String(step),
+    );
+    expect(
+      screen.getByLabelText('Bottom height above floor (in)'),
+    ).toHaveAttribute('step', String(step));
+    fireEvent.change(screen.getByLabelText('X position (in)'), {
+      target: {value: String(60 + step * 0.6)},
+    });
+    fireEvent.change(screen.getByLabelText('Z position (in)'), {
+      target: {value: String(60 - step * 0.6)},
+    });
+    fireEvent.change(screen.getByLabelText('Bottom height above floor (in)'), {
+      target: {value: String(54 + step * 0.6)},
+    });
+    expect(state.latest!.elements[0].placement).toMatchObject({
+      x: 60 + step,
+      z: 60 - step,
+      elevation: 54 + step,
+    });
+  }
+});
+
+test('numeric elevation commits a visible bottom/top guide for a vertical stack', () => {
+  state.initial!.room.partitions = [];
+  state.initial!.elements = [
+    {
+      id: 'lower',
+      kind: 'wall-cabinet',
+      width: 24,
+      depth: 24,
+      height: 20.03,
+      face: 'slab',
+      placement: {mode: 'wall', wall: 'back', offset: 24, elevation: 20},
+    },
+    {
+      id: 'upper',
+      kind: 'wall-cabinet',
+      width: 24,
+      depth: 24,
+      height: 20,
+      face: 'slab',
+      placement: {mode: 'wall', wall: 'back', offset: 24, elevation: 42},
+    },
+  ];
+  state.initial!.selected = 'upper';
+  render(<CabinetConfigurator />);
+  fireEvent.change(screen.getByLabelText('Bottom height above floor (in)'), {
+    target: {value: '40'},
+  });
+  expect(state.latest!.elements[1].placement.elevation).toBe(40.03);
+  expect(screen.getByText('bottom alignment at 40.03″')).toBeInTheDocument();
+  expect(
+    screen.queryByText(/Overlaps another element/),
+  ).not.toBeInTheDocument();
+});

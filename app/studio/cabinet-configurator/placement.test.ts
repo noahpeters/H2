@@ -56,7 +56,12 @@ describe('placement tools', () => {
         width: 36,
         depth: 42,
       };
-      cabinet.placement = {mode: 'floor', x: x + 1, z: z - 1, rotation: 0};
+      cabinet.placement = {
+        mode: 'floor',
+        x: x + 0.03,
+        z: z - 0.03,
+        rotation: 0,
+      };
       expect(snapRoomCorner(cabinet, room)).toBe(true);
       expect(cabinet.placement).toMatchObject({x, z, rotation});
       const footprint = bounds(cabinet, room);
@@ -86,8 +91,8 @@ describe('placement tools', () => {
       const object = item('edge', 60);
       object.placement = {
         mode: 'floor',
-        x: 60 + 22 * Math.cos(a),
-        z: 60 + 22 * Math.sin(a),
+        x: 60 + 23.97 * Math.cos(a),
+        z: 60 + 23.97 * Math.sin(a),
         rotation,
       };
       snapIslandEdges(object, [zone], room);
@@ -105,10 +110,10 @@ describe('placement tools', () => {
     },
   );
   it.each([
-    ['back', 60, 14],
-    ['front', 60, 186],
-    ['left', 14, 60],
-    ['right', 226, 60],
+    ['back', 60, 12.03],
+    ['front', 60, 187.97],
+    ['left', 12.03, 60],
+    ['right', 227.97, 60],
   ] as const)('snaps to the %s wall and preserves elevation', (wall, x, z) => {
     const a = item('a', x);
     a.placement = {mode: 'floor', x, z, rotation: 0, elevation: 54};
@@ -139,7 +144,7 @@ describe('placement tools', () => {
       clientX: 0,
       clientY: 0,
     };
-    const attached = createDragUpdate(drag, 0, -46, 1)(original);
+    const attached = createDragUpdate(drag, 0, -48, 1)(original);
     expect(attached.elements[0].placement).toMatchObject({
       mode: 'wall',
       wall: 'back',
@@ -150,14 +155,14 @@ describe('placement tools', () => {
       x: 61,
       z: 20,
     });
-    const reattached = createDragUpdate(drag, -46, 0, 1)(released);
+    const reattached = createDragUpdate(drag, -48, 0, 1)(released);
     expect(reattached.elements[0].placement).toMatchObject({
       mode: 'wall',
       wall: 'left',
     });
   });
   it('snaps to adjacency and releases once outside the tolerance', () => {
-    const a = item('a', 35),
+    const a = item('a', 35.97),
       b = item('b', 60);
     snapAdjacent(a, [a, b], room);
     expect(a.placement).toMatchObject({x: 36});

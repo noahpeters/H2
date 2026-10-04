@@ -16,3 +16,24 @@ When no room position can hold the requested dimensions, creation remains non-bl
 - All 164 tests pass. Lint passes with six existing unrelated warnings; typecheck and production build pass. Vitest exits successfully after its existing shutdown-timeout warning.
 - Browser verification used the actual configurator in an isolated Vite preview with simulated local room persistence. The full Hydrogen dev server encountered `EMFILE: too many open files, watch`; production services were not used.
 - Four consecutive drawer-cabinet additions extended the starter back-wall cabinet at offset 86, then used the right wall at offsets 0, 30, and 60. Plan and 3D views displayed the resulting run and reported six elements with clear fit, without manual placement.
+
+## Manual positioning precision and alignment
+
+Room → Positioning resolution selects 1/8 in (default), 1/16 in (fine), or
+1 in (coarse). It is saved with the room; older rooms inherit 1/8 in. Plan
+movement, wall offsets, island movement, and numeric X/Z/bottom-height edits
+use the same resolution. Changing the resolution does not move existing parts.
+
+The previous three-inch magnetic ranges have been removed. Guides activate
+within half the selected increment, independent of zoom, and releasing a plan
+drag commits the visible edge/face/center alignment exactly. Exact reference
+geometry takes priority over the grid, so fractional cabinet dimensions can
+remain flush. Conflicting guides on an axis are suppressed. Bottom-height edits
+also commit nearby bottom/center/top alignment to cabinets occupying the same
+footprint, with an alignment message beside the height control.
+
+Placement and intersection checks share integer coordinate comparisons at
+10,000,000 units per inch. This removes floating-point drift without treating
+small real overlaps as contact, even in coarse mode. Collision checks include
+vertical intervals and oriented footprints, covering stacked wall cabinets and
+rotated island adjacency. Automatic placement uses the same comparisons.
