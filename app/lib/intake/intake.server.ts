@@ -1,3 +1,4 @@
+import {validMetaAttribution, type MetaAttribution} from './metaAttribution';
 import {
   attribution,
   resendEvent,
@@ -143,6 +144,7 @@ export function cabinetIntake(
     revision: number;
     marketingConsent?: string;
     sourceQuery?: string;
+    metaAttribution?: MetaAttribution;
   },
   request: Request,
   purpose: 'share' | 'price',
@@ -163,6 +165,9 @@ export function cabinetIntake(
     sourceKind: `cabinet_${purpose}`,
     configuratorSource: 'cabinet',
     utm: attribution(source),
+    metaAttribution: validMetaAttribution(body.metaAttribution)
+      ? body.metaAttribution
+      : undefined,
     marketingConsent:
       body.marketingConsent === 'granted' ? 'granted' : 'not_provided',
     marketingVersion: MARKETING_VERSION,

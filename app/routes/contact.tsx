@@ -1,3 +1,4 @@
+import {parseMetaAttribution} from '~/lib/intake/metaAttribution';
 import {Link, useActionData, useLoaderData} from 'react-router';
 import type {Route} from './+types/contact';
 import {ProjectForm} from '~/studio/ProjectForm';
@@ -194,6 +195,7 @@ export async function action({
             : 'contact',
         configuratorSource: source,
         utm: attribution(sourceUrl),
+        metaAttribution: parseMetaAttribution(value('metaAttribution')),
         marketingConsent:
           value('marketingConsent') === 'granted' ? 'granted' : 'not_provided',
         marketingVersion: MARKETING_VERSION,

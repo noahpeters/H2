@@ -1,3 +1,7 @@
+import {
+  marketingAllowed,
+  rememberMetaClick,
+} from '~/lib/intake/metaAttribution';
 import {useEffect, useRef, useState} from 'react';
 import {useLocation, useRouteLoaderData} from 'react-router';
 import type {RootLoader} from '~/root';
@@ -40,14 +44,6 @@ export function trackAcceptedLead(eventId: string, kind: string) {
     /* In-memory deduplication remains available. */
   }
 }
-function marketingAllowed() {
-  const privacy = (
-    window as Window & {
-      Shopify?: {customerPrivacy?: {marketingAllowed?: () => boolean}};
-    }
-  ).Shopify?.customerPrivacy;
-  return privacy?.marketingAllowed ? privacy.marketingAllowed() : true;
-}
 export function MetaPixel({nonce}: {nonce?: string}) {
   const location = useLocation();
   const data = useRouteLoaderData<RootLoader>('root');
@@ -61,6 +57,7 @@ export function MetaPixel({nonce}: {nonce?: string}) {
       document.removeEventListener('visitorConsentCollected', changed);
   }, []);
   useEffect(() => {
+    rememberMetaClick();
     if (!marketingAllowed()) {
       window.fbq?.('consent', 'revoke');
       return;
@@ -100,6 +97,6 @@ export function MetaPixel({nonce}: {nonce?: string}) {
       lastPage.current = location.pathname;
     }
     if (receipt) trackAcceptedLead(receipt.eventId, receipt.kind);
-  }, [nonce, location.pathname, receipt, consentVersion]);
+  }, [nonce, location.pathname, location.search, receipt, consentVersion]);
   return null;
 }

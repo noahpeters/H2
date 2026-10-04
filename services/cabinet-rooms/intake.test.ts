@@ -310,6 +310,11 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
     'sends one event and intake with %s consent',
     async (consent) => {
       const {env, events, ownerEmails, intakes} = setup();
+      const metaAttribution = {
+        fbclid: 'click_123',
+        fbc: 'fb.1.1791130000000.click_123',
+        fbp: 'fb.1.1791130000000.123456',
+      };
       const context = {
         env: {
           CABINET_ROOMS_URL: 'https://rooms.test',
@@ -344,6 +349,7 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
                 consent: false,
                 marketingConsent: consent,
                 sourceQuery: query,
+                metaAttribution,
                 slug: 'a'.repeat(32),
                 editKey: 'NEVER_FORWARD',
                 revision: 1,
@@ -372,6 +378,7 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
           marketingConsent: consent,
           configuratorSource: source,
           sourceQuery: query,
+          metaAttribution: JSON.stringify(metaAttribution),
           studySummary: source ? 'Full original study' : '',
           'cf-turnstile-response': 'test',
         }).forEach(([k, v]) => form.set(k, v));
@@ -417,9 +424,11 @@ describe.each(paths)('real Oxygen route → provider APIs: %s', (path) => {
         capturedAt: event.payload.submitted_at,
       });
       expect(intake.externalEventId).toBe(sample.submissionId);
+      expect(intake.metaAttribution).toEqual(metaAttribution);
       expect(Object.keys(intake).sort()).toEqual(
         [
           'externalEventId',
+          'metaAttribution',
           'email',
           'name',
           'phone',
@@ -545,5 +554,20 @@ describe('direct Oxygen intake delivery', () => {
     );
     expect(ownerEmails).toHaveLength(1);
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+});
+
+it('passes structured Meta identifiers through direct Oxygen delivery without changing the event identity', async () => {
+  const {env, intakes} = setup();
+  const metaAttribution = {
+    fbclid: 'click_123',
+    fbc: 'fb.1.1791130000000.click_123',
+    fbp: 'fb.1.1791130000000.123456',
+    fbclidCapturedAt: '2026-10-04T17:00:00.000Z',
+  };
+  await acceptIntake({...sample, metaAttribution}, env);
+  expect([...intakes.values()][0]).toMatchObject({
+    externalEventId: sample.submissionId,
+    metaAttribution,
   });
 });
