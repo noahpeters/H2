@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Arched cabinet photo regression</title><style>body{font:16px system-ui;background:#eee8df;color:#213e32;margin:24px}main{display:flex;gap:16px}figure{margin:0}figcaption{text-align:center;padding:12px}canvas,img{display:block;width:460px;height:420px}h1{font-size:26px}</style></head><body><h1>Cabinet arches stay attached during Take Photo</h1><main><figure><canvas id="live"></canvas><figcaption>Live cabinet geometry</figcaption></figure><figure><canvas id="snapshot"></canvas><figcaption>Prepared photo geometry · same cabinet positions</figcaption></figure></main><button id="render">Render a photo</button><p id="status">Ready</p><figure id="result"></figure><script type="module">
+import * as THREE from 'three';
+import {createCustomUnit} from '/app/studio/cabinet-configurator/custom-unit/model.ts';
+import {customUnitLayoutParts} from '/app/studio/cabinet-configurator/custom-unit/layoutParts.ts';
+import {customUnitGeometry} from '/app/studio/cabinet-configurator/custom-unit/geometry.ts';
+import {createPhotoSnapshot,clonePhotoSnapshot,renderPhoto} from '/app/studio/cabinet-configurator/photoRender.ts';
+import {DEFAULT_PHOTO_SETTINGS} from '/app/studio/cabinet-configurator/photoLighting.ts';
+const scene=new THREE.Scene();scene.background=new THREE.Color('#eee8df');scene.add(new THREE.HemisphereLight(0xffffff,0x665544,2));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(-3,5,-4);scene.add(light);
+const windowSource=new THREE.Object3D();windowSource.userData.photoOpening={room:{width:144,depth:144,height:96,walls:'plaster',floor:'oak'},opening:{id:'studio-window',kind:'window',wall:'back',offset:24,width:96,height:60,sill:0}};scene.add(windowSource);
+const unit=createCustomUnit({width:36,height:60,depth:14,root:{id:'shelves',type:'section',sectionType:'shelves',properties:{shelfCount:4}}});unit.frontArch='simple';
+for(let i=0;i<2;i++){
+let definition=unit;
+if(i){const pair=createCustomUnit({width:36,height:60,depth:14,root:{id:'pair',type:'section',sectionType:'doors',properties:{doorCount:2}}});definition={...unit,parts:[...customUnitLayoutParts(unit),...customUnitLayoutParts(pair).filter(p=>p.kind==='door').map((p,j)=>({...p,id:'door'+j,faceStyle:'shaker-glass'}))]};}
+const cabinet=customUnitGeometry(definition,{}, {overlay:'inset',face:'shaker-glass',material:'paint-grade'});cabinet.scale.setScalar(.0254);cabinet.position.x=(i-.5)*1.05;scene.add(cabinet);
+}
+const camera=new THREE.PerspectiveCamera(36,460/420,.01,100);camera.position.set(-.45,1.3,-4.2);camera.lookAt(0,.8,0);camera.updateMatrixWorld();
+const master=createPhotoSnapshot(scene,camera,new THREE.Vector3(0,.8,0));
+for(const [id,content] of [['live',scene],['snapshot',master.scene]]){const renderer=new THREE.WebGLRenderer({canvas:document.getElementById(id),antialias:true});renderer.toneMapping=THREE.AgXToneMapping;renderer.setSize(460,420);renderer.setPixelRatio(devicePixelRatio);renderer.render(content,camera);renderer.dispose();}
+document.getElementById('render').onclick=async()=>{const status=document.getElementById('status');const settings=structuredClone(DEFAULT_PHOTO_SETTINGS);settings.maxDimension=460;settings.camera.quality='quick';settings.camera.lensMm=36;settings.camera.autoExposure=false;settings.camera.autoWhiteBalance=false;try{const blob=await renderPhoto(clonePhotoSnapshot(master),undefined,settings,{onProgress:p=>status.textContent='Rendering '+Math.round(p*100)+'%'});const image=document.createElement('img');image.src=URL.createObjectURL(blob);document.getElementById('result').replaceChildren(image);status.textContent='Photo completed';}catch(error){status.textContent='FAILED: '+error.message;}};
+</script></body></html>
