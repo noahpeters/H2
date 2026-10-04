@@ -110,7 +110,6 @@ import {
   moveRoomWall,
   addRoomRecess,
   removeRoomRecess,
-  presetOutline,
   type RoomPoint,
 } from './roomOutline';
 import {cabinetColor, hasMaterialFinish} from './materials';
@@ -2207,34 +2206,6 @@ export function CabinetConfigurator({
                   </label>
                 ))}
               </fieldset>
-              <label>
-                Room outline
-                <select
-                  aria-label="Room outline preset"
-                  disabled={!editingRoom}
-                  value=""
-                  onChange={(e) => {
-                    if (!editingRoom) return;
-                    const points = presetOutline(
-                      study.room,
-                      e.currentTarget.value as
-                        | 'rectangle'
-                        | 'l-shape'
-                        | 'alcove',
-                    );
-                    update((d) => Object.assign(d, reshapeStudy(d, points)));
-                    setSelectedWall('back');
-                    setOutlineError('');
-                  }}
-                >
-                  <option value="" disabled>
-                    Choose a shape…
-                  </option>
-                  <option value="rectangle">Rectangle</option>
-                  <option value="l-shape">L-shape</option>
-                  <option value="alcove">Alcove</option>
-                </select>
-              </label>
               <button
                 aria-pressed={editingRoom}
                 onClick={() => {
