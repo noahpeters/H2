@@ -1,3 +1,4 @@
+import {ShapeUtils, Vector2} from 'three';
 import type {FabricationPart, Vec3} from './model';
 import {cabinetProfilePoint, edgeSetback} from '../custom-unit/curves';
 import type {CabinetPart, CustomUnitDefinition} from '../custom-unit/model';
@@ -164,4 +165,31 @@ export function shapedStock(
     faces,
   };
   part.pockets = [];
+}
+
+/** Extrude the same authoritative polygon used by the cabinet preview. */
+export function outlinedStock(
+  part: FabricationPart,
+  outline: Array<{x: number; y: number}>,
+) {
+  const points = outline
+    .filter(
+      (p, i) =>
+        !i || Math.hypot(p.x - outline[i - 1].x, p.y - outline[i - 1].y) > 1e-8,
+    )
+    .map((p) => new Vector2(p.x, p.y));
+  if (points[0].distanceTo(points[points.length - 1]) < 1e-8) points.pop();
+  const n = points.length;
+  const vertices: Vec3[] = [0, part.size[1]].flatMap((z) =>
+    points.map((p) => [p.x, z, p.y] as Vec3),
+  );
+  const faces = ShapeUtils.triangulateShape(points, []).flatMap(([a, b, c]) => [
+    [a, c, b],
+    [a + n, b + n, c + n],
+  ]);
+  for (let i = 0; i < n; i++) {
+    const next = (i + 1) % n;
+    faces.push([i, next, next + n], [i, next + n, i + n]);
+  }
+  part.mesh = {vertices, faces};
 }

@@ -2371,6 +2371,24 @@ export function CabinetConfigurator({
                     ? 'Doorless opening'
                     : opening.kind}
                 </strong>
+                {opening.kind !== 'window' &&
+                  (opening.kind === 'opening' ||
+                    (opening.kind === 'door' &&
+                      (opening.doorType ?? 'swing') === 'swing')) && (
+                    <label className="cc-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={opening.arch === 'simple'}
+                        onChange={(event) =>
+                          update((d) => {
+                            d.openings.find((o) => o.id === opening.id)!.arch =
+                              event.target.checked ? 'simple' : undefined;
+                          })
+                        }
+                      />
+                      Arched opening
+                    </label>
+                  )}
                 {warnings.get(opening.id)?.map((w) => (
                   <p className="cc-inline-warning" key={w}>
                     {w}

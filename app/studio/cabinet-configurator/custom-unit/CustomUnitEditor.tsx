@@ -1,3 +1,4 @@
+import {cabinetOpeningChoices} from './frontLayout';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
 import {
@@ -734,6 +735,30 @@ export function CustomUnitEditor({
         </section>
         <aside className="cu-panel cu-inspector">
           <h2>04 / Part details</h2>
+          <fieldset className="cu-opening-profiles">
+            <legend>Face-framed openings</legend>
+            {cabinetOpeningChoices(definition).map((opening, index) => (
+              <label className="cu-checkbox" key={opening.id}>
+                <input
+                  type="checkbox"
+                  checked={
+                    definition.archedOpenings?.includes(opening.id) ?? false
+                  }
+                  onChange={(event) =>
+                    update({
+                      ...definition,
+                      archedOpenings: event.currentTarget.checked
+                        ? [...(definition.archedOpenings ?? []), opening.id]
+                        : (definition.archedOpenings ?? []).filter(
+                            (id) => id !== opening.id,
+                          ),
+                    })
+                  }
+                />
+                Arched opening {index + 1}
+              </label>
+            ))}
+          </fieldset>
           {selected ? (
             <>
               <label>

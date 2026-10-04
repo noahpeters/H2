@@ -12,6 +12,25 @@ import {
 } from './model';
 
 describe('custom-unit model', () => {
+  it('round trips a simple arch on only the selected door', () => {
+    const door = (id: string, x: number) => ({
+      id,
+      kind: 'door' as const,
+      x,
+      y: 0,
+      z: 0,
+      width: 24,
+      height: 36,
+      depth: 0.75,
+    });
+    const unit = createCustomUnit({
+      parts: [{...door('arched', 0), arch: 'simple'}, door('plain', 24)],
+    });
+    expect(deserializeCustomUnit(serializeCustomUnit(unit)).parts).toEqual(
+      unit.parts,
+    );
+  });
+
   it('creates a versioned definition separate from placement and meshes', () => {
     const unit = createCustomUnit({id: 'blank'});
     expect(unit).toMatchObject({

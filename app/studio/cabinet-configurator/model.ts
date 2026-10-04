@@ -44,6 +44,7 @@ export type Partition = {
   orientation: 'horizontal' | 'vertical';
 };
 export type Opening = {
+  arch?: import('./simpleArch').SimpleArch;
   doorType?: DoorType;
   handing?: 'left' | 'right';
   id: string;

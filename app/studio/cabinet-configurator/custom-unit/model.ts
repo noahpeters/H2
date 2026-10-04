@@ -40,6 +40,8 @@ export type CustomUnitDivision = {
 export type CustomUnitNode = CustomUnitSection | CustomUnitDivision;
 
 export type CabinetPart = {
+  /** The opening and this corresponding door use the shared circular arch. */
+  arch?: import('../simpleArch').SimpleArch;
   materialApplication?: import('../materialDefinition').MaterialApplication;
   id: string;
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
@@ -65,6 +67,8 @@ export type CabinetPart = {
     opening: {x: number; y: number; width: number; height: number};
     heights: number[];
   };
+  /** Generated authoritative front outline, local to this stock component. */
+  outline?: Array<{x: number; y: number}>;
   profileMode?: 'cabinet' | 'independent';
   shape?: 'rectangular' | 'round-left' | 'round-right';
   edges?: {
@@ -86,6 +90,8 @@ export type CustomUnitDefinition = {
   root: CustomUnitNode;
   /** Optional explicit physical layout. Legacy region definitions remain supported. */
   parts?: CabinetPart[];
+  /** Opening-owned arch choices; IDs refer to doors or open/shelved sections. */
+  archedOpenings?: string[];
   curve?: CabinetCurve;
   /** One front outline shared by all cabinet parts unless explicitly detached. */
   profile?: NonNullable<CabinetPart['edges']>;
@@ -362,6 +368,11 @@ export function validateCustomUnit(value: unknown): string[] {
           errors.push('Parts need unique IDs');
         ids.add(part.id);
         if (
+          part.arch !== undefined &&
+          (part.arch !== 'simple' || part.kind !== 'door')
+        )
+          errors.push('Only doors may use the simple opening arch');
+        if (
           part.faceStyle !== undefined &&
           (!['door', 'drawer'].includes(part.kind) ||
             ![
@@ -501,6 +512,15 @@ export function validateCustomUnit(value: unknown): string[] {
       }
     }
   }
+  if (
+    unit.archedOpenings !== undefined &&
+    (!Array.isArray(unit.archedOpenings) ||
+      unit.archedOpenings.some(
+        (id) => typeof id !== 'string' || !/^(door|section):.+/.test(id),
+      ) ||
+      new Set(unit.archedOpenings).size !== unit.archedOpenings.length)
+  )
+    errors.push('Invalid arched opening selection');
   validateNode(unit.root, 'root', errors);
   if (!errors.length && !unit.parts) {
     const {errors: layoutErrors} = layoutCustomUnit(

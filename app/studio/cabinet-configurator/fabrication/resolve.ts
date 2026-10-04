@@ -3,7 +3,7 @@ import {cabinetFaceFrame} from '../faceFrame';
 import {wallToFloor, type RoomElement, type Room} from '../model';
 import {cabinetToeKick, cabinetCompositionEnvelope} from '../cabinetEnvelope';
 import {storageLayout} from '../openStorage';
-import {shapedStock} from './mesh';
+import {shapedStock, outlinedStock} from './mesh';
 import {angledHousing} from './boolean';
 import {doorPreview} from '../custom-unit/doorGeometry';
 import * as THREE from 'three';
@@ -277,6 +277,18 @@ export function resolveFabrication(
         }
         return;
       }
+      if (part.outline) {
+        const board = add(
+          'Arched door',
+          [part.x, part.z, part.y],
+          [part.width, part.depth, part.height],
+          'solid',
+          material,
+          2,
+        );
+        outlinedStock(board, part.outline);
+        return;
+      }
       const style = part.faceStyle ?? item.face;
       const x = part.x,
         z = part.z,
@@ -472,6 +484,7 @@ export function resolveFabrication(
                 ? 1
                 : undefined,
           );
+          if (part.outline) outlinedStock(board, part.outline);
           if (part.faceFrame) {
             board.grainAxis = part.faceFrame === 'rail' ? 0 : 2;
             const neighbors = frameRuns.get(item.id);
@@ -483,9 +496,12 @@ export function resolveFabrication(
         }
         for (const board of local.slice(start)) shapeSources.set(board, part);
       }
-      dadoPanels(boards, profile.dadoDepth);
+      dadoPanels(
+        boards.filter((board) => !board.mesh),
+        profile.dadoDepth,
+      );
       for (const [board, part] of shapeSources) {
-        if (board.basis) continue;
+        if (board.basis || part.outline) continue;
         if (
           definition.curve ||
           definition.profile ||
