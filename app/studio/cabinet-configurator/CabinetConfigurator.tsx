@@ -56,6 +56,7 @@ import {
   applyCabinetType,
 } from './cabinetTypes';
 import {FixturePlan} from './FixturePlan';
+import {ElevationWorksheet} from './ElevationWorksheet';
 import {
   FIXTURE_CATALOG,
   createFixture,
@@ -151,7 +152,7 @@ import {
   type Wall,
 } from './model';
 
-type View = 'plan' | 'split' | 'three';
+type View = 'plan' | 'split' | 'three' | 'elevation';
 export type Study = {
   materials?: DesignMaterial[];
   configurations?: DesignConfiguration[];
@@ -2037,7 +2038,7 @@ export function CabinetConfigurator({
         />
       )}
       <main
-        className="cc-main"
+        className={`cc-main ${study.view === 'three' || study.view === 'elevation' ? 'cc-read-only-view' : ''}`}
         ref={(node) => {
           if (node) node.toggleAttribute('inert', rooms.busy || !rooms.ready);
         }}
@@ -3160,17 +3161,18 @@ export function CabinetConfigurator({
         </aside>
         <section className="cc-workspace">
           <div className="cc-tabs">
-            {(['plan', 'split', 'three'] as View[]).map((v) => (
+            {(['plan', 'split', 'three', 'elevation'] as View[]).map((v) => (
               <button
                 className={study.view === v ? 'active' : ''}
                 onClick={() => setStudy((c) => ({...c, view: v}))}
                 key={v}
               >
-                {v}
+                {v === 'three' ? '3D' : `${v[0].toUpperCase()}${v.slice(1)}`}
               </button>
             ))}
           </div>
           <div className={`cc-canvas-grid cc-${study.view}`}>
+            {study.view === 'elevation' && <ElevationWorksheet study={study} />}
             <div className="cc-panel cc-plan-panel">
               <div className="cc-panel-label">
                 <span>Dimensioned plan</span>
