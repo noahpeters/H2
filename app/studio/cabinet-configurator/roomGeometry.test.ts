@@ -51,7 +51,7 @@ describe('four wall room geometry', () => {
         expect(doors).toHaveLength(2);
         for (const door of doors) {
           const handle = door.getObjectByName('cabinet-door-handle')!;
-          const margin = face === 'shaker' ? 1 : 4;
+          const margin = face === 'shaker' ? 2.25 : 4;
           expect(handle.position.y / 0.0254).toBeCloseTo(
             (expectedEdge === 'top' ? 1 : -1) *
               (door.geometry.parameters.height / 0.0254 / 2 - margin),

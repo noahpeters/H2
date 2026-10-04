@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Shaker hardware mounting review</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        background: #ebe8de;
+        color: #263b37;
+      }
+      h1,
+      p {
+        margin: 20px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      figure {
+        margin: 10px;
+        min-width: 0;
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+      }
+      figcaption {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Shaker hardware — mounted entirely on wood</h1>
+    <p>
+      Standard and custom fronts, with door pulls on stiles and drawer pulls on
+      rails.
+    </p>
+    <main></main>
+    <p id="status">Loading</p>
+    <script type="module">
+      import * as THREE from 'three';
+      import {cabinetGeometry} from '/app/studio/cabinet-configurator/roomGeometry.ts';
+      import {
+        configurationTemplate,
+        saveConfiguration,
+      } from '/app/studio/cabinet-configurator/custom-unit/designConfigurations.ts';
+      import {withDrawerArrays} from '/app/studio/cabinet-configurator/custom-unit/drawerArrayEditing.ts';
+      import {waitForMaterialTextures} from '/app/studio/cabinet-configurator/materialRendering.ts';
+      for (const custom of [false, true])
+        for (const overlay of ['full-overlay', 'partial-overlay', 'inset']) {
+          const figure = document.createElement('figure'),
+            canvas = document.createElement('canvas'),
+            caption = document.createElement('figcaption');
+          caption.textContent = `${custom ? 'Custom' : 'Standard'} — ${overlay}`;
+          figure.append(canvas, caption);
+          document.querySelector('main').append(figure);
+          const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+          renderer.setSize(520, 420, false);
+          renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+          renderer.outputColorSpace = THREE.SRGBColorSpace;
+          const scene = new THREE.Scene();
+          scene.background = new THREE.Color('#ebe8de');
+          scene.add(new THREE.HemisphereLight(0xffffff, 0x665544, 1.2));
+          const l = new THREE.DirectionalLight(0xffffff, 2);
+          l.position.set(3, 4, 6);
+          scene.add(l);
+          const base = {
+            id: 'review',
+            kind: 'base',
+            width: 30,
+            height: 34.5,
+            depth: 24,
+            face: 'shaker',
+            material: 'rift-white-oak',
+            placement: {mode: 'floor', x: 0, z: 0, rotation: 0},
+          };
+          for (const drawers of [false, true]) {
+            const item = {
+              ...base,
+              configuration: drawers ? 'three-drawer' : undefined,
+            };
+            const definition = drawers
+              ? withDrawerArrays(configurationTemplate(item))
+              : configurationTemplate(item);
+            const rendered = custom
+              ? saveConfiguration([], item, definition).item
+              : item;
+            const g = cabinetGeometry(rendered, false, false, {
+              overlay,
+              material: 'rift-white-oak',
+            });
+            g.position.x = drawers ? 0.41 : -0.41;
+            scene.add(g);
+            await waitForMaterialTextures(g);
+          }
+          const camera = new THREE.PerspectiveCamera(35, 520 / 420, 0.01, 100);
+          camera.position.set(0.4, 0.18, 2.6);
+          camera.lookAt(0, 0, 0);
+          renderer.render(scene, camera);
+        }
+      document.querySelector('#status').textContent =
+        'All six front configurations rendered successfully';
+    </script>
+  </body>
+</html>

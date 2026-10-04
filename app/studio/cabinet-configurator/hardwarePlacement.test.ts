@@ -42,7 +42,7 @@ describe('context-aware door hardware placement', () => {
       faceStyle: 'slab',
       hingeSide: 'left',
     });
-    expect(shakerLeft).toMatchObject({x: 8, y: 14});
+    expect(shakerLeft).toMatchObject({x: 8, y: 12.75});
     expect(shakerRight.x).toBe(-shakerLeft.x);
     expect(slab).toMatchObject({x: 5, y: 11});
   });

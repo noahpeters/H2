@@ -115,7 +115,7 @@ describe('custom cabinet room handles', () => {
     const bottom =
       front.geometry.boundingBox ??
       (front.geometry.computeBoundingBox(), front.geometry.boundingBox!);
-    expect(pull.position.y - bottom.min.y).toBeCloseTo(1);
+    expect(pull.position.y - bottom.min.y).toBeCloseTo(2.25);
   });
   it.each([
     'hinged',
