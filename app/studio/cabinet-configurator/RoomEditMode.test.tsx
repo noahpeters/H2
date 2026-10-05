@@ -396,3 +396,19 @@ test('Command temporarily disables snapping, permits Command-drag, and never sna
   fireEvent.pointerMove(plan, {clientX: 0, clientY: 0});
   expect(state.latest!.elements[0].placement).toMatchObject({x: 60});
 });
+
+test('room-wide maple internals toggle changes the saved design without changing the selected cabinet finish', () => {
+  render(<CabinetConfigurator />);
+  const room = screen
+    .getByText('Room', {selector: 'summary'})
+    .closest('details')!;
+  room.open = true;
+  const toggle = screen.getByLabelText('Use maple internals');
+  expect(toggle).not.toBeChecked();
+  const materials = state.latest!.elements.map((e) => e.material);
+  fireEvent.click(toggle);
+  expect(state.latest!.room.useMapleInternals).toBe(true);
+  expect(state.latest!.elements.map((e) => e.material)).toEqual(materials);
+  fireEvent.click(toggle);
+  expect(state.latest!.room.useMapleInternals).toBe(false);
+});

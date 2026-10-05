@@ -6,6 +6,8 @@ import type {RoomElement} from '../model';
 import type {CabinetMaterial, CabinetPaint} from '../materials';
 import type {MaterialDefinition, GrainAxis} from '../materialDefinition';
 export type CabinetAppearance = {
+  interior?: import('../materials').MaterialSelection;
+  useMapleInternals?: boolean;
   flatGrain?: import('../designMaterials').FlatGrain;
   overlay?: Overlay;
   face: RoomElement['face'];

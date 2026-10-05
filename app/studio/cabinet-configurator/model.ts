@@ -228,6 +228,7 @@ export type Room = {
   wallThicknesses?: Partial<Record<Wall, number>>;
   overlay?: Overlay;
   continuousFaceFrames?: boolean;
+  useMapleInternals?: boolean;
   toeKick?: {height: number; setback: number};
   outline?: RoomPoint[];
   partitions?: Partition[];

@@ -114,6 +114,11 @@ export function validStudy(value: any): boolean {
   )
     return false;
   if (
+    value.room.useMapleInternals !== undefined &&
+    typeof value.room.useMapleInternals !== 'boolean'
+  )
+    return false;
+  if (
     value.room.continuousFaceFrames !== undefined &&
     typeof value.room.continuousFaceFrames !== 'boolean'
   )

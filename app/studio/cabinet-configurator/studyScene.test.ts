@@ -388,3 +388,51 @@ test('island tops update frame and edge allowances without growing when members 
     load.mockRestore();
   }
 });
+
+test('toggling maple internals rebuilds the live cabinet and restores its original finish when disabled', async () => {
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const texture = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    });
+  const content = new StudyScene(new THREE.Scene());
+  const study = sample();
+  study.elements[0].material = 'walnut';
+  study.elements[0].configuration = 'three-drawer';
+  try {
+    await content.update(study);
+    const original = content.selectable[0];
+    const back = (object: THREE.Object3D) =>
+      object.getObjectByName('cabinet-back-panel') as THREE.Mesh;
+    expect(back(original).material).toHaveProperty(
+      'userData.materialDefinition.id',
+      'walnut',
+    );
+    await content.update({
+      ...study,
+      room: {...study.room, useMapleInternals: true},
+    });
+    const maple = content.selectable[0];
+    expect(maple).not.toBe(original);
+    expect(back(maple).material).toHaveProperty(
+      'userData.materialDefinition.id',
+      'maple',
+    );
+    expect(
+      (maple.getObjectByName('cabinet-front') as THREE.Mesh).material,
+    ).toHaveProperty('userData.materialDefinition.id', 'walnut');
+    await content.update({
+      ...study,
+      room: {...study.room, useMapleInternals: false},
+    });
+    expect(back(content.selectable[0]).material).toHaveProperty(
+      'userData.materialDefinition.id',
+      'walnut',
+    );
+  } finally {
+    content.dispose();
+    load.mockRestore();
+  }
+});

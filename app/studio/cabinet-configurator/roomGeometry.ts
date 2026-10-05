@@ -1,4 +1,5 @@
 import {decorateBackPanel} from './backPanels';
+import {cabinetInteriorSelection, drawerBoxSelection} from './cabinetInternals';
 import type {ToeKickRun} from './continuousToeKicks';
 import {wallThickness, wallFootprint, localWallDepth} from './wallDimensions';
 import type {FrameNeighbors} from './continuousFaceFrames';
@@ -147,7 +148,7 @@ export function cabinetGeometry(
   item: RoomElement,
   countertop: boolean,
   sharedCountertop = false,
-  room?: Pick<Room, 'toeKick' | 'overlay'>,
+  room?: Pick<Room, 'toeKick' | 'overlay' | 'useMapleInternals'>,
   edges: CountertopEdges = DEFAULT_COUNTERTOP_EDGES,
   frameNeighbors: FrameNeighbors = {},
   toeRun?: ToeKickRun,
@@ -167,6 +168,8 @@ export function cabinetGeometry(
         paintColor: item.paintColor,
         materialDefinition: item.materialDefinition,
         flatGrain: item.flatGrain,
+        interior: cabinetInteriorSelection(item, room),
+        useMapleInternals: room?.useMapleInternals,
       },
       {
         kind: item.kind,
@@ -267,6 +270,11 @@ export function cabinetGeometry(
     }
     return group;
   }
+  const interior = createCabinetMaterial(
+    cabinetInteriorSelection(item, room),
+    0.6,
+  );
+  let drawerMaterial: THREE.Material | undefined;
   const support = cabinetToeKick(item, room);
   const toe = support.height;
   const bottom = -h / 2 + toe;
@@ -280,15 +288,24 @@ export function cabinetGeometry(
       side * (w / 2 - 0.375),
       toe / 2,
       0,
-      wood,
+      interior,
       'end',
     );
-  box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, wood, 'shelf');
+  box(group, w - 1.5, 0.75, d, 0, bottom + 0.375, 0, interior, 'shelf');
   if (item.kind === 'tall' || item.kind === 'wall-cabinet')
-    box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, wood, 'shelf').name =
+    box(group, w - 1.5, 0.75, d, 0, h / 2 - 0.375, 0, interior, 'shelf').name =
       'cabinet-top';
   if (!item.storage || item.storage.back) {
-    const panel = box(group, w, h - toe, 0.5, 0, toe / 2, -d / 2 + 0.25, wood);
+    const panel = box(
+      group,
+      w,
+      h - toe,
+      0.5,
+      0,
+      toe / 2,
+      -d / 2 + 0.25,
+      interior,
+    );
     panel.name = 'cabinet-back-panel';
     decorateBackPanel(panel, item.storage?.backStyle, w, h - toe, 0.5, inch);
   }
@@ -410,6 +427,10 @@ export function cabinetGeometry(
     const side = x > 0 || (x === 0 && item.hinge === 'right') ? -1 : 1;
     const travel = Math.max(1, d - 2) * inch;
     if (drawer) {
+      drawerMaterial ??= createCabinetMaterial(
+        drawerBoxSelection(item, room?.useMapleInternals),
+        0.6,
+      );
       const drawerBox = new THREE.Group();
       drawerBox.name = 'storage-drawer-box';
       const innerWidth = Math.max(0.5, width - 1);
@@ -422,7 +443,7 @@ export function cabinetGeometry(
         0,
         -innerHeight / 2,
         -travel / inch / 2 - 0.25,
-        wood,
+        drawerMaterial,
         'shelf',
       );
       for (const edge of [-1, 1])
@@ -434,10 +455,19 @@ export function cabinetGeometry(
           (edge * (innerWidth - 0.5)) / 2,
           0,
           -travel / inch / 2 - 0.25,
-          wood,
+          drawerMaterial,
           'drawer-side',
         );
-      box(drawerBox, innerWidth, innerHeight, 0.5, 0, 0, -travel / inch, wood);
+      box(
+        drawerBox,
+        innerWidth,
+        innerHeight,
+        0.5,
+        0,
+        0,
+        -travel / inch,
+        drawerMaterial,
+      );
       frontPanel.add(drawerBox);
     }
     frontPanel.userData.updateOpening = (value: number) => {
@@ -479,7 +509,7 @@ export function cabinetGeometry(
         -inner / 2 + divider,
         (low + high) / 2 - h / 2,
         0,
-        wood,
+        interior,
       ).name = 'storage-divider';
     for (const height of shelfYs) {
       const shelf = box(
@@ -490,7 +520,7 @@ export function cabinetGeometry(
         shelfX,
         height - h / 2,
         0,
-        wood,
+        interior,
         'shelf',
       );
       shelf.name = 'storage-shelf';
@@ -507,7 +537,7 @@ export function cabinetGeometry(
             ((d - 0.75) / 2) * Math.sin((12 * Math.PI) / 180) +
             0.5,
           ((d - 0.75) / 2) * Math.cos((12 * Math.PI) / 180),
-          wood,
+          interior,
         );
         lip.name = 'shoe-retaining-lip';
       }

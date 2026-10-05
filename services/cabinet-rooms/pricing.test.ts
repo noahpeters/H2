@@ -126,9 +126,10 @@ describe('bottom-up cabinet pricing', () => {
     const {slug} = (await saved.json()) as {slug: string};
     const response = await call(`/price?slug=${slug}`);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject(
-      estimateProject(study([{...cabinet, material: 'maple'}]), rates),
-    );
+    expect(await response.json()).toMatchObject({
+      ...estimateProject(study([{...cabinet, material: 'maple'}]), rates),
+      assumptions: expect.any(Array),
+    });
     for (const mapleRate of [200, 275]) {
       const updatedRates = {...rates, face_maple: mapleRate};
       const oak = calculatePrice(projectSchedule(oakStudy).lines, updatedRates);
@@ -240,9 +241,11 @@ describe('bottom-up cabinet pricing', () => {
     const {rates} = setup();
     const lines = projectSchedule(
       study([cabinet, {...cabinet, id: 'b2'}]),
-    ).lines;
+    ).lines.map(
+      ({interiorMaterial: _interior, drawerMaterial: _drawer, ...line}) => line,
+    );
     const result = calculatePrice(lines, rates);
-    // Reference: python3 price_cabinets.py pricing-reference.json --json
+    // Legacy generic-stock reference: python3 price_cabinets.py pricing-reference.json --json
     expect(result.cost).toBe(3150);
     expect(result.price).toBeCloseTo(6034.482758620689, 8);
     expect(result.purchases).toMatchObject({
@@ -252,9 +255,7 @@ describe('bottom-up cabinet pricing', () => {
       drawer_bottom_sheet: 1,
       back_sheet: 1,
     });
-    expect(
-      estimateProject(study([cabinet, {...cabinet, id: 'b2'}]), rates).range,
-    ).toEqual({low: 5500, high: 6500});
+    expect(priceRange(result.price)).toEqual({low: 5500, high: 6500});
   });
   it('uses approved material prices and separates mixed-material purchase pools', () => {
     const {rates} = setup();
@@ -268,8 +269,8 @@ describe('bottom-up cabinet pricing', () => {
       study([cabinet, {...cabinet, id: 'b2', material: 'walnut'}]),
     ).lines;
     const result = calculatePrice(lines, rates);
-    expect(result.purchases.face_walnut).toBe(1);
-    expect(result.purchases['face_rift-white-oak']).toBe(1);
+    expect(result.purchases.face_walnut).toBe(2);
+    expect(result.purchases['face_rift-white-oak']).toBe(2);
     expect(
       calculatePrice(lines, {...rates, face_walnut: 500}).price,
     ).toBeGreaterThan(result.price);
@@ -504,4 +505,65 @@ it('uses room toe height for base and tall takeoffs while preserving default est
       ),
     ).toEqual(calculatePrice(defaults, rates));
   }
+});
+
+it('prices maple internals below premium interiors while retaining front stock and following live maple rates', () => {
+  const {rates} = setup();
+  const premium = study(
+    Array.from({length: 6}, (_, i) => ({
+      ...cabinet,
+      id: `cabinet-${i}`,
+      material: 'walnut' as const,
+    })),
+  );
+  const maple = {...premium, room: {...premium.room, useMapleInternals: true}};
+  const off = calculatePrice(projectSchedule(premium).lines, rates);
+  const on = calculatePrice(projectSchedule(maple).lines, rates);
+  expect(on.price).toBeLessThan(off.price);
+  expect(on.purchases.face_maple).toBeGreaterThan(0);
+  expect(on.purchases.face_walnut).toBeGreaterThan(0);
+  expect(on.purchases.drawer_stock).toBeGreaterThan(0);
+  expect(on.purchases.drawer_stock_walnut).toBeUndefined();
+  expect(off.purchases.drawer_stock_walnut).toBeGreaterThan(0);
+  expect(
+    calculatePrice(projectSchedule(maple).lines, {...rates, face_maple: 300})
+      .price,
+  ).toBeGreaterThan(on.price);
+  expect(() =>
+    calculatePrice(projectSchedule(maple).lines, {...rates, face_maple: null}),
+  ).toThrow('pricing_not_configured');
+  expect(() =>
+    calculatePrice(projectSchedule(premium).lines, {
+      ...rates,
+      drawer_stock_walnut: null,
+    }),
+  ).toThrow('pricing_not_configured');
+});
+
+it('retains exposed storage finish and uses configured premium drawer rates rather than a maple-only allowance', () => {
+  const {rates} = setup();
+  const storage = createOpenStorage('shelving', 'storage');
+  storage.material = 'walnut';
+  storage.storage!.doors = false;
+  const design = study([storage]);
+  design.room.useMapleInternals = true;
+  expect(projectSchedule(design).lines[0].interiorMaterial).toBe('walnut');
+  const glass = {
+    ...cabinet,
+    kind: 'wall-cabinet' as const,
+    face: 'shaker-glass' as const,
+  };
+  expect(
+    projectSchedule({...design, elements: [glass]}).lines[0].interiorMaterial,
+  ).toBe('rift-white-oak');
+  const premium = projectSchedule(
+    study([{...cabinet, material: 'walnut'}]),
+  ).lines;
+  const modeled = calculatePrice(premium, rates);
+  const configured = calculatePrice(premium, {
+    ...rates,
+    drawer_stock_walnut: 30,
+    drawer_bottom_sheet_walnut: 200,
+  });
+  expect(configured.price).toBeGreaterThan(modeled.price);
 });
