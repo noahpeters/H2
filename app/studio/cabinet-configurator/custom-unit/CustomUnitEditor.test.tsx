@@ -351,3 +351,29 @@ it('offers one cabinet arch control and can clear legacy arch selections', async
   fireEvent.click(checkbox);
   expect(onChange.mock.lastCall![0].frontArch).toBe('simple');
 });
+
+it('uses the chosen positioning increment for dimensions without resizing existing parts', () => {
+  const onChange = vi.fn();
+  render(
+    <CustomUnitEditor
+      initialPositioningResolution={1 / 8}
+      onChange={onChange}
+    />,
+  );
+  expect(screen.getByLabelText('width')).toHaveAttribute('step', '0.125');
+  fireEvent.change(screen.getByLabelText('Snap'), {target: {value: '1'}});
+  expect(screen.getByLabelText('width')).toHaveAttribute('step', '1');
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText('+ Add part'));
+  fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
+  const width = screen.getByLabelText('Part width');
+  expect(width).toHaveAttribute('step', '1');
+  const calls = onChange.mock.calls.length;
+  fireEvent.change(screen.getByLabelText('Snap'), {target: {value: '0'}});
+  expect(width).toHaveAttribute('step', 'any');
+  expect(onChange).toHaveBeenCalledTimes(calls);
+  fireEvent.change(width, {target: {value: '20.03'}});
+  fireEvent.blur(width);
+  expect(onChange.mock.lastCall![0].parts.at(-1).width).toBe(20.03);
+});

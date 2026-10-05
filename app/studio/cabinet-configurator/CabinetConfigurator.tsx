@@ -2197,7 +2197,7 @@ export function CabinetConfigurator({
                   type="number"
                   min={0}
                   max={12}
-                  step={0.125}
+                  step={positioningResolution(study.room)}
                   value={
                     study.room.islandCountertopOverhang ??
                     DEFAULT_ISLAND_COUNTERTOP_OVERHANG
@@ -2224,7 +2224,7 @@ export function CabinetConfigurator({
                       type="number"
                       min={field === 'height' ? 0.5 : 0}
                       max={12}
-                      step={0.25}
+                      step={positioningResolution(study.room)}
                       value={(study.room.toeKick ?? DEFAULT_TOE_KICK)[field]}
                       onChange={(event) => {
                         const value = Number(event.target.value);
@@ -2293,6 +2293,7 @@ export function CabinetConfigurator({
                     <input
                       type="number"
                       min="12"
+                      step={positioningResolution(study.room)}
                       value={study.room[k]}
                       onChange={(e) =>
                         update((d) => {
@@ -2332,7 +2333,7 @@ export function CabinetConfigurator({
                     type="number"
                     min={MIN_WALL_THICKNESS}
                     max={MAX_WALL_THICKNESS}
-                    step="0.25"
+                    step={positioningResolution(study.room)}
                     value={wallThickness(study.room)}
                     onChange={(event) => {
                       const value = Number(event.currentTarget.value);
@@ -2489,6 +2490,7 @@ export function CabinetConfigurator({
                     <input
                       type="number"
                       min={key === 'offset' || key === 'sill' ? 0 : 1}
+                      step={positioningResolution(study.room)}
                       value={opening[key] ?? 0}
                       onChange={(event) => {
                         const value = Number(event.currentTarget.value);
@@ -2527,6 +2529,7 @@ export function CabinetConfigurator({
                       <span>
                         <input
                           type="number"
+                          step={positioningResolution(study.room)}
                           value={selectedIsland[k]}
                           onChange={(e) =>
                             changeIsland(
@@ -2969,7 +2972,7 @@ export function CabinetConfigurator({
                             ? (selected.placement.elevation ?? 0)
                             : 0)
                         }
-                        step="1"
+                        step={positioningResolution(study.room)}
                         value={selected.height}
                         onChange={(event) => {
                           const height = Number(event.currentTarget.value);
@@ -3126,6 +3129,7 @@ export function CabinetConfigurator({
                   <span>
                     <input
                       type="number"
+                      step={positioningResolution(study.room)}
                       value={selected.width}
                       onChange={(e) =>
                         update((d) => {
@@ -3166,6 +3170,7 @@ export function CabinetConfigurator({
                               ? Math.max(study.room.width, study.room.depth)
                               : 60
                           }
+                          step={positioningResolution(study.room)}
                           value={selected.depth}
                           onChange={(event) => {
                             const depth = Number(event.currentTarget.value);

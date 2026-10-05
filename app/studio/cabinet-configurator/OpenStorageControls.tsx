@@ -1,3 +1,4 @@
+import {positioningResolution} from './positioningPrecision';
 import type {Room, RoomElement} from './model';
 import {BACK_PANEL_STYLES, storageLayout} from './openStorage';
 export function OpenStorageControls({
@@ -10,6 +11,9 @@ export function OpenStorageControls({
   change: (patch: Partial<RoomElement>) => void;
 }) {
   const s = item.storage!;
+  const resolution = positioningResolution(room ?? {});
+  const isDimension = (key: keyof typeof s) =>
+    ['shelfSpacing', 'rodHeight', 'lowerRodHeight'].includes(key);
   const maxHeight = Math.min(
     120,
     (room?.height ?? 120) - (item.placement.elevation ?? 0),
@@ -30,6 +34,7 @@ export function OpenStorageControls({
               type="number"
               min={key === 'depth' ? 8 : 12}
               max={key === 'depth' ? 36 : maxHeight}
+              step={resolution}
               value={item[key]}
               onChange={(event) => {
                 const value = Number(event.currentTarget.value);
@@ -92,11 +97,16 @@ export function OpenStorageControls({
                 type="number"
                 min={min}
                 max={max}
-                step="1"
+                step={isDimension(key) ? resolution : 1}
                 value={Number(s[key])}
                 onChange={(event) => {
                   const value = Number(event.currentTarget.value);
-                  if (Number.isInteger(value) && value >= min && value <= max)
+                  if (
+                    Number.isFinite(value) &&
+                    (isDimension(key) || Number.isInteger(value)) &&
+                    value >= min &&
+                    value <= max
+                  )
                     storage(key, value);
                 }}
               />

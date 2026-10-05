@@ -1,3 +1,4 @@
+import {positioningResolution} from '../positioningPrecision';
 import {SinkControls} from '../SinkControls';
 import {sinkAttachment, type SinkAttachment} from '../sinkAttachments';
 import {useEffect, useRef, useState} from 'react';
@@ -14,7 +15,7 @@ export function ConfigurationSheet({
   onClose,
 }: {
   item: RoomElement;
-  room?: Pick<Room, 'toeKick' | 'overlay'>;
+  room?: Pick<Room, 'toeKick' | 'overlay' | 'positioningResolution'>;
   onSave: (
     definition: CustomUnitDefinition,
     sink: SinkAttachment | null,
@@ -89,9 +90,17 @@ export function ConfigurationSheet({
       {ready && (
         <CustomUnitEditor
           initialDefinition={initial}
-          attachmentControls={
-            <SinkControls item={item} value={sink} onChange={setSink} />
+          initialPositioningResolution={
+            room ? positioningResolution(room) : 1 / 16
           }
+          attachmentControls={(step) => (
+            <SinkControls
+              item={item}
+              value={sink}
+              onChange={setSink}
+              step={step}
+            />
+          )}
           lockEnvelope
           initialAppearance={{
             face: item.face,

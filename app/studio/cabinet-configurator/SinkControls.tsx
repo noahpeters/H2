@@ -14,7 +14,9 @@ export function SinkControls({
   item,
   value,
   onChange,
+  step = 1 / 8,
 }: {
+  step?: number;
   item: RoomElement;
   value: SinkAttachment | null;
   onChange: (sink: SinkAttachment | null) => void;
@@ -49,7 +51,7 @@ export function SinkControls({
                 : `Sink ${key} (in)`}
               <input
                 type="number"
-                step="0.5"
+                step={step || 'any'}
                 value={value[key]}
                 onChange={(event) => {
                   const next = Number(event.currentTarget.value);

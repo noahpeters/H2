@@ -86,3 +86,34 @@ it('does not offer sink controls for wall cabinets', () => {
     screen.queryByRole('combobox', {name: 'Countertop sink'}),
   ).not.toBeInTheDocument();
 });
+
+it('inherits room precision for part and sink dimensions and follows workshop changes', () => {
+  const save = vi.fn();
+  render(
+    <ConfigurationSheet
+      item={item}
+      room={{positioningResolution: 1 / 8}}
+      onSave={save}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByLabelText('Snap')).toHaveValue('0.125');
+  fireEvent.change(screen.getByRole('combobox', {name: 'Countertop sink'}), {
+    target: {value: 'vessel'},
+  });
+  expect(screen.getByLabelText('Sink width (in)')).toHaveAttribute(
+    'step',
+    '0.125',
+  );
+  fireEvent.change(screen.getByLabelText('Snap'), {target: {value: '0.0625'}});
+  expect(screen.getByLabelText('Sink width (in)')).toHaveAttribute(
+    'step',
+    '0.0625',
+  );
+  expect(screen.getByLabelText('Default front reveal')).toHaveAttribute(
+    'step',
+    '0.0625',
+  );
+  expect(save).not.toHaveBeenCalled();
+  expect(item.width).toBe(36);
+});
