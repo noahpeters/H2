@@ -117,8 +117,66 @@
         ) /
           (size * size * 3),
       );
-    if (rms(filtered) >= rms(noisy)) throw new Error('Noise not reduced');
+    if (rms(filtered) >= rms(noisy) * 0.25)
+      throw new Error('Noise reduction leaves too much raw noise');
     results.push({inputNoise: rms(noisy), outputNoise: rms(filtered)});
+    // Fine albedo grain must survive actual filtering in the presence of noise,
+    // not just an identical previous/current input that disables smoothing.
+    const grain = new Float32Array(exact.length);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        const base = 0.5 + 0.1 * Math.cos((2 * Math.PI * x) / 4);
+        grain.set([base, base, base, 1], i);
+        const n = Math.sin((i / 4) * 127.1) * 0.06;
+        const p = Math.sin((i / 4) * 57.7) * 0.09;
+        exact.set([base * 0.8, base * 0.8, base * 0.8, 1], i);
+        noisy.set([base * (0.8 + n), base * (0.8 + n), base * (0.8 + n), 1], i);
+        previous.set(
+          [base * (0.8 + p), base * (0.8 + p), base * (0.8 + p), 1],
+          i,
+        );
+      }
+    }
+    const grainImage = texture(grain);
+    scene.children[0].material.map = grainImage;
+    scene.children[0].material.color.setRGB(1, 1, 1);
+    scene.children[0].material.needsUpdate = true;
+    // Match the guide projection to the full-screen grain buffer.
+    const plane = scene.children[0].geometry;
+    plane.getAttribute('uv').set([0, 1, 1, 1, 0, 0, 1, 0]);
+    scene.children[0].scale.setScalar(
+      (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / 5,
+    );
+    noisyImage.needsUpdate = oldImage.needsUpdate = true;
+    await denoisePhoto(
+      renderer,
+      scene,
+      camera,
+      noisyImage,
+      size,
+      size,
+      undefined,
+      output,
+      {samples: 512, previous: oldImage, previousSamples: 256},
+    );
+    const grainFiltered = await readPhotoRadiance(
+      renderer,
+      output.texture,
+      size,
+      size,
+    );
+    if (rms(grainFiltered) >= rms(noisy) * 0.25)
+      throw new Error('Noisy grain was lost or insufficiently filtered');
+    results.push({
+      grainInputNoise: rms(noisy),
+      grainOutputError: rms(grainFiltered),
+    });
+    scene.children[0].material.map = null;
+    scene.children[0].material.color.setRGB(0.5, 0.5, 0.5);
+    scene.children[0].material.needsUpdate = true;
+    scene.children[0].scale.setScalar(1);
+    grainImage.dispose();
     noisyImage.dispose();
     oldImage.dispose();
     // A box-like room gives both direct and indirect transport, with dielectric clearcoat.

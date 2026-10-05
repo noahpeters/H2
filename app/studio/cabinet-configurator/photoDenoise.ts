@@ -102,16 +102,12 @@ export async function denoisePhoto(
             ? effort.previousSamples / (effort.samples - effort.previousSamples)
             : 0,
       },
-      // Bound bias even where variance is noisy. High-budget captures need less smoothing.
-      strength: {
-        value: Math.min(0.5, 8 / Math.sqrt(Math.max(1, effort.samples))),
-      },
     },
     vertexShader: `varying vec2 vUv;
       void main() {vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0);}`,
     fragmentShader: `
       uniform sampler2D image, albedo, normals, depth, raw, previous;
-      uniform float varianceWeight, strength;
+      uniform float varianceWeight;
       uniform vec2 pixel, nearFar;
       uniform float stepSize;
       uniform bool firstPass, finalPass;
@@ -188,10 +184,35 @@ export async function denoisePhoto(
             if (validLighting(original)) {
               // Stationary detail cancels between cumulative means; stochastic noise does not.
               vec3 delta = original - texture2D(previous, vUv).rgb;
-              float variance = dot(delta, delta) / 3.0 * varianceWeight;
+              float variance = dot(delta, delta) / 3.0;
+              float varianceTotal = 1.0;
+              // A single temporal difference can be accidentally small in a noisy
+              // pixel. Pool nearby differences, with the same surface guides,
+              // rather than punching raw-noise holes through the filtered image.
+              for (int x = -1; x <= 1; x++) {
+                for (int y = -1; y <= 1; y++) {
+                  if (x == 0 && y == 0) continue;
+                  vec2 uv = clamp(vUv + vec2(float(x), float(y)) * pixel, pixel * 0.5, vec2(1.0) - pixel * 0.5);
+                  if (texture2D(depth, uv).r >= 0.999999) continue;
+                  vec3 other = texture2D(raw, uv).rgb;
+                  vec3 old = texture2D(previous, uv).rgb;
+                  if (!validLighting(other) || !validLighting(old)) continue;
+                  float weight = pow(clamp(dot(n, normalAt(uv)), 0.0, 1.0), 64.0);
+                  float dd = (distanceAt(uv) - d) / max(d, 0.01);
+                  weight *= exp(-dd * dd / 0.0004);
+                  vec3 dc = texture2D(albedo, uv).rgb - base;
+                  weight *= exp(-dot(dc, dc) / 0.02);
+                  vec3 difference = other - old;
+                  variance += dot(difference, difference) / 3.0 * weight;
+                  varianceTotal += weight;
+                }
+              }
+              variance = variance / varianceTotal * varianceWeight;
               float level = max(photoLuminance(original), 0.01);
               float noise = varianceWeight > 0.0 ? variance / (variance + level * level * 0.0004) : 1.0;
-              sum = mix(original, sum, strength * noise);
+              // Confidence already falls as sampling converges. A sample-count
+              // cap would retain visible noise even when confidence is high.
+              sum = mix(original, sum, noise);
             }
           }
         }
