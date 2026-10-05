@@ -39,6 +39,50 @@ import {
   type CustomUnitDefinition,
 } from './model';
 
+const PART_TOOLS: {kind: PlacementKind; label: string; icon: string}[] = [
+  {kind: 'shelf', label: 'shelf', icon: 'M3 9h18v6H3z M3 12h18'},
+  {kind: 'divider', label: 'divider', icon: 'M9 3h6v18H9z M12 3v18'},
+  {kind: 'door', label: 'door', icon: 'M5 3h14v18H5z M15 11v2'},
+  {
+    kind: 'drawer-array',
+    label: 'drawer array',
+    icon: 'M4 3h16v18H4z M4 9h16 M4 15h16 M10 6h4 M10 12h4 M10 18h4',
+  },
+  {kind: 'rod', label: 'rod', icon: 'M3 10h18v4H3z M3 7v10 M21 7v10'},
+  {
+    kind: 'back-panel',
+    label: 'back panel',
+    icon: 'M4 3h16v18H4z M7 6h10v12H7z',
+  },
+  {kind: 'side-panel', label: 'side panel', icon: 'M8 5l8-2v18l-8-2z'},
+  {
+    kind: 'left-end-shelf',
+    label: 'left end shelf',
+    icon: 'M20 6H9a6 6 0 0 0 0 12h11z M20 9H9',
+  },
+  {
+    kind: 'right-end-shelf',
+    label: 'right end shelf',
+    icon: 'M4 6h11a6 6 0 0 1 0 12H4z M4 9h11',
+  },
+];
+
+function closePartMenu(target: HTMLElement) {
+  const menu = target.closest('details');
+  menu?.removeAttribute('open');
+  menu?.querySelector('summary')?.focus();
+}
+
+function togglePartMenu(target: HTMLElement) {
+  const menu = target.closest('details');
+  target
+    .closest('[role="toolbar"]')
+    ?.querySelectorAll('details')
+    .forEach((other) => {
+      if (other !== menu) other.removeAttribute('open');
+    });
+}
+
 function Dimension({
   label,
   value,
@@ -469,52 +513,43 @@ export function CustomUnitEditor({
             role="toolbar"
             aria-label="Cabinet part tools"
           >
-            <div className="cu-actions">
-              {(
-                ['shelf', 'divider', 'door', 'drawer-array', 'rod'] as const
-              ).map((kind) => (
-                <button
-                  key={kind}
-                  aria-pressed={placement === kind}
-                  onClick={() => {
-                    setPlacement(kind);
-                    setOpenings({});
-                  }}
-                >
-                  + {kind === 'drawer-array' ? 'drawer array' : kind}
-                </button>
-              ))}
-            </div>
-            <div className="cu-actions">
-              {(['back', 'side'] as const).map((orientation) => (
-                <button
-                  key={orientation}
-                  aria-pressed={placement === `${orientation}-panel`}
-                  onClick={() => {
-                    setPlacement(`${orientation}-panel`);
-                    setOpenings({});
-                  }}
-                >
-                  + {orientation} panel
-                </button>
-              ))}
-            </div>
-            <div className="cu-actions">
-              {(['left', 'right'] as const).map((side) => (
-                <button
-                  key={side}
-                  aria-pressed={placement === `${side}-end-shelf`}
-                  onClick={() => {
-                    setPlacement(`${side}-end-shelf`);
-                    setOpenings({});
-                  }}
-                >
-                  + {side} end shelf
-                </button>
-              ))}
-            </div>
+            <details className="cu-parts-menu cu-add-part-menu">
+              <summary onClick={(event) => togglePartMenu(event.currentTarget)}>
+                + Add part
+              </summary>
+              <div className="cu-part-options">
+                {PART_TOOLS.map(({kind, label, icon}) => (
+                  <button
+                    key={kind}
+                    aria-pressed={placement === kind}
+                    onClick={(event) => {
+                      setPlacement(kind);
+                      setOpenings({});
+                      closePartMenu(event.currentTarget);
+                    }}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d={icon} />
+                    </svg>
+                    <span>+ {label}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
             <details className="cu-parts-menu">
-              <summary>Cabinet parts ({parts.length})</summary>
+              <summary onClick={(event) => togglePartMenu(event.currentTarget)}>
+                Cabinet parts ({parts.length})
+              </summary>
               <div className="cu-parts" aria-label="Cabinet parts">
                 {parts.map((part, index) => (
                   <button
@@ -523,9 +558,7 @@ export function CustomUnitEditor({
                     key={part.id}
                     onClick={(event) => {
                       setSelectedId(part.id);
-                      event.currentTarget
-                        .closest('details')
-                        ?.removeAttribute('open');
+                      closePartMenu(event.currentTarget);
                     }}
                   >
                     <span>{name(part, index)}</span>

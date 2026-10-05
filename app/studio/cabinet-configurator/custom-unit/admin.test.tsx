@@ -62,6 +62,7 @@ describe('cabinet library save flow', () => {
     );
     render(<RouterProvider router={router} />);
     await screen.findByRole('button', {name: 'Save cabinet'});
+    fireEvent.click(screen.getByText('+ Add part'));
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
     fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     fireEvent.click(screen.getByRole('button', {name: 'Save cabinet'}));
