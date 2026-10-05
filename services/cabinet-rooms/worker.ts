@@ -17,7 +17,7 @@ import {
   CONTACT_CONSENT,
   validShare,
 } from '../../app/studio/cabinet-configurator/shareProtocol';
-import {estimateProject, PricingError, type Rates} from './pricing';
+import {estimateProject, type Rates} from './pricing';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import {validPriceRequest} from '../../app/studio/cabinet-configurator/priceProtocol';
 import {validLibraryInput} from '../../app/studio/cabinet-configurator/custom-unit/library';
@@ -70,18 +70,7 @@ async function projectEstimate(
       ratesUpdatedAt: config.updated_at,
       pricingVersion: 1,
     });
-  } catch (error) {
-    if (
-      error instanceof PricingError &&
-      error.code === 'unsupported_configuration'
-    )
-      return jsonResponse(
-        {
-          error: 'This configuration requires a custom estimate',
-          code: error.code,
-        },
-        422,
-      );
+  } catch {
     return jsonResponse(
       {
         error: 'Pricing is unavailable for this project',
