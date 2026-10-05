@@ -1,0 +1,80 @@
+.cc-help-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.cc-label-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.cc-help-field .cc-label-help label {
+  display: inline;
+  margin: 0;
+}
+.cc-help-checkbox > input {
+  order: -1;
+}
+.cc-help-field input[type='number'] {
+  width: 64px;
+}
+.cc-help-field input,
+.cc-help-field select {
+  min-width: 0;
+  flex-shrink: 0;
+}
+.cabinet-app .cc-info-trigger,
+.cc-info-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid #6c716c;
+  border-radius: 50%;
+  background: transparent;
+  color: #555c56;
+  font:
+    600 12px/1 system-ui,
+    sans-serif;
+  text-transform: none;
+  cursor: help;
+}
+.cc-info-trigger:focus-visible {
+  outline: 2px solid #a7673e;
+  outline-offset: 3px;
+}
+.cc-help-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: min(300px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #b8b5aa;
+  border-radius: 8px;
+  background: #fffdf6;
+  color: #1d241f;
+  box-shadow: 0 4px 18px #20271c26;
+  font:
+    13px/1.5 Manrope,
+    system-ui,
+    sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.cc-help-field > span:not(.cc-label-help) {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
+  color: var(--cc-muted);
+}

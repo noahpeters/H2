@@ -1,6 +1,7 @@
 import {useState, type Ref} from 'react';
 import type {Study} from './CabinetConfigurator';
 import {VisualSelect} from './VisualChoices';
+import {InfoTooltip} from './ControlHelp';
 import {
   CABINET_MATERIALS,
   CABINET_PAINTS,
@@ -26,11 +27,15 @@ export function MaterialsSection({
   const materials = study.materials ?? [];
   return (
     <details className="cc-accordion cc-materials" ref={detailsRef}>
-      <summary>Materials</summary>
+      <summary>
+        <span className="cc-label-help">
+          Materials
+          <InfoTooltip label="Materials">
+            Edit a material to update every object assigned to it.
+          </InfoTooltip>
+        </span>
+      </summary>
       <div className="cc-fields">
-        <p className="cc-muted">
-          Edit a material to update every object assigned to it.
-        </p>
         {materials.map((material, index) => {
           const edit = (change: (m: typeof material) => void) =>
             update((d) => {
@@ -76,7 +81,16 @@ export function MaterialsSection({
                   role="group"
                   aria-label={`Finish for ${material.name}`}
                 >
-                  Material
+                  <span className="cc-label-help">
+                    Material
+                    {materialPreviewNote(material) && (
+                      <InfoTooltip
+                        label={`Material preview for ${material.name}`}
+                      >
+                        {materialPreviewNote(material)}
+                      </InfoTooltip>
+                    )}
+                  </span>
                   <VisualSelect
                     category="material"
                     value={material.material}
@@ -137,9 +151,6 @@ export function MaterialsSection({
                     <option value="vertical">Vertical (height / depth)</option>
                   </select>
                 </label>
-                {materialPreviewNote(material) && (
-                  <p className="cc-hint">{materialPreviewNote(material)}</p>
-                )}
                 {materials.length > 1 &&
                   (removing === material.id ? (
                     <>

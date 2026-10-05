@@ -1,5 +1,6 @@
 import {positioningResolution} from './positioningPrecision';
 import type {Room, Wall} from './model';
+import {HelpField} from './ControlHelp';
 import {roomSegments} from './roomOutline';
 import {
   wallThickness,
@@ -36,33 +37,37 @@ export function WallThicknessControls({
           ))}
         </select>
       </label>
-      <label>
-        Selected wall thickness
-        <span>
-          <input
-            type="number"
-            min={MIN_WALL_THICKNESS}
-            max={MAX_WALL_THICKNESS}
-            step={positioningResolution(room)}
-            value={wallThickness(room, selected.id)}
-            onChange={(event) => {
-              const value = Number(event.currentTarget.value);
-              if (
-                Number.isFinite(value) &&
-                value >= MIN_WALL_THICKNESS &&
-                value <= MAX_WALL_THICKNESS
-              )
-                onChange(selected.id, value);
-            }}
-          />{' '}
-          in
-        </span>
-      </label>
-      <p className="cc-muted">
-        {inherited
-          ? 'This wall uses the room default.'
-          : 'This wall has its own thickness.'}
-      </p>
+      <HelpField
+        label="Selected wall thickness"
+        help={
+          inherited
+            ? 'This wall uses the room default.'
+            : 'This wall has its own thickness.'
+        }
+      >
+        {(id) => (
+          <span>
+            <input
+              type="number"
+              min={MIN_WALL_THICKNESS}
+              max={MAX_WALL_THICKNESS}
+              step={positioningResolution(room)}
+              id={id}
+              value={wallThickness(room, selected.id)}
+              onChange={(event) => {
+                const value = Number(event.currentTarget.value);
+                if (
+                  Number.isFinite(value) &&
+                  value >= MIN_WALL_THICKNESS &&
+                  value <= MAX_WALL_THICKNESS
+                )
+                  onChange(selected.id, value);
+              }}
+            />{' '}
+            in
+          </span>
+        )}
+      </HelpField>
       <button
         type="button"
         disabled={inherited}
