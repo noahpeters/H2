@@ -35,8 +35,8 @@ it('migrates a legacy opening flag to one cabinet-wide arch and retains its divi
   const arches = fronts.filter((p) => p.outline);
   expect(arches).toHaveLength(1);
   expect(arches[0].name).toBe('Arched face frame rail');
-  expect(arches[0].width).toBe(46.5);
-  expect(arches[0].x).toBe(0.75);
+  expect(arches[0].width).toBe(45);
+  expect(arches[0].x).toBe(1.5);
   expect(fronts.filter((p) => p.kind === 'divider')).toEqual(
     layout.filter((p) => p.kind === 'divider'),
   );
@@ -152,7 +152,7 @@ it('uses one cabinet-width circle across paired doors and retains the normal sti
   );
 });
 
-it('spans several shelf openings without changing the shelves or adding wider stiles', () => {
+it('spans several shelf openings between normal face frame stiles without changing the shelves', () => {
   const unit = createCustomUnit({
     width: 36,
     height: 72,
@@ -169,10 +169,10 @@ it('spans several shelf openings without changing the shelves or adding wider st
     'inset',
   );
   const arch = result.find((part) => part.outline)!;
-  expect(arch.width).toBe(34.5);
+  expect(arch.width).toBe(33);
   expect(arch.y).toBe(54);
   expect(result.filter((part) => part.kind === 'shelf')).toEqual(
     layout.filter((part) => part.kind === 'shelf'),
   );
-  expect(result.filter((part) => part.faceFrame)).toHaveLength(1);
+  expect(result.filter((part) => part.faceFrame)).toHaveLength(4);
 });

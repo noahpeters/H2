@@ -195,7 +195,6 @@ export function roomFrontParts(
   });
   if (overlay === 'full-overlay') return projectedParts;
   const exterior = projectedParts.filter((part) => exteriorParts.has(part));
-  if (!exterior.length) return projectedParts;
   const frame = cabinetFaceFrame(
     exterior,
     {x: 0, y: 0, width: unit.width, height: unit.height},

@@ -1,4 +1,3 @@
-import {customUnitLayoutParts} from './custom-unit/layoutParts';
 import {wallToFloor, type Room, type RoomElement} from './model';
 import {cabinetToeKick} from './cabinetEnvelope';
 
@@ -17,15 +16,7 @@ export function continuousFrameNeighbors(elements: RoomElement[], room: Room) {
       !e.customCabinet?.definition.curve &&
       !e.customCabinet?.definition.profile &&
       e.configuration !== 'corner' &&
-      (!e.customCabinet ||
-        customUnitLayoutParts(e.customCabinet.definition).some(
-          (p) =>
-            ['door', 'drawer'].includes(p.kind) &&
-            p.z <= 0 &&
-            p.drawerArray?.face !== 'internal' &&
-            p.door?.mechanism !== 'tambour',
-        )) &&
-      (!e.storage || e.storage.doors || e.storage.drawers),
+      e.storage?.type !== 'floating-shelves',
   );
   const close = (a: number, b: number) => Math.abs(a - b) < 0.0001;
   const finish = (e: RoomElement) =>

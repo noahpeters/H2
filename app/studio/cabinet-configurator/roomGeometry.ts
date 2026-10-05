@@ -683,10 +683,7 @@ export function cabinetGeometry(
       toe / 2,
       item.kind === 'base' && config === 'pullout',
     );
-  if (
-    frontCells.length &&
-    (room?.overlay === 'inset' || room?.overlay === 'partial-overlay')
-  ) {
+  if (room?.overlay === 'inset' || room?.overlay === 'partial-overlay') {
     const frame = cabinetFaceFrame(
       frontCells.map((c) => ({
         ...c,
