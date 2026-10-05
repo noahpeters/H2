@@ -150,7 +150,17 @@
           );
         }
       if (residual / energy > 0.001)
-        throw new Error('Transport does not sum to beauty');
+        throw new Error(
+          `Transport does not sum to beauty: ${residual / energy}; energies ${JSON.stringify(
+            passes.map((pass) => {
+              let sum = 0;
+              for (let i = 0; i < pass.byteLength; i += 16)
+                for (let c = 0; c < 3; c++)
+                  sum += pass.getFloat32(i + c * 4, true);
+              return sum;
+            }),
+          )}`,
+        );
       if (materials.some((m, i) => JSON.stringify(m.toJSON()) !== liveState[i]))
         throw new Error('Live materials changed');
       const image = document.createElement('img');

@@ -713,6 +713,9 @@ export async function renderPhoto(
     if (settings.diagnostics && selectPass) {
       // Diagnostic transports use the same sample count, contacts, seed, camera and BSDF.
       tracer.renderToCanvas = false;
+      // Finishing resized the canvas to output size. Restore the original tracing
+      // grid before reset so diagnostic rays match the supersampled beauty.
+      renderer.setSize(renderWidth, renderHeight, false);
       const passes = PHOTO_PASSES.slice(1);
       for (let passIndex = 0; passIndex < passes.length; passIndex++) {
         selectPass(passes[passIndex]);
