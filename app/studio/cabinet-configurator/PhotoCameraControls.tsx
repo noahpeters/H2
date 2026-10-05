@@ -10,8 +10,7 @@ export function PhotoCameraControls({
   const update = (patch: Partial<PhotoCameraSettings>) =>
     onChange({...value, ...patch});
   return (
-    <fieldset>
-      <legend>Camera and finishing</legend>
+    <>
       <label>
         <input
           type="checkbox"
@@ -107,6 +106,6 @@ export function PhotoCameraControls({
         stay small; difficult scenes continue refining. Super high quality runs
         the full rendering budget. The full room stays sharp.
       </p>
-    </fieldset>
+    </>
   );
 }

@@ -74,6 +74,7 @@ test.each([
     vi.mocked(renderPhoto).mockRejectedValueOnce(failure);
     render(<ThreeStudy study={blankStudy()} showControls />);
     fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Render photo'}));
     const failed = await screen.findByRole('dialog', {
       name: 'Photo could not be completed',
     });
@@ -105,6 +106,7 @@ test.each([
       new Error('Photo capture failed.'),
     );
     fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Render photo'}));
     await screen.findByRole('dialog', {name: 'Photo could not be completed'});
     fireEvent.click(screen.getByRole('button', {name: 'Close'}));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -118,6 +120,7 @@ test('super high quality rerenders the original capture and keeps the first phot
   vi.mocked(renderPhoto).mockResolvedValueOnce(first);
   const view = render(<ThreeStudy study={blankStudy()} showControls />);
   fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Render photo'}));
   await screen.findByRole('dialog', {name: 'Your room photo'});
   const captured = vi.mocked(renderPhoto).mock.calls[0];
   const next = {...blankStudy(), room: {...blankStudy().room, width: 300}};
@@ -169,4 +172,45 @@ test('super high quality rerenders the original capture and keeps the first phot
     screen.queryByRole('button', {name: 'Render super high quality'}),
   ).not.toBeInTheDocument();
   expect(vi.mocked(URL.createObjectURL).mock.calls.at(-1)?.[0]).toBe(last);
+});
+
+test('photo settings appear only after Take Photo, cancel without rendering, and apply on confirmation', async () => {
+  render(<ThreeStudy study={blankStudy()} showControls />);
+  screen.getByRole('button', {name: 'Take Photo'}).focus();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(
+    screen.queryByLabelText('Daylight temperature (K)'),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+  const dialog = screen.getByRole('dialog', {name: 'Photo settings'});
+  expect(dialog).toHaveAttribute('open');
+  expect(dialog.querySelector('fieldset, legend')).toBeNull();
+  expect(renderPhoto).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Daylight temperature (K)'), {
+    target: {value: '5700'},
+  });
+  fireEvent.click(screen.getByRole('button', {name: 'Cancel'}));
+  expect(screen.getByRole('button', {name: 'Take Photo'})).toHaveFocus();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(renderPhoto).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+  expect(screen.getByLabelText('Daylight temperature (K)')).toHaveValue(5700);
+  const escape = new Event('cancel', {cancelable: true});
+  fireEvent(screen.getByRole('dialog', {name: 'Photo settings'}), escape);
+  expect(escape.defaultPrevented).toBe(true);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(renderPhoto).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
+  vi.mocked(renderPhoto).mockRejectedValueOnce(
+    new Error('Test render failed.'),
+  );
+  fireEvent.click(screen.getByRole('button', {name: 'Render photo'}));
+  await screen.findByRole('dialog', {name: 'Photo could not be completed'});
+  expect(
+    screen.queryByRole('dialog', {name: 'Photo settings'}),
+  ).not.toBeInTheDocument();
+  expect(renderPhoto).toHaveBeenCalledOnce();
+  expect(vi.mocked(renderPhoto).mock.calls[0][2]?.daylight.temperature).toBe(
+    5700,
+  );
 });
