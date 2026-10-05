@@ -1,0 +1,78 @@
+<!doctype html>
+<title>Photo background metering GPU regression</title>
+<p id="status">Running</p>
+<script type="module">
+  import * as THREE from 'three';
+  import {finishPhoto} from '/app/studio/cabinet-configurator/photoFinish.ts';
+  import {DEFAULT_PHOTO_CAMERA} from '/app/studio/cabinet-configurator/photoCamera.ts';
+  const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
+  renderer.setSize(64, 64);
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.setClearAlpha(0);
+  const scene = new THREE.Scene();
+  const geometry = new THREE.PlaneGeometry(1, 1);
+  const material = new THREE.MeshBasicMaterial({color: 0xaaaaaa});
+  scene.add(new THREE.Mesh(geometry, material));
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 100);
+  camera.position.z = 2;
+  const mask = new THREE.WebGLRenderTarget(64, 64, {type: THREE.FloatType});
+  renderer.setRenderTarget(mask);
+  renderer.render(scene, camera);
+  const guide = new Float32Array(64 * 64 * 4);
+  renderer.readRenderTargetPixels(mask, 0, 0, 64, 64, guide);
+  renderer.setRenderTarget(null);
+  renderer.setClearAlpha(0.7);
+  scene.background = new THREE.Color('#f4f2ec');
+  let radiance;
+  try {
+    const results = [];
+    for (const background of [0.001, 1, 100]) {
+      const data = new Float32Array(guide.length);
+      for (let i = 0; i < data.length; i += 4) {
+        const value = guide[i + 3] >= 0.5 ? 0.1 : background;
+        data.set([value, value, value, 1], i);
+      }
+      radiance = new THREE.DataTexture(
+        data,
+        64,
+        64,
+        THREE.RGBAFormat,
+        THREE.FloatType,
+      );
+      radiance.needsUpdate = true;
+      const result = await finishPhoto(
+        renderer,
+        scene,
+        camera,
+        radiance,
+        64,
+        64,
+        DEFAULT_PHOTO_CAMERA,
+        1,
+      );
+      if (Math.abs(result.exposure - 3.5) > 0.01)
+        throw new Error(
+          'Background altered exposure: ' + JSON.stringify(result),
+        );
+      if (renderer.getClearAlpha() !== 0.7)
+        throw new Error('Clear alpha not restored');
+      if (renderer.getContext().getError() !== 0) throw new Error('GPU error');
+      results.push({background, ...result});
+      radiance.dispose();
+      radiance = null;
+    }
+    document.querySelector('#status').textContent =
+      'Passed: ' + JSON.stringify(results);
+  } catch (error) {
+    document.querySelector('#status').textContent = 'Failed: ' + error.message;
+    throw error;
+  } finally {
+    radiance?.dispose();
+    geometry.dispose();
+    material.dispose();
+    mask.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss();
+  }
+</script>

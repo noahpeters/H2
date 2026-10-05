@@ -88,6 +88,9 @@ export function meterPhoto(
   const neutral = [0, 0, 0];
   let count = 0;
   for (let i = 0; i < radiance.length; i += 4) {
+    // The albedo guide marks empty background with zero alpha. It is decorative,
+    // not room illumination, and must not set exposure or white balance.
+    if (!(albedo[i + 3] >= 0.5)) continue;
     const rgb = [radiance[i], radiance[i + 1], radiance[i + 2]];
     if (rgb.some((v) => !Number.isFinite(v) || v < 0)) continue;
     const l = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
