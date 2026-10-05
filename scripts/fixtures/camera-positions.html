@@ -1,0 +1,65 @@
+<!doctype html><title>Saved camera positions review</title>
+<link rel="stylesheet" href="/app/styles/cabinet-configurator.css" />
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 16px;
+    background: #f4f2ec;
+  }
+  .cc-three-host {
+    height: 550px;
+    min-height: 350px;
+  }
+  pre {
+    display: none; white-space: pre-wrap;
+    font-size: 12px;
+  }
+  .cc-panel {
+    height: 650px;
+    max-width: 1100px;
+    margin: auto;
+  }
+</style>
+<div id="root"></div>
+<script type="module">
+  import React, {useState} from 'react';
+  import {createRoot} from 'react-dom/client';
+  import {
+    ThreeStudy,
+    blankStudy,
+    migrateStudy,
+  } from '/app/studio/cabinet-configurator/CabinetConfigurator.tsx';
+  function Review() {
+    const [study, setStudy] = useState(() => {
+      const stored = localStorage.getItem('camera-position-fixture');
+      return stored
+        ? migrateStudy(JSON.parse(stored))
+        : {...blankStudy(), view: 'three'};
+    });
+    return React.createElement(
+      'main',
+      {className: 'cc-panel cc-three-panel'},
+      React.createElement(ThreeStudy, {
+        study,
+        showControls: true,
+        onCameraPositionsChange: (positions) =>
+          setStudy((previous) => {
+            const next = {...previous, cameraPositions: positions};
+            localStorage.setItem(
+              'camera-position-fixture',
+              JSON.stringify(next),
+            );
+            return next;
+          }),
+      }),
+      React.createElement(
+        'pre',
+        {'data-testid': 'positions'},
+        JSON.stringify(study.cameraPositions ?? []),
+      ),
+    );
+  }
+  createRoot(document.querySelector('#root')).render(
+    React.createElement(Review),
+  );
+</script>
