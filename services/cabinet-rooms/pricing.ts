@@ -11,12 +11,26 @@ import {fitDefinition} from '../../app/studio/cabinet-configurator/custom-unit/d
 import {customUnitLayoutParts} from '../../app/studio/cabinet-configurator/custom-unit/layoutParts';
 import {roomFrontParts} from '../../app/studio/cabinet-configurator/custom-unit/frontLayout';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
-import {minimumTallHeight} from '../../app/studio/cabinet-configurator/model';
+import type {
+  BaseConfiguration,
+  ElementKind,
+  RoomElement,
+} from '../../app/studio/cabinet-configurator/model';
 import {storageLayout} from '../../app/studio/cabinet-configurator/openStorage';
 export type Rates = Record<string, number | null>;
+// A new room-object kind must declare its pricing scope before typecheck passes.
+const ELEMENT_PRICING = {
+  base: 'cabinet',
+  'wall-cabinet': 'cabinet',
+  tall: 'cabinet',
+  panel: 'panel',
+  appliance: 'appliance',
+  fixture: 'excluded',
+} satisfies Record<ElementKind, 'cabinet' | 'panel' | 'appliance' | 'excluded'>;
+
 export class PricingError extends Error {
   constructor(
-    public code: 'pricing_not_configured' | 'unsupported_configuration',
+    public code: 'pricing_not_configured',
     public items: string[],
   ) {
     super(code);
@@ -77,14 +91,42 @@ export function projectSchedule(study: Study) {
       ['shaker', 'slab', 'vertical-slat'].includes(
         e.applianceFront ?? 'stainless',
       );
-    if (e.kind === 'fixture' || (e.kind === 'appliance' && !panel)) continue;
-    if (e.width <= 1.5 || e.depth <= 3 || e.height <= 4)
-      throw new PricingError('unsupported_configuration', [e.id]);
+    if (
+      ELEMENT_PRICING[e.kind] === 'excluded' ||
+      (e.kind === 'appliance' && !panel)
+    )
+      continue;
     const material = e.material ?? 'rift-white-oak';
     if (!e.material)
       assumptions.add(
         'Unspecified materials use rift-sawn white oak, matching the configurator default.',
       );
+    if (e.kind === 'panel') {
+      // Room panels store thickness in width and the visible span in depth.
+      lines.push({
+        id: e.id,
+        width: e.width,
+        depth: e.depth,
+        height: e.height,
+        material,
+        carcassArea: 0,
+        backArea: 0,
+        faceArea: (e.depth * e.height) / 144,
+        boxUnits: 0,
+        feet: 0,
+        finishUnits: 1,
+        drawers: 0,
+        hinges: 0,
+        frontCoverage: 0,
+        endPanels: 0,
+        finishedBack: 0,
+        visibleBox: true,
+      });
+      assumptions.add(
+        'Standalone room panels use their full physical panel area and one finishing allowance; they have no cabinet box or door hardware.',
+      );
+      continue;
+    }
     let drawers = 0,
       doors = e.width > 30 ? 2 : 1,
       frontCoverage = 1;
@@ -93,19 +135,17 @@ export function projectSchedule(study: Study) {
     const h = e.height - toeKickHeight;
     if (e.kind === 'base') {
       const config = e.configuration ?? 'single-door';
-      if (
-        ![
-          'single-door',
-          'door-drawer',
-          'three-drawer',
-          'pullout',
-          'microwave-drawer',
-          'sink',
-          'farmhouse-sink',
-          'corner',
-        ].includes(config)
-      )
-        throw new PricingError('unsupported_configuration', [e.id]);
+      const drawerCounts = {
+        'single-door': 0,
+        'door-drawer': 1,
+        'three-drawer': 3,
+        pullout: 1,
+        'microwave-drawer': 1,
+        sink: 0,
+        'farmhouse-sink': 0,
+        corner: 0,
+      } satisfies Record<BaseConfiguration, number>;
+      drawers = drawerCounts[config] ?? 0;
       if (config === 'three-drawer') {
         drawers = 3;
         doors = 0;
@@ -133,16 +173,15 @@ export function projectSchedule(study: Study) {
     }
     if (e.kind === 'tall' && !e.storage) {
       const config = e.tallConfiguration ?? 'standard';
-      if (
-        !['standard', 'one-oven', 'two-oven', 'coffee-maker'].includes(
-          config,
-        ) ||
-        e.height < minimumTallHeight(config)
-      )
-        throw new PricingError('unsupported_configuration', [e.id]);
+      const openingCounts = {
+        standard: 0,
+        'one-oven': 1,
+        'two-oven': 2,
+        'coffee-maker': 1,
+      } satisfies Record<NonNullable<RoomElement['tallConfiguration']>, number>;
       if (config !== 'standard') {
         drawers = 2;
-        const count = config === 'two-oven' ? 2 : 1;
+        const count = openingCounts[config] ?? 1;
         const opening =
           Math.min(
             config === 'coffee-maker' ? 18 : 28,
@@ -317,8 +356,8 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
   for (const c of lines) {
     const w = c.width,
       d = c.depth,
-      h = c.height - (c.toeKickHeight ?? (c.feet ? 4 : 0)),
-      iw = w - 1.5;
+      h = Math.max(0, c.height - (c.toeKickHeight ?? (c.feet ? 4 : 0))),
+      iw = Math.max(0, w - 1.5);
     const carcass =
       c.carcassArea ??
       (c.boxUnits * (2 * d * h + iw * d + 4 * iw * 3)) / 144 +
@@ -410,12 +449,14 @@ export function estimateProject(study: Study, rates: Rates) {
     range: priceRange(price),
     roundingIncrement: 500,
     tolerancePercentBeforeRounding: 10,
-    scope: 'Cabinetry and selected appliance face panels only',
+    scope: 'Cabinetry, room panels and selected appliance face panels only',
     estimateOnly: true,
     pricedItemCount: lines.length,
     assumptions: lines.length
       ? assumptions
-      : ['No priceable cabinetry or appliance face panels in this project.'],
+      : [
+          'No priceable cabinetry, room panels or appliance face panels in this project.',
+        ],
     exclusions: EXCLUSIONS,
   };
 }

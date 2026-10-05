@@ -1,3 +1,7 @@
+import {cabinetTypes} from '../../app/studio/cabinet-configurator/cabinetTypes';
+import {createRoomPanel} from '../../app/studio/cabinet-configurator/roomPanels';
+import {CABINET_MATERIALS} from '../../app/studio/cabinet-configurator/materials';
+import {configurationTemplate} from '../../app/studio/cabinet-configurator/custom-unit/designConfigurations';
 import {
   SINK_CATALOG,
   createSink,
@@ -566,4 +570,96 @@ it('retains exposed storage finish and uses configured premium drawer rates rath
     drawer_bottom_sheet_walnut: 200,
   });
   expect(configured.price).toBeGreaterThan(modeled.price);
+});
+
+it('prices standalone panels by their span and height, without a cabinet box or hardware', () => {
+  const {rates} = setup();
+  const room = study().room;
+  for (const thickness of [0.125, 0.75, 1.5]) {
+    const panel = {
+      ...createRoomPanel('room-panel', room),
+      width: thickness,
+      material: 'walnut' as const,
+    };
+    const line = projectSchedule(study([panel])).lines[0];
+    expect(line).toMatchObject({
+      boxUnits: 0,
+      drawers: 0,
+      hinges: 0,
+      feet: 0,
+      faceArea: 16,
+      carcassArea: 0,
+      backArea: 0,
+    });
+    expect(calculatePrice([line], rates).purchases).toEqual({face_walnut: 1});
+    const alone = estimateProject(study([panel]), rates);
+    expect(alone.range.high).toBeGreaterThan(0);
+    const combined = estimateProject(study([cabinet, panel]), rates);
+    expect(combined.pricedItemCount).toBe(2);
+    expect(combined.range.high).toBeGreaterThanOrEqual(
+      estimateProject(study(), rates).range.high,
+    );
+  }
+});
+it('gates every selectable cabinet feature and material on a finite automatic estimate', () => {
+  const {rates} = setup();
+  const room = study().room;
+  const catalog = cabinetTypes();
+  expect(catalog.length).toBeGreaterThan(15);
+  const objects = [
+    ...catalog.map((c) => c.item),
+    createRoomPanel('panel', room),
+  ];
+  for (const object of objects) {
+    for (const material of Object.keys(CABINET_MATERIALS) as Array<
+      keyof typeof CABINET_MATERIALS
+    >) {
+      for (const useMapleInternals of [false, true]) {
+        const design = {
+          ...study([{...object, material}]),
+          room: {...room, useMapleInternals},
+        };
+        const estimate = estimateProject(design, rates);
+        expect(
+          estimate.pricedItemCount,
+          `${object.kind}/${object.configuration || object.storage?.type}/${material}`,
+        ).toBe(1);
+        expect(Number.isFinite(estimate.range.high)).toBe(true);
+        expect(estimate.range.high).toBeGreaterThan(0);
+      }
+    }
+  }
+  // The editor's saved custom definitions use the same physical stock schedule.
+  for (const choice of catalog) {
+    const definition = configurationTemplate(choice.item, room);
+    const item = {
+      ...choice.item,
+      customCabinet: {libraryId: 'coverage', libraryVersion: 1, definition},
+    };
+    expect(
+      estimateProject(study([item]), rates).range.high,
+      choice.label,
+    ).toBeGreaterThan(0);
+  }
+});
+it('returns a price for a saved room containing ordinary three-quarter-inch panels', async () => {
+  const {call} = setup();
+  const design = study([cabinet, createRoomPanel('end-panel', study().room)]);
+  const saved = (await (
+    await call('/', 'POST', 'test', {study: design})
+  ).json()) as any;
+  const response = await call('/quote', 'POST', 'test', {
+    slug: saved.slug,
+    editKey: saved.editKey,
+    revision: saved.revision,
+    requestId: '11111111-1111-4111-8111-111111111111',
+    senderName: 'Example',
+    senderEmail: 'example@example.com',
+    consent: false,
+  });
+  expect(response.status).toBe(200);
+  const result = (await response.json()) as any;
+  expect(result.range.high).toBeGreaterThan(0);
+  expect(result.pricedItemCount).toBe(2);
+  expect(result).not.toHaveProperty('error');
 });
