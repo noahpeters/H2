@@ -30,6 +30,7 @@ vi.mock('./PartViewport', async () => {
 it('places an array, edits count and heights, and removes/undoes the entire array', () => {
   const onChange = vi.fn();
   render(<CustomUnitEditor onChange={onChange} />);
+  fireEvent.click(screen.getByText('+ Add part'));
   fireEvent.click(screen.getByRole('button', {name: '+ drawer array'}));
   fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
   expect(screen.queryByLabelText('Part width')).not.toBeInTheDocument();
@@ -70,6 +71,7 @@ describe('Cabinet workshop', () => {
   it('does not save a part before placement and cancels without changes', () => {
     const onChange = vi.fn();
     render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByText('+ Add part'));
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('Place shelf');
@@ -82,6 +84,7 @@ describe('Cabinet workshop', () => {
   it('adds a shelf and commits exact sizes, setbacks, and undo to the parent', () => {
     const onChange = vi.fn();
     render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByText('+ Add part'));
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
     fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     const field = screen.getByLabelText('Front setback');
@@ -94,9 +97,11 @@ describe('Cabinet workshop', () => {
   it('adds independent end shelves and door mechanisms', () => {
     const onChange = vi.fn();
     render(<CustomUnitEditor onChange={onChange} />);
+    fireEvent.click(screen.getByText('+ Add part'));
     fireEvent.click(screen.getByRole('button', {name: '+ right end shelf'}));
     fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     expect(onChange.mock.lastCall![0].parts.at(-1).shape).toBe('round-right');
+    fireEvent.click(screen.getByText('+ Add part'));
     fireEvent.click(screen.getByRole('button', {name: '+ door'}));
     fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     fireEvent.change(screen.getByLabelText('Mechanism'), {
@@ -122,6 +127,7 @@ describe('Cabinet workshop', () => {
       right: 'convex',
       radius: 12,
     });
+    fireEvent.click(screen.getByText('+ Add part'));
     fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
     fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
     expect(onChange.mock.lastCall![0].profile.radius).toBe(12);
@@ -164,6 +170,7 @@ it('keeps preview finishes out of cabinet changes', () => {
     target: {value: 'sage-green'},
   });
   expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText('+ Add part'));
   fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
   fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
   const saved = onChange.mock.lastCall![0];
@@ -175,6 +182,7 @@ it('keeps preview finishes out of cabinet changes', () => {
 it('shows hinge side for a default door and persists the selection', () => {
   const onChange = vi.fn();
   render(<CustomUnitEditor onChange={onChange} />);
+  fireEvent.click(screen.getByText('+ Add part'));
   fireEvent.click(screen.getByRole('button', {name: '+ door'}));
   fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
   expect(screen.getByLabelText('Hinge side')).toHaveValue('left');
@@ -217,6 +225,7 @@ it('locks envelope controls and imports while allowing configuration naming and 
     height: 34.5,
     depth: 24,
   });
+  fireEvent.click(screen.getByText('+ Add part'));
   fireEvent.click(screen.getByRole('button', {name: '+ shelf'}));
   fireEvent.click(screen.getByRole('button', {name: 'Place in opening'}));
   expect(onChange.mock.lastCall![0]).toMatchObject({
