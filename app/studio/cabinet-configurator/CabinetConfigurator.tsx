@@ -25,6 +25,7 @@ import {
 import {WallThicknessControls} from './WallThicknessControls';
 import type {PhotoContactSettings} from './photoContacts';
 import {PhotoCameraControls} from './PhotoCameraControls';
+import {PhotoSettingsDialog} from './PhotoSettingsDialog';
 import {PhotoDialog} from './PhotoDialog';
 import {PhotoProgressDialog} from './PhotoProgressDialog';
 import {PositioningGuides} from './PlanPositioningGuides';
@@ -702,6 +703,7 @@ export function ThreeStudy({
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState('');
   const [photoSettings, setPhotoSettings] = useState(DEFAULT_PHOTO_SETTINGS);
+  const [photoSettingsOpen, setPhotoSettingsOpen] = useState(false);
   const [photoProgress, setPhotoProgress] = useState(0);
   const photoAbort = useRef<AbortController | null>(null);
   const photoCapture = useRef<{
@@ -1058,7 +1060,7 @@ export function ThreeStudy({
           <button
             type="button"
             disabled={photoBusy}
-            onClick={() => void takePhoto()}
+            onClick={() => setPhotoSettingsOpen(true)}
           >
             {photoBusy
               ? `Taking photo… ${Math.floor(photoProgress * 100)}%`
@@ -1073,9 +1075,14 @@ export function ThreeStudy({
           />
         </div>
       )}
-      {showControls && (
-        <details className="cc-photo-settings">
-          <summary>Photo camera, lighting and quality</summary>
+      {showControls && photoSettingsOpen && (
+        <PhotoSettingsDialog
+          cancel={() => setPhotoSettingsOpen(false)}
+          render={() => {
+            setPhotoSettingsOpen(false);
+            void takePhoto();
+          }}
+        >
           <fieldset disabled={photoBusy}>
             <legend>Photo settings</legend>
             <PhotoCameraControls
@@ -1237,7 +1244,7 @@ export function ThreeStudy({
               light; rooms without lit openings will be dark.
             </p>
           </fieldset>
-        </details>
+        </PhotoSettingsDialog>
       )}
       {(photoBusy || photoError) && (
         <PhotoProgressDialog

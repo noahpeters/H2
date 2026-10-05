@@ -919,3 +919,55 @@
 
 .cabinet-app .cc-photo-actions .cc-photo-refine { margin-left: 0; margin-right: auto; }
 @media (max-width: 600px) { .cc-photo-actions { flex-wrap: wrap; } }
+
+.cc-photo-settings-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e1d8c7;
+  border-radius: 16px;
+  background: #fffdf6;
+  color: #343b2e;
+  box-shadow: 0 16px 60px #20271c26;
+}
+.cc-photo-settings-dialog::backdrop {
+  background: #20271c66;
+}
+.cc-photo-settings-dialog form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 34px);
+}
+.cc-photo-settings-dialog header,
+.cc-photo-settings-dialog footer {
+  flex-shrink: 0;
+  padding: 16px 20px;
+}
+.cc-photo-settings-dialog h2 {
+  margin: 0 0 8px;
+}
+.cc-photo-settings-dialog header p {
+  margin: 0;
+}
+.cc-photo-settings-body {
+  padding: 0 20px 16px;
+  overflow: auto;
+  min-height: 0;
+}
+.cc-photo-settings-body fieldset {
+  min-width: 0;
+}
+.cc-photo-settings-body label {
+  display: block;
+  margin-block: 8px;
+}
+.cc-photo-settings-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-top: 1px solid #e1d8c7;
+}
