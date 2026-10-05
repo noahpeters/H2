@@ -20,7 +20,8 @@ export async function finishPhoto(
   const meter = new THREE.WebGLRenderTarget(64, 64, {type: THREE.FloatType});
   const guide = scene.clone(true);
   const materials: THREE.Material[] = [];
-  guide.background = new THREE.Color(0);
+  // Clear alpha identifies empty pixels independently of black surface albedo.
+  guide.background = null;
   guide.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     const replace = (original: THREE.Material) => {
@@ -93,9 +94,11 @@ export async function finishPhoto(
     exposure: renderer.toneMappingExposure,
     color: renderer.outputColorSpace,
     autoClear: renderer.autoClear,
+    clearAlpha: renderer.getClearAlpha(),
   };
   try {
     renderer.autoClear = true;
+    renderer.setClearAlpha(0);
     renderer.toneMapping = THREE.NoToneMapping;
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.setRenderTarget(meter);
@@ -135,6 +138,7 @@ export async function finishPhoto(
     renderer.toneMappingExposure = previous.exposure;
     renderer.outputColorSpace = previous.color;
     renderer.autoClear = previous.autoClear;
+    renderer.setClearAlpha(previous.clearAlpha);
     quad.dispose();
     material.dispose();
     meter.dispose();

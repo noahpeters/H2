@@ -120,6 +120,33 @@ test('neutral-albedo WB cannot neutralize colored cabinetry; global correction i
   ).toEqual([1, 1, 1]);
 });
 
+test('decorative background cannot change room exposure or WB, but black surfaces still meter', () => {
+  const room = pixels([0.1, 0.1, 0.1], 16);
+  const base = pixels([0.5, 0.5, 0.5], 16);
+  const reference = meterPhoto(room, base, DEFAULT_PHOTO_CAMERA, 1);
+  for (const brightness of [0.001, 1, 100]) {
+    const image = new Float32Array([
+      ...room,
+      ...pixels([brightness, brightness, brightness], 64),
+    ]);
+    const guide = new Float32Array([...base, ...new Float32Array(64 * 4)]);
+    expect(meterPhoto(image, guide, DEFAULT_PHOTO_CAMERA, 1)).toEqual(
+      reference,
+    );
+  }
+  expect(
+    meterPhoto(room, pixels([0, 0, 0], 16), DEFAULT_PHOTO_CAMERA, 1).exposure,
+  ).toBeCloseTo(3.5);
+  const empty = meterPhoto(
+    pixels([100, 100, 100]),
+    new Float32Array(64 * 4),
+    DEFAULT_PHOTO_CAMERA,
+    1,
+  );
+  expect(Number.isFinite(empty.exposure)).toBe(true);
+  expect(empty.neutralCount).toBe(0);
+});
+
 test('settings serialize and invalid camera inputs are rejected', () => {
   const settings = JSON.parse(
     JSON.stringify(DEFAULT_PHOTO_CAMERA),
