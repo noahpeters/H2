@@ -23,6 +23,7 @@ import {
   wallFootprint,
 } from './wallDimensions';
 import {WallThicknessControls} from './WallThicknessControls';
+import {HelpField, InfoTooltip} from './ControlHelp';
 import type {PhotoContactSettings} from './photoContacts';
 import {PhotoCameraControls} from './PhotoCameraControls';
 import {PhotoDialog} from './PhotoDialog';
@@ -2089,37 +2090,50 @@ export function CabinetConfigurator({
           <details className="cc-accordion" ref={roomControls}>
             <summary>Room</summary>
             <div className="cc-fields">
-              <label>
-                Positioning resolution
-                <select
-                  value={positioningResolution(study.room)}
-                  onChange={(event) => {
-                    const value = Number(
-                      event.currentTarget.value,
-                    ) as PositioningResolution;
-                    update((d) => {
-                      d.room.positioningResolution = value;
-                    });
-                  }}
-                >
-                  <option value={1 / 16}>Fine · 1/16 in</option>
-                  <option value={1 / 8}>Default · 1/8 in</option>
-                  <option value={1}>Coarse · 1 in</option>
-                </select>
-              </label>
-              <small>
-                Snaps within twice this increment. Hold ⌘ Command to disable
-                snapping.
-              </small>
+              <HelpField
+                label="Positioning resolution"
+                help="Snaps within twice this increment. Hold ⌘ Command to disable snapping."
+              >
+                {(id) => (
+                  <select
+                    id={id}
+                    value={positioningResolution(study.room)}
+                    onChange={(event) => {
+                      const value = Number(
+                        event.currentTarget.value,
+                      ) as PositioningResolution;
+                      update((d) => {
+                        d.room.positioningResolution = value;
+                      });
+                    }}
+                  >
+                    <option value={1 / 16}>Fine · 1/16 in</option>
+                    <option value={1 / 8}>Default · 1/8 in</option>
+                    <option value={1}>Coarse · 1 in</option>
+                  </select>
+                )}
+              </HelpField>
 
               {(['walls', 'floor', 'countertop'] as const).map((surface) => (
-                <label key={surface}>
-                  {surface === 'walls'
-                    ? 'Walls'
-                    : surface === 'floor'
-                      ? 'Floor'
-                      : 'Countertops'}
+                <div className="cc-help-field" key={surface}>
+                  <span className="cc-label-help">
+                    <label htmlFor={`room-${surface}-material`}>
+                      {surface === 'walls'
+                        ? 'Walls'
+                        : surface === 'floor'
+                          ? 'Floor'
+                          : 'Countertops'}
+                    </label>
+                    {surface === 'countertop' &&
+                      study.room.countertopMaterial === 'taj-mahal' && (
+                        <InfoTooltip label="Countertops">
+                          Taj Mahal preview uses representative cream stone
+                          veining. Actual slabs vary.
+                        </InfoTooltip>
+                      )}
+                  </span>
                   <select
+                    id={`room-${surface}-material`}
                     value={
                       surface === 'countertop'
                         ? (study.room.countertopMaterial ?? 'white-quartz')
@@ -2146,14 +2160,8 @@ export function CabinetConfigurator({
                       ),
                     )}
                   </select>
-                </label>
+                </div>
               ))}
-              {study.room.countertopMaterial === 'taj-mahal' && (
-                <p className="cc-muted">
-                  Taj Mahal preview uses representative cream stone veining.
-                  Actual slabs vary.
-                </p>
-              )}
               <label>
                 Front overlay
                 <select
@@ -2170,51 +2178,53 @@ export function CabinetConfigurator({
                   <option value="inset">Inset</option>
                 </select>
               </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={study.room.continuousFaceFrames ?? false}
-                  disabled={
-                    (study.room.overlay ?? 'full-overlay') === 'full-overlay'
-                  }
-                  onChange={(event) => {
-                    const enabled = event.currentTarget.checked;
-                    update((d) => {
-                      d.room.continuousFaceFrames = enabled;
-                    });
-                  }}
-                />
-                Continuous face frames
-              </label>
-              <p>
-                Share a single frame across adjacent cabinets with matching
-                height, depth, and material. Cabinet boundaries use one stile
-                instead of two.
-              </p>
-              <label>
-                Island countertop edge overhang (in)
-                <input
-                  type="number"
-                  min={0}
-                  max={12}
-                  step={positioningResolution(study.room)}
-                  value={
-                    study.room.islandCountertopOverhang ??
-                    DEFAULT_ISLAND_COUNTERTOP_OVERHANG
-                  }
-                  onChange={(event) => {
-                    const value = Number(event.currentTarget.value);
-                    if (Number.isFinite(value) && value >= 0 && value <= 12)
+              <HelpField
+                label="Continuous face frames"
+                help="Share a single frame across adjacent cabinets with matching height, depth, and material. Cabinet boundaries use one stile instead of two."
+                checkbox
+              >
+                {(id) => (
+                  <input
+                    id={id}
+                    type="checkbox"
+                    checked={study.room.continuousFaceFrames ?? false}
+                    disabled={
+                      (study.room.overlay ?? 'full-overlay') === 'full-overlay'
+                    }
+                    onChange={(event) => {
+                      const enabled = event.currentTarget.checked;
                       update((d) => {
-                        d.room.islandCountertopOverhang = value;
+                        d.room.continuousFaceFrames = enabled;
                       });
-                  }}
-                />
-              </label>
-              <p>
-                Measured beyond the cabinet body or face frame. Seating overhang
-                is set per island.
-              </p>
+                    }}
+                  />
+                )}
+              </HelpField>
+              <HelpField
+                label="Island countertop edge overhang (in)"
+                help="Measured beyond the cabinet body or face frame. Seating overhang is set per island."
+              >
+                {(id) => (
+                  <input
+                    id={id}
+                    type="number"
+                    min={0}
+                    max={12}
+                    step={positioningResolution(study.room)}
+                    value={
+                      study.room.islandCountertopOverhang ??
+                      DEFAULT_ISLAND_COUNTERTOP_OVERHANG
+                    }
+                    onChange={(event) => {
+                      const value = Number(event.currentTarget.value);
+                      if (Number.isFinite(value) && value >= 0 && value <= 12)
+                        update((d) => {
+                          d.room.islandCountertopOverhang = value;
+                        });
+                    }}
+                  />
+                )}
+              </HelpField>
               <fieldset>
                 <legend>Base and tall cabinet toe kicks</legend>
                 {(['height', 'setback'] as const).map((field) => (
@@ -2244,46 +2254,55 @@ export function CabinetConfigurator({
                   </label>
                 ))}
               </fieldset>
-              <button
-                aria-pressed={editingRoom}
-                onClick={() => {
-                  setEditingRoom((v) => !v);
-                  setAddingWall(false);
-                  setWallPreview(null);
-                  if (!editingRoom && study.view === 'three')
-                    setStudy((c) => ({...c, view: 'split'}));
-                }}
-              >
-                {editingRoom ? 'Done editing outline' : 'Edit room outline'}
-              </button>
+              <span className="cc-label-help">
+                <button
+                  aria-pressed={editingRoom}
+                  onClick={() => {
+                    setEditingRoom((v) => !v);
+                    setAddingWall(false);
+                    setWallPreview(null);
+                    if (!editingRoom && study.view === 'three')
+                      setStudy((c) => ({...c, view: 'split'}));
+                  }}
+                >
+                  {editingRoom ? 'Done editing outline' : 'Edit room outline'}
+                </button>
+                <InfoTooltip label="Edit room outline">
+                  Drag islands freely; their grouped objects move with them.
+                  Drag doors, windows and openings along walls or onto another
+                  wall. Select a wall and drag it perpendicular to itself. Right
+                  angles and one-inch steps are preserved. Layout changes may
+                  leave existing objects outside the room; review warnings or
+                  Undo.
+                </InfoTooltip>
+              </span>
               {editingRoom && (
                 <>
-                  <p className="cc-muted">
-                    Drag islands freely; their grouped objects move with them.
-                    Drag doors, windows and openings along walls or onto another
-                    wall. Select a wall and drag it perpendicular to itself.
-                    Right angles and one-inch steps are preserved. Layout
-                    changes may leave existing objects outside the room; review
-                    warnings or Undo.
-                  </p>
-                  <button
-                    disabled={!removeRoomRecess(study.room, selectedWall)}
-                    onClick={() => {
-                      const points = removeRoomRecess(study.room, selectedWall);
-                      if (!points) return;
-                      update((d) => Object.assign(d, reshapeStudy(d, points)));
-                      setSelectedWall(points[0].id);
-                      setOutlineError('');
-                    }}
-                  >
-                    Remove recess / alcove
-                  </button>
-                  <p className="cc-muted">
-                    Select the middle wall or either return of a recess or
-                    alcove to straighten it. Cabinets on removed walls stay in
-                    place; openings move to the nearest remaining wall. Review
-                    the layout afterward, or Undo.
-                  </p>
+                  <span className="cc-label-help">
+                    <button
+                      disabled={!removeRoomRecess(study.room, selectedWall)}
+                      onClick={() => {
+                        const points = removeRoomRecess(
+                          study.room,
+                          selectedWall,
+                        );
+                        if (!points) return;
+                        update((d) =>
+                          Object.assign(d, reshapeStudy(d, points)),
+                        );
+                        setSelectedWall(points[0].id);
+                        setOutlineError('');
+                      }}
+                    >
+                      Remove recess / alcove
+                    </button>
+                    <InfoTooltip label="Remove recess / alcove">
+                      Select the middle wall or either return of a recess or
+                      alcove to straighten it. Cabinets on removed walls stay in
+                      place; openings move to the nearest remaining wall. Review
+                      the layout afterward, or Undo.
+                    </InfoTooltip>
+                  </span>
                 </>
               )}
               {(['width', 'depth', 'height'] as const).map((k) => (
@@ -2326,34 +2345,36 @@ export function CabinetConfigurator({
                   </span>
                 </label>
               ))}
-              <label>
-                Default wall thickness
-                <span>
-                  <input
-                    type="number"
-                    min={MIN_WALL_THICKNESS}
-                    max={MAX_WALL_THICKNESS}
-                    step={positioningResolution(study.room)}
-                    value={wallThickness(study.room)}
-                    onChange={(event) => {
-                      const value = Number(event.currentTarget.value);
-                      if (
-                        !Number.isFinite(value) ||
-                        value < MIN_WALL_THICKNESS ||
-                        value > MAX_WALL_THICKNESS
-                      )
-                        return;
-                      update((d) => {
-                        d.room.wallThickness = value;
-                      });
-                    }}
-                  />{' '}
-                  in
-                </span>
-              </label>
-              <p className="cc-muted">
-                Room dimensions measure between finished interior wall faces.
-              </p>
+              <HelpField
+                label="Default wall thickness"
+                help="Room dimensions measure between finished interior wall faces."
+              >
+                {(id) => (
+                  <span>
+                    <input
+                      id={id}
+                      type="number"
+                      min={MIN_WALL_THICKNESS}
+                      max={MAX_WALL_THICKNESS}
+                      step={positioningResolution(study.room)}
+                      value={wallThickness(study.room)}
+                      onChange={(event) => {
+                        const value = Number(event.currentTarget.value);
+                        if (
+                          !Number.isFinite(value) ||
+                          value < MIN_WALL_THICKNESS ||
+                          value > MAX_WALL_THICKNESS
+                        )
+                          return;
+                        update((d) => {
+                          d.room.wallThickness = value;
+                        });
+                      }}
+                    />{' '}
+                    in
+                  </span>
+                )}
+              </HelpField>
               {editingRoom && (
                 <WallThicknessControls
                   room={study.room}
@@ -2624,38 +2645,43 @@ export function CabinetConfigurator({
                 </div>
                 {selected.fixtureKind === 'glass-shower' && (
                   <>
-                    <p>
-                      Glass follows room-wall contact. Height follows the
-                      ceiling.
-                    </p>
-                    <label>
-                      Shower entry side
-                      <select
-                        value={
-                          showerGlassSides(selected, study.room).includes(
-                            selected.showerOpening?.side ?? 'front',
-                          )
-                            ? (selected.showerOpening?.side ?? 'front')
-                            : (showerGlassSides(selected, study.room)[0] ?? '')
-                        }
-                        onChange={(event) => {
-                          const side = event.currentTarget.value as FixtureSide;
-                          update((d) => {
-                            const item = d.elements.find(
-                              (e) => e.id === selected.id,
-                            )!;
-                            item.showerOpening = {
-                              side,
-                              style: item.showerOpening?.style ?? 'door',
-                            };
-                          });
-                        }}
-                      >
-                        {showerGlassSides(selected, study.room).map((side) => (
-                          <option key={side}>{side}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <HelpField
+                      label="Shower entry side"
+                      help="Glass follows room-wall contact. Height follows the ceiling."
+                    >
+                      {(id) => (
+                        <select
+                          id={id}
+                          value={
+                            showerGlassSides(selected, study.room).includes(
+                              selected.showerOpening?.side ?? 'front',
+                            )
+                              ? (selected.showerOpening?.side ?? 'front')
+                              : (showerGlassSides(selected, study.room)[0] ??
+                                '')
+                          }
+                          onChange={(event) => {
+                            const side = event.currentTarget
+                              .value as FixtureSide;
+                            update((d) => {
+                              const item = d.elements.find(
+                                (e) => e.id === selected.id,
+                              )!;
+                              item.showerOpening = {
+                                side,
+                                style: item.showerOpening?.style ?? 'door',
+                              };
+                            });
+                          }}
+                        >
+                          {showerGlassSides(selected, study.room).map(
+                            (side) => (
+                              <option key={side}>{side}</option>
+                            ),
+                          )}
+                        </select>
+                      )}
+                    </HelpField>
                     <label>
                       Shower entry
                       <select
