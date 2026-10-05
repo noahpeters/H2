@@ -1,0 +1,41 @@
+{
+  "asset": "oak_veneer_02",
+  "source": "https://polyhaven.com/a/oak_veneer_02",
+  "license": "CC0-1.0",
+  "basis": "Higher-resolution versions of the existing representative scan. Same tile footprint, source grain and finish limitations.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "oak_veneer_02_diff_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/oak_veneer_02/oak_veneer_02_diff_2k.jpg",
+      "bytes": 2526115,
+      "sha256": "c56ed85b190cdeb6c3656aaacf3b9a33ac76e08e3f47fa7aacc6b923b975455a",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "oak_veneer_02_nor_gl_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/oak_veneer_02/oak_veneer_02_nor_gl_2k.jpg",
+      "bytes": 1537839,
+      "sha256": "4baa7cd0ad25c78fd171d0aad1e19833e4feaf650b0330e4fdc92654796e5e68",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "rough",
+      "filename": "oak_veneer_02_rough_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/oak_veneer_02/oak_veneer_02_rough_2k.jpg",
+      "bytes": 3167619,
+      "sha256": "31dce770142513800781464754bcd248d6f8ac79984dff26c81593195f3f9e6f",
+      "pixels": [
+        2048,
+        2048
+      ]
+    }
+  ]
+}

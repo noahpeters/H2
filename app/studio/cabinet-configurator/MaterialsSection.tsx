@@ -9,7 +9,9 @@ import {
   materialPreviewNote,
   type CabinetMaterial,
   type CabinetPaint,
+  resolveCabinetMaterial,
 } from './materials';
+import {WOOD_FINISHES, withWoodFinish} from './woodFinishes';
 import {removeDesignMaterial, type FlatGrain} from './designMaterials';
 
 export function MaterialsSection({
@@ -134,6 +136,45 @@ export function MaterialsSection({
                       ))}
                     </VisualSelect>
                   </div>
+                )}
+                {material.material !== 'paint-grade' && (
+                  <label>
+                    Wood sheen
+                    <select
+                      value={
+                        Object.keys(WOOD_FINISHES).find(
+                          (key) =>
+                            material.materialDefinition?.finish.system ===
+                            `H2 ${key} preview v1`,
+                        ) ?? 'source'
+                      }
+                      onChange={(event) => {
+                        const finish = event.target.value as
+                          | keyof typeof WOOD_FINISHES
+                          | 'source';
+                        edit((m) => {
+                          m.materialDefinition =
+                            finish === 'source'
+                              ? undefined
+                              : withWoodFinish(
+                                  resolveCabinetMaterial(m),
+                                  finish,
+                                );
+                        });
+                      }}
+                    >
+                      <option value="source">Source finish</option>
+                      {Object.entries(WOOD_FINISHES).map(([id, finish]) => (
+                        <option key={id} value={id}>
+                          {finish.label}
+                        </option>
+                      ))}
+                    </select>
+                    <small>
+                      Sheen presets are representative previews, not measured
+                      coatings.
+                    </small>
+                  </label>
                 )}
                 <label>
                   Flat surface grain

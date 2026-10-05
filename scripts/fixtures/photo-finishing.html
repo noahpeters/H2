@@ -8,6 +8,7 @@
   import {DEFAULT_PHOTO_CAMERA} from '/app/studio/cabinet-configurator/photoCamera.ts';
   const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
   renderer.setSize(96, 96);
+  renderer.toneMapping = THREE.AgXToneMapping;
   document.body.append(renderer.domElement);
   renderer.debug.onShaderError = () => {
     throw new Error('Shader compilation failed');

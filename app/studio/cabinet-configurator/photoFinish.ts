@@ -124,7 +124,7 @@ export async function finishPhoto(
     material.uniforms.gains.value.fromArray(gains);
     material.uniforms.exposure.value = measured.exposure;
     material.uniforms.finishing.value = true;
-    renderer.toneMapping = THREE.AgXToneMapping;
+    renderer.toneMapping = previous.tone;
     renderer.toneMappingExposure = 1; // Exposure is applied before bright-source extraction.
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setSize(width, height, false);

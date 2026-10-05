@@ -1,0 +1,51 @@
+<!doctype html><title>Photo controls review</title>
+<link rel="stylesheet" href="/app/styles/cabinet-configurator.css" />
+<link
+  rel="stylesheet"
+  href="/app/studio/cabinet-configurator/control-help.css"
+/>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f2ec;
+    margin: 24px;
+  }
+  main {
+    max-width: 760px;
+    margin: auto;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  .cc-fields {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+  }
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+</style>
+<main>
+  <h1>Photo detail and daylight</h1>
+  <div id="root"></div>
+</main>
+<script type="module">
+  import React, {useState} from 'react';
+  import {createRoot} from 'react-dom/client';
+  import {PhotoDetailControls} from '/app/studio/cabinet-configurator/PhotoDetailControls.tsx';
+  import {DEFAULT_PHOTO_SETTINGS} from '/app/studio/cabinet-configurator/photoLighting.ts';
+  function Review() {
+    const [value, setValue] = useState(DEFAULT_PHOTO_SETTINGS);
+    return React.createElement(
+      'div',
+      {className: 'cc-fields'},
+      React.createElement(PhotoDetailControls, {value, onChange: setValue}),
+    );
+  }
+  createRoot(document.querySelector('#root')).render(
+    React.createElement(Review),
+  );
+</script>

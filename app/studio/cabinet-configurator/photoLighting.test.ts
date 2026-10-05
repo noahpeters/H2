@@ -149,7 +149,10 @@ test('hidden ancestors are pruned only in the tracing view', () => {
 test('cutaway opening lights retain overrides while other hidden ancestors remain excluded', () => {
   const scene = new THREE.Scene();
   const room = blankStudy().room;
-  for (const [id, intensity] of [['lit', 27], ['off', 0]] as const) {
+  for (const [id, intensity] of [
+    ['lit', 27],
+    ['off', 0],
+  ] as const) {
     const opening = openingGeometry(
       {id, kind: 'window', wall: 'front', offset: 12, width: 36, height: 48},
       room,

@@ -1,4 +1,16 @@
 import {denoisePhoto} from './photoDenoise';
+vi.mock('./photoHistory', () => ({
+  PhotoRadianceHistory: class {
+    samples = 0;
+    target = {texture: new THREE.Texture()};
+    record = vi.fn(
+      async (_renderer: unknown, _texture: unknown, samples: number) => {
+        this.samples = samples;
+      },
+    );
+    dispose = vi.fn();
+  },
+}));
 import {finishPhoto} from './photoFinish';
 import {afterEach, expect, test, vi} from 'vitest';
 import * as pathTracer from 'three-gpu-pathtracer';
@@ -47,6 +59,7 @@ vi.mock('three-gpu-pathtracer', async (importOriginal) => ({
   WebGLPathTracer: class {
     samples = 0;
     tiles = new THREE.Vector2();
+    textureSize = new THREE.Vector2();
     _pathTracer = {
       material: new (
         pathTracer as unknown as {
@@ -509,7 +522,7 @@ test.each(['standard', 'ultra'] as const)(
         converged: quality !== 'ultra',
       }),
     );
-    expect(denoisePhoto).toHaveBeenCalledTimes(quality === 'ultra' ? 1 : 4);
+    expect(denoisePhoto).toHaveBeenCalledTimes(1);
     expect(finishPhoto).toHaveBeenCalledOnce();
     expect(pathTracerMock.dispose).toHaveBeenCalledOnce();
     expect(dispose).toHaveBeenCalledOnce();

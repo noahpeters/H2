@@ -1,0 +1,41 @@
+{
+  "asset": "cherry_veneer",
+  "source": "https://polyhaven.com/a/cherry_veneer",
+  "license": "CC0-1.0",
+  "basis": "Higher-resolution versions of the existing representative scan. Same tile footprint, source grain and finish limitations.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "cherry_veneer_diff_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cherry_veneer/cherry_veneer_diff_2k.jpg",
+      "bytes": 2068772,
+      "sha256": "dc572a16d860d56f03ae7b2df6fbf684adda4a5eee784733069d784a7dfe1a9c",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "cherry_veneer_nor_gl_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cherry_veneer/cherry_veneer_nor_gl_2k.jpg",
+      "bytes": 1407708,
+      "sha256": "5be866a2ca4e92b3197f66421a8dcfd1917db11b3d75371f847b53994cbe0b22",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "rough",
+      "filename": "cherry_veneer_rough_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/cherry_veneer/cherry_veneer_rough_2k.jpg",
+      "bytes": 2100868,
+      "sha256": "fbb2f854bc773fde6c0eb37a07b8403f94ac15c74c3e9298a8605a813ed9cf85",
+      "pixels": [
+        2048,
+        2048
+      ]
+    }
+  ]
+}

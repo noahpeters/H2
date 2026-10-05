@@ -46,3 +46,35 @@ test('previews the captured PNG, offers an explicit download, and releases it on
   expect(closeDialog).toHaveBeenCalledOnce();
   expect(revoke).toHaveBeenCalledWith('blob:photo');
 });
+
+test('replaces and releases diagnostic downloads independently of the photo', () => {
+  const create = vi
+    .spyOn(URL, 'createObjectURL')
+    .mockImplementation((blob) =>
+      blob instanceof Blob && blob.type === 'image/png'
+        ? 'blob:photo'
+        : 'blob:diagnostics',
+    );
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+  const photo = new Blob(['photo'], {type: 'image/png'});
+  const archive = new Blob(['archive'], {type: 'application/zip'});
+  const view = render(
+    <PhotoDialog blob={photo} close={() => {}} diagnostics={archive} />,
+  );
+  expect(create).toHaveBeenCalledWith(archive);
+  expect(
+    screen.getByRole('link', {name: 'Download diagnostics'}),
+  ).toHaveAttribute('download', 'cabinet-room-photo-diagnostics.zip');
+  view.rerender(<PhotoDialog blob={photo} close={() => {}} />);
+  expect(screen.queryByRole('link', {name: 'Download diagnostics'})).toBeNull();
+  expect(revoke).toHaveBeenCalledWith('blob:diagnostics');
+  expect(revoke).not.toHaveBeenCalledWith('blob:photo');
+  view.unmount();
+  expect(revoke).toHaveBeenCalledWith('blob:photo');
+});

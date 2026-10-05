@@ -135,8 +135,25 @@ function configureTexture(texture: THREE.Texture, albedo: boolean) {
   texture.needsUpdate = true;
 }
 
-function acquireTexture(asset: TextureAsset, albedo: boolean) {
-  const key = `${albedo ? 'srgb' : 'data'}:${asset.uri}`;
+export function remapRoughnessPixels(
+  pixels: Uint8ClampedArray,
+  range: [number, number],
+) {
+  const result = new Uint8ClampedArray(pixels);
+  for (let i = 0; i < result.length; i += 4) {
+    const value = Math.round(
+      (range[0] + (pixels[i + 1] / 255) * (range[1] - range[0])) * 255,
+    );
+    result[i] = result[i + 1] = result[i + 2] = value;
+  }
+  return result;
+}
+function acquireTexture(
+  asset: TextureAsset,
+  albedo: boolean,
+  range?: [number, number],
+) {
+  const key = `${albedo ? 'srgb' : 'data'}:${asset.uri}:${range?.join(',') ?? 'source'}`;
   let entry = textureCache.get(key);
   if (!entry) {
     let complete!: (success: boolean) => void;
@@ -145,7 +162,32 @@ function acquireTexture(asset: TextureAsset, albedo: boolean) {
     });
     const texture = new THREE.TextureLoader().load(
       asset.uri,
-      () => complete(true),
+      (loaded) => {
+        if (range) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = loaded.image.width;
+            canvas.height = loaded.image.height;
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Roughness remapping unavailable.');
+            context.drawImage(loaded.image, 0, 0);
+            const image = context.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height,
+            );
+            image.data.set(remapRoughnessPixels(image.data, range));
+            context.putImageData(image, 0, 0);
+            loaded.image = canvas;
+            loaded.needsUpdate = true;
+          } catch {
+            complete(false);
+            return;
+          }
+        }
+        complete(true);
+      },
       undefined,
       () => complete(false),
     );
@@ -194,13 +236,18 @@ export function createMaterial(
     metalness: pbr.metalness ?? 0,
   };
   const material =
-    pbr.ior !== undefined || pbr.specularIntensity !== undefined
+    pbr.ior !== undefined ||
+    pbr.specularIntensity !== undefined ||
+    pbr.clearcoat !== undefined
       ? new THREE.MeshPhysicalMaterial({
           ...properties,
           ior: pbr.ior ?? 1.5,
           specularIntensity: pbr.specularIntensity ?? 1,
+          clearcoat: pbr.clearcoat ?? 0,
+          clearcoatRoughness: pbr.clearcoatRoughness ?? 0,
         })
       : new THREE.MeshStandardMaterial(properties);
+  material.normalScale.setScalar(pbr.normalStrength ?? 1);
   material.userData.materialDefinition = definition;
   const release: (() => void)[] = [];
   const pending: Promise<unknown>[] = [];
@@ -226,7 +273,11 @@ export function createMaterial(
             release: () => texture.dispose(),
           };
         })()
-      : acquireTexture(asset, slot === 'albedo');
+      : acquireTexture(
+          asset,
+          slot === 'albedo',
+          slot === 'roughness' ? pbr.roughnessMapRange : undefined,
+        );
     release.push(resource.release);
     material[property] = resource.texture;
     if (slot === 'albedo') material.color.set(pbr.albedoTint ?? pbr.color);

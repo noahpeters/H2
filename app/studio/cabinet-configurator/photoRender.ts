@@ -25,10 +25,23 @@ import {
 } from './photoLighting';
 import type {PhotoSettings} from './photoLighting';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
-import {deterministicPhotoTracer, disposePhotoTracer} from './photoTracer';
+import {
+  deterministicPhotoTracer,
+  disposePhotoTracer,
+  preparePhotoSampler,
+} from './photoTracer';
 import {configurePhotoContacts, DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import {denoisePhoto} from './photoDenoise';
 import {waitForPhotoGpu} from './photoGpu';
+import {PhotoRadianceHistory} from './photoHistory';
+import {upgradePhotoTextures, photoTextureBytes} from './photoTextures';
+import {PHOTO_PASSES, configurePhotoTransport} from './photoTransport';
+import {
+  photoManifest,
+  readPhotoRadiance,
+  photoFloatBytes,
+  photoDiagnosticZip,
+} from './photoDiagnostics';
 
 import {
   architecturalPhotoCamera,
@@ -407,6 +420,7 @@ export async function renderPhoto(
       converged: boolean;
       checks: PhotoConvergenceCheck[];
     }) => void;
+    onDiagnostics?: (zip: Blob) => void;
   } = {},
 ): Promise<Blob> {
   let renderer: THREE.WebGLRenderer | undefined;
@@ -414,11 +428,43 @@ export async function renderPhoto(
   let tracer: WebGLPathTracer | undefined;
   let linearOutput: THREE.WebGLRenderTarget | undefined;
   let probe: PhotoConvergenceProbe | undefined;
-  let denoisedSamples = -1;
+  let history: PhotoRadianceHistory | undefined;
   try {
     // Copy options before yielding so later control edits cannot change this capture.
     settings = structuredClone(settings);
+    if (settings.reference) {
+      settings.camera = {
+        ...(settings.camera ?? DEFAULT_PHOTO_CAMERA),
+        quality: 'ultra',
+        autoExposure: false,
+        autoWhiteBalance: false,
+        temperature: 6500,
+      };
+      settings.denoise = false;
+      settings.glossyFilter = 0;
+    }
+    upgradePhotoTextures(snapshot.scene, settings.textureResolution ?? 1024);
     await waitForMaterialTextures(snapshot.scene);
+    if (settings.sunSky?.enabled) {
+      let room: Room | undefined;
+      snapshot.scene.traverse((part) => {
+        if (part.userData.photoWall) room = part.userData.photoWall.room;
+      });
+      const position = snapshot.camera.getWorldPosition(new THREE.Vector3());
+      if (
+        !room ||
+        !pointInRoom(
+          room,
+          position.x / INCH + room.width / 2,
+          position.z / INCH + room.depth / 2,
+        ) ||
+        position.y < 0 ||
+        position.y > room.height * INCH
+      )
+        throw new Error(
+          'Move the camera inside the room before using directional daylight.',
+        );
+    }
     addPhotoLighting(snapshot.scene, settings);
     const {WebGLPathTracer} = await import('three-gpu-pathtracer');
     options.signal?.throwIfAborted();
@@ -495,9 +541,16 @@ export async function renderPhoto(
     tracer = new WebGLPathTracer(renderer);
     // Deterministic sample sequence; adaptive stopping depends on image clarity, not elapsed time.
     deterministicPhotoTracer(tracer);
+    const selectPass = settings.diagnostics
+      ? configurePhotoTransport(tracer)
+      : undefined;
     configurePhotoContacts(tracer, settings.contacts ?? DEFAULT_PHOTO_CONTACTS);
     tracer.bounces = settings.bounces;
-    tracer.filterGlossyFactor = 0.5;
+    tracer.filterGlossyFactor = settings.glossyFilter ?? 0.1;
+    tracer.textureSize.set(
+      settings.textureResolution ?? 1024,
+      settings.textureResolution ?? 1024,
+    );
     tracer.multipleImportanceSampling = true;
     tracer.tiles.set(3, 3);
     tracer.renderDelay = 0;
@@ -505,10 +558,29 @@ export async function renderPhoto(
     tracer.minSamples = 1;
     tracer.rasterizeScene = false;
     const traceScene = visiblePhotoScene(snapshot.scene);
+    if (
+      (settings.textureResolution ?? 1024) >
+        renderer.capabilities.maxTextureSize ||
+      photoTextureBytes(traceScene, settings.textureResolution ?? 1024) >
+        256 * 1024 * 1024
+    )
+      throw new Error(
+        'This surface texture detail exceeds the photo memory budget. Choose a smaller texture detail setting.',
+      );
     tracer.setScene(traceScene, camera);
+    preparePhotoSampler(tracer);
     tracer.reset();
+    const manifest = settings.diagnostics
+      ? await photoManifest(traceScene, camera, settings, options.signal)
+      : undefined;
+    const exportScale = Math.min(1, 512 / Math.max(renderWidth, renderHeight));
+    const exportWidth = Math.round(renderWidth * exportScale),
+      exportHeight = Math.round(renderHeight * exportScale);
+    const diagnosticFiles: Record<string, Uint8Array> = {};
     const started = performance.now();
     if (adaptive) probe = new PhotoConvergenceProbe(aspect, width, height);
+    if (settings.denoise)
+      history = new PhotoRadianceHistory(renderWidth, renderHeight);
     // Work grows with pixel area and sample count. Give detailed photos time to
     // converge instead of silently lowering their resolution or sample budget.
     const timeLimit = Math.min(
@@ -545,34 +617,28 @@ export async function renderPhoto(
       options.onProgress?.(Math.min(0.9, (tracer.samples / samples) * 0.9));
       await waitForPhotoGpu(renderer.getContext(), options.signal);
       if (probe && convergence.shouldCheck(tracer.samples)) {
-        let measuredRadiance = tracer.target.texture;
-        if (settings.denoise) {
-          linearOutput ??= new THREE.WebGLRenderTarget(
-            renderWidth,
-            renderHeight,
-            {type: THREE.HalfFloatType},
-          );
-          await denoisePhoto(
-            renderer,
-            traceScene,
-            camera,
-            measuredRadiance,
-            renderWidth,
-            renderHeight,
-            options.signal,
-            linearOutput,
-          );
-          measuredRadiance = linearOutput.texture;
-          denoisedSamples = tracer.samples;
-        }
         const pixels = await probe.read(
           renderer,
-          measuredRadiance,
+          tracer.target.texture,
           options.signal,
         );
         converged = convergence.observe(pixels, tracer.samples, probe.width);
         if (converged) break;
       }
+      // Keep a preceding complete pass, never a partially submitted tile or final mean.
+      if (
+        history &&
+        Number.isInteger(tracer.samples) &&
+        tracer.samples % 16 === 0 &&
+        tracer.samples < samples &&
+        history.samples !== tracer.samples
+      )
+        await history.record(
+          renderer,
+          tracer.target.texture,
+          tracer.samples,
+          options.signal,
+        );
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => resolve()),
       );
@@ -580,24 +646,48 @@ export async function renderPhoto(
     options.signal?.throwIfAborted();
     options.onProgress?.(0.92);
     let radiance = tracer.target.texture;
+    if (settings.diagnostics)
+      diagnosticFiles['beauty-linear.f32'] = photoFloatBytes(
+        await readPhotoRadiance(
+          renderer,
+          radiance,
+          exportWidth,
+          exportHeight,
+          options.signal,
+        ),
+      );
     if (settings.denoise) {
       linearOutput ??= new THREE.WebGLRenderTarget(renderWidth, renderHeight, {
         type: THREE.HalfFloatType,
       });
-      if (denoisedSamples !== tracer.samples)
-        await denoisePhoto(
-          renderer,
-          traceScene,
-          camera,
-          radiance,
-          renderWidth,
-          renderHeight,
-          options.signal,
-          linearOutput,
-        );
+      await denoisePhoto(
+        renderer,
+        traceScene,
+        camera,
+        radiance,
+        renderWidth,
+        renderHeight,
+        options.signal,
+        linearOutput,
+        {
+          samples: tracer.samples,
+          previous: history?.samples ? history.target.texture : undefined,
+          previousSamples: history?.samples,
+        },
+      );
       radiance = linearOutput.texture;
+      if (settings.diagnostics)
+        diagnosticFiles['denoised-linear.f32'] = photoFloatBytes(
+          await readPhotoRadiance(
+            renderer,
+            radiance,
+            exportWidth,
+            exportHeight,
+            options.signal,
+          ),
+        );
     }
-    await finishPhoto(
+    const measured = await finishPhoto(
       renderer,
       traceScene,
       camera,
@@ -619,6 +709,72 @@ export async function renderPhoto(
         'image/png',
       ),
     );
+    const beautySamples = Math.round(tracer.samples);
+    if (settings.diagnostics && selectPass) {
+      // Diagnostic transports use the same sample count, contacts, seed, camera and BSDF.
+      tracer.renderToCanvas = false;
+      const passes = PHOTO_PASSES.slice(1);
+      for (let passIndex = 0; passIndex < passes.length; passIndex++) {
+        selectPass(passes[passIndex]);
+        tracer.reset();
+        while (tracer.samples < beautySamples) {
+          options.signal?.throwIfAborted();
+          if (performance.now() - started > timeLimit)
+            throw new Error(
+              'Photo diagnostics exceeded the rendering time limit. Try a smaller image.',
+            );
+          tracer.renderSample();
+          await waitForPhotoGpu(renderer.getContext(), options.signal);
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          );
+          options.onProgress?.(
+            0.92 +
+              ((passIndex + tracer.samples / beautySamples) / passes.length) *
+                0.07,
+          );
+        }
+        diagnosticFiles[`${passes[passIndex]}-linear.f32`] = photoFloatBytes(
+          await readPhotoRadiance(
+            renderer,
+            tracer.target.texture,
+            exportWidth,
+            exportHeight,
+            options.signal,
+          ),
+        );
+      }
+      selectPass('beauty');
+      const zip = await photoDiagnosticZip(diagnosticFiles, blob, {
+        manifest,
+        result: {
+          samples: beautySamples,
+          converged,
+          checks: convergence.checks,
+          measured,
+        },
+        buffers: {
+          width: exportWidth,
+          height: exportHeight,
+          renderWidth,
+          renderHeight,
+          format:
+            'float32 little endian RGBA; bottom row first; linear sRGB; normal encoded 0..1; depth in metres',
+          resampled: exportScale !== 1,
+          transportSum: [
+            'direct-diffuse',
+            'direct-specular',
+            'indirect-diffuse',
+            'indirect-specular',
+            'transmission',
+            'emission',
+            'background',
+          ],
+        },
+      });
+      options.signal?.throwIfAborted();
+      options.onDiagnostics?.(zip);
+    }
     if (host?.isConnected) {
       flash = document.createElement('div');
       flash.className = 'cc-photo-flash';
@@ -628,7 +784,7 @@ export async function renderPhoto(
     }
     options.onProgress?.(1);
     options.onComplete?.({
-      samples: Math.round(tracer.samples),
+      samples: beautySamples,
       elapsedMs: performance.now() - started,
       converged,
       checks: convergence.checks,
@@ -637,7 +793,9 @@ export async function renderPhoto(
   } finally {
     try {
       probe?.dispose();
+      history?.dispose();
       linearOutput?.dispose();
+      snapshot.scene.environment?.dispose();
       if (tracer) disposePhotoTracer(tracer);
     } finally {
       disposeStudyObject(snapshot.scene);
