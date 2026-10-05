@@ -91,7 +91,6 @@ and removal participate in Undo, online saving, local recovery, copied rooms,
 and sharing. Saved material ids are design-local; stale creation preferences do
 not add finishes from another design.
 
-
 ### Island countertop edge allowance
 
 Room settings include **Island countertop edge overhang (in)**, defaulting to
@@ -103,3 +102,9 @@ views, including aisle labels, use the same finished countertop outline.
 Cabinet placement and island membership continue to use the island body and
 seating area. Wall countertop geometry is unchanged. Saved rooms without this
 setting use the default; explicit zero creates a flush edge at the body/frame.
+
+## Saved 3D camera positions
+
+The 3D view (including Split) has a Camera position dropdown, Add position and Delete position. Add captures the current view with a name. Selecting a saved position restores its world-space position, orbit target, zoom and field of view; the current viewport aspect remains appropriate to the screen. Orbiting, panning, zooming or fitting returns the dropdown to Current view without overwriting saved positions. Delete removes only the selected entry and leaves the current camera in place. Add/delete use normal model undo and autosave.
+
+Optional `cameraPositions` entries travel with version-2 models through local/online save, load, copy and sharing. Old models need no migration changes and start with no saved positions. The list is limited to 50 entries; IDs are unique and names, finite coordinates, nonzero camera-to-target distance, field of view and zoom are validated. Loading a model makes its views available for explicit selection; it does not force a saved view onto the initial room framing. Camera selection does not edit room geometry or photo settings.

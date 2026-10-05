@@ -1029,3 +1029,35 @@
     flex: 1 1 100px;
   }
 }
+
+.cc-camera-positions {
+  position: absolute;
+  z-index: 2;
+  top: 34px;
+  left: 0;
+  right: 0;
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--cc-line);
+  background: rgba(248, 246, 240, 0.94);
+  color: #555c56;
+  font-size: 12px;
+}
+.cc-camera-position-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cc-camera-position-row + .cc-camera-position-row { margin-top: 8px; }
+.cc-camera-position-row select,
+.cc-camera-position-row input {
+  flex: 1;
+  min-width: 100px;
+  max-width: 300px;
+  padding: 4px 6px;
+}
+.cc-camera-position-row button {
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+.cc-camera-position-row button:disabled { opacity: 0.5; cursor: default; }

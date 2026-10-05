@@ -1,3 +1,4 @@
+import {validCameraPositions} from './cameraPositions';
 import {POSITIONING_RESOLUTIONS} from './positioningPrecision';
 import {validDesignMaterials, FLAT_GRAIN_OPTIONS} from './designMaterials';
 import {OVERLAY_OPTIONS} from './overlay';
@@ -128,6 +129,11 @@ export function validStudy(value: any): boolean {
     (!num(value.room.islandCountertopOverhang) ||
       value.room.islandCountertopOverhang < 0 ||
       value.room.islandCountertopOverhang > 12)
+  )
+    return false;
+  if (
+    value.cameraPositions !== undefined &&
+    !validCameraPositions(value.cameraPositions)
   )
     return false;
   const walls = roomSegments(value.room).map((s) => s.id);

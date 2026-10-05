@@ -1,3 +1,11 @@
+import {CameraPositions} from './SavedCameraPositions';
+import {
+  captureCameraPosition,
+  restoreCameraPosition,
+  validCameraPositions,
+  type CameraPose,
+  type SavedCameraPosition,
+} from './cameraPositions';
 import {PhotoSettingField} from './PhotoSettingField';
 import {
   positioningResolution,
@@ -159,6 +167,7 @@ import {
 
 type View = 'plan' | 'split' | 'three' | 'elevation';
 export type Study = {
+  cameraPositions?: SavedCameraPosition[];
   materials?: DesignMaterial[];
   configurations?: DesignConfiguration[];
   version: 2;
@@ -517,6 +526,9 @@ export function migrateStudy(raw: unknown): Study {
       ...value.room,
       overlay: roomOverlay(value.room?.overlay),
     },
+    cameraPositions: validCameraPositions(value.cameraPositions)
+      ? structuredClone(value.cameraPositions)
+      : undefined,
     elements: [...elements, ...migratedAppliances],
     configurations: value.configurations?.map((configuration) => {
       const source = elements.find(
@@ -696,8 +708,10 @@ export function ThreeStudy({
   study,
   onSelect,
   showControls = false,
+  onCameraPositionsChange,
 }: {
   study: Study;
+  onCameraPositionsChange?: (positions: SavedCameraPosition[]) => void;
   showControls?: boolean;
   onSelect?: (id: string) => void;
 }) {
@@ -800,9 +814,13 @@ export function ThreeStudy({
   const panRef = useRef(pan);
   panRef.current = pan;
   const controlsRef = useRef<OrbitControls | null>(null);
+  const [selectedCameraPosition, setSelectedCameraPosition] = useState('');
+  const [cameraReady, setCameraReady] = useState(false);
   const navigation = useRef<{
     zoom: (factor: number) => void;
     fit: () => void;
+    capture: () => CameraPose;
+    restore: (pose: CameraPose) => void;
   } | null>(null);
   useEffect(() => {
     if (controlsRef.current) {
@@ -819,6 +837,7 @@ export function ThreeStudy({
     position: THREE.Vector3;
     target: THREE.Vector3;
     zoom: number;
+    fov: number;
   } | null>(null);
   const studyRef = useRef(study);
   studyRef.current = study;
@@ -840,6 +859,7 @@ export function ThreeStudy({
       ? THREE.TOUCH.PAN
       : THREE.TOUCH.ROTATE;
     const rememberNavigation = () => {
+      setSelectedCameraPosition('');
       hasNavigated.current = true;
     };
     controls.addEventListener('start', rememberNavigation);
@@ -876,6 +896,7 @@ export function ThreeStudy({
       camera.position.copy(viewRef.current.position);
       controls.target.copy(viewRef.current.target);
       camera.zoom = viewRef.current.zoom;
+      camera.fov = viewRef.current.fov;
       camera.updateProjectionMatrix();
     }
     controls.update();
@@ -917,7 +938,17 @@ export function ThreeStudy({
         renderer.setSize(bounds.width, bounds.height, false);
     };
     navigation.current = {
+      capture: () => {
+        hasNavigated.current = true;
+        return captureCameraPosition(camera, controls.target);
+      },
+      restore: (pose) => {
+        hasNavigated.current = true;
+        restoreCameraPosition(camera, controls, pose);
+        invalidate();
+      },
       zoom: (factor) => {
+        setSelectedCameraPosition('');
         hasNavigated.current = true;
         camera.position
           .sub(controls.target)
@@ -926,11 +957,13 @@ export function ThreeStudy({
         controls.update();
       },
       fit: () => {
+        setSelectedCameraPosition('');
         hasNavigated.current = false;
         camera.zoom = 1;
         resize();
       },
     };
+    setCameraReady(true);
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
@@ -1032,6 +1065,7 @@ export function ThreeStudy({
         position: camera.position.clone(),
         target: controls.target.clone(),
         zoom: camera.zoom,
+        fov: camera.fov,
       };
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -1089,6 +1123,20 @@ export function ThreeStudy({
             onFit={() => navigation.current?.fit()}
           />
         </div>
+      )}
+      {showControls && onCameraPositionsChange && (
+        <CameraPositions
+          positions={study.cameraPositions ?? []}
+          selected={selectedCameraPosition}
+          disabled={!cameraReady || photoBusy}
+          capture={() => navigation.current?.capture()}
+          onChange={onCameraPositionsChange}
+          onSelect={(id) => {
+            setSelectedCameraPosition(id);
+            const position = study.cameraPositions?.find((p) => p.id === id);
+            if (position) navigation.current?.restore(position);
+          }}
+        />
       )}
       {showControls && photoSettingsOpen && (
         <PhotoSettingsDialog
@@ -4287,6 +4335,11 @@ export function CabinetConfigurator({
             </div>
             <div className="cc-panel cc-three-panel">
               <ThreeStudy
+                onCameraPositionsChange={(positions) =>
+                  update((draft) => {
+                    draft.cameraPositions = positions;
+                  })
+                }
                 showControls
                 study={study}
                 onSelect={
