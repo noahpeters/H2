@@ -957,9 +957,6 @@
   overflow: auto;
   min-height: 0;
 }
-.cc-photo-settings-body fieldset {
-  min-width: 0;
-}
 .cc-photo-settings-body label {
   display: block;
   margin-block: 8px;

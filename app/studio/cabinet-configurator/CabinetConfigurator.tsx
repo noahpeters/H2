@@ -1083,167 +1083,163 @@ export function ThreeStudy({
             void takePhoto();
           }}
         >
-          <fieldset disabled={photoBusy}>
-            <legend>Photo settings</legend>
-            <PhotoCameraControls
-              value={photoSettings.camera}
-              onChange={(camera) =>
-                setPhotoSettings((value) => ({...value, camera}))
+          <PhotoCameraControls
+            value={photoSettings.camera}
+            onChange={(camera) =>
+              setPhotoSettings((value) => ({...value, camera}))
+            }
+          />
+          {(['daylight', 'adjacent'] as const).map((kind) => (
+            <div key={kind}>
+              <label>
+                {kind === 'daylight'
+                  ? 'Daylight temperature (K)'
+                  : 'Adjacent room temperature (K)'}
+                <input
+                  type="number"
+                  min={1000}
+                  max={25000}
+                  step={100}
+                  value={photoSettings[kind].temperature}
+                  onChange={(event) =>
+                    setPhotoSettings((value) => ({
+                      ...value,
+                      [kind]: {
+                        ...value[kind],
+                        temperature: Number(event.target.value),
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {kind === 'daylight'
+                  ? 'Daylight brightness'
+                  : 'Adjacent room brightness'}
+                <input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  step={1}
+                  value={photoSettings[kind].intensity}
+                  onChange={(event) =>
+                    setPhotoSettings((value) => ({
+                      ...value,
+                      [kind]: {
+                        ...value[kind],
+                        intensity: Number(event.target.value),
+                      },
+                    }))
+                  }
+                />
+              </label>
+            </div>
+          ))}
+          <label>
+            <input
+              type="checkbox"
+              checked={photoSettings.denoise}
+              onChange={(event) =>
+                setPhotoSettings((value) => ({
+                  ...value,
+                  denoise: event.target.checked,
+                }))
               }
             />
-            <p>Opening light</p>
-            {(['daylight', 'adjacent'] as const).map((kind) => (
-              <div key={kind}>
-                <label>
-                  {kind === 'daylight'
-                    ? 'Daylight temperature (K)'
-                    : 'Adjacent room temperature (K)'}
-                  <input
-                    type="number"
-                    min={1000}
-                    max={25000}
-                    step={100}
-                    value={photoSettings[kind].temperature}
-                    onChange={(event) =>
-                      setPhotoSettings((value) => ({
-                        ...value,
-                        [kind]: {
-                          ...value[kind],
-                          temperature: Number(event.target.value),
-                        },
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  {kind === 'daylight'
-                    ? 'Daylight brightness'
-                    : 'Adjacent room brightness'}
-                  <input
-                    type="number"
-                    min={0}
-                    max={10000}
-                    step={1}
-                    value={photoSettings[kind].intensity}
-                    onChange={(event) =>
-                      setPhotoSettings((value) => ({
-                        ...value,
-                        [kind]: {
-                          ...value[kind],
-                          intensity: Number(event.target.value),
-                        },
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-            ))}
-            <label>
-              <input
-                type="checkbox"
-                checked={photoSettings.denoise}
-                onChange={(event) =>
-                  setPhotoSettings((value) => ({
-                    ...value,
-                    denoise: event.target.checked,
-                  }))
-                }
-              />
-              Reduce photo noise
-            </label>
-            <label>
-              Contact detail quality
-              <select
-                value={
-                  (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).quality
-                }
-                onChange={(event) =>
-                  setPhotoSettings((value) => ({
-                    ...value,
-                    contacts: {
-                      ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
-                      quality: event.target
-                        .value as PhotoContactSettings['quality'],
-                    },
-                  }))
-                }
-              >
-                <option value="off">Base photo sampling</option>
-                <option value="standard">
-                  Standard (2 paths near contacts)
-                </option>
-                <option value="fine">Fine (4 paths near contacts)</option>
-              </select>
-            </label>
-            <label>
-              Contact refinement strength
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.1}
-                value={
-                  (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).intensity
-                }
-                onChange={(event) =>
-                  setPhotoSettings((value) => ({
-                    ...value,
-                    contacts: {
-                      ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
-                      intensity: Number(event.target.value),
-                    },
-                  }))
-                }
-              />
-            </label>
-            <label>
-              Contact radius (mm)
-              <input
-                type="number"
-                min={1}
-                max={200}
-                step={1}
-                value={
-                  (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).radius *
-                  1000
-                }
-                onChange={(event) =>
-                  setPhotoSettings((value) => ({
-                    ...value,
-                    contacts: {
-                      ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
-                      radius: Number(event.target.value) / 1000,
-                    },
-                  }))
-                }
-              />
-            </label>
-            <p>
-              Contact refinement reduces noise in tight gaps without adding
-              darkness. Higher quality takes longer.
-            </p>
-            <label>
-              Image size
-              <select
-                value={photoSettings.maxDimension}
-                onChange={(event) =>
-                  setPhotoSettings((value) => ({
-                    ...value,
-                    maxDimension: Number(event.target.value),
-                  }))
-                }
-              >
-                <option value={1000}>1000 pixels</option>
-                <option value={1600}>1600 pixels — faster</option>
-                <option value={2400}>2400 pixels — detailed</option>
-              </select>
-            </label>
-            <p>
-              Detailed photos may take several minutes. Fine quality uses more
-              pixels and samples than Standard. Closed doors block adjacent
-              light; rooms without lit openings will be dark.
-            </p>
-          </fieldset>
+            Reduce photo noise
+          </label>
+          <label>
+            Contact detail quality
+            <select
+              value={
+                (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).quality
+              }
+              onChange={(event) =>
+                setPhotoSettings((value) => ({
+                  ...value,
+                  contacts: {
+                    ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
+                    quality: event.target
+                      .value as PhotoContactSettings['quality'],
+                  },
+                }))
+              }
+            >
+              <option value="off">Base photo sampling</option>
+              <option value="standard">
+                Standard (2 paths near contacts)
+              </option>
+              <option value="fine">Fine (4 paths near contacts)</option>
+            </select>
+          </label>
+          <label>
+            Contact refinement strength
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.1}
+              value={
+                (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).intensity
+              }
+              onChange={(event) =>
+                setPhotoSettings((value) => ({
+                  ...value,
+                  contacts: {
+                    ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
+                    intensity: Number(event.target.value),
+                  },
+                }))
+              }
+            />
+          </label>
+          <label>
+            Contact radius (mm)
+            <input
+              type="number"
+              min={1}
+              max={200}
+              step={1}
+              value={
+                (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).radius *
+                1000
+              }
+              onChange={(event) =>
+                setPhotoSettings((value) => ({
+                  ...value,
+                  contacts: {
+                    ...(value.contacts ?? DEFAULT_PHOTO_CONTACTS),
+                    radius: Number(event.target.value) / 1000,
+                  },
+                }))
+              }
+            />
+          </label>
+          <p>
+            Contact refinement reduces noise in tight gaps without adding
+            darkness. Higher quality takes longer.
+          </p>
+          <label>
+            Image size
+            <select
+              value={photoSettings.maxDimension}
+              onChange={(event) =>
+                setPhotoSettings((value) => ({
+                  ...value,
+                  maxDimension: Number(event.target.value),
+                }))
+              }
+            >
+              <option value={1000}>1000 pixels</option>
+              <option value={1600}>1600 pixels — faster</option>
+              <option value={2400}>2400 pixels — detailed</option>
+            </select>
+          </label>
+          <p>
+            Detailed photos may take several minutes. Fine quality uses more
+            pixels and samples than Standard. Closed doors block adjacent
+            light; rooms without lit openings will be dark.
+          </p>
         </PhotoSettingsDialog>
       )}
       {(photoBusy || photoError) && (

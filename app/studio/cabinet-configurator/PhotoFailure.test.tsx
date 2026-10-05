@@ -184,6 +184,7 @@ test('photo settings appear only after Take Photo, cancel without rendering, and
   fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
   const dialog = screen.getByRole('dialog', {name: 'Photo settings'});
   expect(dialog).toHaveAttribute('open');
+  expect(dialog.querySelector('fieldset, legend')).toBeNull();
   expect(renderPhoto).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText('Daylight temperature (K)'), {
     target: {value: '5700'},
