@@ -837,6 +837,7 @@ export function ThreeStudy({
     position: THREE.Vector3;
     target: THREE.Vector3;
     zoom: number;
+    fov: number;
   } | null>(null);
   const studyRef = useRef(study);
   studyRef.current = study;
@@ -895,6 +896,7 @@ export function ThreeStudy({
       camera.position.copy(viewRef.current.position);
       controls.target.copy(viewRef.current.target);
       camera.zoom = viewRef.current.zoom;
+      camera.fov = viewRef.current.fov;
       camera.updateProjectionMatrix();
     }
     controls.update();
@@ -936,7 +938,10 @@ export function ThreeStudy({
         renderer.setSize(bounds.width, bounds.height, false);
     };
     navigation.current = {
-      capture: () => captureCameraPosition(camera, controls.target),
+      capture: () => {
+        hasNavigated.current = true;
+        return captureCameraPosition(camera, controls.target);
+      },
       restore: (pose) => {
         hasNavigated.current = true;
         restoreCameraPosition(camera, controls, pose);
@@ -1060,6 +1065,7 @@ export function ThreeStudy({
         position: camera.position.clone(),
         target: controls.target.clone(),
         zoom: camera.zoom,
+        fov: camera.fov,
       };
       cancelAnimationFrame(frame);
       observer.disconnect();
