@@ -49,7 +49,7 @@ test('individual wall overrides stay independent of other walls and the room def
     );
   }
   render(<Editor />);
-  const field = () => screen.getByLabelText(/Selected wall thickness/);
+  const field = () => screen.getByRole('spinbutton', {name: 'Selected wall thickness'});
   const select = screen.getByLabelText('Wall to edit');
   expect(field()).toHaveValue(4.5);
   fireEvent.change(field(), {target: {value: '6'}});

@@ -123,7 +123,7 @@ test('preserves a saved room outline while exposing only wall geometry editing',
     screen.queryByLabelText('Room outline preset'),
   ).not.toBeInTheDocument();
   fireEvent.click(screen.getByText('Edit room outline'));
-  fireEvent.change(screen.getByLabelText(/Selected wall thickness/i), {
+  fireEvent.change(screen.getByRole('spinbutton', {name: 'Selected wall thickness'}), {
     target: {value: '7'},
   });
   expect(state.latest!.room.outline).toEqual(outline);
@@ -153,7 +153,7 @@ test('walls and openings only select or drag during room editing, and handles di
   fireEvent.click(screen.getByText('Edit room outline'));
   fireEvent.keyDown(wall, {key: 'Enter'});
   expect(screen.getByLabelText(/Wall to edit/i)).toHaveValue('segment-divider');
-  fireEvent.change(screen.getByLabelText(/Selected wall thickness/i), {
+  fireEvent.change(screen.getByRole('spinbutton', {name: 'Selected wall thickness'}), {
     target: {value: '8'},
   });
   expect(state.latest!.room.wallThicknesses?.['segment-divider']).toBe(8);
@@ -395,6 +395,49 @@ test('Command temporarily disables snapping, permits Command-drag, and never sna
   fireEvent.pointerDown(active!, {clientX: 0, clientY: 0, button: 0});
   fireEvent.pointerMove(plan, {clientX: 0, clientY: 0});
   expect(state.latest!.elements[0].placement).toMatchObject({x: 60});
+});
+
+test('room explanations are available beside their controls without taking space in the rail', () => {
+  render(<CabinetConfigurator />);
+  const room = screen
+    .getByText('Room', {selector: 'summary'})
+    .closest('details')!;
+  room.open = true;
+  expect(screen.queryByText(/Snaps within twice/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Share a single frame/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByText(/Measured beyond the cabinet/),
+  ).not.toBeInTheDocument();
+  const resolution = screen.getByLabelText('Positioning resolution');
+  fireEvent.pointerEnter(
+    screen.getByRole('button', {name: 'About Positioning resolution'}),
+  );
+  expect(screen.getByRole('tooltip')).toHaveTextContent('Hold ⌘ Command');
+  fireEvent.change(resolution, {target: {value: '0.0625'}});
+  expect(state.latest!.room.positioningResolution).toBe(1 / 16);
+  fireEvent.keyDown(document.body, {key: 'Escape'});
+  fireEvent.change(screen.getByLabelText('Front overlay'), {
+    target: {value: 'inset'},
+  });
+  const frames = screen.getByLabelText('Continuous face frames');
+  fireEvent.click(
+    screen.getByRole('button', {name: 'About Continuous face frames'}),
+  );
+  expect(screen.getByRole('tooltip')).toHaveTextContent(
+    'Cabinet boundaries use one stile',
+  );
+  expect(frames).not.toBeChecked();
+  fireEvent.keyDown(document.body, {key: 'Escape'});
+  fireEvent.click(frames);
+  expect(state.latest!.room.continuousFaceFrames).toBe(true);
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'About Island countertop edge overhang (in)',
+    }),
+  );
+  expect(screen.getByRole('tooltip')).toHaveTextContent(
+    'Seating overhang is set per island.',
+  );
 });
 
 test('room-wide maple internals toggle changes the saved design without changing the selected cabinet finish', () => {
