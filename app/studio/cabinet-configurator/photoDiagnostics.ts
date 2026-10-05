@@ -199,7 +199,7 @@ export async function photoDiagnosticZip(
   png: Blob,
   metadata: unknown,
 ) {
-  const {zipSync, strToU8} = await import('fflate');
+  const {zipSync, strToU8} = await import('fflate/browser');
   const bytes = zipSync(
     {
       ...files,
