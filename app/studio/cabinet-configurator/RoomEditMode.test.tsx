@@ -119,7 +119,9 @@ test('preserves a saved room outline while exposing only wall geometry editing',
   render(<CabinetConfigurator />);
 
   expect(state.latest!.room.outline).toEqual(outline);
-  expect(screen.queryByLabelText('Room outline preset')).not.toBeInTheDocument();
+  expect(
+    screen.queryByLabelText('Room outline preset'),
+  ).not.toBeInTheDocument();
   fireEvent.click(screen.getByText('Edit room outline'));
   fireEvent.change(screen.getByLabelText(/Selected wall thickness/i), {
     target: {value: '7'},
@@ -266,7 +268,21 @@ test('room precision persists and controls numeric cabinet placement on all axes
   const precision = screen.getByLabelText('Positioning resolution');
   expect(precision).toHaveValue('0.125');
   for (const step of [1 / 16, 1 / 8, 1]) {
+    const dimensions = {...state.latest!.elements[0]};
     fireEvent.change(precision, {target: {value: String(step)}});
+    expect(state.latest!.elements[0]).toMatchObject({
+      width: dimensions.width,
+      depth: dimensions.depth,
+      height: dimensions.height,
+    });
+    for (const key of ['width', 'depth', 'height'] as const) {
+      const field = screen.getByRole('spinbutton', {
+        name: new RegExp(`^${key}`, 'i'),
+      });
+      expect(field).toHaveAttribute('step', String(step));
+      fireEvent.change(field, {target: {value: String(24 + step)}});
+      expect(state.latest!.elements[0][key]).toBe(24 + step);
+    }
     expect(state.latest!.room.positioningResolution).toBe(step);
     expect(screen.getByLabelText('X position (in)')).toHaveAttribute(
       'step',

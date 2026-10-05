@@ -1,3 +1,4 @@
+import type {PositioningResolution} from '../positioningPrecision';
 import {hasCabinetArch} from './cabinetArch';
 import {migrateFrontStyles} from '../overlay';
 import {withDrawerArrays, reflowDrawerArrays} from './drawerArrayEditing';
@@ -89,12 +90,14 @@ function Dimension({
   onChange,
   min = -1000,
   max = 1000,
+  step,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  step: number;
 }) {
   const [draft, setDraft] = useState(String(value));
   const [dirty, setDirty] = useState(false);
@@ -111,7 +114,7 @@ function Dimension({
         <input
           aria-label={label}
           type="number"
-          step="0.0625"
+          step={step || 'any'}
           min={min}
           max={max}
           value={draft}
@@ -148,8 +151,10 @@ export function CustomUnitEditor({
   lockEnvelope = false,
   initialAppearance,
   attachmentControls,
+  initialPositioningResolution = 1 / 16,
 }: {
-  attachmentControls?: ReactNode;
+  attachmentControls?: ReactNode | ((step: number) => ReactNode);
+  initialPositioningResolution?: PositioningResolution;
   initialDefinition?: CustomUnitDefinition;
   lockEnvelope?: boolean;
   initialAppearance?: CabinetAppearance;
@@ -170,7 +175,7 @@ export function CustomUnitEditor({
   );
   const [placement, setPlacement] = useState<PlacementKind | null>(null);
   const [fitRevision, setFitRevision] = useState(0);
-  const [snap, setSnap] = useState(0.0625);
+  const [snap, setSnap] = useState<number>(initialPositioningResolution);
   const [openings, setOpenings] = useState<Record<string, number>>({});
   const [past, setPast] = useState<CustomUnitDefinition[]>([]);
   const [future, setFuture] = useState<CustomUnitDefinition[]>([]);
@@ -250,7 +255,9 @@ export function CustomUnitEditor({
       <div className="cu-workbench">
         <aside className="cu-panel cu-structure">
           <h2>01 / Cabinet</h2>
-          {attachmentControls}
+          {typeof attachmentControls === 'function'
+            ? attachmentControls(snap)
+            : attachmentControls}
           <label>
             {lockEnvelope ? 'Configuration name' : 'Name'}
             <input
@@ -271,6 +278,7 @@ export function CustomUnitEditor({
             ) : (
               (['width', 'height', 'depth'] as const).map((field) => (
                 <Dimension
+                  step={snap}
                   key={field}
                   label={field}
                   value={definition[field]}
@@ -311,6 +319,7 @@ export function CustomUnitEditor({
             )}
           </div>
           <Dimension
+            step={snap}
             label="Default front reveal"
             value={definition.reveal}
             min={0.0625}
@@ -376,6 +385,7 @@ export function CustomUnitEditor({
           ))}
           {definition.profile && (
             <Dimension
+              step={snap}
               label="Cabinet edge radius"
               value={definition.profile.radius}
               min={0.0625}
@@ -487,6 +497,7 @@ export function CustomUnitEditor({
                   </label>
                 )}
                 <Dimension
+                  step={snap}
                   label="Curve radius"
                   value={definition.curve.radius}
                   min={0.0625}
@@ -763,6 +774,7 @@ export function CustomUnitEditor({
                 <option value={0.0625}>1/16 in</option>
                 <option value={0.125}>1/8 in</option>
                 <option value={0.5}>1/2 in</option>
+                <option value={1}>1 in</option>
                 <option value={0}>Off</option>
               </select>
             </label>
@@ -936,6 +948,7 @@ export function CustomUnitEditor({
                     <>
                       {selected.door.mechanism === 'pocket' && (
                         <Dimension
+                          step={snap}
                           label="Pocket travel"
                           value={selected.door.travel}
                           min={0}
@@ -968,6 +981,7 @@ export function CustomUnitEditor({
                             </select>
                           </label>
                           <Dimension
+                            step={snap}
                             label="Tambour slat size"
                             value={selected.door.slatSize}
                             min={0.25}
@@ -1085,6 +1099,7 @@ export function CustomUnitEditor({
                     ))}
                     {selected.edges && (
                       <Dimension
+                        step={snap}
                         label="Edge radius"
                         value={selected.edges.radius}
                         min={0.0625}
@@ -1203,6 +1218,7 @@ export function CustomUnitEditor({
                     .reverse()
                     .map((height, row) => (
                       <Dimension
+                        step={snap}
                         // Rows represent fixed top-to-bottom positions within the array.
                         // eslint-disable-next-line react/no-array-index-key
                         key={row}
@@ -1253,6 +1269,7 @@ export function CustomUnitEditor({
                   <div className="cu-fields">
                     {(['x', 'y', 'z'] as const).map((field, i) => (
                       <Dimension
+                        step={snap}
                         key={field}
                         label={['From left', 'From bottom', 'Front setback'][i]}
                         value={selected[field]}
@@ -1276,6 +1293,7 @@ export function CustomUnitEditor({
                       )
                       .map((field) => (
                         <Dimension
+                          step={snap}
                           key={field}
                           label={`Part ${field}`}
                           value={selected[field]}

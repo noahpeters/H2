@@ -1,3 +1,4 @@
+import {positioningResolution} from './positioningPrecision';
 import type {Room, Wall} from './model';
 import {roomSegments} from './roomOutline';
 import {
@@ -42,7 +43,7 @@ export function WallThicknessControls({
             type="number"
             min={MIN_WALL_THICKNESS}
             max={MAX_WALL_THICKNESS}
-            step="0.25"
+            step={positioningResolution(room)}
             value={wallThickness(room, selected.id)}
             onChange={(event) => {
               const value = Number(event.currentTarget.value);

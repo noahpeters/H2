@@ -50,3 +50,24 @@ it('selects a decorative style on the back panel', () => {
   fireEvent.click(screen.getByLabelText('Finished back'));
   expect(screen.queryByLabelText('Back panel style')).not.toBeInTheDocument();
 });
+
+it('accepts fractional shelf spacing while keeping shelf counts integral', () => {
+  const {container} = render(<Harness />);
+  const spacing = screen.getByLabelText('Shelf spacing (0 = evenly spaced)');
+  expect(spacing).toHaveAttribute('step', '0.125');
+  expect(screen.getByLabelText('Storage depth')).toHaveAttribute(
+    'step',
+    '0.125',
+  );
+  fireEvent.change(spacing, {target: {value: '12.125'}});
+  fireEvent.change(screen.getByLabelText('Shelf count'), {
+    target: {value: '2.5'},
+  });
+  const item = JSON.parse(
+    container.querySelector('output')!.textContent!,
+  ) as ReturnType<typeof createOpenStorage>;
+  expect(item.storage!.shelfSpacing).toBe(12.125);
+  expect(item.storage!.shelves).toBe(
+    createOpenStorage('shelving', 'test').storage!.shelves,
+  );
+});
