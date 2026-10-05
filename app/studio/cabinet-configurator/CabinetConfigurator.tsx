@@ -1,3 +1,4 @@
+import {PhotoSettingField} from './PhotoSettingField';
 import {
   positioningResolution,
   snappingDistance,
@@ -1061,7 +1062,10 @@ export function ThreeStudy({
           <button
             type="button"
             disabled={photoBusy}
-            onClick={() => setPhotoSettingsOpen(true)}
+            onClick={(event) => {
+              if (event.altKey) setPhotoSettingsOpen(true);
+              else void takePhoto();
+            }}
           >
             {photoBusy
               ? `Taking photo… ${Math.floor(photoProgress * 100)}%`
@@ -1092,10 +1096,13 @@ export function ThreeStudy({
           />
           {(['daylight', 'adjacent'] as const).map((kind) => (
             <div key={kind}>
-              <label>
-                {kind === 'daylight'
-                  ? 'Daylight temperature (K)'
-                  : 'Adjacent room temperature (K)'}
+              <PhotoSettingField
+                label={
+                  kind === 'daylight'
+                    ? 'Daylight temperature (K)'
+                    : 'Adjacent room temperature (K)'
+                }
+              >
                 <input
                   type="number"
                   min={1000}
@@ -1112,11 +1119,14 @@ export function ThreeStudy({
                     }))
                   }
                 />
-              </label>
-              <label>
-                {kind === 'daylight'
-                  ? 'Daylight brightness'
-                  : 'Adjacent room brightness'}
+              </PhotoSettingField>
+              <PhotoSettingField
+                label={
+                  kind === 'daylight'
+                    ? 'Daylight brightness'
+                    : 'Adjacent room brightness'
+                }
+              >
                 <input
                   type="number"
                   min={0}
@@ -1133,10 +1143,10 @@ export function ThreeStudy({
                     }))
                   }
                 />
-              </label>
+              </PhotoSettingField>
             </div>
           ))}
-          <label>
+          <PhotoSettingField label="Reduce photo noise">
             <input
               type="checkbox"
               checked={photoSettings.denoise}
@@ -1147,14 +1157,18 @@ export function ThreeStudy({
                 }))
               }
             />
-            Reduce photo noise
-          </label>
-          <label>
-            Contact detail quality
+          </PhotoSettingField>
+          <PhotoSettingField
+            label="Contact detail quality"
+            help={
+              <>
+                Contact refinement reduces noise in tight gaps without adding
+                darkness. Higher quality takes longer.
+              </>
+            }
+          >
             <select
-              value={
-                (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).quality
-              }
+              value={(photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).quality}
               onChange={(event) =>
                 setPhotoSettings((value) => ({
                   ...value,
@@ -1167,14 +1181,11 @@ export function ThreeStudy({
               }
             >
               <option value="off">Base photo sampling</option>
-              <option value="standard">
-                Standard (2 paths near contacts)
-              </option>
+              <option value="standard">Standard (2 paths near contacts)</option>
               <option value="fine">Fine (4 paths near contacts)</option>
             </select>
-          </label>
-          <label>
-            Contact refinement strength
+          </PhotoSettingField>
+          <PhotoSettingField label="Contact refinement strength">
             <input
               type="number"
               min={0}
@@ -1193,17 +1204,15 @@ export function ThreeStudy({
                 }))
               }
             />
-          </label>
-          <label>
-            Contact radius (mm)
+          </PhotoSettingField>
+          <PhotoSettingField label="Contact radius (mm)">
             <input
               type="number"
               min={1}
               max={200}
               step={1}
               value={
-                (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).radius *
-                1000
+                (photoSettings.contacts ?? DEFAULT_PHOTO_CONTACTS).radius * 1000
               }
               onChange={(event) =>
                 setPhotoSettings((value) => ({
@@ -1215,13 +1224,17 @@ export function ThreeStudy({
                 }))
               }
             />
-          </label>
-          <p>
-            Contact refinement reduces noise in tight gaps without adding
-            darkness. Higher quality takes longer.
-          </p>
-          <label>
-            Image size
+          </PhotoSettingField>
+          <PhotoSettingField
+            label="Image size"
+            help={
+              <>
+                Detailed photos may take several minutes. Fine quality uses more
+                pixels and samples than Standard. Closed doors block adjacent
+                light; rooms without lit openings will be dark.
+              </>
+            }
+          >
             <select
               value={photoSettings.maxDimension}
               onChange={(event) =>
@@ -1235,12 +1248,7 @@ export function ThreeStudy({
               <option value={1600}>1600 pixels — faster</option>
               <option value={2400}>2400 pixels — detailed</option>
             </select>
-          </label>
-          <p>
-            Detailed photos may take several minutes. Fine quality uses more
-            pixels and samples than Standard. Closed doors block adjacent
-            light; rooms without lit openings will be dark.
-          </p>
+          </PhotoSettingField>
         </PhotoSettingsDialog>
       )}
       {(photoBusy || photoError) && (

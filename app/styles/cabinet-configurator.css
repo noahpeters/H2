@@ -968,3 +968,64 @@
   gap: 12px;
   border-top: 1px solid #e1d8c7;
 }
+
+/* Scope the photo form to avoid storefront form widths and footer styling. */
+.cc-photo-settings-dialog form {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.cc-photo-settings-body .cc-photo-setting-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  margin-block: 12px;
+}
+.cc-photo-setting-label {
+  display: flex;
+  align-items: start;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+}
+.cc-photo-settings-body .cc-photo-setting-label label {
+  margin: 0;
+  text-align: left;
+}
+.cc-photo-setting-field > input,
+.cc-photo-setting-field > select {
+  justify-self: end;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+.cc-photo-setting-field > input[type='number'] {
+  width: 92px;
+}
+.cc-photo-setting-field > select {
+  width: 100%;
+}
+.cc-photo-settings-dialog footer {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fffdf6;
+  color: #343b2e;
+}
+.cc-photo-settings-dialog footer button {
+  min-width: 0;
+  white-space: normal;
+}
+@media (max-width: 420px) {
+  .cc-photo-settings-dialog header,
+  .cc-photo-settings-dialog footer {
+    padding: 12px;
+  }
+  .cc-photo-settings-body {
+    padding-inline: 12px;
+  }
+  .cc-photo-settings-dialog footer button {
+    flex: 1 1 100px;
+  }
+}

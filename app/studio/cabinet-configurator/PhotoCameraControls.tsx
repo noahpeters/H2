@@ -1,3 +1,4 @@
+import {PhotoSettingField} from './PhotoSettingField';
 import {DEFAULT_PHOTO_CAMERA, type PhotoCameraSettings} from './photoCamera';
 
 export function PhotoCameraControls({
@@ -11,16 +12,14 @@ export function PhotoCameraControls({
     onChange({...value, ...patch});
   return (
     <>
-      <label>
+      <PhotoSettingField label="Auto Exposure">
         <input
           type="checkbox"
           checked={value.autoExposure}
           onChange={(e) => update({autoExposure: e.target.checked})}
         />
-        Auto Exposure
-      </label>
-      <label>
-        Exposure Compensation (EV)
+      </PhotoSettingField>
+      <PhotoSettingField label="Exposure Compensation (EV)">
         <input
           type="number"
           min={-4}
@@ -31,17 +30,15 @@ export function PhotoCameraControls({
             update({exposureCompensation: Number(e.target.value)})
           }
         />
-      </label>
-      <label>
+      </PhotoSettingField>
+      <PhotoSettingField label="Auto White Balance">
         <input
           type="checkbox"
           checked={value.autoWhiteBalance}
           onChange={(e) => update({autoWhiteBalance: e.target.checked})}
         />
-        Auto White Balance
-      </label>
-      <label>
-        Temperature override (K)
+      </PhotoSettingField>
+      <PhotoSettingField label="Temperature override (K)">
         <input
           type="number"
           min={2000}
@@ -51,17 +48,15 @@ export function PhotoCameraControls({
           value={value.temperature}
           onChange={(e) => update({temperature: Number(e.target.value)})}
         />
-      </label>
-      <label>
+      </PhotoSettingField>
+      <PhotoSettingField label="Keep vertical lines straight">
         <input
           type="checkbox"
           checked={value.architectural}
           onChange={(e) => update({architectural: e.target.checked})}
         />
-        Keep vertical lines straight
-      </label>
-      <label>
-        Lens (mm)
+      </PhotoSettingField>
+      <PhotoSettingField label="Lens (mm)">
         <input
           type="number"
           min={18}
@@ -71,9 +66,8 @@ export function PhotoCameraControls({
           value={value.lensMm}
           onChange={(e) => update({lensMm: Number(e.target.value)})}
         />
-      </label>
-      <label>
-        Vertical Shift
+      </PhotoSettingField>
+      <PhotoSettingField label="Vertical Shift">
         <input
           type="number"
           min={-0.5}
@@ -83,9 +77,21 @@ export function PhotoCameraControls({
           value={value.verticalShift}
           onChange={(e) => update({verticalShift: Number(e.target.value)})}
         />
-      </label>
-      <label>
-        Photo Quality
+      </PhotoSettingField>
+      <PhotoSettingField
+        label="Photo Quality"
+        help={
+          <>
+            Photos keep the current position and aim point. A level 28mm lens
+            changes framing to straighten verticals; turn correction off to
+            capture the exact viewport view. Positive shift frames higher.
+            Standard and Fine improve edges but take longer. Adaptive photos
+            stop when image changes stay small; difficult scenes continue
+            refining. Super high quality runs the full rendering budget. The
+            full room stays sharp.
+          </>
+        }
+      >
         <select
           value={value.quality}
           onChange={(e) =>
@@ -97,15 +103,7 @@ export function PhotoCameraControls({
           <option value="fine">Fine · adaptive</option>
           <option value="ultra">Super high quality · full render</option>
         </select>
-      </label>
-      <p>
-        Photos keep the current position and aim point. A level 28mm lens
-        changes framing to straighten verticals; turn correction off to capture
-        the exact viewport view. Positive shift frames higher. Standard and Fine
-        improve edges but take longer. Adaptive photos stop when image changes
-        stay small; difficult scenes continue refining. Super high quality runs
-        the full rendering budget. The full room stays sharp.
-      </p>
+      </PhotoSettingField>
     </>
   );
 }
