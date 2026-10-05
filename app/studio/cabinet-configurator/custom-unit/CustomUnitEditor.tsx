@@ -462,12 +462,20 @@ export function CustomUnitEditor({
               </>
             )}
           </details>
-          <h2>02 / Add a part</h2>
-          <div className="cu-add">
-            {(['shelf', 'divider', 'door', 'drawer-array', 'rod'] as const).map(
-              (kind) => (
+        </aside>
+        <section className="cu-preview" aria-label="Cabinet preview">
+          <div
+            className="cu-part-tools"
+            role="toolbar"
+            aria-label="Cabinet part tools"
+          >
+            <div className="cu-actions">
+              {(
+                ['shelf', 'divider', 'door', 'drawer-array', 'rod'] as const
+              ).map((kind) => (
                 <button
                   key={kind}
+                  aria-pressed={placement === kind}
                   onClick={() => {
                     setPlacement(kind);
                     setOpenings({});
@@ -475,54 +483,60 @@ export function CustomUnitEditor({
                 >
                   + {kind === 'drawer-array' ? 'drawer array' : kind}
                 </button>
-              ),
-            )}
+              ))}
+            </div>
+            <div className="cu-actions">
+              {(['back', 'side'] as const).map((orientation) => (
+                <button
+                  key={orientation}
+                  aria-pressed={placement === `${orientation}-panel`}
+                  onClick={() => {
+                    setPlacement(`${orientation}-panel`);
+                    setOpenings({});
+                  }}
+                >
+                  + {orientation} panel
+                </button>
+              ))}
+            </div>
+            <div className="cu-actions">
+              {(['left', 'right'] as const).map((side) => (
+                <button
+                  key={side}
+                  aria-pressed={placement === `${side}-end-shelf`}
+                  onClick={() => {
+                    setPlacement(`${side}-end-shelf`);
+                    setOpenings({});
+                  }}
+                >
+                  + {side} end shelf
+                </button>
+              ))}
+            </div>
+            <details className="cu-parts-menu">
+              <summary>Cabinet parts ({parts.length})</summary>
+              <div className="cu-parts" aria-label="Cabinet parts">
+                {parts.map((part, index) => (
+                  <button
+                    className={part.id === selectedId ? 'active' : ''}
+                    aria-pressed={part.id === selectedId}
+                    key={part.id}
+                    onClick={(event) => {
+                      setSelectedId(part.id);
+                      event.currentTarget
+                        .closest('details')
+                        ?.removeAttribute('open');
+                    }}
+                  >
+                    <span>{name(part, index)}</span>
+                    <small>
+                      {part.width.toFixed(2)} × {part.height.toFixed(2)}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
-          <div className="cu-add cu-end-shelves">
-            {(['back', 'side'] as const).map((orientation) => (
-              <button
-                key={orientation}
-                onClick={() => {
-                  setPlacement(`${orientation}-panel`);
-                  setOpenings({});
-                }}
-              >
-                + {orientation} panel
-              </button>
-            ))}
-          </div>
-          <div className="cu-add cu-end-shelves">
-            {(['left', 'right'] as const).map((side) => (
-              <button
-                key={side}
-                onClick={() => {
-                  setPlacement(`${side}-end-shelf`);
-                  setOpenings({});
-                }}
-              >
-                + {side} end shelf
-              </button>
-            ))}
-          </div>
-          <h2>
-            03 / Parts <span>{parts.length}</span>
-          </h2>
-          <div className="cu-parts" aria-label="Cabinet parts">
-            {parts.map((part, index) => (
-              <button
-                className={part.id === selectedId ? 'active' : ''}
-                key={part.id}
-                onClick={() => setSelectedId(part.id)}
-              >
-                <span>{name(part, index)}</span>
-                <small>
-                  {part.width.toFixed(2)} × {part.height.toFixed(2)}
-                </small>
-              </button>
-            ))}
-          </div>
-        </aside>
-        <section className="cu-preview" aria-label="Cabinet preview">
           <div className="cu-toolbar">
             <div className="cu-actions">
               {(['3d', 'front', 'side', 'top'] as const).map((mode) => (
@@ -735,7 +749,7 @@ export function CustomUnitEditor({
           </p>
         </section>
         <aside className="cu-panel cu-inspector">
-          <h2>04 / Part details</h2>
+          <h2>02 / Part details</h2>
           <fieldset className="cu-opening-profiles">
             <legend>Cabinet front</legend>
             <label className="cu-checkbox">
@@ -1275,7 +1289,9 @@ export function CustomUnitEditor({
             </>
           ) : (
             <div className="cu-empty">
-              <p>Select a part in the model or the parts list.</p>
+              <p>
+                Select a part in the model or the Cabinet parts menu above it.
+              </p>
               <p>
                 Set the shared cabinet profile on the left. Select a part here
                 to refine its position and dimensions.

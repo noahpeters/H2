@@ -155,14 +155,53 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
 }
-.cu-add {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Match the room creation toolbar above the canvas. */
+.cu-part-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
   gap: 8px;
+  padding: 10px 12px;
+  margin: -16px -16px 16px;
+  border-bottom: 1px solid #c4c3b8;
+  background: #f4f2ec;
 }
-.cu-add button {
-  text-align: left;
+.cu-part-tools button,
+.cu-parts-menu > summary {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.cu-part-tools button {
   text-transform: capitalize;
+}
+.cu-part-tools button[aria-pressed='true'] {
+  background: #254536;
+  color: #fffdf6;
+}
+.cu-parts-menu {
+  position: relative;
+  min-width: 0;
+}
+.cu-parts-menu > summary {
+  cursor: pointer;
+  color: #254536;
+  background: #fffdf6;
+  border: 1px solid #b8bcb0;
+  border-radius: 3px;
+}
+.cu-parts-menu > .cu-parts {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  width: 280px;
+  max-width: calc(100vw - 64px);
+  max-height: min(340px, 50vh);
+  padding: 8px;
+  background: #fffaf0;
+  border: 1px solid var(--cu-line);
+  box-shadow: 0 8px 20px #0002;
 }
 .cu-parts {
   display: grid;
@@ -357,9 +396,6 @@
   border: 1px solid #b8bcb0;
   border-radius: 3px;
   font: inherit;
-}
-.cu-end-shelves {
-  margin-top: 8px;
 }
 @media (min-width: 1051px) {
   .cu-workbench {
