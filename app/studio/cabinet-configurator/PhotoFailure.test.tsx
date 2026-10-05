@@ -176,6 +176,7 @@ test('super high quality rerenders the original capture and keeps the first phot
 
 test('photo settings appear only after Take Photo, cancel without rendering, and apply on confirmation', async () => {
   render(<ThreeStudy study={blankStudy()} showControls />);
+  screen.getByRole('button', {name: 'Take Photo'}).focus();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(
     screen.queryByLabelText('Daylight temperature (K)'),
@@ -188,6 +189,7 @@ test('photo settings appear only after Take Photo, cancel without rendering, and
     target: {value: '5700'},
   });
   fireEvent.click(screen.getByRole('button', {name: 'Cancel'}));
+  expect(screen.getByRole('button', {name: 'Take Photo'})).toHaveFocus();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(renderPhoto).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', {name: 'Take Photo'}));
