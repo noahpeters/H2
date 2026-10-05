@@ -1,0 +1,206 @@
+<!doctype html><title>Photo detail capture integration</title>
+<p id="status">Running</p>
+<pre id="results"></pre>
+<div id="images"></div>
+<script type="module">
+  import * as THREE from 'three';
+  import {StudyScene} from '/app/studio/cabinet-configurator/studyScene.ts';
+  import {
+    createPhotoSnapshot,
+    renderPhoto,
+  } from '/app/studio/cabinet-configurator/photoRender.ts';
+  import {DEFAULT_PHOTO_SETTINGS} from '/app/studio/cabinet-configurator/photoLighting.ts';
+  import {DEFAULT_PHOTO_DAYLIGHT} from '/app/studio/cabinet-configurator/photoDaylight.ts';
+  import {withWoodFinish} from '/app/studio/cabinet-configurator/woodFinishes.ts';
+  import {CABINET_MATERIAL_DEFINITIONS} from '/app/studio/cabinet-configurator/materials.ts';
+  import {unzipSync, strFromU8} from 'fflate';
+  const study = {
+    version: 2,
+    room: {
+      overlay: 'full-overlay',
+      width: 120,
+      depth: 120,
+      height: 96,
+      floor: 'oak',
+      walls: 'plaster',
+      wallThickness: 4.5,
+    },
+    openings: [],
+    elements: [],
+    islands: [],
+    selected: null,
+  };
+  study.room.width = 120;
+  study.room.depth = 120;
+  study.openings = [
+    {
+      id: 'window',
+      kind: 'window',
+      wall: 'back',
+      offset: 24,
+      width: 48,
+      height: 40,
+      sill: 36,
+    },
+  ];
+  study.elements = [
+    {
+      id: 'wood',
+      kind: 'base',
+      width: 36,
+      height: 34.5,
+      depth: 24,
+      face: 'shaker',
+      material: 'rift-white-oak',
+      materialDefinition: withWoodFinish(
+        CABINET_MATERIAL_DEFINITIONS['rift-white-oak'],
+        'satin',
+      ),
+      placement: {mode: 'wall', wall: 'back', offset: 72},
+    },
+  ];
+  const source = new THREE.Scene();
+  source.background = new THREE.Color('#f4f2ec');
+  const content = new StudyScene(source);
+  await content.update(study);
+  const camera = new THREE.PerspectiveCamera(55, 4 / 3, 0.01, 100);
+  camera.position.set(0.5, 1.4, 1);
+  camera.lookAt(0.2, 1, -1.2);
+  camera.updateMatrixWorld(true);
+  const saved = JSON.stringify(study),
+    materials = [];
+  source.traverse((o) => {
+    if (o instanceof THREE.Mesh) materials.push(o.material);
+  });
+  const liveState = materials.map((m) => JSON.stringify(m.toJSON()));
+  const results = [];
+  try {
+    for (const mode of ['openings', 'directional']) {
+      let archive;
+      const settings = {
+        ...structuredClone(DEFAULT_PHOTO_SETTINGS),
+        camera: undefined,
+        maxDimension: 96,
+        samples: 8,
+        diagnostics: true,
+        textureResolution: 2048,
+        ceiling: true,
+        physicalWindows: true,
+        ...(mode === 'directional'
+          ? {sunSky: {...DEFAULT_PHOTO_DAYLIGHT, enabled: true, azimuth: 180}}
+          : {}),
+      };
+      const png = await renderPhoto(
+        createPhotoSnapshot(source, camera),
+        undefined,
+        settings,
+        {
+          onDiagnostics: (zip) => {
+            archive = zip;
+          },
+        },
+      );
+      if (!archive) throw new Error('Missing archive');
+      const files = unzipSync(new Uint8Array(await archive.arrayBuffer()));
+      const metadata = JSON.parse(strFromU8(files['capture.json']));
+      if (!metadata.manifest.captureSha256 || metadata.result.samples !== 8)
+        throw new Error('Missing capture metadata');
+      const maps = metadata.manifest.meshes.flatMap((m) =>
+        m.materials.flatMap((material) => Object.entries(material.maps)),
+      );
+      if (!maps.some(([slot, map]) => map.width === 2048))
+        throw new Error('Detailed wood textures did not load');
+      if (
+        metadata.manifest.meshes.some((m) =>
+          m.materials.some((material) => material.textureErrors?.length),
+        )
+      )
+        throw new Error('Texture load failed');
+      if (!metadata.manifest.meshes.some((m) => m.name === 'photo-ceiling'))
+        throw new Error('No exact ceiling');
+      const beauty = new DataView(
+        files['beauty-linear.f32'].buffer,
+        files['beauty-linear.f32'].byteOffset,
+        files['beauty-linear.f32'].byteLength,
+      );
+      let energy = 0;
+      for (let i = 0; i < beauty.byteLength; i += 16)
+        for (let c = 0; c < 3; c++)
+          energy += beauty.getFloat32(i + c * 4, true);
+      if (!Number.isFinite(energy) || energy <= 0)
+        throw new Error('Invalid radiance');
+      const passes = metadata.buffers.transportSum.map(
+        (name) =>
+          new DataView(
+            files[`${name}-linear.f32`].buffer,
+            files[`${name}-linear.f32`].byteOffset,
+            files[`${name}-linear.f32`].byteLength,
+          ),
+      );
+      let residual = 0;
+      for (let i = 0; i < beauty.byteLength; i += 16)
+        for (let c = 0; c < 3; c++) {
+          const offset = i + c * 4;
+          residual += Math.abs(
+            beauty.getFloat32(offset, true) -
+              passes.reduce(
+                (sum, pass) => sum + pass.getFloat32(offset, true),
+                0,
+              ),
+          );
+        }
+      if (residual / energy > 0.001)
+        throw new Error(
+          `Transport does not sum to beauty: ${residual / energy}; energies ${JSON.stringify(
+            passes.map((pass) => {
+              let sum = 0;
+              for (let i = 0; i < pass.byteLength; i += 16)
+                for (let c = 0; c < 3; c++)
+                  sum += pass.getFloat32(i + c * 4, true);
+              return sum;
+            }),
+          )}`,
+        );
+      if (materials.some((m, i) => JSON.stringify(m.toJSON()) !== liveState[i]))
+        throw new Error('Live materials changed');
+      const image = document.createElement('img');
+      image.src = URL.createObjectURL(png);
+      image.width = 384;
+      image.alt = mode;
+      document.querySelector('#images').append(image);
+      results.push({
+        mode,
+        samples: metadata.result.samples,
+        files: Object.keys(files).length,
+        energy,
+        transportResidual: residual / energy,
+        captureHash: metadata.manifest.captureSha256,
+        zipBytes: archive.size,
+      });
+      if (JSON.stringify(study) !== saved)
+        throw new Error('Canonical design changed');
+      // Expose only fixture artifacts for browser download, not private application state.
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(archive);
+      link.download = `photo-${mode}-diagnostics.zip`;
+      link.textContent = `Download ${mode} inspection`;
+      document.querySelector('#images').append(link);
+    }
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    document.querySelector('#status').textContent = 'Passed';
+  } catch (error) {
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    document.querySelector('#status').textContent = 'Failed: ' + error.message;
+    throw error;
+  } finally {
+    content.dispose();
+  }
+</script>

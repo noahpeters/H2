@@ -1,0 +1,41 @@
+{
+  "asset": "walnut_veneer",
+  "source": "https://polyhaven.com/a/walnut_veneer",
+  "license": "CC0-1.0",
+  "basis": "Higher-resolution versions of the existing representative scan. Same tile footprint, source grain and finish limitations.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "walnut_veneer_diff_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/walnut_veneer/walnut_veneer_diff_2k.jpg",
+      "bytes": 2060618,
+      "sha256": "66c73defcc62ac090cb838e8455b8c1febbfea29a15c8f40a5e2d398b2ba4733",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "walnut_veneer_nor_gl_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/walnut_veneer/walnut_veneer_nor_gl_2k.jpg",
+      "bytes": 1891517,
+      "sha256": "544d3feffd325a0f6f7db5dc94ae99820349bb3d53ce3651e4647d5e66336cba",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "rough",
+      "filename": "walnut_veneer_rough_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/walnut_veneer/walnut_veneer_rough_2k.jpg",
+      "bytes": 2426374,
+      "sha256": "e3a8a7e035a378ce6ce2252fcd4352f62b16a2a6b2f453baacd4e081c2fedb34",
+      "pixels": [
+        2048,
+        2048
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "asset": "white_maple_veneer",
+  "source": "https://polyhaven.com/a/white_maple_veneer",
+  "license": "CC0-1.0",
+  "basis": "Higher-resolution versions of the existing representative scan. Same tile footprint, source grain and finish limitations.",
+  "files": [
+    {
+      "slot": "diff",
+      "filename": "white_maple_veneer_diff_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/white_maple_veneer/white_maple_veneer_diff_2k.jpg",
+      "bytes": 1768512,
+      "sha256": "45ee4e8def749bdb41401f98277313b632e52c901d9deb62ca32578347063105",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "nor_gl",
+      "filename": "white_maple_veneer_nor_gl_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/white_maple_veneer/white_maple_veneer_nor_gl_2k.jpg",
+      "bytes": 1288607,
+      "sha256": "c70d14bdb6a0953ab4a9f23af16c07324f94c597e30d058c7cd33d14d2d4fb59",
+      "pixels": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "slot": "rough",
+      "filename": "white_maple_veneer_rough_2k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/white_maple_veneer/white_maple_veneer_rough_2k.jpg",
+      "bytes": 2958169,
+      "sha256": "1184ebdeb279f7450852d5a5ce648bc96a045470acfa98aa3001dd38b65cfb51",
+      "pixels": [
+        2048,
+        2048
+      ]
+    }
+  ]
+}

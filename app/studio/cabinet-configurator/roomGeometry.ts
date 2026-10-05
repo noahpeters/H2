@@ -980,6 +980,7 @@ export function openingGeometry(opening: Opening, room: Room) {
     transparent: true,
     opacity: 0.45,
   });
+  glass.userData.photoWindowPane = true;
   const metal = new THREE.MeshStandardMaterial({
     color: 0xb4bbc0,
     metalness: 0.65,

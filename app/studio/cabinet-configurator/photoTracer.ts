@@ -33,6 +33,28 @@ export function deterministicPhotoTracer(tracer: WebGLPathTracer) {
   material.setDefine('RANDOM_TYPE', 2);
 }
 
+/** Prime the final sampler dimensions before reset. Upstream's lazy resize consumes
+ * a shuffled sample on the first pass, while later resets start at stratum zero. */
+export function preparePhotoSampler(tracer: WebGLPathTracer) {
+  const material = (
+    tracer as unknown as {
+      _pathTracer: {
+        material: {
+          bounces: number;
+          transmissiveBounces: number;
+          stratifiedTexture: {init: (count: number, depth: number) => void};
+        };
+      };
+    }
+  )._pathTracer.material;
+  if (!material.stratifiedTexture?.init)
+    throw new Error('Photo sampler compatibility changed.');
+  material.stratifiedTexture.init(
+    20,
+    material.bounces + material.transmissiveBounces + 5,
+  );
+}
+
 /** 0.0.23 dispose references a renamed quad and omits its low-resolution target. */
 export function disposePhotoTracer(tracer: WebGLPathTracer) {
   const pinned = tracer as WebGLPathTracer & {

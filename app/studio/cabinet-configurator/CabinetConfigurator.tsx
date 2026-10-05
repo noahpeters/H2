@@ -27,6 +27,7 @@ import {WallThicknessControls} from './WallThicknessControls';
 import {HelpField, InfoTooltip} from './ControlHelp';
 import type {PhotoContactSettings} from './photoContacts';
 import {PhotoCameraControls} from './PhotoCameraControls';
+import {PhotoDetailControls} from './PhotoDetailControls';
 import {PhotoSettingsDialog} from './PhotoSettingsDialog';
 import {PhotoDialog} from './PhotoDialog';
 import {PhotoProgressDialog} from './PhotoProgressDialog';
@@ -726,6 +727,7 @@ export function ThreeStudy({
     [releasePhotoCapture],
   );
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [photoDiagnostics, setPhotoDiagnostics] = useState<Blob | null>(null);
   const [photoFull, setPhotoFull] = useState(false);
   const photoRef = useRef<
     (() => ReturnType<typeof createPhotoSnapshot>) | null
@@ -763,14 +765,22 @@ export function ThreeStudy({
       await waitForMaterialTextures(capture.snapshot.scene);
       photoAbort.current.signal.throwIfAborted();
       const snapshot = clonePhotoSnapshot(capture.snapshot);
+      let diagnostics: Blob | null = null;
       const blob = await renderPhoto(
         snapshot,
         hostRef.current ?? undefined,
         settings,
-        {signal: photoAbort.current.signal, onProgress: setPhotoProgress},
+        {
+          signal: photoAbort.current.signal,
+          onProgress: setPhotoProgress,
+          onDiagnostics: (zip) => {
+            diagnostics = zip;
+          },
+        },
       );
       if (!photoAbort.current.signal.aborted) {
         setPhotoBlob(blob);
+        setPhotoDiagnostics(diagnostics);
         setPhotoFull(settings.camera?.quality === 'ultra');
       }
     } catch (error) {
@@ -1094,6 +1104,10 @@ export function ThreeStudy({
               setPhotoSettings((value) => ({...value, camera}))
             }
           />
+          <PhotoDetailControls
+            value={photoSettings}
+            onChange={setPhotoSettings}
+          />
           {(['daylight', 'adjacent'] as const).map((kind) => (
             <div key={kind}>
               <PhotoSettingField
@@ -1278,10 +1292,12 @@ export function ThreeStudy({
       />
       {photoBlob && !photoBusy && !photoError && (
         <PhotoDialog
+          diagnostics={photoDiagnostics ?? undefined}
           blob={photoBlob}
           refine={!photoFull ? () => void takePhoto(true) : undefined}
           close={() => {
             setPhotoBlob(null);
+            setPhotoDiagnostics(null);
             releasePhotoCapture();
           }}
         />

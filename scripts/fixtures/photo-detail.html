@@ -1,0 +1,231 @@
+<!doctype html><title>Photo detail and transport GPU checks</title>
+<p id="status">Running</p>
+<pre id="results"></pre>
+<script type="module">
+  import * as THREE from 'three';
+  import {WebGLPathTracer} from 'three-gpu-pathtracer';
+  import {denoisePhoto} from '/app/studio/cabinet-configurator/photoDenoise.ts';
+  import {
+    deterministicPhotoTracer,
+    disposePhotoTracer,
+    preparePhotoSampler,
+  } from '/app/studio/cabinet-configurator/photoTracer.ts';
+  import {configurePhotoContacts} from '/app/studio/cabinet-configurator/photoContacts.ts';
+  import {configurePhotoTransport} from '/app/studio/cabinet-configurator/photoTransport.ts';
+  import {readPhotoRadiance} from '/app/studio/cabinet-configurator/photoDiagnostics.ts';
+  import {waitForPhotoGpu} from '/app/studio/cabinet-configurator/photoGpu.ts';
+  const size = 64,
+    renderer = new THREE.WebGLRenderer();
+  renderer.setSize(size, size);
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.debug.onShaderError = () => {
+    throw new Error('Photo shader compilation failed');
+  };
+  const scene = new THREE.Scene(),
+    camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+  camera.position.z = 2;
+  scene.add(
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 10),
+      new THREE.MeshStandardMaterial({color: new THREE.Color(0.5, 0.5, 0.5)}),
+    ),
+  );
+  const output = new THREE.WebGLRenderTarget(size, size, {
+    type: THREE.HalfFloatType,
+  });
+  let tracer;
+  const results = [];
+  const texture = (data) => {
+    const image = new THREE.DataTexture(
+      data,
+      size,
+      size,
+      THREE.RGBAFormat,
+      THREE.FloatType,
+    );
+    image.needsUpdate = true;
+    return image;
+  };
+  try {
+    for (const period of [4, 8, 16, 32]) {
+      const data = new Float32Array(size * size * 4);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const v = 0.4 + 0.04 * Math.cos((2 * Math.PI * x) / period);
+          data.set([v, v, v, 1], (y * size + x) * 4);
+        }
+      const image = texture(data);
+      await denoisePhoto(
+        renderer,
+        scene,
+        camera,
+        image,
+        size,
+        size,
+        undefined,
+        output,
+        {samples: 256, previous: image, previousSamples: 128},
+      );
+      const filtered = await readPhotoRadiance(
+        renderer,
+        output.texture,
+        size,
+        size,
+      );
+      let maximum = 0;
+      for (let i = 0; i < data.length; i++)
+        maximum = Math.max(maximum, Math.abs(data[i] - filtered[i]));
+      if (maximum > 0.0006)
+        throw new Error('Stationary detail lost: ' + maximum);
+      results.push({stationaryPeriod: period, maximumError: maximum});
+      image.dispose();
+    }
+    const exact = new Float32Array(size * size * 4),
+      noisy = new Float32Array(exact.length),
+      previous = new Float32Array(exact.length);
+    for (let i = 0; i < exact.length; i += 4) {
+      exact.set([0.4, 0.4, 0.4, 1], i);
+      const n = Math.sin((i / 4) * 127.1) * 0.06,
+        p = Math.sin((i / 4) * 57.7) * 0.09;
+      noisy.set([0.4 + n, 0.4 + n, 0.4 + n, 1], i);
+      previous.set([0.4 + p, 0.4 + p, 0.4 + p, 1], i);
+    }
+    const noisyImage = texture(noisy),
+      oldImage = texture(previous);
+    await denoisePhoto(
+      renderer,
+      scene,
+      camera,
+      noisyImage,
+      size,
+      size,
+      undefined,
+      output,
+      {samples: 256, previous: oldImage, previousSamples: 128},
+    );
+    const filtered = await readPhotoRadiance(
+      renderer,
+      output.texture,
+      size,
+      size,
+    );
+    const rms = (data) =>
+      Math.sqrt(
+        data.reduce(
+          (sum, v, i) => sum + (i % 4 === 3 ? 0 : (v - exact[i]) ** 2),
+          0,
+        ) /
+          (size * size * 3),
+      );
+    if (rms(filtered) >= rms(noisy)) throw new Error('Noise not reduced');
+    results.push({inputNoise: rms(noisy), outputNoise: rms(filtered)});
+    noisyImage.dispose();
+    oldImage.dispose();
+    // A box-like room gives both direct and indirect transport, with dielectric clearcoat.
+    scene.add(
+      new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 10),
+        new THREE.MeshStandardMaterial({color: '#ddd0b4'}),
+      ),
+    );
+    scene.children[1].position.y = -1;
+    scene.children[1].rotation.x = -Math.PI / 2;
+    const panel = scene.children[0];
+    panel.material = new THREE.MeshPhysicalMaterial({
+      color: '#ba946c',
+      roughness: 0.32,
+      clearcoat: 0.35,
+      clearcoatRoughness: 0.3,
+    });
+    const light = new THREE.RectAreaLight(0xffffff, 10, 2, 2);
+    light.position.set(-1, 2, 1);
+    light.lookAt(0, 0, 0);
+    scene.add(light);
+    tracer = new WebGLPathTracer(renderer);
+    deterministicPhotoTracer(tracer);
+    const select = configurePhotoTransport(tracer);
+    configurePhotoContacts(tracer, {
+      quality: 'standard',
+      intensity: 1,
+      radius: 0.05,
+    });
+    tracer.bounces = 6;
+    tracer.filterGlossyFactor = 0;
+    tracer.tiles.set(1, 1);
+    tracer.renderDelay = 0;
+    tracer.minSamples = 1;
+    tracer.fadeDuration = 0;
+    tracer.renderToCanvas = false;
+    scene.updateMatrixWorld(true);
+    tracer.setScene(scene, camera);
+    preparePhotoSampler(tracer);
+    async function render(pass) {
+      select(pass);
+      tracer.reset();
+      while (tracer.samples < 32) {
+        tracer.renderSample();
+        await waitForPhotoGpu(renderer.getContext());
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      return readPhotoRadiance(renderer, tracer.target.texture, size, size);
+    }
+    const beauty = await render('beauty'),
+      sum = new Float32Array(beauty.length);
+    for (const pass of [
+      'direct-diffuse',
+      'direct-specular',
+      'indirect-diffuse',
+      'indirect-specular',
+      'transmission',
+      'emission',
+      'background',
+    ]) {
+      const data = await render(pass);
+      let energy = 0;
+      for (let i = 0; i < data.length; i++)
+        if (i % 4 !== 3) {
+          sum[i] += data[i];
+          energy += data[i];
+        }
+      if (
+        !Number.isFinite(energy) ||
+        (['direct-diffuse', 'direct-specular'].includes(pass) && energy <= 0)
+      )
+        throw new Error('Nonfinite ' + pass);
+      results.push({pass, energy});
+    }
+    let error = 0,
+      level = 0;
+    for (let i = 0; i < beauty.length; i++)
+      if (i % 4 !== 3) {
+        error += Math.abs(beauty[i] - sum[i]);
+        level += Math.abs(beauty[i]);
+      }
+    if (
+      !Number.isFinite(level) ||
+      level < 1e-5 ||
+      !Number.isFinite(error) ||
+      error / Math.max(level, 1e-8) > 0.002
+    )
+      throw new Error('Transport sum differs from beauty: ' + error / level);
+    results.push({transportRelativeError: error / level});
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    document.querySelector('#status').textContent = 'Passed';
+  } catch (error) {
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    document.querySelector('#status').textContent = 'Failed: ' + error.message;
+    throw error;
+  } finally {
+    if (tracer) disposePhotoTracer(tracer);
+    output.dispose();
+    renderer.dispose();
+  }
+</script>

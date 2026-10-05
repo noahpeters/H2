@@ -32,7 +32,7 @@
         color: new THREE.Color(0.5, 0.5, 0.5),
       });
       scene.add(new THREE.Mesh(geometry, material));
-      denoisePhoto(renderer, scene, camera, radiance, 64, 64);
+      await denoisePhoto(renderer, scene, camera, radiance, 64, 64);
       const pixels = new Uint8Array(64 * 64 * 4);
       const gl = renderer.getContext();
       gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels);

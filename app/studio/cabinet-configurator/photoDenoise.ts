@@ -13,6 +13,11 @@ export async function denoisePhoto(
   height: number,
   signal?: AbortSignal,
   linearOutput?: THREE.WebGLRenderTarget,
+  effort: {
+    samples: number;
+    previous?: THREE.Texture;
+    previousSamples?: number;
+  } = {samples: 256},
 ) {
   const target = () =>
     new THREE.WebGLRenderTarget(width, height, {
@@ -87,11 +92,26 @@ export async function denoisePhoto(
       stepSize: {value: 1},
       firstPass: {value: true},
       finalPass: {value: false},
+      raw: {value: radiance},
+      previous: {value: effort.previous ?? radiance},
+      varianceWeight: {
+        value:
+          effort.previous &&
+          effort.previousSamples &&
+          effort.samples > effort.previousSamples
+            ? effort.previousSamples / (effort.samples - effort.previousSamples)
+            : 0,
+      },
+      // Bound bias even where variance is noisy. High-budget captures need less smoothing.
+      strength: {
+        value: Math.min(0.5, 8 / Math.sqrt(Math.max(1, effort.samples))),
+      },
     },
     vertexShader: `varying vec2 vUv;
       void main() {vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0);}`,
     fragmentShader: `
-      uniform sampler2D image, albedo, normals, depth;
+      uniform sampler2D image, albedo, normals, depth, raw, previous;
+      uniform float varianceWeight, strength;
       uniform vec2 pixel, nearFar;
       uniform float stepSize;
       uniform bool firstPass, finalPass;
@@ -162,7 +182,18 @@ export async function denoisePhoto(
             }
           }
           sum = total > 0.0 ? sum / total : vec3(0.0);
-          if (finalPass) sum *= max(base, vec3(0.04));
+          if (finalPass) {
+            sum *= max(base, vec3(0.04));
+            vec3 original = texture2D(raw, vUv).rgb;
+            if (validLighting(original)) {
+              // Stationary detail cancels between cumulative means; stochastic noise does not.
+              vec3 delta = original - texture2D(previous, vUv).rgb;
+              float variance = dot(delta, delta) / 3.0 * varianceWeight;
+              float level = max(photoLuminance(original), 0.01);
+              float noise = varianceWeight > 0.0 ? variance / (variance + level * level * 0.0004) : 1.0;
+              sum = mix(original, sum, strength * noise);
+            }
+          }
         }
         gl_FragColor = vec4(sum, center.a);
         if (finalPass) {

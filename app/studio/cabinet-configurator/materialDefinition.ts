@@ -36,6 +36,11 @@ export type MaterialDefinition = {
     metalness?: number;
     ior?: number;
     specularIntensity?: number;
+    normalStrength?: number;
+    clearcoat?: number;
+    clearcoatRoughness?: number;
+    /** Linear roughness remap of the source scan, before its scalar multiplier. */
+    roughnessMapRange?: [number, number];
   };
   textures?: {
     albedo?: TextureAsset;
@@ -132,10 +137,33 @@ export function validMaterialDefinition(
       !/^#[a-f0-9]{6}$/i.test(pbr.albedoTint))
   )
     return false;
-  for (const key of ['roughness', 'metalness', 'specularIntensity'] as const) {
+  for (const key of [
+    'roughness',
+    'metalness',
+    'specularIntensity',
+    'clearcoat',
+    'clearcoatRoughness',
+  ] as const) {
     const n = pbr[key];
     if (n !== undefined && (!finite(n) || n < 0 || n > 1)) return false;
   }
+  if (
+    pbr.normalStrength !== undefined &&
+    (!finite(pbr.normalStrength) ||
+      pbr.normalStrength < 0 ||
+      pbr.normalStrength > 2)
+  )
+    return false;
+  if (
+    pbr.roughnessMapRange !== undefined &&
+    (!Array.isArray(pbr.roughnessMapRange) ||
+      pbr.roughnessMapRange.length !== 2 ||
+      pbr.roughnessMapRange.some((n) => !finite(n) || n < 0 || n > 1) ||
+      !finite(pbr.roughnessMapRange[0]) ||
+      !finite(pbr.roughnessMapRange[1]) ||
+      pbr.roughnessMapRange[0] > pbr.roughnessMapRange[1])
+  )
+    return false;
   if (
     pbr.ior !== undefined &&
     (!finite(pbr.ior) || pbr.ior < 1 || pbr.ior > 2.333)

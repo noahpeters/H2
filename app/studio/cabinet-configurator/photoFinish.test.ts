@@ -74,7 +74,7 @@ test('finishing meters in linear HDR, applies AgX once, and releases only tempor
       expect.any(THREE.WebGLRenderTarget),
     ]);
     expect(configurations[2]).toEqual([
-      THREE.AgXToneMapping,
+      THREE.ACESFilmicToneMapping,
       THREE.SRGBColorSpace,
       null,
     ]);
