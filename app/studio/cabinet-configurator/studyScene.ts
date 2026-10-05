@@ -172,6 +172,7 @@ function desiredObjects(study: Study): Desired[] {
         edges,
         room.toeKick,
         room.overlay,
+        room.useMapleInternals,
         frameRuns.get(item.id),
         toeRuns.get(item.id),
         room.height,

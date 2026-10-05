@@ -2166,6 +2166,19 @@ export function CabinetConfigurator({
                 </div>
               ))}
               <label>
+                <input
+                  type="checkbox"
+                  checked={study.room.useMapleInternals ?? false}
+                  onChange={(event) => {
+                    const enabled = event.currentTarget.checked;
+                    update((d) => {
+                      d.room.useMapleInternals = enabled;
+                    });
+                  }}
+                />
+                Use maple internals
+              </label>
+              <label>
                 Front overlay
                 <select
                   value={study.room.overlay ?? 'full-overlay'}

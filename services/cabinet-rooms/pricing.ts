@@ -1,4 +1,15 @@
-import {cabinetToeKick} from '../../app/studio/cabinet-configurator/cabinetEnvelope';
+import {
+  cabinetInteriorSelection,
+  exposedCabinetInterior,
+  internalCustomPart,
+} from '../../app/studio/cabinet-configurator/cabinetInternals';
+import {
+  cabinetToeKick,
+  cabinetCompositionEnvelope,
+} from '../../app/studio/cabinet-configurator/cabinetEnvelope';
+import {fitDefinition} from '../../app/studio/cabinet-configurator/custom-unit/designConfigurations';
+import {customUnitLayoutParts} from '../../app/studio/cabinet-configurator/custom-unit/layoutParts';
+import {roomFrontParts} from '../../app/studio/cabinet-configurator/custom-unit/frontLayout';
 import type {Study} from '../../app/studio/cabinet-configurator/CabinetConfigurator';
 import {minimumTallHeight} from '../../app/studio/cabinet-configurator/model';
 import {storageLayout} from '../../app/studio/cabinet-configurator/openStorage';
@@ -32,6 +43,11 @@ export type ScheduleLine = {
   depth: number;
   height: number;
   material: string;
+  interiorMaterial?: string;
+  drawerMaterial?: string;
+  carcassArea?: number;
+  faceArea?: number;
+  backArea?: number;
   boxUnits: number;
   feet: number;
   toeKickHeight?: number;
@@ -50,7 +66,7 @@ export function projectSchedule(study: Study) {
   const lines: ScheduleLine[] = [];
   const assumptions = new Set<string>([
     'Budget estimate, not a final quote; dimensions and construction require shop review.',
-    'Unspecified interior shelves are excluded. Standard box/drawer/finishing labor is used for all front styles; shaker and inset joinery need review.',
+    'Unspecified standard interior shelves are excluded. Standard box/drawer/finishing labor is used for all front styles; shaker and inset joinery need review.',
     'Visible fronts use sheet-area allowances, not a detailed rail-and-stile cut list.',
     'Four Axilo feet per base/tall cabinet; their default cost is covered by project miscellaneous materials.',
   ]);
@@ -138,9 +154,8 @@ export function projectSchedule(study: Study) {
         );
       }
     }
-    const visibleBox =
-      !!e.storage || (e.kind === 'wall-cabinet' && e.face === 'shaker-glass');
-    if (visibleBox && !e.storage)
+    const visibleBox = exposedCabinetInterior(e, study.room);
+    if (visibleBox && e.kind === 'wall-cabinet' && e.face === 'shaker-glass')
       assumptions.add(
         'Glass-front uppers use visible-material carcasses and a conservative full face-stock allowance; glass itself is excluded.',
       );
@@ -166,12 +181,64 @@ export function projectSchedule(study: Study) {
         'Open storage includes visible-material shelves, dividers, top and optional finished back. Shelf supports and hanging-rod hardware use the project miscellaneous allowance unless separately configured; interior assembly uses the standard box labor allowance and requires shop review.',
       );
     }
+    let customAreas: Pick<
+      ScheduleLine,
+      'carcassArea' | 'faceArea' | 'backArea'
+    > = {};
+    if (e.customCabinet) {
+      const unit = fitDefinition(
+        e.customCabinet.definition,
+        cabinetCompositionEnvelope(e, study.room),
+      );
+      const parts = roomFrontParts(
+        {
+          ...unit,
+          parts: customUnitLayoutParts(unit) as NonNullable<typeof unit.parts>,
+        },
+        study.room.overlay ?? 'full-overlay',
+      );
+      const area = (part: (typeof parts)[number]) => {
+        const dimensions = [part.width, part.height, part.depth].sort(
+          (a, b) => b - a,
+        );
+        return (dimensions[0] * dimensions[1]) / 144;
+      };
+      customAreas = {
+        carcassArea: parts
+          .filter(internalCustomPart)
+          .reduce((total, part) => total + area(part), 0),
+        faceArea:
+          parts
+            .filter((part) => part.kind !== 'rod' && !internalCustomPart(part))
+            .reduce((total, part) => total + area(part), 0) +
+          (feet ? (e.width * toeKickHeight) / 144 : 0),
+        backArea: 0,
+      };
+      drawers = parts.filter((part) => part.kind === 'drawer').length;
+      doors = parts.filter((part) => part.kind === 'door').length;
+      assumptions.add(
+        'Custom cabinet stock uses the saved physical parts; drawer boxes retain the standard drawer construction allowance.',
+      );
+    }
+    assumptions.add(
+      study.room.useMapleInternals
+        ? 'Maple stock is preferred for concealed carcasses and drawer boxes. Open and glass-front interiors retain the front material.'
+        : 'Carcasses and drawer boxes use the selected front-material allowance.',
+    );
+    if (drawers && !study.room.useMapleInternals && material !== 'maple')
+      assumptions.add(
+        'Species-specific drawer stock rates are used when configured; otherwise the selected material-to-maple sheet-rate ratio is a budget allowance for drawer stock and bottoms. Verify solid-stock costs before a final quote.',
+      );
     lines.push({
       id: e.id,
       width: e.width,
       depth: e.depth,
       height: e.height,
       material,
+      interiorMaterial:
+        cabinetInteriorSelection(e, study.room).material ?? material,
+      drawerMaterial: study.room.useMapleInternals ? 'maple' : material,
+      ...customAreas,
       boxUnits: panel ? 0 : 1,
       feet,
       toeKickHeight,
@@ -212,9 +279,22 @@ export function projectSchedule(study: Study) {
 }
 /** Internal-only result, never serialize this object in an HTTP response. */
 export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
-  const rate = (key: string) => {
+  const rate = (key: string): number => {
     // Plain-sawn white oak follows maple pricing; purchase pools stay separate.
     const rateKey = key === 'face_plain-white-oak' ? 'face_maple' : key;
+    // Existing drawer rates describe maple. Prefer a configured species rate;
+    // otherwise use the selected sheet-rate ratio as an explicit budget allowance.
+    const drawerSpecies = key.match(
+      /^(drawer_stock|drawer_bottom_sheet)_(.+)$/,
+    );
+    if (drawerSpecies && rates[key] === undefined) {
+      const maple = rate('face_maple');
+      if (maple <= 0)
+        throw new PricingError('pricing_not_configured', ['face_maple']);
+      return (
+        (rate(drawerSpecies[1]) * rate(`face_${drawerSpecies[2]}`)) / maple
+      );
+    }
     const value = rates[rateKey];
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
       throw new PricingError('pricing_not_configured', [rateKey]);
@@ -240,33 +320,43 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       h = c.height - (c.toeKickHeight ?? (c.feet ? 4 : 0)),
       iw = w - 1.5;
     const carcass =
+      c.carcassArea ??
       (c.boxUnits * (2 * d * h + iw * d + 4 * iw * 3)) / 144 +
-      (c.extraCarcass ?? 0);
+        (c.extraCarcass ?? 0);
     const face =
+      c.faceArea ??
       (c.finishUnits * w * h * c.frontCoverage +
         c.endPanels * d * h +
         c.finishUnits * w * h * c.finishedBack +
         (c.feet ? c.boxUnits * w * (c.toeKickHeight ?? 4) : 0)) /
-      144;
-    add('box_sheet', c.visibleBox ? 0 : carcass, 'box_waste');
+        144;
+    if (c.interiorMaterial)
+      add(`face_${c.interiorMaterial}`, carcass, 'face_waste');
+    else add('box_sheet', c.visibleBox ? 0 : carcass, 'box_waste');
     add(
       `face_${c.material}`,
-      face + (c.visibleBox ? carcass : 0),
+      face + (!c.interiorMaterial && c.visibleBox ? carcass : 0),
       'face_waste',
     );
+    const backArea =
+      c.backArea ?? (c.boxUnits * iw * h * (c.backSheetFactor ?? 1)) / 144;
     add(
-      'back_sheet',
-      (c.boxUnits * iw * h * (c.backSheetFactor ?? 1)) / 144,
-      'back_waste',
+      c.interiorMaterial ? `face_${c.interiorMaterial}` : 'back_sheet',
+      backArea,
+      c.interiorMaterial ? 'face_waste' : 'back_waste',
     );
+    const drawerSuffix =
+      c.drawerMaterial && c.drawerMaterial !== 'maple'
+        ? `_${c.drawerMaterial}`
+        : '';
     add(
-      'drawer_stock',
+      `drawer_stock${drawerSuffix}`,
       (c.drawers * 2 * (d - 3 + (w - 1.25))) / 12,
       'drawer_stock_waste',
       1,
     );
     add(
-      'drawer_bottom_sheet',
+      `drawer_bottom_sheet${drawerSuffix}`,
       (c.drawers * (d - 3) * (w - 1.25)) / 144,
       'drawer_bottom_waste',
     );

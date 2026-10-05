@@ -1,3 +1,4 @@
+import {drawerBoxSelection, internalCustomPart} from '../cabinetInternals';
 import {archedFrontGeometry} from './archedFrontGeometry';
 import {decorateBackPanel} from '../backPanels';
 import type {FrameNeighbors} from '../continuousFaceFrames';
@@ -51,7 +52,12 @@ export function customUnitGeometry(
       followsProfile || part.profileMode === 'cabinet' ? undefined : part.shape;
     const material =
       appearance && part.kind !== 'rod'
-        ? createCabinetMaterial(appearance, 1)
+        ? createCabinetMaterial(
+            internalCustomPart(part)
+              ? (appearance.interior ?? appearance)
+              : appearance,
+            1,
+          )
         : new THREE.MeshStandardMaterial({
             color:
               part.kind === 'rod'
@@ -197,6 +203,9 @@ export function customUnitGeometry(
       {...part, id: part.id!},
       openings[part.arrayId ?? part.id!] ?? 0,
       definition.depth,
+      appearance
+        ? drawerBoxSelection(appearance, appearance.useMapleInternals)
+        : undefined,
     );
     object.userData.partId = part.arrayId ?? part.id;
     object.userData.partRoot = true;

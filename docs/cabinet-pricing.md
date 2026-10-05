@@ -41,3 +41,13 @@ The trigger refreshes updated_at; newly requested estimates immediately use curr
 ## Verification after merge
 
 Confirm both migrations and storefront/Worker deployment passed. On production, open the price form, verify Turnstile succeeds, submit an opt-out request and confirm a range plus a snapshot but no lead. Separately, with explicit permission to create a test lead, verify opt-in and optional phone. Do not send test emails; pricing sends none.
+
+## Maple internals
+
+The optional room flag `useMapleInternals` is saved with the design. With it enabled, concealed carcasses and drawer boxes use maple in the interactive scene, photo capture, fabrication manifest, and parts CSV. Door and drawer fronts, face frames, toe-kick faces, separate end attachments, and visible open or glass-front interiors retain the cabinet finish. A custom cabinet with any uncovered opening retains its selected carcass finish; its drawer boxes can still be maple. Ordinary door opening during preview does not change this stock choice.
+
+Room estimates now use the selected interior material rather than assuming generic box stock for every closed cabinet. Carcass and back area share the appropriate `face_<material>` sheet purchase pool. Custom cabinet carcass/front areas come from the saved physical parts. Unspecified standard shelves remain excluded, and standard drawer dimensions/labor allowances remain estimates.
+
+Maple drawer stock and bottoms use the existing `drawer_stock` and `drawer_bottom_sheet` rates. Other species prefer explicitly configured `drawer_stock_<material>` and `drawer_bottom_sheet_<material>` rates in the same units. When those keys are absent, the estimate scales the maple stock rate by the selected `face_<material>` to `face_maple` ratio; this is a disclosed budget allowance, not a verified solid-lumber quote. An explicitly NULL/invalid species rate fails closed. Plain-sawn white oak still follows the live maple sheet rate. No new production rate or migration is imposed.
+
+Premium species generally cost less with maple internals at the approved rates, but whole-sheet/linear-foot purchasing, separate material pools, and $500 range rounding can affect the displayed saving. Existing quote snapshots remain unchanged. The original generic-stock calculator fixture remains a regression test for the underlying purchase/labor/margin calculation; new room schedules explicitly carry their material selections.

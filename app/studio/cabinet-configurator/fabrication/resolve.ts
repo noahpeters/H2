@@ -1,3 +1,7 @@
+import {
+  cabinetInteriorSelection,
+  internalCustomPart,
+} from '../cabinetInternals';
 import {shakerFrameWidth} from '../hardwarePlacement';
 import {cabinetArchPane} from '../custom-unit/cabinetArch';
 import type {RoomFrontPart} from '../custom-unit/frontLayout';
@@ -125,12 +129,21 @@ export function resolveFabrication(
       item.materialDefinition?.label ??
       item.material ??
       'Front material — verify';
+    const interiorSelection = cabinetInteriorSelection(item, design.room);
+    const interiorMaterial =
+      interiorSelection !== item ? 'Maple plywood' : material;
+    const drawerMaterial = design.room.useMapleInternals
+      ? 'Maple drawer stock'
+      : material;
+    const drawerBottomMaterial = design.room.useMapleInternals
+      ? 'Maple veneer drawer-bottom plywood'
+      : material;
     const add = (
       name: string,
       origin: Vec3,
       size: Vec3,
       stockType: FabricationPart['stockType'] = 'sheet',
-      stockMaterial = 'Prefinished maple / Baltic-birch plywood',
+      stockMaterial = interiorMaterial,
       grainAxis?: 0 | 1 | 2,
     ) => {
       const thickness = axis(size);
@@ -200,7 +213,7 @@ export function resolveFabrication(
           [x + (right ? w - t : 0), z, y],
           [t, d, h],
           'solid',
-          'Maple drawer stock',
+          drawerMaterial,
           1,
         );
         for (const rear of [false, true])
@@ -218,7 +231,7 @@ export function resolveFabrication(
           [x + t - j, z + (rear ? d - t : 0), y],
           [w - 2 * t + 2 * j, t, h],
           'solid',
-          'Maple drawer stock',
+          drawerMaterial,
           0,
         );
         pocket(
@@ -233,7 +246,7 @@ export function resolveFabrication(
         [x + t - g, z + t - g, y + bottomInset],
         [w - 2 * t + 2 * g, d - 2 * t + 2 * g, b],
         'sheet',
-        'Maple veneer drawer-bottom plywood',
+        drawerBottomMaterial,
         0,
       );
     };
@@ -507,7 +520,11 @@ export function resolveFabrication(
               : part.kind === 'rod'
                 ? 'hardware'
                 : 'sheet',
-            part.kind === 'rod' ? 'Metal rod' : material,
+            part.kind === 'rod'
+              ? 'Metal rod'
+              : internalCustomPart(part)
+                ? interiorMaterial
+                : material,
             part.materialApplication?.grainAxis === 'x'
               ? 0
               : part.materialApplication?.grainAxis === 'z'
@@ -584,7 +601,7 @@ export function resolveFabrication(
           [t - g, insideDepth, t],
           [inner + 2 * g, b, h - t],
           'sheet',
-          'Back plywood',
+          interiorMaterial,
           2,
         );
         for (let i = 0; i < 2; i++)

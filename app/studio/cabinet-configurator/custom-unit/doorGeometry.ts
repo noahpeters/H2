@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import type {CabinetPart} from './model';
-import {materialFromTemplate, mapMaterialPart} from '../materialRendering';
+import {
+  createCabinetMaterial,
+  materialFromTemplate,
+  mapMaterialPart,
+} from '../materialRendering';
+import type {MaterialSelection} from '../materials';
 export type DoorMechanism =
   | 'hinged'
   | 'pocket'
@@ -14,6 +19,7 @@ export function doorPreview(
   part: CabinetPart,
   opening: number,
   cabinetDepth = 24,
+  drawerMaterial?: MaterialSelection,
 ): THREE.Object3D {
   if (part.kind !== 'door' && part.kind !== 'drawer') return mesh;
   const rig = new THREE.Group();
@@ -43,7 +49,9 @@ export function doorPreview(
     ) => {
       const board = new THREE.Mesh(
         new THREE.BoxGeometry(w, h, d),
-        materialFromTemplate(material),
+        drawerMaterial
+          ? createCabinetMaterial(drawerMaterial, 1)
+          : materialFromTemplate(material),
       );
       mapMaterialPart(
         board.geometry,
