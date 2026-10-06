@@ -1,3 +1,9 @@
+import {standardFrontSurface} from './cabinetFrontPlane';
+import {fitDefinition} from './custom-unit/designConfigurations';
+import {customUnitLayoutParts} from './custom-unit/layoutParts';
+import {roomFrontParts} from './custom-unit/frontLayout';
+import {cabinetCompositionEnvelope} from './cabinetEnvelope';
+import type {CabinetPart} from './custom-unit/model';
 import {wallToFloor, type Room, type RoomElement} from './model';
 import {roomSegments} from './roomOutline';
 import {wallFootprint} from './wallDimensions';
@@ -107,6 +113,34 @@ export function automaticFinishPanels(
       owner.storage?.type === 'floating-shelves'
     )
       continue;
+    // Framed panels end at the carcass: widened outer stiles cover their edges.
+    // Frameless panels reach the actual closed front, excluding handles.
+    let frontExtension = 0;
+    if ((room.overlay ?? 'full-overlay') === 'full-overlay') {
+      if (owner.customCabinet) {
+        const unit = fitDefinition(
+          owner.customCabinet.definition,
+          cabinetCompositionEnvelope(owner, room),
+        );
+        const fronts = roomFrontParts(
+          {...unit, parts: customUnitLayoutParts(unit) as CabinetPart[]},
+          'full-overlay',
+        ).filter(
+          (p) =>
+            (p.kind === 'door' || p.kind === 'drawer') &&
+            p.z <= 0 &&
+            p.door?.mechanism !== 'tambour' &&
+            p.drawerArray?.face !== 'internal',
+        );
+        frontExtension = Math.max(0, ...fronts.map((p) => -p.z));
+      } else if (
+        !owner.storage ||
+        owner.storage.doors ||
+        owner.storage.drawers
+      ) {
+        frontExtension = standardFrontSurface(0, 'full-overlay');
+      }
+    }
     const p = wallToFloor(owner, room),
       angle = (p.rotation * Math.PI) / 180;
     const local = (point: Point) => ({
@@ -173,10 +207,21 @@ export function automaticFinishPanels(
         exposed = exposed.flatMap((r) => subtract(r, rect));
       }
       exposed.forEach((r, index) => {
+        // Extend only patches that reach the front. Subtract blockers first so
+        // neighboring cabinets never leave a spurious front-only panel strip.
+        const front =
+          side &&
+          Math.abs(r.b - end) < EPS &&
+          !(
+            owner.configuration === 'corner' &&
+            !owner.customCabinet &&
+            surface === 'left'
+          );
+        const b = r.b + (front ? frontExtension : 0);
         const t = DEFAULT_PANEL_THICKNESS,
-          span = r.b - r.a;
+          span = b - r.a;
         const x = side ? boundary + (sign * t) / 2 : (r.a + r.b) / 2;
-        const z = side ? (r.a + r.b) / 2 : boundary - t / 2;
+        const z = side ? (r.a + b) / 2 : boundary - t / 2;
         const rotation = p.rotation + (side ? 0 : 90);
         panels.push({
           id: `auto-panel:${owner.id}:${surface}:${index}`,

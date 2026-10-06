@@ -909,8 +909,8 @@ it('prices only the derived finish panels with maple internals, without duplicat
   expect(schedule[0]).toMatchObject({endPanels: 0, finishedBack: 0});
   const panels = schedule.filter((line) => line.id.startsWith('auto-panel:'));
   expect(panels.map((line) => line.faceArea)).toEqual([
-    (24 * 34.5) / 144,
-    (24 * 34.5) / 144,
+    (24.75 * 34.5) / 144,
+    (24.75 * 34.5) / 144,
     (30 * 34.5) / 144,
   ]);
   expect(
