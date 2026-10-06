@@ -2,6 +2,7 @@ import {isShakerFace} from './faceProfiles';
 export type HardwareFaceStyle =
   | 'shaker'
   | 'beaded-shaker'
+  | 'beaded-flat'
   | 'shaker-glass'
   | 'slab'
   | 'vertical-slat';

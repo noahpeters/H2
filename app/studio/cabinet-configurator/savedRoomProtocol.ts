@@ -291,6 +291,7 @@ export function validStudy(value: any): boolean {
         [
           'shaker',
           'beaded-shaker',
+          'beaded-flat',
           'slab',
           'shaker-glass',
           'inset-shaker',

@@ -2,6 +2,7 @@ import {
   SHAKER_PANEL_SETBACK,
   shakerPanelDepth,
   isShakerFace,
+  isBeadedFace,
 } from '../faceProfiles';
 import {facePreviewGeometry} from '../custom-unit/facePreview';
 import {archedFrontGeometry} from '../custom-unit/archedFrontGeometry';
@@ -103,7 +104,7 @@ export function resolveFabrication(
       'Each rectangular stock component has local grain/width/thickness axes. Dimensions include insertion into joints.',
       'Toe-kick faces are separate clip-on stock components below floor cabinets; clips and feet are excluded.',
       'Custom compositions retain their explicit board thicknesses and full tops. Touching horizontal/back boards receive dados into vertical boards.',
-      'Shaker rails have stub tenons; panels fit grooves. Beaded Shaker uses routed solid stock with a 1/4-inch rounded bead and 5/16-inch panel setback; machining toolpaths are excluded. Decorative slat routing is represented as stock, not machining.',
+      'Shaker rails have stub tenons; panels fit grooves. Beaded profiles use routed solid stock with a 1/4-inch rounded bead; Beaded Shaker has a 5/16-inch panel setback and Beaded Flat is flush; machining toolpaths are excluded. Decorative slat routing is represented as stock, not machining.',
     ],
     excluded: [
       'Room surfaces, countertops, fixtures, appliances, pulls, hinges, slides, Axilo feet and plumbing. Hardware requires separate supplier specifications.',
@@ -302,7 +303,7 @@ export function resolveFabrication(
         return;
       }
       const faceStyle = part.faceStyle ?? item.face;
-      if (faceStyle === 'beaded-shaker') {
+      if (isBeadedFace(faceStyle)) {
         const geometry = part.outline
           ? archedFrontGeometry(part, faceStyle)
           : facePreviewGeometry(
@@ -311,9 +312,10 @@ export function resolveFabrication(
               part.depth,
               faceStyle,
               Boolean(item.customCabinet),
+              part.kind === 'drawer' ? 'x' : 'y',
             );
         const board = add(
-          `${part.kind === 'drawer' ? 'Drawer front' : 'Door'} — Beaded Shaker`,
+          `${part.kind === 'drawer' ? 'Drawer front' : 'Door'} — ${faceStyle === 'beaded-flat' ? 'Beaded Flat' : 'Beaded Shaker'}`,
           [part.x, part.z, part.y],
           [part.width, part.depth, part.height],
           'solid',

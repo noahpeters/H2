@@ -1,3 +1,4 @@
+import {facePreviewGeometry} from './custom-unit/facePreview';
 import {
   isShakerFace,
   SHAKER_PANEL_SETBACK,
@@ -370,6 +371,28 @@ export function cabinetGeometry(
       drawer ? 'drawer' : 'door',
     );
     frontPanel.name = 'cabinet-front';
+    if (item.face === 'beaded-flat') {
+      frontPanel.geometry.dispose();
+      frontPanel.geometry = facePreviewGeometry(
+        width,
+        height,
+        0.75,
+        item.face,
+        false,
+        drawer ? 'x' : 'y',
+      )
+        .rotateY(Math.PI)
+        .scale(inch, inch, inch) as THREE.BoxGeometry;
+      frontPanel.position.z = faceZ * inch;
+      mapMaterialPart(
+        frontPanel.geometry,
+        panel,
+        {width: width * inch, height: height * inch, depth: 0.75 * inch},
+        'm',
+        drawer ? 'drawer' : 'door',
+      );
+    }
+
     if (item.face === 'vertical-slat') {
       const spacing = Math.max(1.75, Math.min(2.5, width / 8));
       const count = Math.max(2, Math.floor(width / spacing));

@@ -239,9 +239,14 @@ describe('physical Shaker profile dimensions', () => {
   );
 });
 
-it.each([false, true])(
-  'beaded custom fronts export the same vertices as preview (arch=%s)',
-  (arched) => {
+it.each([
+  [false, 'beaded-shaker'],
+  [true, 'beaded-shaker'],
+  [false, 'beaded-flat'],
+  [true, 'beaded-flat'],
+] as const)(
+  'beaded custom fronts export the same vertices as preview (arch=%s, face=%s)',
+  (arched, face) => {
     const unit = createCustomUnit({
       width: 36,
       height: 60,
@@ -258,7 +263,7 @@ it.each([false, true])(
         width: 36,
         height: 60,
         depth: unit.depth,
-        face: 'beaded-shaker',
+        face,
         customCabinet: {
           libraryId: 'local',
           libraryVersion: 1,
@@ -274,7 +279,9 @@ it.each([false, true])(
       study.room,
     );
     const manifest = resolveFabrication(study, source, DEFAULT_CONSTRUCTION);
-    const board = manifest.parts.find((p) => p.name.includes('Beaded Shaker'))!;
+    const board = manifest.parts.find((p) =>
+      p.name.includes(face === 'beaded-flat' ? 'Beaded Flat' : 'Beaded Shaker'),
+    )!;
     expect(board.mesh).toBeDefined();
     const door = preview.getObjectByName('custom-unit-door') as THREE.Mesh;
     const positions = door.geometry.getAttribute('position');
@@ -301,3 +308,74 @@ it.each([false, true])(
     expect(JSON.stringify(study)).toBe(before);
   },
 );
+
+it.each([false, true])(
+  'Beaded Flat is flush with a quarter-inch perimeter bead (segmented=%s)',
+  (segmented) => {
+    const geometry = facePreviewGeometry(
+      18,
+      30,
+      0.75,
+      'beaded-flat',
+      segmented,
+      'x',
+    );
+    expect(frontHit(geometry)).toBeCloseTo(-0.375, 6);
+    expect(frontHit(geometry, 8.625)).toBeCloseTo(-0.375, 6);
+    expect(frontHit(geometry, 8.5625)).toBeGreaterThan(-0.375);
+    expect(frontHit(geometry, 8.8)).toBeCloseTo(-0.375, 6);
+    expect(new Set(geometry.getAttribute('materialGrainAxis').array)).toEqual(
+      new Set([0]),
+    );
+    expect(new Set(geometry.getAttribute('materialFixedGrain').array)).toEqual(
+      new Set([0]),
+    );
+    const photo = easedGeometry(geometry, 0.03);
+    expect(Array.from(photo.getAttribute('position').array)).toEqual(
+      Array.from(geometry.getAttribute('position').array),
+    );
+    photo.dispose();
+    geometry.dispose();
+  },
+);
+
+it('Beaded Flat renders moving standard doors/drawers and exports flush profiled stock', () => {
+  const study = blankStudy();
+  study.elements = [
+    {...front, face: 'beaded-flat', configuration: 'door-drawer'},
+  ];
+  const group = cabinetGeometry(study.elements[0], false, false, study.room);
+  const fronts: THREE.Mesh[] = [];
+  group.traverse((object) => {
+    if (object.name === 'cabinet-front') fronts.push(object as THREE.Mesh);
+  });
+  expect(fronts).toHaveLength(2);
+  expect(
+    fronts.every((panel) =>
+      Boolean(
+        panel.getObjectByName('cabinet-door-handle') ||
+        panel.getObjectByName('cabinet-drawer-handle'),
+      ),
+    ),
+  ).toBe(true);
+  const manifest = resolveFabrication(study, source, DEFAULT_CONSTRUCTION);
+  const faces = manifest.parts.filter((p) => p.name.includes('Beaded Flat'));
+  expect(faces).toHaveLength(2);
+  for (const part of faces) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(
+        part.mesh!.vertices.flatMap((v) => [
+          v[0] - part.size[0] / 2,
+          v[2] - part.size[2] / 2,
+          v[1],
+        ]),
+        3,
+      ),
+    );
+    geometry.setIndex(part.mesh!.faces.flat());
+    expect(frontHit(geometry)).toBeCloseTo(0, 6);
+    geometry.dispose();
+  }
+});

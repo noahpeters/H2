@@ -1,5 +1,7 @@
 import {
   SHAKER_PANEL_SETBACK,
+  BEADED_FLAT_INSET,
+  isBeadedFace,
   SHAKER_BEAD_WIDTH,
   shakerPanelDepth,
   shakerBeadGeometry,
@@ -26,6 +28,7 @@ export const FACE_STYLES = {
   slab: 'Slab',
   shaker: 'Shaker',
   'beaded-shaker': 'Beaded Shaker',
+  'beaded-flat': 'Beaded Flat',
   'vertical-slat': 'Slatted',
   'shaker-glass': 'Shaker + glass',
 } as const;
@@ -95,9 +98,19 @@ export function facePreviewGeometry(
     rail: number,
     depth: number,
     z: number,
+    flat = false,
   ) => {
     for (const side of [-1, 1]) {
-      box(rail, height, depth, (side * (width - rail)) / 2, 0, z, 'y', true);
+      box(
+        rail,
+        height,
+        depth,
+        (side * (width - rail)) / 2,
+        0,
+        z,
+        flat ? grainAxis : 'y',
+        !flat,
+      );
       box(
         width - rail * 2,
         rail,
@@ -105,8 +118,8 @@ export function facePreviewGeometry(
         0,
         (side * (height - rail)) / 2,
         z,
-        'x',
-        true,
+        flat ? grainAxis : 'x',
+        !flat,
       );
     }
   };
@@ -123,9 +136,11 @@ export function facePreviewGeometry(
         -d / 4,
       );
   } else if (style !== 'slab') {
-    const rail = shakerFrameWidth(w, h);
-    const bead = style === 'beaded-shaker';
-    frame(w, h, bead ? rail - SHAKER_BEAD_WIDTH : rail, d, 0);
+    const flat = style === 'beaded-flat';
+    const rail = flat ? BEADED_FLAT_INSET : shakerFrameWidth(w, h);
+    const bead = isBeadedFace(style);
+    frame(w, h, bead ? rail - SHAKER_BEAD_WIDTH : rail, d, 0, flat);
+
     if (bead) {
       const geometry = shakerBeadGeometry(
         rectangularBeadAperture(w, h, rail, segmented),
@@ -138,25 +153,29 @@ export function facePreviewGeometry(
           new THREE.Float32BufferAttribute(
             Float32Array.from({length: count}, (_, i) =>
               attribute === 'materialFixedGrain'
-                ? 1
-                : Math.abs(geometry.getAttribute('position').getY(i)) >=
-                    h / 2 - rail - 1e-6
+                ? flat
                   ? 0
-                  : 1,
+                  : 1
+                : flat
+                  ? ['x', 'y', 'z'].indexOf(grainAxis)
+                  : Math.abs(geometry.getAttribute('position').getY(i)) >=
+                      h / 2 - rail - 1e-6
+                    ? 0
+                    : 1,
             ),
             1,
           ),
         );
       pieces.push(geometry);
     }
-    const p = shakerPanelDepth(d);
+    const p = flat ? d : shakerPanelDepth(d);
     box(
       w - rail * 2,
       h - rail * 2,
       p,
       0,
       0,
-      -d / 2 + SHAKER_PANEL_SETBACK + p / 2,
+      -d / 2 + (flat ? 0 : SHAKER_PANEL_SETBACK) + p / 2,
     );
   } else box(w, h, d, 0, 0, 0);
   const result = mergeGeometries(pieces, true)!;
@@ -165,7 +184,7 @@ export function facePreviewGeometry(
   });
   if (style === 'shaker-glass')
     result.groups[result.groups.length - 1].materialIndex = 1;
-  if (!segmented && style !== 'beaded-shaker')
+  if (!segmented && !isBeadedFace(style))
     result.userData.photoBoxes = photoBoxes;
   pieces.forEach((piece) => piece.dispose());
   return result;

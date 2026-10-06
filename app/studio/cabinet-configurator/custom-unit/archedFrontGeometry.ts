@@ -1,5 +1,7 @@
 import {
   isShakerFace,
+  isBeadedFace,
+  BEADED_FLAT_INSET,
   SHAKER_PANEL_SETBACK,
   SHAKER_BEAD_WIDTH,
   shakerPanelDepth,
@@ -25,11 +27,15 @@ export function archPath(points: ArchPoint[]) {
  * have a concentric inset aperture. Both move together with the door. */
 export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
   const shape = archPath(part.outline!);
+  const flat = style === 'beaded-flat';
   const pane =
-    part.cabinetArch && isShakerFace(style)
-      ? cabinetArchPane(part, shakerFrameWidth(part.width, part.height))
+    part.cabinetArch && (isShakerFace(style) || flat)
+      ? cabinetArchPane(
+          part,
+          flat ? BEADED_FLAT_INSET : shakerFrameWidth(part.width, part.height),
+        )
       : [];
-  const bead = style === 'beaded-shaker' && pane.length >= 3;
+  const bead = isBeadedFace(style) && pane.length >= 3;
   if (pane.length >= 3)
     shape.holes.push(
       archPath(
@@ -43,13 +49,13 @@ export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
   frame.translate(-part.width / 2, -part.height / 2, -part.depth / 2);
   if (pane.length < 3) return frame;
   const panel = new THREE.ExtrudeGeometry(archPath(pane), {
-    depth: shakerPanelDepth(part.depth),
+    depth: flat ? part.depth : shakerPanelDepth(part.depth),
     bevelEnabled: false,
   });
   panel.translate(
     -part.width / 2,
     -part.height / 2,
-    -part.depth / 2 + SHAKER_PANEL_SETBACK,
+    -part.depth / 2 + (flat ? 0 : SHAKER_PANEL_SETBACK),
   );
   const pieces: THREE.BufferGeometry[] = [frame, panel];
   if (bead)

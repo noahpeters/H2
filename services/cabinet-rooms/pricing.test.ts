@@ -796,3 +796,44 @@ it('does not charge a profile without physical faces and includes the addition b
   expect(estimate.range).toEqual(priceRange(priced.price));
   expect(estimate.assumptions.join(' ')).toContain('$10 per door/drawer face');
 });
+
+it('adds exactly $5 per beaded flat face and sums mixed profile overrides', () => {
+  const {rates} = setup();
+  const baseline = calculatePrice(projectSchedule(study()).lines, rates);
+  const flat = projectSchedule(study([{...cabinet, face: 'beaded-flat'}]));
+  expect(flat.lines[0].beadedFlatFaces).toBe(3);
+  expect(flat.lines[0].beadedFaces).toBe(0);
+  expect(calculatePrice(flat.lines, rates).price - baseline.price).toBeCloseTo(
+    15,
+    6,
+  );
+  expect(flat.assumptions.join(' ')).toContain('$5 per door/drawer face');
+  const definition = configurationTemplate(cabinet);
+  definition.parts = ['beaded-shaker', 'beaded-flat', 'slab'].map(
+    (faceStyle, i) => ({
+      id: `face-${i}`,
+      kind: 'drawer',
+      x: 1,
+      y: 1 + i * 8,
+      z: -0.75,
+      width: 28,
+      height: 7,
+      depth: 0.75,
+      faceStyle: faceStyle as 'beaded-shaker' | 'beaded-flat' | 'slab',
+    }),
+  );
+  const item = {
+    ...cabinet,
+    customCabinet: {libraryId: 'test', libraryVersion: 1, definition},
+  };
+  const mixed = projectSchedule(study([item])).lines;
+  expect(mixed[0]).toMatchObject({beadedFaces: 1, beadedFlatFaces: 1});
+  const plain = structuredClone(item);
+  plain.customCabinet.definition.parts!.forEach((part) => {
+    part.faceStyle = 'slab';
+  });
+  expect(
+    calculatePrice(mixed, rates).price -
+      calculatePrice(projectSchedule(study([plain])).lines, rates).price,
+  ).toBeCloseTo(15, 6);
+});

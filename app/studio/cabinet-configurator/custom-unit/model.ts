@@ -52,6 +52,7 @@ export type CabinetPart = {
     | 'slab'
     | 'shaker'
     | 'beaded-shaker'
+    | 'beaded-flat'
     | 'vertical-slat'
     | 'shaker-glass';
   door?: {
@@ -394,6 +395,7 @@ export function validateCustomUnit(value: unknown): string[] {
               'slab',
               'shaker',
               'beaded-shaker',
+              'beaded-flat',
               'inset-shaker',
               'vertical-slat',
               'shaker-glass',

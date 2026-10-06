@@ -116,7 +116,13 @@ export type RoomElement = {
   width: number;
   depth: number;
   height: number;
-  face: 'shaker' | 'beaded-shaker' | 'slab' | 'shaker-glass' | 'vertical-slat';
+  face:
+    | 'shaker'
+    | 'beaded-shaker'
+    | 'beaded-flat'
+    | 'slab'
+    | 'shaker-glass'
+    | 'vertical-slat';
   hinge?: 'left' | 'right';
   applianceFront?: ApplianceFront;
   rangeHood?: boolean;
