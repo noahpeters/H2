@@ -1,3 +1,10 @@
+import {
+  SHAKER_PANEL_SETBACK,
+  SHAKER_BEAD_WIDTH,
+  shakerPanelDepth,
+  shakerBeadGeometry,
+  rectangularBeadAperture,
+} from '../faceProfiles';
 import {shakerFrameWidth} from '../hardwarePlacement';
 import type {Overlay} from '../overlay';
 import * as THREE from 'three';
@@ -18,6 +25,7 @@ export type CabinetAppearance = {
 export const FACE_STYLES = {
   slab: 'Slab',
   shaker: 'Shaker',
+  'beaded-shaker': 'Beaded Shaker',
   'vertical-slat': 'Slatted',
   'shaker-glass': 'Shaker + glass',
 } as const;
@@ -116,8 +124,40 @@ export function facePreviewGeometry(
       );
   } else if (style !== 'slab') {
     const rail = shakerFrameWidth(w, h);
-    frame(w, h, rail, d, 0);
-    box(w - rail * 2, h - rail * 2, d / 3, 0, 0, d / 3);
+    const bead = style === 'beaded-shaker';
+    frame(w, h, bead ? rail - SHAKER_BEAD_WIDTH : rail, d, 0);
+    if (bead) {
+      const geometry = shakerBeadGeometry(
+        rectangularBeadAperture(w, h, rail, segmented),
+        d,
+      );
+      const count = geometry.getAttribute('position').count;
+      for (const attribute of ['materialGrainAxis', 'materialFixedGrain'])
+        geometry.setAttribute(
+          attribute,
+          new THREE.Float32BufferAttribute(
+            Float32Array.from({length: count}, (_, i) =>
+              attribute === 'materialFixedGrain'
+                ? 1
+                : Math.abs(geometry.getAttribute('position').getY(i)) >=
+                    h / 2 - rail - 1e-6
+                  ? 0
+                  : 1,
+            ),
+            1,
+          ),
+        );
+      pieces.push(geometry);
+    }
+    const p = shakerPanelDepth(d);
+    box(
+      w - rail * 2,
+      h - rail * 2,
+      p,
+      0,
+      0,
+      -d / 2 + SHAKER_PANEL_SETBACK + p / 2,
+    );
   } else box(w, h, d, 0, 0, 0);
   const result = mergeGeometries(pieces, true)!;
   result.groups.forEach((group) => {
@@ -125,7 +165,8 @@ export function facePreviewGeometry(
   });
   if (style === 'shaker-glass')
     result.groups[result.groups.length - 1].materialIndex = 1;
-  if (!segmented) result.userData.photoBoxes = photoBoxes;
+  if (!segmented && style !== 'beaded-shaker')
+    result.userData.photoBoxes = photoBoxes;
   pieces.forEach((piece) => piece.dispose());
   return result;
 }

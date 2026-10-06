@@ -47,6 +47,7 @@ function scopeFor(item: RoomElement) {
 
 const faces: RoomElement['face'][] = [
   'shaker',
+  'beaded-shaker',
   'slab',
   'shaker-glass',
   'vertical-slat',

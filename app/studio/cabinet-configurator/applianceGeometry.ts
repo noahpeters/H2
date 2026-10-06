@@ -1,3 +1,4 @@
+import {SHAKER_PANEL_SETBACK} from './faceProfiles';
 import * as THREE from 'three';
 import {
   DEFAULT_COUNTERTOP_EDGES,
@@ -131,8 +132,18 @@ export function applianceGeometry(
       ph = h - 0.012;
     for (let i = 0; i < count; i++) {
       const x = ((i - (count - 1) / 2) * w) / count;
-      box(pw, ph, 0.012, x, 0, z + 0.006, panel, 'door').name =
-        'appliance-panel';
+      box(
+        pw,
+        ph,
+        0.012,
+        x,
+        0,
+        frontStyle === 'shaker'
+          ? z + 0.014 + 0.019 / 2 - SHAKER_PANEL_SETBACK * 0.0254 - 0.006
+          : z + 0.006,
+        panel,
+        'door',
+      ).name = 'appliance-panel';
       if (frontStyle === 'shaker') {
         const rail = Math.min(0.0508, pw / 5);
         for (const side of [-1, 1]) {

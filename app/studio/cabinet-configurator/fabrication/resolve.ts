@@ -1,4 +1,12 @@
 import {
+  SHAKER_PANEL_SETBACK,
+  shakerPanelDepth,
+  isShakerFace,
+} from '../faceProfiles';
+import {facePreviewGeometry} from '../custom-unit/facePreview';
+import {archedFrontGeometry} from '../custom-unit/archedFrontGeometry';
+import {cabinetProfilePoint, edgeSetback} from '../custom-unit/curves';
+import {
   cabinetInteriorSelection,
   internalCustomPart,
 } from '../cabinetInternals';
@@ -95,7 +103,7 @@ export function resolveFabrication(
       'Each rectangular stock component has local grain/width/thickness axes. Dimensions include insertion into joints.',
       'Toe-kick faces are separate clip-on stock components below floor cabinets; clips and feet are excluded.',
       'Custom compositions retain their explicit board thicknesses and full tops. Touching horizontal/back boards receive dados into vertical boards.',
-      'Shaker rails have stub tenons; panels fit grooves. Decorative slat routing is represented as stock, not machining.',
+      'Shaker rails have stub tenons; panels fit grooves. Beaded Shaker uses routed solid stock with a 1/4-inch rounded bead and 5/16-inch panel setback; machining toolpaths are excluded. Decorative slat routing is represented as stock, not machining.',
     ],
     excluded: [
       'Room surfaces, countertops, fixtures, appliances, pulls, hinges, slides, Axilo feet and plumbing. Hardware requires separate supplier specifications.',
@@ -293,12 +301,97 @@ export function resolveFabrication(
         }
         return;
       }
+      const faceStyle = part.faceStyle ?? item.face;
+      if (faceStyle === 'beaded-shaker') {
+        const geometry = part.outline
+          ? archedFrontGeometry(part, faceStyle)
+          : facePreviewGeometry(
+              part.width,
+              part.height,
+              part.depth,
+              faceStyle,
+              Boolean(item.customCabinet),
+            );
+        const board = add(
+          `${part.kind === 'drawer' ? 'Drawer front' : 'Door'} — Beaded Shaker`,
+          [part.x, part.z, part.y],
+          [part.width, part.depth, part.height],
+          'solid',
+          material,
+          part.kind === 'drawer' ? 0 : 2,
+        );
+        const definition = item.customCabinet
+          ? fitDefinition(item.customCabinet.definition, envelope)
+          : undefined;
+        const positions = geometry.getAttribute('position');
+        const vertices: Vec3[] = [];
+        for (let i = 0; i < positions.count; i++) {
+          let localX = positions.getX(i) + part.width / 2;
+          const follows =
+            definition &&
+            part.profileMode !== 'independent' &&
+            Boolean(definition.profile || definition.curve);
+          const localShape =
+            follows || part.profileMode === 'cabinet' ? undefined : part.shape;
+          if (localShape === 'round-left' || localShape === 'round-right') {
+            const reach = Math.sqrt(
+              Math.max(0, 1 - (positions.getZ(i) / (part.depth / 2)) ** 2),
+            );
+            localX =
+              localShape === 'round-right'
+                ? localX * reach
+                : part.width - (part.width - localX) * reach;
+          }
+          const x = localX + part.x;
+          let z = positions.getZ(i) + part.depth / 2 + part.z;
+          if (definition) {
+            const edges =
+              follows || part.profileMode === 'cabinet'
+                ? undefined
+                : part.edges;
+            if (edges) z += edgeSetback(x - part.x, part.width, edges);
+            const mapped = cabinetProfilePoint(definition, part, x, z);
+            vertices.push([
+              mapped[0],
+              mapped[1],
+              positions.getY(i) + part.height / 2 + part.y,
+            ]);
+          } else
+            vertices.push([x, z, positions.getY(i) + part.height / 2 + part.y]);
+        }
+        const index = geometry.getIndex();
+        const faces: number[][] = [];
+        const count = index?.count ?? positions.count;
+        for (let i = 0; i < count; i += 3) {
+          const face = [0, 1, 2].map((offset) =>
+            index ? index.getX(i + offset) : i + offset,
+          );
+          faces.push([face[0], face[2], face[1]]);
+        }
+        const lo = vertices.reduce(
+          (bounds, v) => bounds.map((n, axis) => Math.min(n, v[axis])) as Vec3,
+          [Infinity, Infinity, Infinity] as Vec3,
+        );
+        const hi = vertices.reduce(
+          (bounds, v) => bounds.map((n, axis) => Math.max(n, v[axis])) as Vec3,
+          [-Infinity, -Infinity, -Infinity] as Vec3,
+        );
+        board.origin = lo;
+        board.size = hi.map((n, axis) => n - lo[axis]) as Vec3;
+        board.mesh = {
+          vertices: vertices.map(
+            (v) => v.map((n, axis) => n - lo[axis]) as Vec3,
+          ),
+          faces,
+        };
+        geometry.dispose();
+        if (makeBox && opening) drawerBox(part, opening);
+        return;
+      }
       if (part.outline) {
         const style = part.faceStyle ?? item.face;
         const rail = shakerFrameWidth(part.width, part.height);
-        const pane = ['shaker', 'shaker-glass', 'inset-shaker'].includes(style)
-          ? cabinetArchPane(part, rail)
-          : [];
+        const pane = isShakerFace(style) ? cabinetArchPane(part, rail) : [];
         const board = add(
           part.kind === 'drawer'
             ? 'Arched drawer front'
@@ -313,15 +406,15 @@ export function resolveFabrication(
         );
         outlinedStock(board, part.outline, pane.length >= 3 ? [pane] : []);
         if (pane.length >= 3) {
-          const thickness = Math.min(
+          const thickness = shakerPanelDepth(
+            part.depth,
             profile.shakerPanelThickness,
-            part.depth / 3,
           );
           const panel = add(
             style === 'shaker-glass'
               ? 'Arched glass panel'
               : 'Arched door panel',
-            [part.x, part.z + (part.depth * 2) / 3, part.y],
+            [part.x, part.z + SHAKER_PANEL_SETBACK, part.y],
             [part.width, thickness, part.height],
             'solid',
             style === 'shaker-glass' ? 'glass' : material,
@@ -340,10 +433,11 @@ export function resolveFabrication(
         h = part.height,
         t = part.depth;
       const label = part.kind === 'drawer' ? 'Drawer front' : 'Door';
-      if (['shaker', 'shaker-glass', 'inset-shaker'].includes(style)) {
+      if (isShakerFace(style)) {
         const r = Math.min(profile.shakerRailWidth, w / 5, h / 4),
           g = Math.min(profile.shakerGrooveDepth, r / 2),
-          p = Math.min(profile.shakerPanelThickness, t / 3);
+          p = shakerPanelDepth(t, profile.shakerPanelThickness),
+          panelZ = SHAKER_PANEL_SETBACK;
         for (const right of [false, true]) {
           const stile = add(
             `${label} stile`,
@@ -353,12 +447,7 @@ export function resolveFabrication(
             material,
             2,
           );
-          pocket(
-            stile,
-            [right ? 0 : r - g, (t - p) / 2, 0],
-            [g, p, h],
-            'groove',
-          );
+          pocket(stile, [right ? 0 : r - g, panelZ, 0], [g, p, h], 'groove');
         }
         for (const top of [false, true]) {
           const rail = add(
@@ -374,20 +463,20 @@ export function resolveFabrication(
             for (const rear of [false, true])
               pocket(
                 rail,
-                [right ? rail.size[0] - g : 0, rear ? (t + p) / 2 : 0, 0],
-                [g, (t - p) / 2, r],
+                [right ? rail.size[0] - g : 0, rear ? panelZ + p : 0, 0],
+                [g, rear ? t - panelZ - p : panelZ, r],
                 'rabbet',
               );
           pocket(
             rail,
-            [0, (t - p) / 2, top ? 0 : r - g],
+            [0, panelZ, top ? 0 : r - g],
             [w - 2 * r + 2 * g, p, g],
             'groove',
           );
         }
         add(
           `${label} panel`,
-          [x + r - g, z + (t - p) / 2, y + r - g],
+          [x + r - g, z + panelZ, y + r - g],
           [w - 2 * r + 2 * g, p, h - 2 * r + 2 * g],
           'sheet',
           style === 'shaker-glass' ? 'Glass — verify thickness' : material,
@@ -548,7 +637,7 @@ export function resolveFabrication(
         profile.dadoDepth,
       );
       for (const [board, part] of shapeSources) {
-        if (board.basis || part.outline) continue;
+        if (board.basis || board.mesh || part.outline) continue;
         if (
           definition.curve ||
           definition.profile ||

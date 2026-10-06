@@ -1,5 +1,7 @@
+import {isShakerFace} from './faceProfiles';
 export type HardwareFaceStyle =
   | 'shaker'
+  | 'beaded-shaker'
   | 'shaker-glass'
   | 'slab'
   | 'vertical-slat';
@@ -34,7 +36,7 @@ export function frontPullLayout({
   drawer?: boolean;
   edge?: 'top' | 'bottom';
 }): PullLayout {
-  const framed = faceStyle === 'shaker' || faceStyle === 'shaker-glass';
+  const framed = isShakerFace(faceStyle);
   const rail = shakerFrameWidth(width, height);
   const clearance = Math.min(0.25, rail / 4);
   const selectedEdge = edge ?? (absoluteTop <= 35 ? 'top' : 'bottom');
