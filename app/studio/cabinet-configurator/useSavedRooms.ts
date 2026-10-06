@@ -26,6 +26,14 @@ export function readSavedRooms(): SavedRoom[] {
   }
 }
 const LOCAL_KEY = 'from-trees-cabinet-study-v1';
+class RoomRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 export async function roomRequest(
   method: string,
   slug?: string,
@@ -42,7 +50,11 @@ export async function roomRequest(
     },
   );
   const data = (await response.json()) as any;
-  if (!response.ok) throw new Error(data.error || 'Unable to save room');
+  if (!response.ok)
+    throw new RoomRequestError(
+      data.error || 'Unable to save room',
+      response.status,
+    );
   return data;
 }
 export function useSavedRooms(
@@ -136,21 +148,44 @@ export function useSavedRooms(
   );
   const flush = useCallback(async () => {
     clearTimeout(timer.current);
-    const record = active.current;
-    const data = latest.current;
-    const serialized = JSON.stringify(data);
-    if (!record)
-      throw new Error('No saved room yet. Use Retry or Copy to new.');
     const task = queue.current
       .catch(() => {})
       .then(async () => {
+        // A preceding save may recover into a new room. Resolve the target and
+        // snapshot when this task starts, rather than queuing a stale revision.
+        let record = active.current;
+        const data = latest.current;
+        const serialized = JSON.stringify(data);
+        if (!record)
+          throw new Error('No saved room yet. Use Retry or Copy to new.');
         if (saved.current === serialized && active.current === record) return;
         setStatus('Saving…');
-        const result = await roomRequest('PUT', record.slug, {
-          study: data,
-          editKey: record.editKey,
-          revision: record.revision,
-        });
+        let result;
+        try {
+          result = await roomRequest('PUT', record.slug, {
+            study: data,
+            editKey: record.editKey,
+            revision: record.revision,
+          });
+        } catch (e) {
+          if (!(e instanceof RoomRequestError) || e.status !== 409) throw e;
+          // Never overwrite another tab's newer design. Keep our exact draft
+          // in a new owned room, and only clear the old recovery draft after
+          // that copy has been saved successfully.
+          result = await roomRequest('POST', undefined, {
+            analyticsSessionId: analyticsSessionId(),
+            study: data,
+          });
+          delete record.draft;
+          remember(record);
+          record = result as SavedRoom;
+          active.current = record;
+          try {
+            sessionStorage.setItem(ACTIVE_KEY, record.slug);
+          } catch {
+            /* The recovered room is also first in browser history. */
+          }
+        }
         Object.assign(record, result);
         delete record.draft;
         if (
