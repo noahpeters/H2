@@ -1,3 +1,4 @@
+import {drawerBoxGeometry} from './drawerBoxGeometry';
 import {
   STANDARD_FRONT_THICKNESS,
   standardFrontCenter,
@@ -514,43 +515,17 @@ export function cabinetGeometry(
         drawerBoxSelection(item, room?.useMapleInternals),
         0.6,
       );
-      const drawerBox = new THREE.Group();
-      drawerBox.name = 'storage-drawer-box';
-      const innerWidth = Math.max(0.5, width - 1);
-      const innerHeight = Math.max(0.5, height - 1);
-      box(
-        drawerBox,
-        innerWidth,
-        0.5,
+      const drawerBox = drawerBoxGeometry(
+        Math.max(0.5, width - 1),
+        Math.max(0.5, height - 1),
         travel / inch,
-        0,
-        -innerHeight / 2,
-        -travel / inch / 2 - 0.25,
         drawerMaterial,
-        'shelf',
+        inch,
       );
-      for (const edge of [-1, 1])
-        box(
-          drawerBox,
-          0.5,
-          innerHeight,
-          travel / inch,
-          (edge * (innerWidth - 0.5)) / 2,
-          0,
-          -travel / inch / 2 - 0.25,
-          drawerMaterial,
-          'drawer-side',
-        );
-      box(
-        drawerBox,
-        innerWidth,
-        innerHeight,
-        0.5,
-        0,
-        0,
-        -travel / inch,
-        drawerMaterial,
-      );
+      drawerBox.rotation.y = Math.PI;
+      drawerBox.position.z =
+        (faceZ - frontPanel.position.z / inch - STANDARD_FRONT_THICKNESS / 2) *
+        inch;
       frontPanel.add(drawerBox);
     }
     frontPanel.userData.updateOpening = (value: number) => {
