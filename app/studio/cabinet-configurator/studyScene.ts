@@ -1,3 +1,4 @@
+import {withAutomaticFinishPanels} from './automaticFinishPanels';
 import {continuousToeKicks} from './continuousToeKicks';
 import {roomSegments} from './roomOutline';
 import {ROOM_MATERIALS, applyRoomSurface} from './roomMaterials';
@@ -70,6 +71,7 @@ function applyCountertops(object: THREE.Object3D, room: Room) {
 }
 
 function desiredObjects(study: Study): Desired[] {
+  study = withAutomaticFinishPanels(study);
   const {room} = study;
   const desired: Desired[] = [
     {
@@ -114,6 +116,7 @@ function desiredObjects(study: Study): Desired[] {
         island,
         room.countertopMaterial,
         room.overlay,
+        room.useMapleInternals,
         room.islandCountertopOverhang,
         study.elements.filter((item) => item.islandId === island.id),
       ]),

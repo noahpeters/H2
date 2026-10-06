@@ -1,3 +1,4 @@
+import {automaticFinishPanels, isAutoPanel} from './automaticFinishPanels';
 import {COMBINATION_FACE_STYLES} from './combinationFaces';
 import {CameraPositions} from './SavedCameraPositions';
 import {
@@ -1598,6 +1599,11 @@ export function CabinetConfigurator({
     () => cabinetTypes(study.configurations, study.elements, customCabinets),
     [study.configurations, study.elements, customCabinets],
   );
+  const autoPanels = useMemo(
+    () => automaticFinishPanels(study.elements, study.room),
+    [study.elements, study.room],
+  );
+  const selectedAutoPanel = autoPanels.find((p) => p.id === study.selected);
   const selected = study.elements.find((item) => item.id === study.selected);
   useEffect(() => {
     if (selected)
@@ -1824,6 +1830,10 @@ export function CabinetConfigurator({
     };
   };
   const startDrag = (ev: React.PointerEvent<SVGGElement>, e: RoomElement) => {
+    if (isAutoPanel(e)) {
+      ev.stopPropagation();
+      return;
+    }
     if (e.placement.mode === 'hosted') return;
     commandPressed.current = ev.metaKey;
     lastDragPointer.current = null;
@@ -2689,8 +2699,49 @@ export function CabinetConfigurator({
                   </select>
                 </label>
               </div>
+            ) : selectedAutoPanel ? (
+              <div className="cc-fields">
+                <strong>
+                  Automatic {selectedAutoPanel.autoPanel.surface} finish panel
+                </strong>
+                <p>
+                  Attached to its cabinet. Size and position are not editable.
+                </p>
+                <p>
+                  {selectedAutoPanel.width}″ thick × {selectedAutoPanel.depth}″
+                  wide × {selectedAutoPanel.height}″ high
+                </p>
+                <button
+                  onClick={() =>
+                    setStudy((c) => ({
+                      ...c,
+                      selected: selectedAutoPanel.autoPanel.ownerId,
+                    }))
+                  }
+                >
+                  Select controlling cabinet
+                </button>
+              </div>
             ) : selected ? (
               <div className="cc-fields">
+                {['base', 'tall', 'wall-cabinet'].includes(selected.kind) && (
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={selected.disableAutoPanels ?? false}
+                      onChange={(event) => {
+                        const disabled = event.currentTarget.checked;
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item) item.disableAutoPanels = disabled;
+                        });
+                      }}
+                    />
+                    Disable automatic finish panels
+                  </label>
+                )}
                 <div className="cc-selected-heading">
                   <strong>
                     {selected.kind === 'panel'
@@ -4048,7 +4099,7 @@ export function CabinetConfigurator({
                     </g>
                   );
                 })}
-                {[...study.elements]
+                {[...study.elements, ...autoPanels]
                   .sort(
                     (a, b) =>
                       Number(a.kind === 'wall-cabinet') -
@@ -4070,11 +4121,13 @@ export function CabinetConfigurator({
                         {e.configuration === 'corner' ? (
                           <path
                             style={
-                              e.kind === 'fixture'
-                                ? {fill: '#eeefeb'}
-                                : hasMaterialFinish(e) && !warnings.has(e.id)
-                                  ? {fill: cabinetColor(e)}
-                                  : undefined
+                              isAutoPanel(e)
+                                ? {fill: '#999999'}
+                                : e.kind === 'fixture'
+                                  ? {fill: '#eeefeb'}
+                                  : hasMaterialFinish(e) && !warnings.has(e.id)
+                                    ? {fill: cabinetColor(e)}
+                                    : undefined
                             }
                             d={(() => {
                               const a =
@@ -4089,11 +4142,13 @@ export function CabinetConfigurator({
                         ) : (
                           <rect
                             style={
-                              e.kind === 'fixture'
-                                ? {fill: '#eeefeb'}
-                                : hasMaterialFinish(e) && !warnings.has(e.id)
-                                  ? {fill: cabinetColor(e)}
-                                  : undefined
+                              isAutoPanel(e)
+                                ? {fill: '#999999'}
+                                : e.kind === 'fixture'
+                                  ? {fill: '#eeefeb'}
+                                  : hasMaterialFinish(e) && !warnings.has(e.id)
+                                    ? {fill: cabinetColor(e)}
+                                    : undefined
                             }
                             x={-b.w / 2}
                             y={-b.h / 2}
@@ -4125,26 +4180,30 @@ export function CabinetConfigurator({
                             y2={b.h / 2}
                           />
                         )}
-                        <text
-                          y="4"
-                          style={
-                            e.kind === 'fixture' ? {fill: '#263b37'} : undefined
-                          }
-                        >
-                          {e.fixtureKind
-                            ? {
-                                mirror: 'Mirror',
-                                'freestanding-tub': 'Tub',
-                                'alcove-tub': 'Alcove tub',
-                                'glass-shower': 'Shower',
-                                toilet: 'Toilet',
-                              }[e.fixtureKind]
-                            : e.storage
-                              ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
-                              : e.applianceKind
-                                ? APPLIANCE_CATALOG[e.applianceKind].label
-                                : `${e.width}″`}
-                        </text>
+                        {!isAutoPanel(e) && (
+                          <text
+                            y="4"
+                            style={
+                              e.kind === 'fixture'
+                                ? {fill: '#263b37'}
+                                : undefined
+                            }
+                          >
+                            {e.fixtureKind
+                              ? {
+                                  mirror: 'Mirror',
+                                  'freestanding-tub': 'Tub',
+                                  'alcove-tub': 'Alcove tub',
+                                  'glass-shower': 'Shower',
+                                  toilet: 'Toilet',
+                                }[e.fixtureKind]
+                              : e.storage
+                                ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
+                                : e.applianceKind
+                                  ? APPLIANCE_CATALOG[e.applianceKind].label
+                                  : `${e.width}″`}
+                          </text>
+                        )}
                       </g>
                     );
                   })}

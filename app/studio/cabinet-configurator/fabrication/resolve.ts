@@ -1,3 +1,4 @@
+import {automaticFinishPanels} from '../automaticFinishPanels';
 import {resolvePartFaces} from '../combinationFaces';
 import {
   SHAKER_PANEL_SETBACK,
@@ -1008,6 +1009,30 @@ export function resolveFabrication(
       part.origin[1] -= item.depth / 2;
       manifest.parts.push(part);
     }
+  }
+  for (const panel of automaticFinishPanels(design.elements, design.room)) {
+    const owner = design.elements.find(
+      (e) => e.id === panel.autoPanel.ownerId,
+    )!;
+    const local = panel.autoPanel;
+    manifest.parts.push({
+      id: panel.id,
+      assemblyId: owner.id,
+      name: `Automatic ${local.surface} finish panel`,
+      origin: [
+        local.x - local.width / 2,
+        -local.z - local.depth / 2,
+        local.bottom - cabinetToeKick(owner, design.room).height,
+      ],
+      size: [local.width, local.depth, panel.height],
+      grainAxis: 2,
+      material:
+        owner.materialDefinition?.label ??
+        owner.material ??
+        'Front material — verify',
+      stockType: 'sheet',
+      pockets: [],
+    });
   }
   // Neighboring cabinets reference the same boundary stile. Export it once.
   for (const [key] of sharedStiles) {

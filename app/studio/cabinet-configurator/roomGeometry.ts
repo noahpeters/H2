@@ -46,7 +46,7 @@ const inch = 0.0254;
 export function islandCountertop(
   island: Island,
   elements: RoomElement[],
-  room?: Pick<Room, 'overlay' | 'islandCountertopOverhang'>,
+  room?: Pick<Room, 'overlay' | 'islandCountertopOverhang'> & Partial<Room>,
 ) {
   const shape = new THREE.Shape();
   const b = islandCountertopOutline(island, elements, room);
