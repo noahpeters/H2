@@ -249,7 +249,7 @@
         !Number.isFinite(energy) ||
         (['direct-diffuse', 'direct-specular'].includes(pass) && energy <= 0)
       )
-        throw new Error('Nonfinite ' + pass);
+        throw new Error('Nonfinite or empty ' + pass + ': ' + energy);
       results.push({pass, energy});
     }
     let error = 0,

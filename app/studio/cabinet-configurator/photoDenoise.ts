@@ -3,7 +3,7 @@ import {FullScreenQuad} from 'three/examples/jsm/postprocessing/Pass.js';
 import {waitForPhotoGpu} from './photoGpu';
 
 /** Photo-only radiance filter. Original albedo is restored after filtering lighting,
- * while normal/depth guides stop averaging across geometry boundaries. */
+ * while normal/depth and roughness guides protect geometry and finish detail. */
 export async function denoisePhoto(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
@@ -28,6 +28,7 @@ export async function denoisePhoto(
   const normal = target();
   normal.depthTexture = new THREE.DepthTexture(width, height);
   const albedo = target();
+  const roughness = target();
   const buffers = [target(), target()];
   const guideMaterials: THREE.Material[] = [];
   // Scene clones share the captured geometry/maps; only guide materials are temporary.
@@ -36,6 +37,7 @@ export async function denoisePhoto(
     mesh: THREE.Mesh;
     albedo: THREE.Material | THREE.Material[];
     normal: THREE.Material | THREE.Material[];
+    roughness: THREE.Material | THREE.Material[];
   }[] = [];
   guide.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
@@ -70,11 +72,34 @@ export async function denoisePhoto(
       guideMaterials.push(material);
       return material;
     });
+    const roughnessMaterials = original.map((value) => {
+      const pbr = value as THREE.MeshStandardMaterial;
+      const level = pbr.roughness ?? 1;
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setRGB(level, level, level),
+        map: pbr.roughnessMap ?? null,
+        side: value.side,
+        alphaTest: value.alphaTest,
+      });
+      // PBR roughness uses the green channel, including packed ORM textures.
+      material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <map_fragment>',
+          '#include <map_fragment>\ndiffuseColor.rgb = vec3(diffuseColor.g);',
+        );
+      };
+      material.customProgramCacheKey = () => 'photo-roughness-guide-v1';
+      guideMaterials.push(material);
+      return material;
+    });
     const colors = original.map(makeAlbedo);
     guideParts.push({
       mesh: object,
       albedo: Array.isArray(object.material) ? colors : colors[0],
       normal: Array.isArray(object.material) ? normals : normals[0],
+      roughness: Array.isArray(object.material)
+        ? roughnessMaterials
+        : roughnessMaterials[0],
     });
   });
   // No emitter backgrounds in the guides. Empty pixels have far depth.
@@ -86,6 +111,7 @@ export async function denoisePhoto(
       image: {value: radiance},
       albedo: {value: albedo.texture},
       normals: {value: normal.texture},
+      roughness: {value: roughness.texture},
       depth: {value: normal.depthTexture},
       pixel: {value: new THREE.Vector2(1 / width, 1 / height)},
       nearFar: {value: new THREE.Vector2(camera.near, camera.far)},
@@ -106,7 +132,7 @@ export async function denoisePhoto(
     vertexShader: `varying vec2 vUv;
       void main() {vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0);}`,
     fragmentShader: `
-      uniform sampler2D image, albedo, normals, depth, raw, previous;
+      uniform sampler2D image, albedo, normals, roughness, depth, raw, previous;
       uniform float varianceWeight;
       uniform vec2 pixel, nearFar;
       uniform float stepSize;
@@ -153,6 +179,7 @@ export async function denoisePhoto(
           sum = validCenter ? centerLight * 36.0 : vec3(0.0);
           total = validCenter ? 36.0 : 0.0;
           float d = distanceAt(vUv);
+          float r = texture2D(roughness, vUv).r;
           float light = validCenter ? log(1.0 + photoLuminance(centerLight)) : 0.0;
           for (int x = -2; x <= 2; x++) {
             for (int y = -2; y <= 2; y++) {
@@ -168,11 +195,14 @@ export async function denoisePhoto(
               geometry *= exp(-deltaDepth * deltaDepth / 0.0004);
               vec3 deltaColor = texture2D(albedo, uv).rgb - base;
               float colorWeight = exp(-dot(deltaColor, deltaColor) / 0.02);
+              // Fine finish variation can carry grain even with flat base color.
+              float deltaRoughness = texture2D(roughness, uv).r - r;
+              float finishWeight = exp(-deltaRoughness * deltaRoughness / 0.0020);
               vec3 value = lightingAt(uv);
               if (!validLighting(value)) continue;
               float deltaLight = log(1.0 + photoLuminance(value)) - light;
               float lightingWeight = exp(-deltaLight * deltaLight / 2.0);
-              float weight = kernel(x) * kernel(y) * geometry * colorWeight * lightingWeight;
+              float weight = kernel(x) * kernel(y) * geometry * colorWeight * finishWeight * lightingWeight;
               sum += value * weight;
               total += weight;
             }
@@ -202,6 +232,8 @@ export async function denoisePhoto(
                   weight *= exp(-dd * dd / 0.0004);
                   vec3 dc = texture2D(albedo, uv).rgb - base;
                   weight *= exp(-dot(dc, dc) / 0.02);
+                  float dr = texture2D(roughness, uv).r - r;
+                  weight *= exp(-dr * dr / 0.0020);
                   vec3 difference = other - old;
                   variance += dot(difference, difference) / 3.0 * weight;
                   varianceTotal += weight;
@@ -238,6 +270,12 @@ export async function denoisePhoto(
     guideParts.forEach((part) => {
       part.mesh.material = part.normal;
     });
+    renderer.render(guide, camera);
+    await waitForPhotoGpu(renderer.getContext(), signal);
+    guideParts.forEach((part) => {
+      part.mesh.material = part.roughness;
+    });
+    renderer.setRenderTarget(roughness);
     renderer.render(guide, camera);
     await waitForPhotoGpu(renderer.getContext(), signal);
     guideParts.forEach((part) => {
@@ -278,6 +316,7 @@ export async function denoisePhoto(
     normal.dispose();
     normal.depthTexture?.dispose();
     albedo.dispose();
+    roughness.dispose();
     buffers.forEach((value) => value.dispose());
   }
 }

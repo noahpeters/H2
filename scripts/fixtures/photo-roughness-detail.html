@@ -1,0 +1,125 @@
+<!doctype html>
+<title>Photo roughness detail GPU regression</title>
+<p id="status">Running</p>
+<pre id="results"></pre>
+<script type="module">
+  import * as THREE from 'three';
+  import {denoisePhoto} from '/app/studio/cabinet-configurator/photoDenoise.ts';
+  import {readPhotoRadiance} from '/app/studio/cabinet-configurator/photoDiagnostics.ts';
+  const size = 64;
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(size, size);
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.debug.onShaderError = () => {
+    throw new Error('Photo guide shader compilation failed');
+  };
+  const scene = new THREE.Scene(),
+    camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+  camera.position.z = 2;
+  const plane = new THREE.PlaneGeometry(
+    4 * Math.tan(THREE.MathUtils.degToRad(19)),
+    4 * Math.tan(THREE.MathUtils.degToRad(19)),
+  );
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0.5, 0.5, 0.5),
+    roughness: 1,
+  });
+  scene.add(new THREE.Mesh(plane, material));
+  const output = new THREE.WebGLRenderTarget(size, size, {
+    type: THREE.HalfFloatType,
+  });
+  const texture = (data) => {
+    const t = new THREE.DataTexture(
+      data,
+      size,
+      size,
+      THREE.RGBAFormat,
+      THREE.FloatType,
+    );
+    t.needsUpdate = true;
+    return t;
+  };
+  const results = [];
+  try {
+    for (const period of [4, 8, 16]) {
+      // A smooth color and normal can still carry material detail through roughness.
+      // The two cumulative means contain a stationary roughness response plus noise.
+      const exact = new Float32Array(size * size * 4),
+        raw = new Float32Array(exact.length),
+        old = new Float32Array(exact.length),
+        roughness = new Float32Array(exact.length);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const i = (y * size + x) * 4;
+          const wave = Math.cos((2 * Math.PI * x) / period);
+          const value = 0.4 + 0.04 * wave;
+          const rough = 0.5 + 0.1 * wave;
+          const n = Math.sin((i / 4) * 127.1) * 0.03;
+          const p = Math.sin((i / 4) * 57.7) * 0.05;
+          exact.set([value, value, value, 1], i);
+          raw.set([value + n, value + n, value + n, 1], i);
+          old.set([value + p, value + p, value + p, 1], i);
+          roughness.set([0, rough, 0, 1], i);
+        }
+      const image = texture(raw),
+        previous = texture(old),
+        map = texture(roughness);
+      material.roughnessMap = map;
+      material.needsUpdate = true;
+      await denoisePhoto(
+        renderer,
+        scene,
+        camera,
+        image,
+        size,
+        size,
+        undefined,
+        output,
+        {samples: 512, previous, previousSamples: 256},
+      );
+      const filtered = await readPhotoRadiance(
+        renderer,
+        output.texture,
+        size,
+        size,
+      );
+      let square = 0,
+        noise = 0,
+        amplitude = 0;
+      for (let y = 8; y < size - 8; y++)
+        for (let x = 8; x < size - 8; x++) {
+          const i = (y * size + x) * 4;
+          square += (filtered[i] - exact[i]) ** 2;
+          noise += (raw[i] - exact[i]) ** 2;
+          amplitude +=
+            (filtered[i] - 0.4) * Math.cos((2 * Math.PI * x) / period);
+        }
+      const count = (size - 16) ** 2;
+      const error = Math.sqrt(square / count),
+        inputNoise = Math.sqrt(noise / count),
+        retainedAmplitude = (2 * amplitude) / count;
+      results.push({period, error, inputNoise, retainedAmplitude});
+      if (
+        error > inputNoise * 0.5 ||
+        Math.abs(retainedAmplitude - 0.04) > 0.004
+      )
+        throw new Error(
+          'Roughness detail lost: ' + JSON.stringify(results.at(-1)),
+        );
+      image.dispose();
+      previous.dispose();
+      map.dispose();
+    }
+    document.querySelector('#status').textContent = 'Passed';
+  } catch (e) {
+    document.querySelector('#status').textContent = 'Failed: ' + e.message;
+  } finally {
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    output.dispose();
+    renderer.dispose();
+  }
+</script>
