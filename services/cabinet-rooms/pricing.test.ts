@@ -1,3 +1,6 @@
+import {individualFrameBoardFeet} from './faceFramePricing';
+import {resolveFabrication} from '../../app/studio/cabinet-configurator/fabrication/resolve';
+import {DEFAULT_CONSTRUCTION} from '../../app/studio/cabinet-configurator/fabrication/profile';
 import {cabinetTypes} from '../../app/studio/cabinet-configurator/cabinetTypes';
 import {createRoomPanel} from '../../app/studio/cabinet-configurator/roomPanels';
 import {CABINET_MATERIALS} from '../../app/studio/cabinet-configurator/materials';
@@ -929,4 +932,180 @@ it('prices only the derived finish panels with maple internals, without duplicat
   expect(calculatePrice(schedule, rates).price).toBeGreaterThan(
     calculatePrice(disabled, rates).price,
   );
+});
+
+describe('face-frame material pricing', () => {
+  it.each(cabinetTypes().map((choice) => [choice.label, choice.item] as const))(
+    'matches fabrication individual frame stock for %s',
+    (_label, item) => {
+      const design = study([{...item, id: 'frame', material: 'walnut'}]);
+      design.room.overlay = 'inset';
+      const manifest = resolveFabrication(
+        design,
+        {slug: 'test', revision: 1, updatedAt: ''},
+        DEFAULT_CONSTRUCTION,
+      );
+      const expected = manifest.parts
+        .filter((part) => part.name.toLowerCase().includes('face frame'))
+        .reduce(
+          (sum, part) =>
+            sum + (part.size[0] * part.size[1] * part.size[2]) / 144,
+          0,
+        );
+      expect(
+        individualFrameBoardFeet(design.elements[0], design.room),
+      ).toBeCloseTo(expected, 8);
+    },
+  );
+
+  it('matches custom frame stock and keeps different finishes out of continuous runs', () => {
+    const design = study();
+    design.room.overlay = 'inset';
+    const item = {
+      ...cabinet,
+      customCabinet: {
+        libraryId: 'test',
+        libraryVersion: 1,
+        definition: configurationTemplate(cabinet),
+      },
+    };
+    const manifest = resolveFabrication(
+      {...design, elements: [item]},
+      {slug: 'test', revision: 1, updatedAt: ''},
+      DEFAULT_CONSTRUCTION,
+    );
+    const expected = manifest.parts
+      .filter((part) => part.name.toLowerCase().includes('face frame'))
+      .reduce(
+        (sum, part) => sum + (part.size[0] * part.size[1] * part.size[2]) / 144,
+        0,
+      );
+    expect(individualFrameBoardFeet(item, design.room)).toBeCloseTo(
+      expected,
+      8,
+    );
+    const {rates} = setup();
+    design.room.continuousFaceFrames = true;
+    design.elements = [
+      {...cabinet, placement: {mode: 'floor', x: 30, z: 30, rotation: 0}},
+      {
+        ...cabinet,
+        id: 'b2',
+        material: 'maple',
+        placement: {mode: 'floor', x: 60, z: 30, rotation: 0},
+      },
+    ];
+    expect(
+      calculatePrice(projectSchedule(design).lines, rates)
+        .continuousFramePremium,
+    ).toBe(0);
+  });
+
+  it('adds exactly 20% of the equivalent individual frame selling price for a joined pair', () => {
+    const {rates} = setup();
+    const design = study([
+      {...cabinet, placement: {mode: 'floor', x: 30, z: 30, rotation: 0}},
+      {
+        ...cabinet,
+        id: 'b2',
+        placement: {mode: 'floor', x: 60, z: 30, rotation: 0},
+      },
+    ]);
+    design.room.overlay = 'inset';
+    const individual = calculatePrice(projectSchedule(design).lines, rates);
+    design.room.continuousFaceFrames = true;
+    const joined = calculatePrice(projectSchedule(design).lines, rates);
+    expect(joined.individualFramePrice).toBeGreaterThan(0);
+    expect(joined.price - individual.price).toBeCloseTo(
+      individual.individualFramePrice! * 0.2,
+      8,
+    );
+    expect(joined.cost).toBe(individual.cost);
+    expect(joined.purchases).toEqual(individual.purchases);
+    expect(projectSchedule(design).assumptions).toContain(
+      'Continuous face frames are priced 20% above the equivalent individual face-frame material selling price, using the existing overhead and margin, before range rounding.',
+    );
+    for (const room of [
+      {...design.room, overlay: 'full-overlay' as const},
+      {...design.room, overlay: 'partial-overlay' as const},
+    ]) {
+      const result = calculatePrice(
+        projectSchedule({...design, room}).lines,
+        rates,
+      );
+      expect(result.continuousFramePremium ?? 0).toBe(
+        room.overlay === 'full-overlay' ? 0 : joined.continuousFramePremium,
+      );
+    }
+    design.elements[1].placement = {mode: 'floor', x: 61, z: 30, rotation: 0};
+    expect(
+      calculatePrice(projectSchedule(design).lines, rates)
+        .continuousFramePremium,
+    ).toBe(0);
+  });
+
+  it('derives bdft rates from live material costs and applies waste, overhead, margin and the premium after a profit cap', () => {
+    const {rates} = setup();
+    const design = study();
+    design.room.overlay = 'inset';
+    const line = projectSchedule(design).lines[0];
+    const configured = {
+      ...rates,
+      face_maple: 240,
+      face_waste: 0.25,
+      overhead: 0.1,
+      margin: 0.5,
+      profit_cap: 0,
+    };
+    const cost = line.faceFrameBoardFeet! * 1.25 * (240 / 24);
+    const result = calculatePrice(
+      [{...line, material: 'plain-white-oak', continuousFrame: true}],
+      configured,
+    );
+    expect(result.individualFramePrice).toBeCloseTo((cost * 1.1) / 0.5);
+    expect(result.continuousFramePremium).toBeCloseTo(
+      ((cost * 1.1) / 0.5) * 0.2,
+    );
+    expect(result.price).toBeCloseTo(
+      result.cost + result.continuousFramePremium!,
+    );
+    expect(() =>
+      calculatePrice([{...line, material: 'walnut'}], {
+        ...rates,
+        face_walnut: null,
+      }),
+    ).toThrow('pricing_not_configured');
+  });
+
+  it('prices custom frame stock once as lumber, leaving maple internals independent', () => {
+    const {rates} = setup();
+    const custom = configurationTemplate({
+      ...cabinet,
+      configuration: 'single-door',
+    });
+    expect(custom).toBeDefined();
+    const design = study([
+      {
+        ...cabinet,
+        customCabinet: {
+          definition: custom,
+          libraryId: 'test',
+          libraryVersion: 1,
+        },
+      } as RoomElement,
+    ]);
+    design.room.overlay = 'inset';
+    design.room.useMapleInternals = true;
+    const line = projectSchedule(design).lines[0];
+    expect(line.faceFrameBoardFeet).toBeGreaterThan(0);
+    expect(line.frameSheetAreaCredit).toBe(0);
+    const result = calculatePrice([line], rates);
+    expect(result.individualFramePrice).toBeCloseTo(
+      (line.faceFrameBoardFeet! *
+        (1 + rates.face_waste!) *
+        rates['face_rift-white-oak']!) /
+        24 /
+        (1 - rates.margin!),
+    );
+  });
 });
