@@ -97,6 +97,7 @@ function footprints(item: RoomElement, room: Room): Point[][] {
 export function automaticFinishPanels(
   elements: RoomElement[],
   room: Room,
+  countertop = true,
 ): AutoPanel[] {
   if (!room.useMapleInternals) return [];
   const original = elements.filter((e) => !isAutoPanel(e));
@@ -154,7 +155,18 @@ export function automaticFinishPanels(
         footprints(e, room).map((points) => ({
           points: points.map(local),
           low: (e.placement.elevation ?? 0) - bottom,
-          high: (e.placement.elevation ?? 0) + e.height - bottom,
+          // Adjoining finish stock starts above the finished stone surface,
+          // rather than projecting through the countertop thickness.
+          high:
+            (e.placement.elevation ?? 0) +
+            e.height +
+            (countertop &&
+            (e.kind === 'base' ||
+              (e.kind === 'appliance' &&
+                (e.applianceKind ?? 'dishwasher') === 'dishwasher'))
+              ? 1.5
+              : 0) -
+            bottom,
         })),
       );
     covers.push(
@@ -259,11 +271,14 @@ export function automaticFinishPanels(
   return panels;
 }
 export function withAutomaticFinishPanels<
-  T extends {elements: RoomElement[]; room: Room},
+  T extends {elements: RoomElement[]; room: Room; countertop?: boolean},
 >(study: T): T {
   const elements = study.elements.filter((e) => !isAutoPanel(e));
   return {
     ...study,
-    elements: [...elements, ...automaticFinishPanels(elements, study.room)],
+    elements: [
+      ...elements,
+      ...automaticFinishPanels(elements, study.room, study.countertop),
+    ],
   };
 }

@@ -135,7 +135,11 @@ function desiredObjects(study: Study): Desired[] {
       },
     });
   }
-  const frameRuns = continuousFrameNeighbors(study.elements, room);
+  const frameRuns = continuousFrameNeighbors(
+    study.elements,
+    room,
+    study.countertop,
+  );
   const toeRuns = continuousToeKicks(study.elements, room);
   for (const item of study.elements) {
     const shared = study.islands.some((island) => island.id === item.islandId);
