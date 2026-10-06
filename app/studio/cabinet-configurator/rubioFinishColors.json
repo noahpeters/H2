@@ -1,0 +1,90 @@
+{
+  "plain-white-oak": {
+    "chocolate": {
+      "color": "#774c32",
+      "referenceSpecies": "white-oak-solid",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-solid_chocolate.jpg?v=1744144653&width=600"
+    },
+    "natural": {
+      "color": "#d5ab85",
+      "referenceSpecies": "white-oak-solid",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-solid_natural.jpg?v=1744144652&width=600"
+    },
+    "pure": {
+      "color": "#b47b46",
+      "referenceSpecies": "white-oak-solid",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-solid_pure.jpg?v=1760468179&width=600"
+    },
+    "white": {
+      "color": "#c69d7c",
+      "referenceSpecies": "white-oak-solid",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-solid_white.jpg?v=1744144653&width=600"
+    }
+  },
+  "rift-white-oak": {
+    "chocolate": {
+      "color": "#6c493a",
+      "referenceSpecies": "white-oak-veneer",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-veneer_chocolate.jpg?v=1744144350&width=600"
+    },
+    "natural": {
+      "color": "#c59a77",
+      "referenceSpecies": "white-oak-veneer",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-veneer_natural.jpg?v=1744144296&width=600"
+    },
+    "pure": {
+      "color": "#be915b",
+      "referenceSpecies": "white-oak-veneer",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-veneer_pure.jpg?v=1762353258&width=600"
+    },
+    "white": {
+      "color": "#cca685",
+      "referenceSpecies": "white-oak-veneer",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_white-oak-veneer_white.jpg?v=1744144226&width=600"
+    }
+  },
+  "walnut": {
+    "chocolate": {
+      "color": "#5d3c35",
+      "referenceSpecies": "walnut",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_walnut_chocolate.jpg?v=1738602379&width=600"
+    },
+    "natural": {
+      "color": "#96796a",
+      "referenceSpecies": "walnut",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_walnut_natural.jpg?v=1738602385&width=600"
+    },
+    "pure": {
+      "color": "#7f4f38",
+      "referenceSpecies": "walnut",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_walnut_pure.jpg?v=1738602388&width=600"
+    },
+    "white": {
+      "color": "#a38276",
+      "referenceSpecies": "walnut",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_walnut_white.jpg?v=1738602398&width=600"
+    }
+  },
+  "maple": {
+    "chocolate": {
+      "color": "#885e46",
+      "referenceSpecies": "hard-maple",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_hard-maple_chocolate.jpg?v=1738602291&width=600"
+    },
+    "natural": {
+      "color": "#e6bb95",
+      "referenceSpecies": "hard-maple",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_hard-maple_natural.jpg?v=1738602298&width=600"
+    },
+    "pure": {
+      "color": "#d0a36c",
+      "referenceSpecies": "hard-maple",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_hard-maple_pure.jpg?v=1738602303&width=600"
+    },
+    "white": {
+      "color": "#dab48e",
+      "referenceSpecies": "hard-maple",
+      "referenceUrl": "https://www.rubiomonocoatusa.com/cdn/shop/files/oil-plus-2c_hard-maple_white.jpg?v=1738602310&width=600"
+    }
+  }
+}
