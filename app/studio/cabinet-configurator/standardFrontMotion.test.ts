@@ -64,3 +64,22 @@ it('swings paired doors outward on opposite hinges and moves complete drawer box
     22 * 0.0254,
   );
 });
+
+it.each(['slab', 'shaker', 'beaded-shaker'] as const)(
+  'attaches the independent box front behind the %s decorative front',
+  (face) => {
+    const group = cabinetGeometry(
+      {...base, face, configuration: 'three-drawer'},
+      false,
+    );
+    const front = group.getObjectByName('cabinet-front')!;
+    const boxFront = front.getObjectByName('drawer-box-front')!;
+    const bounds = new THREE.Box3().setFromObject(boxFront);
+    expect(bounds.max.z).toBeCloseTo((base.depth / 2) * 0.0254);
+    const before = bounds.clone();
+    front.userData.updateOpening(1);
+    group.updateMatrixWorld(true);
+    const after = new THREE.Box3().setFromObject(boxFront);
+    expect(after.max.z - before.max.z).toBeCloseTo(22 * 0.0254);
+  },
+);

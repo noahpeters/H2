@@ -31,7 +31,8 @@ it('swings pocket doors before retracting and returns exactly closed', () => {
 });
 it('extends the full drawer box length', () => {
   const rig = doorPreview(mesh(), {...part, kind: 'drawer'}, 0, 24);
-  expect(rig.children).toHaveLength(5);
+  expect(rig.getObjectByName('storage-drawer-box')!.children).toHaveLength(5);
+  expect(rig.getObjectByName('drawer-box-front')).toBeDefined();
   rig.userData.updateOpening(1);
   expect(rig.position.z).toBe(-22.5);
   rig.userData.updateOpening(0);

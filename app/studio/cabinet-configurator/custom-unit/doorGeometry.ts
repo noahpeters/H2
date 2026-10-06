@@ -1,3 +1,4 @@
+import {drawerBoxGeometry} from '../drawerBoxGeometry';
 import * as THREE from 'three';
 import type {CabinetPart} from './model';
 import {
@@ -39,43 +40,19 @@ export function doorPreview(
     const material = (
       Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
     ) as THREE.Material;
-    const box = (
-      w: number,
-      h: number,
-      d: number,
-      x: number,
-      y: number,
-      z: number,
-    ) => {
-      const board = new THREE.Mesh(
-        new THREE.BoxGeometry(w, h, d),
-        drawerMaterial
-          ? createCabinetMaterial(drawerMaterial, 1)
-          : materialFromTemplate(material),
-      );
-      mapMaterialPart(
-        board.geometry,
-        board.material,
-        {width: w, height: h, depth: d},
-        'in',
-        w <= Math.min(h, d) ? 'drawer-side' : 'board',
-      );
-      board.position.set(x, y, z);
+    const box = drawerBoxGeometry(
+      width,
+      height,
+      length,
+      drawerMaterial
+        ? createCabinetMaterial(drawerMaterial, 1)
+        : materialFromTemplate(material),
+    );
+    box.position.z = part.depth / 2;
+    box.children.forEach((board) => {
       board.userData.partId = part.id;
-      board.castShadow = true;
-      rig.add(board);
-    };
-    box(width, 0.5, length, 0, -height / 2, part.depth / 2 + length / 2);
-    for (const side of [-1, 1])
-      box(
-        0.5,
-        height,
-        length,
-        (side * (width - 0.5)) / 2,
-        0,
-        part.depth / 2 + length / 2,
-      );
-    box(width, height, 0.5, 0, 0, part.depth / 2 + length - 0.25);
+    });
+    rig.add(box);
     update = (amount) => {
       rig.position.z = origin.z - amount * length;
     };
