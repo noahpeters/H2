@@ -3,12 +3,10 @@ import {useEffect, useId, useRef, useState} from 'react';
 export function PhotoDialog({
   blob,
   close,
-  refine,
   diagnostics,
 }: {
   blob: Blob;
   close: () => void;
-  refine?: () => void;
   diagnostics?: Blob;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -51,12 +49,11 @@ export function PhotoDialog({
           alt="Captured cabinet room with softened cabinet, countertop and wall edges"
         />
       )}
+      <p className="cc-photo-settings-hint">
+        To adjust render parameters, hold the Option key while pressing the Take
+        Photo button.
+      </p>
       <div className="cc-photo-actions">
-        {refine && (
-          <button className="cc-photo-refine" type="button" onClick={refine}>
-            Render super high quality
-          </button>
-        )}
         <a href={url || undefined} download="cabinet-room-photo.png">
           Download PNG
         </a>
