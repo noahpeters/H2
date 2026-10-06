@@ -1,3 +1,4 @@
+import {costReport} from './costReport';
 import {fabricationExport} from './fabrication';
 import {intake, drainIntake, type IntakeServiceEnv} from './intake';
 import {
@@ -89,7 +90,8 @@ export default {
     if (
       path === '/admin/dashboard' ||
       path === '/admin/design' ||
-      path === '/admin/export'
+      path === '/admin/export' ||
+      path === '/admin/cost-report'
     ) {
       if (
         !env.ANALYTICS_READ_TOKEN ||
@@ -99,11 +101,13 @@ export default {
       )
         return jsonResponse({error: 'Unauthorized'}, 401);
       try {
-        return await (path === '/admin/export'
-          ? fabricationExport(request, env.DB)
-          : path === '/admin/design'
-            ? designPreview(request, env.DB)
-            : dashboard(request, env.DB));
+        return await (path === '/admin/cost-report'
+          ? costReport(request, env.DB)
+          : path === '/admin/export'
+            ? fabricationExport(request, env.DB)
+            : path === '/admin/design'
+              ? designPreview(request, env.DB)
+              : dashboard(request, env.DB));
       } catch {
         return jsonResponse({error: 'Reporting is unavailable'}, 503);
       }
