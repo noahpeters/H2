@@ -18,6 +18,7 @@ export type PartRole =
   | 'shelf'
   | 'end'
   | 'drawer-side'
+  | 'drawer-end'
   | 'board';
 
 /** Local X = width, Y = height, Z = depth. Scene rotations do not change grain. */
@@ -30,7 +31,7 @@ export function resolvePartApplication(
   const grainAxis =
     role === 'drawer-side'
       ? 'z'
-      : ['drawer', 'rail', 'shelf'].includes(role)
+      : ['drawer', 'drawer-end', 'rail', 'shelf'].includes(role)
         ? 'x'
         : ['door', 'stile', 'end'].includes(role)
           ? 'y'
@@ -39,10 +40,10 @@ export function resolvePartApplication(
             : 'y';
   return {
     ...application,
-    grainAxis: ['rail', 'stile', 'drawer-side'].includes(role)
+    grainAxis: ['rail', 'stile', 'drawer-side', 'drawer-end'].includes(role)
       ? grainAxis
       : (application.grainAxis ?? grainAxis),
-    rotation: ['rail', 'stile', 'drawer-side'].includes(role)
+    rotation: ['rail', 'stile', 'drawer-side', 'drawer-end'].includes(role)
       ? 0
       : (application.rotation ?? 0),
   };
@@ -340,7 +341,7 @@ export function mapMaterialPart(
     | MaterialDefinition
     | undefined;
   const flatGrain = material.userData.flatGrain as FlatGrain | undefined;
-  const locked = ['rail', 'stile', 'drawer-side'].includes(role);
+  const locked = ['rail', 'stile', 'drawer-side', 'drawer-end'].includes(role);
   const thinAxis =
     dimensions.width < Math.min(dimensions.height, dimensions.depth)
       ? 'x'

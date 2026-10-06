@@ -62,7 +62,9 @@ it('extends a drawer with its box and closes all motions on leaving three mode',
   motion.toggle(drawer.children[0]);
   finish(motion, root);
   expect(drawer.position.z).toBe(-22.5);
-  expect(drawer.children).toHaveLength(5);
+  expect(drawer.getObjectByName('storage-drawer-box')!.children).toHaveLength(
+    5,
+  );
   motion.reset();
   expect(drawer.position.z).toBe(0);
   expect(motion.update(root, 0.05)).toBe(false);

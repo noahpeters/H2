@@ -88,6 +88,7 @@ test('standard hidden carcasses and moving drawer boxes render maple while front
     'maple',
     'maple',
     'maple',
+    'maple',
   ]);
   const front = group.getObjectByName('cabinet-front') as THREE.Mesh;
   expect(front.material).toHaveProperty(
@@ -105,6 +106,7 @@ test('standard hidden carcasses and moving drawer boxes render maple while front
     useMapleInternals: false,
   });
   expect(meshMaterials(normal.getObjectByName('storage-drawer-box')!)).toEqual([
+    'walnut',
     'walnut',
     'walnut',
     'walnut',
@@ -226,7 +228,7 @@ test('open storage and glass-front interiors stay walnut; closed storage can use
     'walnut',
   ]);
   expect(meshMaterials(preview.getObjectByName('storage-drawer-box')!)).toEqual(
-    ['maple', 'maple', 'maple', 'maple'],
+    ['maple', 'maple', 'maple', 'maple', 'maple'],
   );
 });
 
