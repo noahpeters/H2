@@ -1,4 +1,5 @@
 import {continuousFrameNeighbors} from './continuousFaceFrames';
+import {cabinetToeKick} from './cabinetEnvelope';
 import {cabinetGeometry} from './roomGeometry';
 import {createCustomUnit} from './custom-unit/model';
 import {islandCountertopOutline} from './islandFootprint';
@@ -103,9 +104,52 @@ it('keeps uncovered patches beside shorter and shallower cabinets', () => {
   const right = surfaces(s).filter((p) => p.autoPanel.surface === 'right');
   expect(right.map((p) => [p.depth, p.height, p.autoPanel.bottom])).toEqual([
     [12.75, 34.5, 0],
-    [12, 14.5, 20],
+    [12, 13, 21.5],
   ]);
 });
+it.each([0, 90, 180, 270, 37])(
+  'starts tall-cabinet finish stock at the adjoining countertop surface at %s degrees',
+  (rotation) => {
+    const s = sample();
+    const angle = (rotation * Math.PI) / 180;
+    s.elements[0].placement = {mode: 'floor', x: 60, z: 60, rotation};
+    s.elements.push({
+      ...owner,
+      id: 'tall',
+      kind: 'tall',
+      height: 84,
+      placement: {
+        mode: 'floor',
+        x: 60 - 30 * Math.cos(angle),
+        z: 60 - 30 * Math.sin(angle),
+        rotation,
+      },
+    });
+    const adjoining = (countertop: boolean) =>
+      withAutomaticFinishPanels({...s, countertop}).elements.find(
+        (p) => 'autoPanel' in p && p.id.startsWith('auto-panel:tall:right:'),
+      )!;
+    expect(adjoining(true).placement.elevation).toBeCloseTo(36);
+    expect(adjoining(true).height).toBeCloseTo(48);
+    expect(adjoining(false).placement.elevation).toBeCloseTo(34.5);
+    expect(adjoining(false).height).toBeCloseTo(49.5);
+    for (const countertop of [true, false]) {
+      const manifest = resolveFabrication(
+        {...s, countertop},
+        {slug: 'test', revision: 1, updatedAt: '2026-10-06'},
+        DEFAULT_CONSTRUCTION,
+      );
+      const stock = manifest.parts.find(
+        (p) =>
+          p.name === 'Automatic right finish panel' && p.assemblyId === 'tall',
+      )!;
+      expect(stock.origin[2]).toBeCloseTo(
+        (countertop ? 36 : 34.5) - cabinetToeKick(s.elements[1], s.room).height,
+      );
+      expect(stock.size[2]).toBeCloseTo(countertop ? 48 : 49.5);
+    }
+  },
+);
 it.each([0, 90, 180, 270, 37])(
   'uses actual rotated footprints for contact at %s degrees',
   (rotation) => {
@@ -264,6 +308,64 @@ it('shows selectable panel geometry in 3D and updates it with the controlling ca
         String(o.userData.id).startsWith('auto-panel:'),
       ),
     ).toEqual([]);
+  } finally {
+    scene.dispose();
+    load.mockRestore();
+  }
+});
+
+it('keeps the visible countertop when a tall neighbor is added, moved and removed', async () => {
+  const load = vi
+    .spyOn(THREE.TextureLoader.prototype, 'load')
+    .mockImplementation((_url, onLoad) => {
+      const t = new THREE.Texture();
+      queueMicrotask(() => onLoad?.(t));
+      return t;
+    });
+  const scene = new StudyScene(new THREE.Scene());
+  const s = sample();
+  const tall: RoomElement = {
+    ...owner,
+    id: 'tall',
+    kind: 'tall',
+    height: 84,
+    placement: {mode: 'floor', x: 30, z: 60, rotation: 0},
+  };
+  try {
+    for (const elements of [
+      [owner],
+      [owner, tall],
+      [owner, {...tall, placement: {...tall.placement, x: 20}}],
+      [owner, tall],
+      [owner],
+    ]) {
+      s.elements = elements;
+      await scene.update(s);
+      scene.root.updateMatrixWorld(true);
+      const cabinet = scene.selectable.find((o) => o.userData.id === owner.id)!;
+      const stone = cabinet.getObjectByName('cabinet-countertop')!;
+      const bounds = new THREE.Box3().setFromObject(stone);
+      expect(bounds.getSize(new THREE.Vector3()).z / 0.0254).toBeCloseTo(26.75);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const ray = new THREE.Raycaster(
+        new THREE.Vector3(center.x, bounds.max.y + 1, center.z),
+        new THREE.Vector3(0, -1, 0),
+      );
+      expect(ray.intersectObject(stone)).not.toHaveLength(0);
+      if (elements.length === 2 && elements[1] === tall) {
+        const panel = scene.selectable.find((o) =>
+          String(o.userData.id).startsWith('auto-panel:tall:right:'),
+        )!;
+        const panelBounds = new THREE.Box3().setFromObject(panel);
+        expect(panelBounds.min.y).toBeCloseTo(bounds.max.y);
+      }
+    }
+    await scene.update({...s, elements: [owner, tall], countertop: false});
+    expect(
+      scene.selectable
+        .find((o) => o.userData.id === owner.id)!
+        .getObjectByName('cabinet-countertop'),
+    ).toBeUndefined();
   } finally {
     scene.dispose();
     load.mockRestore();

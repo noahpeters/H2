@@ -10,10 +10,14 @@ export type FrameNeighbors = {
   rightExtension?: number;
 };
 /** Matching front planes and stock heights define straight, buildable frame runs. */
-export function continuousFrameNeighbors(elements: RoomElement[], room: Room) {
+export function continuousFrameNeighbors(
+  elements: RoomElement[],
+  room: Room,
+  countertop = true,
+) {
   const neighbors = new Map<string, FrameNeighbors>();
   if (['inset', 'partial-overlay'].includes(room.overlay ?? 'full-overlay')) {
-    for (const panel of automaticFinishPanels(elements, room)) {
+    for (const panel of automaticFinishPanels(elements, room, countertop)) {
       const a = panel.autoPanel;
       if (a.surface === 'back') continue;
       const owner = elements.find((e) => e.id === a.ownerId)!;

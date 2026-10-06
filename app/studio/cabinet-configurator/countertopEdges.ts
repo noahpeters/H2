@@ -76,18 +76,19 @@ export function countertopEdges(
     // Leave a small joint so flush faces cannot flicker from depth rounding.
     const clearance = 0.02;
     const tolerance = 0.001;
+    // A panel can intrude through the edge it faces. Its long span must not
+    // trim the perpendicular edge across the entire cabinet footprint.
+    const sidePanel = other.kind === 'panel' && halfWidth < halfDepth;
+    const endPanel = other.kind === 'panel' && halfDepth < halfWidth;
     if (maxZ > -item.depth / 2 && minZ < item.depth / 2) {
       if (
         minX >= item.width / 2 - tolerance ||
-        (other.kind === 'panel' &&
-          x > 0 &&
-          maxX >= item.width / 2 &&
-          minX <= item.width / 2)
+        (sidePanel && x > 0 && maxX >= item.width / 2 && minX <= item.width / 2)
       )
         edges.right = Math.min(edges.right, minX - item.width / 2 - clearance);
       if (
         maxX <= -item.width / 2 + tolerance ||
-        (other.kind === 'panel' &&
+        (sidePanel &&
           x < 0 &&
           minX <= -item.width / 2 &&
           maxX >= -item.width / 2)
@@ -97,15 +98,12 @@ export function countertopEdges(
     if (maxX > -item.width / 2 && minX < item.width / 2) {
       if (
         minZ >= item.depth / 2 - tolerance ||
-        (other.kind === 'panel' &&
-          z > 0 &&
-          maxZ >= item.depth / 2 &&
-          minZ <= item.depth / 2)
+        (endPanel && z > 0 && maxZ >= item.depth / 2 && minZ <= item.depth / 2)
       )
         edges.front = Math.min(edges.front, minZ - item.depth / 2 - clearance);
       if (
         maxZ <= -item.depth / 2 + tolerance ||
-        (other.kind === 'panel' &&
+        (endPanel &&
           z < 0 &&
           minZ <= -item.depth / 2 &&
           maxZ >= -item.depth / 2)

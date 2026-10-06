@@ -202,9 +202,44 @@ it('extends base countertops over attached finish stock and measures overhang fr
     -0.02,
   );
 });
-it('trims a base countertop around the attached finish panel on a taller neighbor', () => {
+it('retains a full-depth countertop beside a tall cabinet with automatic finish stock', () => {
   const maple = {...room, useMapleInternals: true};
   const edges = countertopEdges(base, [base, tall], maple);
-  expect(edges.left).toBeCloseTo(-0.77);
+  expect(edges.left).toBeCloseTo(-0.02);
   expect(edges.right).toBe(1.75);
+  expect(edges.front).toBe(1);
+  expect(edges.back).toBe(1.75);
+  const group = cabinetGeometry(base, true, false, maple, edges);
+  const bounds = new THREE.Box3().setFromObject(
+    group.getObjectByName('cabinet-countertop')!,
+  );
+  expect(bounds.max.z / inch).toBeCloseTo(13);
+  expect(bounds.min.z / inch).toBeCloseTo(-13.75);
+  expect(bounds.max.x / inch).toBeCloseTo(16.75);
+  expect(bounds.min.x / inch).toBeCloseTo(-14.98);
 });
+
+it.each([0, 90, 180, 270, 37])(
+  'does not let the long span of a side panel erase the countertop at %s degrees',
+  (rotation) => {
+    const angle = (rotation * Math.PI) / 180;
+    const item = {...base, placement: {...wallToFloor(base, room), rotation}};
+    const panel: RoomElement = {
+      ...tall,
+      id: 'side-panel',
+      kind: 'panel',
+      width: 0.75,
+      depth: 24.75,
+      placement: {
+        mode: 'floor',
+        x: 60 - 14.625 * Math.cos(angle) - 0.375 * Math.sin(angle),
+        z: 60 - 14.625 * Math.sin(angle) + 0.375 * Math.cos(angle),
+        rotation,
+      },
+    };
+    const edges = countertopEdges(item, [item, panel], room);
+    expect(edges.left).toBeCloseTo(-0.77);
+    expect(edges.front).toBe(1);
+    expect(edges.back).toBe(1);
+  },
+);

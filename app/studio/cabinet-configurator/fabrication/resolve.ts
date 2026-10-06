@@ -41,7 +41,7 @@ import {
 } from './model';
 import type {ConstructionProfile} from './profile';
 
-type Design = {room: Room; elements: RoomElement[]};
+type Design = {room: Room; elements: RoomElement[]; countertop?: boolean};
 const EPS = 0.001;
 const axis = (size: Vec3) => size.indexOf(Math.min(...size)) as 0 | 1 | 2;
 const intersect = (a: FabricationPart, b: FabricationPart) => {
@@ -118,7 +118,11 @@ export function resolveFabrication(
     ],
   };
   const issues: string[] = [];
-  const frameRuns = continuousFrameNeighbors(design.elements, design.room);
+  const frameRuns = continuousFrameNeighbors(
+    design.elements,
+    design.room,
+    design.countertop,
+  );
   for (const [id, override] of frameOverrides ?? [])
     frameRuns.set(id, override);
   const sharedStiles = new Map<string, FabricationPart>();
@@ -1036,7 +1040,11 @@ export function resolveFabrication(
       manifest.parts.push(part);
     }
   }
-  for (const panel of automaticFinishPanels(design.elements, design.room)) {
+  for (const panel of automaticFinishPanels(
+    design.elements,
+    design.room,
+    design.countertop,
+  )) {
     const owner = design.elements.find(
       (e) => e.id === panel.autoPanel.ownerId,
     )!;

@@ -1587,8 +1587,8 @@ export function CabinetConfigurator({
     [study.configurations, study.elements, customCabinets],
   );
   const autoPanels = useMemo(
-    () => automaticFinishPanels(study.elements, study.room),
-    [study.elements, study.room],
+    () => automaticFinishPanels(study.elements, study.room, study.countertop),
+    [study.elements, study.room, study.countertop],
   );
   const selectedAutoPanel = autoPanels.find((p) => p.id === study.selected);
   const selected = study.elements.find((item) => item.id === study.selected);
