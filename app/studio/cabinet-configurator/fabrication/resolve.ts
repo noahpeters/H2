@@ -1,3 +1,4 @@
+import {standardFrontSurface} from '../cabinetFrontPlane';
 import {automaticFinishPanels} from '../automaticFinishPanels';
 import {resolvePartFaces} from '../combinationFaces';
 import {
@@ -16,7 +17,10 @@ import {
 import {shakerFrameWidth} from '../hardwarePlacement';
 import {cabinetArchPane} from '../custom-unit/cabinetArch';
 import type {RoomFrontPart} from '../custom-unit/frontLayout';
-import {continuousFrameNeighbors} from '../continuousFaceFrames';
+import {
+  type FrameNeighbors,
+  continuousFrameNeighbors,
+} from '../continuousFaceFrames';
 import {cabinetFaceFrame} from '../faceFrame';
 import {wallToFloor, type RoomElement, type Room} from '../model';
 import {cabinetToeKick, cabinetCompositionEnvelope} from '../cabinetEnvelope';
@@ -89,6 +93,7 @@ export function resolveFabrication(
   design: Design,
   source: FabricationManifest['design'],
   profile: ConstructionProfile,
+  frameOverrides?: Map<string, FrameNeighbors>,
 ): FabricationManifest {
   const manifest: FabricationManifest = {
     schema: 'from-trees-fabrication',
@@ -114,6 +119,8 @@ export function resolveFabrication(
   };
   const issues: string[] = [];
   const frameRuns = continuousFrameNeighbors(design.elements, design.room);
+  for (const [id, override] of frameOverrides ?? [])
+    frameRuns.set(id, override);
   const sharedStiles = new Map<string, FabricationPart>();
   for (const item of design.elements) {
     if (item.kind === 'appliance' || item.kind === 'fixture') continue;
@@ -514,6 +521,7 @@ export function resolveFabrication(
               {
                 ...item,
                 id: `${item.id}-arm-${index}`,
+                disableAutoPanels: true,
                 width,
                 depth,
                 configuration: 'single-door',
@@ -523,6 +531,14 @@ export function resolveFabrication(
           },
           source,
           profile,
+          new Map([
+            [
+              `${item.id}-arm-${index}`,
+              index === 0
+                ? {rightExtension: frameRuns.get(item.id)?.rightExtension}
+                : {leftExtension: frameRuns.get(item.id)?.leftExtension},
+            ],
+          ]),
         );
         for (const part of child.parts) {
           part.assemblyId = item.id;
@@ -589,6 +605,8 @@ export function resolveFabrication(
           design.room.overlay ?? 'full-overlay',
           {
             left: Boolean(frameRuns.get(item.id)?.left),
+            leftExtension: frameRuns.get(item.id)?.leftExtension,
+            rightExtension: frameRuns.get(item.id)?.rightExtension,
             right: Boolean(frameRuns.get(item.id)?.right),
           },
         ),
@@ -926,7 +944,12 @@ export function resolveFabrication(
       const frame = cabinetFaceFrame(
         fronts.map((e) => e.part),
         {x: 0, y: 0, width: w, height: h},
-        {left: Boolean(neighbors?.left), right: Boolean(neighbors?.right)},
+        {
+          left: Boolean(neighbors?.left),
+          right: Boolean(neighbors?.right),
+          leftExtension: neighbors?.leftExtension,
+          rightExtension: neighbors?.rightExtension,
+        },
       );
       if (framed) {
         const boards: FabricationPart[] = [];
@@ -963,6 +986,9 @@ export function resolveFabrication(
       );
       fronts.forEach((entry, i) => {
         const part = {...resolvedFronts[i]};
+        // The closed finished surface shares the scene's standard front plane.
+        // Stock thickness remains controlled by the construction profile.
+        if (!framed) part.z = -standardFrontSurface(0, 'full-overlay');
         let opening = {x: t, y: part.y, width: inner, height: part.height};
         if (framed) {
           opening = frame.openings[i];

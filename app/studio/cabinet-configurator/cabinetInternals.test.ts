@@ -230,7 +230,7 @@ test('open storage and glass-front interiors stay walnut; closed storage can use
   );
 });
 
-test('exports maple stock and CSV without changing part dimensions, joints or fronts', () => {
+test('exports maple stock and covered panel edges without changing carcasses, joints or fronts', () => {
   const regular = resolveFabrication(
     {room: {...room, useMapleInternals: false}, elements: [cabinet]},
     source,
@@ -243,9 +243,18 @@ test('exports maple stock and CSV without changing part dimensions, joints or fr
   );
   expect(
     maple.parts
-      .filter((p) => !p.id.startsWith('auto-panel:'))
+      .filter(
+        (p) => !p.id.startsWith('auto-panel:') && p.name !== 'Face frame stile',
+      )
       .map(({material: _material, ...part}) => part),
-  ).toEqual(regular.parts.map(({material: _material, ...part}) => part));
+  ).toEqual(
+    regular.parts
+      .filter((p) => p.name !== 'Face frame stile')
+      .map(({material: _material, ...part}) => part),
+  );
+  const stiles = maple.parts.filter((p) => p.name === 'Face frame stile');
+  expect(stiles.map((p) => p.size[0])).toEqual([2.25, 2.25]);
+  expect(stiles.map((p) => p.origin[0])).toEqual([-15.75, 13.5]);
   expect(maple.parts.find((p) => p.name === 'Left side')?.material).toBe(
     'Maple plywood',
   );

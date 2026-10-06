@@ -1,3 +1,7 @@
+import {
+  STANDARD_FRONT_THICKNESS,
+  standardFrontCenter,
+} from './cabinetFrontPlane';
 import {resolveFaceRows, type AtomicFace} from './combinationFaces';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import {
@@ -210,6 +214,8 @@ export function cabinetGeometry(
       false,
       false,
       room,
+      undefined,
+      {rightExtension: frameNeighbors.rightExtension},
     );
     back.position.z = (-d / 2 + arm / 2) * inch;
     group.add(back);
@@ -218,6 +224,8 @@ export function cabinetGeometry(
       false,
       false,
       room,
+      undefined,
+      {leftExtension: frameNeighbors.leftExtension},
     );
     leg.rotation.y = Math.PI / 2;
     leg.position.set((-w / 2 + arm / 2) * inch, 0, (arm / 2) * inch);
@@ -344,12 +352,7 @@ export function cabinetGeometry(
     face: AtomicFace | undefined,
   ) => {
     const firstChild = group.children.length;
-    const inset = room?.overlay === 'inset';
-    const faceZ = inset
-      ? d / 2 + 0.375
-      : room?.overlay === 'partial-overlay'
-        ? d / 2 + 0.75
-        : d / 2;
+    const faceZ = standardFrontCenter(d, room?.overlay);
     const glass =
       face === 'shaker-glass' && item.kind === 'wall-cabinet' && !drawer;
     const framed = isShakerFace(face);
@@ -358,10 +361,10 @@ export function cabinetGeometry(
       group,
       width,
       height,
-      framed ? 0.25 : 0.5,
+      framed ? 0.25 : STANDARD_FRONT_THICKNESS,
       x,
       y,
-      framed ? faceZ + 0.375 - SHAKER_PANEL_SETBACK - 0.125 : faceZ - 0.1,
+      framed ? faceZ + 0.375 - SHAKER_PANEL_SETBACK - 0.125 : faceZ,
       glass
         ? new THREE.MeshStandardMaterial({
             color: 0xb6d2d7,
@@ -408,7 +411,7 @@ export function cabinetGeometry(
           0.1,
           x - width / 2 + (index * width) / count,
           y,
-          faceZ + 0.22,
+          faceZ + 0.326,
           dark,
         ).name = 'vertical-slat-groove';
     }
@@ -812,6 +815,8 @@ export function cabinetGeometry(
       {x: -w / 2, y: bottom, width: w, height: h - toe},
       {
         left: Boolean(frameNeighbors.left),
+        leftExtension: frameNeighbors.leftExtension,
+        rightExtension: frameNeighbors.rightExtension,
         right: Boolean(frameNeighbors.right),
       },
     );

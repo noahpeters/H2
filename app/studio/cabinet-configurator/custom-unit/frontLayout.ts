@@ -59,7 +59,12 @@ export function frontOpening(
 export function roomFrontParts(
   unit: CustomUnitDefinition,
   overlay: Overlay,
-  joined: {left?: boolean; right?: boolean} = {},
+  joined: {
+    left?: boolean;
+    right?: boolean;
+    leftExtension?: number;
+    rightExtension?: number;
+  } = {},
 ): RoomFrontPart[] {
   if (hasCabinetArch(unit)) {
     const baseline = roomFrontParts(

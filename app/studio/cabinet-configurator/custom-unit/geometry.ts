@@ -39,7 +39,12 @@ export function customUnitGeometry(
     roomFrontParts(
       {...definition, parts: layout},
       appearance?.overlay ?? 'full-overlay',
-      {left: Boolean(neighbors.left), right: Boolean(neighbors.right)},
+      {
+        left: Boolean(neighbors.left),
+        right: Boolean(neighbors.right),
+        leftExtension: neighbors.leftExtension,
+        rightExtension: neighbors.rightExtension,
+      },
     ),
     appearance?.face,
   );

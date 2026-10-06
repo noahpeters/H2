@@ -3,7 +3,12 @@ export type FrameRect = {x: number; y: number; width: number; height: number};
 export function cabinetFaceFrame(
   cells: FrameRect[],
   bounds: FrameRect,
-  joined: {left?: boolean; right?: boolean} = {},
+  joined: {
+    left?: boolean;
+    right?: boolean;
+    leftExtension?: number;
+    rightExtension?: number;
+  } = {},
 ) {
   const f = Math.min(1.5, bounds.width / 6, bounds.height / 6);
   const right = bounds.x + bounds.width,
@@ -96,6 +101,10 @@ export function cabinetFaceFrame(
       height: bounds.height,
     },
   ];
+  // Widen outer stiles outward only: openings and door sizing stay unchanged.
+  stiles[0].x -= joined.leftExtension ?? 0;
+  stiles[0].width += joined.leftExtension ?? 0;
+  stiles[1].width += joined.rightExtension ?? 0;
   for (const v of merge(vertical, 'y')) {
     let spans = [v];
     for (const r of rails)

@@ -1,10 +1,37 @@
 import {wallToFloor, type Room, type RoomElement} from './model';
+import {automaticFinishPanels} from './automaticFinishPanels';
+import {DEFAULT_PANEL_THICKNESS} from './roomPanels';
 import {cabinetToeKick} from './cabinetEnvelope';
 
-export type FrameNeighbors = {left?: string; right?: string};
+export type FrameNeighbors = {
+  left?: string;
+  right?: string;
+  leftExtension?: number;
+  rightExtension?: number;
+};
 /** Matching front planes and stock heights define straight, buildable frame runs. */
 export function continuousFrameNeighbors(elements: RoomElement[], room: Room) {
   const neighbors = new Map<string, FrameNeighbors>();
+  if (['inset', 'partial-overlay'].includes(room.overlay ?? 'full-overlay')) {
+    for (const panel of automaticFinishPanels(elements, room)) {
+      const a = panel.autoPanel;
+      if (a.surface === 'back') continue;
+      const owner = elements.find((e) => e.id === a.ownerId)!;
+      const end =
+        owner.configuration === 'corner' &&
+        !owner.customCabinet &&
+        a.surface === 'right'
+          ? -owner.depth / 2 +
+            Math.min(24, (owner.width * 2) / 3, (owner.depth * 2) / 3)
+          : owner.depth / 2;
+      if (a.z + a.depth / 2 < end - 0.001) continue;
+      neighbors.set(owner.id, {
+        ...neighbors.get(owner.id),
+        [a.surface === 'left' ? 'leftExtension' : 'rightExtension']:
+          DEFAULT_PANEL_THICKNESS,
+      });
+    }
+  }
   if (
     !room.continuousFaceFrames ||
     !['inset', 'partial-overlay'].includes(room.overlay ?? 'full-overlay')
