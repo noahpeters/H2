@@ -1,3 +1,5 @@
+import {individualFrameBoardFeet} from './faceFramePricing';
+import {continuousFrameNeighbors} from '../../app/studio/cabinet-configurator/continuousFaceFrames';
 import {
   automaticFinishPanels,
   isAutoPanel,
@@ -90,6 +92,9 @@ export type ScheduleLine = {
   extraCarcass?: number;
   backSheetFactor?: number;
   rodFeet?: number;
+  faceFrameBoardFeet?: number;
+  continuousFrame?: boolean;
+  frameSheetAreaCredit?: number;
 };
 export function projectSchedule(study: Study) {
   const lines: ScheduleLine[] = [];
@@ -99,6 +104,7 @@ export function projectSchedule(study: Study) {
     'Visible fronts use sheet-area allowances, not a detailed rail-and-stile cut list.',
     'Four Axilo feet per base/tall cabinet; their default cost is covered by project miscellaneous materials.',
   ]);
+  const frameNeighbors = continuousFrameNeighbors(study.elements, study.room);
   for (const e of [
     ...study.elements,
     ...automaticFinishPanels(study.elements, study.room),
@@ -298,7 +304,12 @@ export function projectSchedule(study: Study) {
           .reduce((total, part) => total + area(part), 0),
         faceArea:
           parts
-            .filter((part) => part.kind !== 'rod' && !internalCustomPart(part))
+            .filter(
+              (part) =>
+                part.kind !== 'rod' &&
+                !part.faceFrame &&
+                !internalCustomPart(part),
+            )
             .reduce((total, part) => total + area(part), 0) +
           (feet ? (e.width * toeKickHeight) / 144 : 0),
         backArea: 0,
@@ -335,8 +346,29 @@ export function projectSchedule(study: Study) {
       assumptions.add(
         'Species-specific drawer stock rates are used when configured; otherwise the selected material-to-maple sheet-rate ratio is a budget allowance for drawer stock and bottoms. Verify solid-stock costs before a final quote.',
       );
+    const neighbors = frameNeighbors.get(e.id);
+    const faceFrameBoardFeet = panel
+      ? 0
+      : individualFrameBoardFeet(e, study.room, neighbors);
+    const continuousFrame = Boolean(neighbors?.left || neighbors?.right);
+    if (faceFrameBoardFeet)
+      assumptions.add(
+        'Face frames use rail-and-stile board feet with waste; solid-lumber $/bdft is derived from the selected 3/4-inch sheet cost (24 bdft per 4x8 sheet). Cabinet assembly/finishing labor remains in the standard allowances. Verify actual lumber costs before a final quote.',
+      );
+    if (continuousFrame)
+      assumptions.add(
+        'Continuous face frames are priced 20% above the equivalent individual face-frame material selling price, using the existing overhead and margin, before range rounding.',
+      );
     lines.push({
       id: e.id,
+      faceFrameBoardFeet,
+      continuousFrame,
+      // Standard closed fronts already reserve the frame footprint in their
+      // broad sheet allowance. Custom frames were removed from faceArea above.
+      frameSheetAreaCredit:
+        !e.customCabinet && frontCoverage === 1
+          ? individualFrameBoardFeet(e, study.room) / 0.75
+          : 0,
       width: e.width,
       depth: e.depth,
       height: e.height,
@@ -393,7 +425,16 @@ export function projectSchedule(study: Study) {
   return {lines, assumptions: [...assumptions]};
 }
 /** Internal-only result, never serialize this object in an HTTP response. */
-export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
+export function calculatePrice(
+  lines: ScheduleLine[],
+  rates: Rates,
+): {
+  cost: number;
+  price: number;
+  purchases: Record<string, number>;
+  individualFramePrice: number;
+  continuousFramePremium: number;
+} {
   const rate = (key: string): number => {
     // Plain-sawn white oak follows maple pricing; purchase pools stay separate.
     const rateKey = key === 'face_plain-white-oak' ? 'face_maple' : key;
@@ -425,10 +466,19 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
     p.net += net;
     pools.set(key, p);
   };
-  if (!lines.length) return {cost: 0, price: 0, purchases: {}};
+  if (!lines.length)
+    return {
+      cost: 0,
+      price: 0,
+      purchases: {},
+      individualFramePrice: 0,
+      continuousFramePremium: 0,
+    };
   let hours = 0,
     hardware = 0,
-    finish = 0;
+    finish = 0,
+    frameMaterials = 0,
+    continuousFrameMaterials = 0;
   for (const c of lines) {
     const w = c.width,
       d = c.depth,
@@ -450,7 +500,8 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
     else add('box_sheet', c.visibleBox ? 0 : carcass, 'box_waste');
     add(
       `face_${c.material}`,
-      face + (!c.interiorMaterial && c.visibleBox ? carcass : 0),
+      Math.max(0, face - (c.frameSheetAreaCredit ?? 0)) +
+        (!c.interiorMaterial && c.visibleBox ? carcass : 0),
       'face_waste',
     );
     const backArea =
@@ -475,6 +526,15 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       (c.drawers * (d - 3) * (w - 1.25)) / 144,
       'drawer_bottom_waste',
     );
+    if (c.faceFrameBoardFeet) {
+      const frameCost =
+        (c.faceFrameBoardFeet *
+          (1 + rate('face_waste')) *
+          rate(`face_${c.material}`)) /
+        24;
+      frameMaterials += frameCost;
+      if (c.continuousFrame) continuousFrameMaterials += frameCost;
+    }
     hours +=
       c.boxUnits * rate('box_hours') +
       c.drawers * rate('drawer_hours') +
@@ -502,11 +562,23 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       'margin or productive hours',
     ]);
   const cost =
-    (materials + hardware + hours * laborRate + finish + rate('misc')) *
+    (materials +
+      frameMaterials +
+      hardware +
+      hours * laborRate +
+      finish +
+      rate('misc')) *
     (1 + rate('overhead'));
   let price = cost / (1 - margin);
   if (rates.profit_cap != null)
     price = Math.min(price, cost + rate('profit_cap'));
+  // The owner approved 20% of the whole equivalent frame selling price.
+  // Keep the addition after a project profit cap, like other selling additions.
+  const individualFramePrice =
+    (frameMaterials * (1 + rate('overhead'))) / (1 - margin);
+  const continuousFramePremium =
+    ((continuousFrameMaterials * (1 + rate('overhead'))) / (1 - margin)) * 0.2;
+  price += continuousFramePremium;
   price +=
     lines.reduce((total, line) => total + (line.beadedFaces ?? 0), 0) *
       BEADED_FACE_SURCHARGE +
@@ -514,7 +586,7 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
       BEADED_FLAT_SURCHARGE;
   if (!Number.isFinite(price) || price > Number.MAX_SAFE_INTEGER / 100)
     throw new PricingError('pricing_not_configured', ['price overflow']);
-  return {cost, price, purchases};
+  return {cost, price, purchases, individualFramePrice, continuousFramePremium};
 }
 export function priceRange(price: number) {
   return {
