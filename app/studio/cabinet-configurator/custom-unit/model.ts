@@ -48,7 +48,13 @@ export type CabinetPart = {
   kind: 'carcass' | 'divider' | 'door' | 'drawer' | 'shelf' | 'rod' | 'panel';
   name?: string;
   backStyle?: BackPanelStyle;
-  faceStyle?: 'slab' | 'shaker' | 'vertical-slat' | 'shaker-glass';
+  faceStyle?:
+    | 'slab'
+    | 'shaker'
+    | 'beaded-shaker'
+    | 'beaded-flat'
+    | 'vertical-slat'
+    | 'shaker-glass';
   door?: {
     mechanism: DoorMechanism;
     side: 'left' | 'right';
@@ -388,6 +394,8 @@ export function validateCustomUnit(value: unknown): string[] {
             ![
               'slab',
               'shaker',
+              'beaded-shaker',
+              'beaded-flat',
               'inset-shaker',
               'vertical-slat',
               'shaker-glass',

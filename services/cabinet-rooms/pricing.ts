@@ -17,6 +17,9 @@ import type {
   RoomElement,
 } from '../../app/studio/cabinet-configurator/model';
 import {storageLayout} from '../../app/studio/cabinet-configurator/openStorage';
+/** Owner-approved selling-price addition, not a cost input or margin multiplier. */
+export const BEADED_FACE_SURCHARGE = 10;
+export const BEADED_FLAT_SURCHARGE = 5;
 export type Rates = Record<string, number | null>;
 // A new room-object kind must declare its pricing scope before typecheck passes.
 const ELEMENT_PRICING = {
@@ -67,6 +70,8 @@ export type ScheduleLine = {
   toeKickHeight?: number;
   finishUnits: number;
   drawers: number;
+  beadedFaces?: number;
+  beadedFlatFaces?: number;
   hinges: number;
   frontCoverage: number;
   endPanels: number;
@@ -220,6 +225,14 @@ export function projectSchedule(study: Study) {
         'Open storage includes visible-material shelves, dividers, top and optional finished back. Shelf supports and hanging-rod hardware use the project miscellaneous allowance unless separately configured; interior assembly uses the standard box labor allowance and requires shop review.',
       );
     }
+    let faceCount = panel ? 0 : drawers + doors;
+    if (!e.customCabinet && !e.storage && e.kind === 'base') {
+      // A sink false front has no drawer box; its apron belongs to the sink.
+      if (e.configuration === 'sink') faceCount++;
+      if (e.configuration === 'farmhouse-sink') faceCount = 2;
+    }
+    let beadedFaces = e.face === 'beaded-shaker' ? faceCount : 0;
+    let beadedFlatFaces = e.face === 'beaded-flat' ? faceCount : 0;
     let customAreas: Pick<
       ScheduleLine,
       'carcassArea' | 'faceArea' | 'backArea'
@@ -255,10 +268,27 @@ export function projectSchedule(study: Study) {
       };
       drawers = parts.filter((part) => part.kind === 'drawer').length;
       doors = parts.filter((part) => part.kind === 'door').length;
+      const profileFaces = (style: RoomElement['face']) =>
+        parts.filter(
+          (part) =>
+            (part.kind === 'door' || part.kind === 'drawer') &&
+            part.door?.mechanism !== 'tambour' &&
+            (part.faceStyle ?? e.face) === style,
+        ).length;
+      beadedFaces = profileFaces('beaded-shaker');
+      beadedFlatFaces = profileFaces('beaded-flat');
       assumptions.add(
         'Custom cabinet stock uses the saved physical parts; drawer boxes retain the standard drawer construction allowance.',
       );
     }
+    if (beadedFaces)
+      assumptions.add(
+        'Beaded Shaker adds $10 per door/drawer face to the selling price before the displayed range is rounded.',
+      );
+    if (beadedFlatFaces)
+      assumptions.add(
+        'Beaded Flat adds $5 per door/drawer face to the selling price before the displayed range is rounded.',
+      );
     assumptions.add(
       study.room.useMapleInternals
         ? 'Maple stock is preferred for concealed carcasses and drawer boxes. Open and glass-front interiors retain the front material.'
@@ -283,6 +313,8 @@ export function projectSchedule(study: Study) {
       toeKickHeight,
       finishUnits: 1,
       drawers,
+      beadedFaces,
+      beadedFlatFaces,
       hinges: panel
         ? 0
         : doors *
@@ -431,6 +463,11 @@ export function calculatePrice(lines: ScheduleLine[], rates: Rates) {
   let price = cost / (1 - margin);
   if (rates.profit_cap != null)
     price = Math.min(price, cost + rate('profit_cap'));
+  price +=
+    lines.reduce((total, line) => total + (line.beadedFaces ?? 0), 0) *
+      BEADED_FACE_SURCHARGE +
+    lines.reduce((total, line) => total + (line.beadedFlatFaces ?? 0), 0) *
+      BEADED_FLAT_SURCHARGE;
   if (!Number.isFinite(price) || price > Number.MAX_SAFE_INTEGER / 100)
     throw new PricingError('pricing_not_configured', ['price overflow']);
   return {cost, price, purchases};

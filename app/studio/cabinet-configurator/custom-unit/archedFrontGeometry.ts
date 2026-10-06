@@ -1,3 +1,13 @@
+import {
+  isShakerFace,
+  isBeadedFace,
+  BEADED_FLAT_INSET,
+  SHAKER_PANEL_SETBACK,
+  SHAKER_BEAD_WIDTH,
+  shakerPanelDepth,
+  shakerBeadGeometry,
+  offsetProfile,
+} from '../faceProfiles';
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {shakerFrameWidth} from '../hardwarePlacement';
@@ -17,12 +27,21 @@ export function archPath(points: ArchPoint[]) {
  * have a concentric inset aperture. Both move together with the door. */
 export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
   const shape = archPath(part.outline!);
+  const flat = style === 'beaded-flat';
   const pane =
-    part.cabinetArch &&
-    ['shaker', 'shaker-glass', 'inset-shaker'].includes(style ?? '')
-      ? cabinetArchPane(part, shakerFrameWidth(part.width, part.height))
+    part.cabinetArch && (isShakerFace(style) || flat)
+      ? cabinetArchPane(
+          part,
+          flat ? BEADED_FLAT_INSET : shakerFrameWidth(part.width, part.height),
+        )
       : [];
-  if (pane.length >= 3) shape.holes.push(archPath([...pane].reverse()));
+  const bead = isBeadedFace(style) && pane.length >= 3;
+  if (pane.length >= 3)
+    shape.holes.push(
+      archPath(
+        [...(bead ? offsetProfile(pane, SHAKER_BEAD_WIDTH) : pane)].reverse(),
+      ),
+    );
   const frame = new THREE.ExtrudeGeometry(shape, {
     depth: part.depth,
     bevelEnabled: false,
@@ -30,14 +49,28 @@ export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
   frame.translate(-part.width / 2, -part.height / 2, -part.depth / 2);
   if (pane.length < 3) return frame;
   const panel = new THREE.ExtrudeGeometry(archPath(pane), {
-    depth: part.depth / 3,
+    depth: flat ? part.depth : shakerPanelDepth(part.depth),
     bevelEnabled: false,
   });
-  panel.translate(-part.width / 2, -part.height / 2, part.depth / 6);
-  const result = mergeGeometries([frame, panel], true)!;
-  result.groups[0].materialIndex = 0;
+  panel.translate(
+    -part.width / 2,
+    -part.height / 2,
+    -part.depth / 2 + (flat ? 0 : SHAKER_PANEL_SETBACK),
+  );
+  const pieces: THREE.BufferGeometry[] = [frame, panel];
+  if (bead)
+    pieces.push(
+      shakerBeadGeometry(pane, part.depth)
+        .toNonIndexed()
+        .translate(-part.width / 2, -part.height / 2, 0),
+    );
+  const result = mergeGeometries(pieces, true)!;
+  result.groups.forEach((group) => {
+    group.materialIndex = 0;
+  });
   result.groups[1].materialIndex = style === 'shaker-glass' ? 1 : 0;
   frame.dispose();
   panel.dispose();
+  pieces[2]?.dispose();
   return result;
 }

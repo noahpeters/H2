@@ -2973,6 +2973,8 @@ export function CabinetConfigurator({
                         }}
                       >
                         <option value="shaker">Shaker</option>
+                        <option value="beaded-shaker">Beaded Shaker</option>
+                        <option value="beaded-flat">Beaded Flat</option>
                         <option value="slab">Slab</option>
                         <option value="vertical-slat">
                           Vertical slat panel

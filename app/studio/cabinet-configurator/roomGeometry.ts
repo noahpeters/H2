@@ -1,3 +1,10 @@
+import {facePreviewGeometry} from './custom-unit/facePreview';
+import {
+  isShakerFace,
+  SHAKER_PANEL_SETBACK,
+  SHAKER_BEAD_WIDTH,
+  shakerBeadGeometry,
+} from './faceProfiles';
 import {decorateBackPanel} from './backPanels';
 import {cabinetInteriorSelection, drawerBoxSelection} from './cabinetInternals';
 import type {ToeKickRun} from './continuousToeKicks';
@@ -342,14 +349,16 @@ export function cabinetGeometry(
         : d / 2;
     const glass =
       item.face === 'shaker-glass' && item.kind === 'wall-cabinet' && !drawer;
+    const framed = isShakerFace(item.face);
+    const railWidth = shakerFrameWidth(width, height);
     const frontPanel = box(
       group,
       width,
       height,
-      0.5,
+      framed ? 0.25 : 0.5,
       x,
       y,
-      faceZ - 0.1,
+      framed ? faceZ + 0.375 - SHAKER_PANEL_SETBACK - 0.125 : faceZ - 0.1,
       glass
         ? new THREE.MeshStandardMaterial({
             color: 0xb6d2d7,
@@ -362,6 +371,28 @@ export function cabinetGeometry(
       drawer ? 'drawer' : 'door',
     );
     frontPanel.name = 'cabinet-front';
+    if (item.face === 'beaded-flat') {
+      frontPanel.geometry.dispose();
+      frontPanel.geometry = facePreviewGeometry(
+        width,
+        height,
+        0.75,
+        item.face,
+        false,
+        drawer ? 'x' : 'y',
+      )
+        .rotateY(Math.PI)
+        .scale(inch, inch, inch) as THREE.BoxGeometry;
+      frontPanel.position.z = faceZ * inch;
+      mapMaterialPart(
+        frontPanel.geometry,
+        panel,
+        {width: width * inch, height: height * inch, depth: 0.75 * inch},
+        'm',
+        drawer ? 'drawer' : 'door',
+      );
+    }
+
     if (item.face === 'vertical-slat') {
       const spacing = Math.max(1.75, Math.min(2.5, width / 8));
       const count = Math.max(2, Math.floor(width / spacing));
@@ -377,8 +408,9 @@ export function cabinetGeometry(
           dark,
         ).name = 'vertical-slat-groove';
     }
-    if (item.face === 'shaker' || item.face === 'shaker-glass') {
-      const rail = shakerFrameWidth(width, height);
+    if (framed) {
+      const rail =
+        railWidth - (item.face === 'beaded-shaker' ? SHAKER_BEAD_WIDTH : 0);
       for (const side of [-1, 1]) {
         box(
           group,
@@ -403,6 +435,50 @@ export function cabinetGeometry(
           'rail',
         );
       }
+    }
+    if (item.face === 'beaded-shaker') {
+      const bx = width / 2 - railWidth,
+        by = height / 2 - railWidth;
+      const geometry = shakerBeadGeometry(
+        [
+          {x: -bx, y: -by},
+          {x: bx, y: -by},
+          {x: bx, y: by},
+          {x: -bx, y: by},
+        ],
+        0.75,
+      );
+      const positions = geometry.getAttribute('position');
+      geometry.setAttribute(
+        'materialGrainAxis',
+        new THREE.Float32BufferAttribute(
+          Float32Array.from({length: positions.count}, (_, i) =>
+            Math.abs(positions.getY(i)) >= by - 1e-6 ? 0 : 1,
+          ),
+          1,
+        ),
+      );
+      geometry.setAttribute(
+        'materialFixedGrain',
+        new THREE.Float32BufferAttribute(
+          new Float32Array(positions.count).fill(1),
+          1,
+        ),
+      );
+      geometry.rotateY(Math.PI);
+      geometry.scale(inch, inch, inch);
+      const bead = new THREE.Mesh(geometry, wood);
+      bead.name = 'shaker-bead';
+      bead.position.set(x * inch, y * inch, faceZ * inch);
+      bead.castShadow = bead.receiveShadow = true;
+      mapMaterialPart(
+        geometry,
+        wood,
+        {width: width * inch, height: height * inch, depth: 0.75 * inch},
+        'm',
+        drawer ? 'drawer' : 'door',
+      );
+      group.add(bead);
     }
     group.updateMatrixWorld(true);
     for (const child of group.children.slice(firstChild))

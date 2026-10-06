@@ -290,6 +290,8 @@ export function validStudy(value: any): boolean {
         ['width', 'depth', 'height'].every((k) => dimension(e[k])) &&
         [
           'shaker',
+          'beaded-shaker',
+          'beaded-flat',
           'slab',
           'shaker-glass',
           'inset-shaker',
