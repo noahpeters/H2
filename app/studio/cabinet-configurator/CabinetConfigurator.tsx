@@ -729,7 +729,6 @@ export function ThreeStudy({
     snapshot: ReturnType<typeof createPhotoSnapshot>;
     settings: typeof photoSettings;
   } | null>(null);
-  const photoAttempt = useRef(false);
   const releasePhotoCapture = useCallback(() => {
     if (photoCapture.current)
       disposeStudyObject(photoCapture.current.snapshot.scene);
@@ -744,12 +743,11 @@ export function ThreeStudy({
   );
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [photoDiagnostics, setPhotoDiagnostics] = useState<Blob | null>(null);
-  const [photoFull, setPhotoFull] = useState(false);
   const photoRef = useRef<
     (() => ReturnType<typeof createPhotoSnapshot>) | null
   >(null);
   const takingPhoto = useRef(false);
-  const takePhoto = async (comprehensive = false, retry = false) => {
+  const takePhoto = async (retry = false) => {
     if (takingPhoto.current) return;
     if (!photoRef.current && !photoCapture.current) {
       setPhotoError(
@@ -762,9 +760,8 @@ export function ThreeStudy({
     setPhotoError('');
     setPhotoProgress(0);
     photoAbort.current = new AbortController();
-    photoAttempt.current = comprehensive;
     try {
-      if (!photoCapture.current || (!comprehensive && !retry)) {
+      if (!photoCapture.current || !retry) {
         releasePhotoCapture();
         photoCapture.current = {
           snapshot: photoRef.current!(),
@@ -773,11 +770,6 @@ export function ThreeStudy({
       }
       const capture = photoCapture.current!;
       const settings = structuredClone(capture.settings);
-      if (comprehensive)
-        settings.camera = {
-          ...(settings.camera ?? DEFAULT_PHOTO_CAMERA),
-          quality: 'ultra',
-        };
       await waitForMaterialTextures(capture.snapshot.scene);
       photoAbort.current.signal.throwIfAborted();
       const snapshot = clonePhotoSnapshot(capture.snapshot);
@@ -797,7 +789,6 @@ export function ThreeStudy({
       if (!photoAbort.current.signal.aborted) {
         setPhotoBlob(blob);
         setPhotoDiagnostics(diagnostics);
-        setPhotoFull(settings.camera?.quality === 'ultra');
       }
     } catch (error) {
       if (photoAbort.current.signal.aborted && !photoBlob)
@@ -1319,11 +1310,8 @@ export function ThreeStudy({
         <PhotoProgressDialog
           progress={photoProgress}
           error={photoError}
-          adaptive={
-            !photoAttempt.current &&
-            photoCapture.current?.settings.camera?.quality !== 'ultra'
-          }
-          retry={() => void takePhoto(photoAttempt.current, true)}
+          adaptive={photoCapture.current?.settings.camera?.quality !== 'ultra'}
+          retry={() => void takePhoto(true)}
           cancel={() => {
             if (photoBusy) photoAbort.current?.abort();
             else {
@@ -1344,7 +1332,6 @@ export function ThreeStudy({
         <PhotoDialog
           diagnostics={photoDiagnostics ?? undefined}
           blob={photoBlob}
-          refine={!photoFull ? () => void takePhoto(true) : undefined}
           close={() => {
             setPhotoBlob(null);
             setPhotoDiagnostics(null);

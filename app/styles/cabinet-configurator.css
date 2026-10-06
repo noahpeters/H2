@@ -917,7 +917,7 @@
   font-weight: 600;
 }
 
-.cabinet-app .cc-photo-actions .cc-photo-refine { margin-left: 0; margin-right: auto; }
+.cabinet-app .cc-photo-settings-hint { margin: 0.75rem 0; font-size: 0.875rem; line-height: 1.5; }
 @media (max-width: 600px) { .cc-photo-actions { flex-wrap: wrap; } }
 
 .cc-photo-settings-dialog {
