@@ -241,9 +241,11 @@ test('exports maple stock and CSV without changing part dimensions, joints or fr
     source,
     DEFAULT_CONSTRUCTION,
   );
-  expect(maple.parts.map(({material: _material, ...part}) => part)).toEqual(
-    regular.parts.map(({material: _material, ...part}) => part),
-  );
+  expect(
+    maple.parts
+      .filter((p) => !p.id.startsWith('auto-panel:'))
+      .map(({material: _material, ...part}) => part),
+  ).toEqual(regular.parts.map(({material: _material, ...part}) => part));
   expect(maple.parts.find((p) => p.name === 'Left side')?.material).toBe(
     'Maple plywood',
   );
@@ -258,5 +260,11 @@ test('exports maple stock and CSV without changing part dimensions, joints or fr
   expect(maple.parts.find((p) => p.name === 'Toe-kick face')?.material).toBe(
     'walnut',
   );
+  const panels = maple.parts.filter((p) => p.id.startsWith('auto-panel:'));
+  expect(panels).toHaveLength(3);
+  expect(
+    panels.every((p) => p.assemblyId === cabinet.id && p.material === 'walnut'),
+  ).toBe(true);
   expect(exportBundle(maple).csv).toContain('Maple plywood');
+  expect(exportBundle(maple).csv).toContain('Automatic left finish panel');
 });

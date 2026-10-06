@@ -179,3 +179,32 @@ describe('countertop clearance', () => {
     expect(bounds.min.x / inch).toBeCloseTo(-16);
   });
 });
+
+it('extends base countertops over attached finish stock and measures overhang from its outer face', () => {
+  const maple = {...room, useMapleInternals: true};
+  const edges = countertopEdges(base, [base], maple);
+  expect(edges).toEqual({left: 1.75, right: 1.75, back: 1.75, front: 1});
+  const group = cabinetGeometry(base, true, false, maple, edges);
+  const stone = group.getObjectByName('cabinet-countertop')!;
+  const bounds = new THREE.Box3().setFromObject(stone);
+  expect(bounds.min.x / inch).toBeCloseTo(-16.75);
+  expect(bounds.max.x / inch).toBeCloseTo(16.75);
+  expect(bounds.min.z / inch).toBeCloseTo(-13.75);
+  expect(
+    countertopEdges(
+      {...base, disableAutoPanels: true},
+      [{...base, disableAutoPanels: true}],
+      maple,
+    ),
+  ).toEqual(DEFAULT_COUNTERTOP_EDGES);
+  const neighbor = {...tall, disableAutoPanels: true};
+  expect(countertopEdges(base, [base, neighbor], maple).left).toBeCloseTo(
+    -0.02,
+  );
+});
+it('trims a base countertop around the attached finish panel on a taller neighbor', () => {
+  const maple = {...room, useMapleInternals: true};
+  const edges = countertopEdges(base, [base, tall], maple);
+  expect(edges.left).toBeCloseTo(-0.77);
+  expect(edges.right).toBe(1.75);
+});

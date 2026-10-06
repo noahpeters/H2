@@ -124,6 +124,7 @@ export type RoomElement = {
     | 'slab'
     | 'shaker-glass'
     | 'vertical-slat';
+  disableAutoPanels?: boolean;
   hinge?: 'left' | 'right';
   applianceFront?: ApplianceFront;
   rangeHood?: boolean;

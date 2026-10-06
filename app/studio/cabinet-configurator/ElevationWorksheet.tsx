@@ -1,3 +1,4 @@
+import {withAutomaticFinishPanels, isAutoPanel} from './automaticFinishPanels';
 import {simpleArchProfile} from './simpleArch';
 import {useMemo} from 'react';
 import type {Study} from './CabinetConfigurator';
@@ -19,6 +20,7 @@ type ElevationItem = {
   width: number;
   height: number;
   kind: RoomElement['kind'];
+  autoPanel?: boolean;
   face?: RoomElement['face'];
   lines: number[][];
   countertops: CountertopSpan[];
@@ -90,13 +92,15 @@ function mergeCountertops(spans: CountertopSpan[]) {
 }
 
 const itemLabel = (item: RoomElement) =>
-  item.applianceKind
-    ? APPLIANCE_CATALOG[item.applianceKind].label
-    : item.fixtureKind
-      ? item.fixtureKind.replaceAll('-', ' ')
-      : item.storage
-        ? OPEN_STORAGE[item.storage.type]
-        : item.kind.replace('-', ' ');
+  isAutoPanel(item)
+    ? `Automatic ${item.autoPanel.surface} panel`
+    : item.applianceKind
+      ? APPLIANCE_CATALOG[item.applianceKind].label
+      : item.fixtureKind
+        ? item.fixtureKind.replaceAll('-', ' ')
+        : item.storage
+          ? OPEN_STORAGE[item.storage.type]
+          : item.kind.replace('-', ' ');
 
 const INCH = 0.0254;
 type Plane = {x: number; z: number; ux: number; uz: number};
@@ -222,6 +226,7 @@ function projectedItem(
     width: right - left,
     height: item.height,
     kind: item.kind,
+    autoPanel: isAutoPanel(item),
     face: item.face,
     lines,
     countertops,
@@ -229,10 +234,18 @@ function projectedItem(
 }
 
 export function elevationSheets(study: Study): ElevationSheet[] {
+  study = withAutomaticFinishPanels(study);
+  const placementOwner = (item: RoomElement) =>
+    isAutoPanel(item)
+      ? study.elements.find((e) => e.id === item.autoPanel.ownerId)!
+      : item;
   const walls = roomSegments(study.room).flatMap((wall) => {
-    const items = study.elements.filter(
-      (i) => i.placement.mode === 'wall' && i.placement.wall === wall.id,
-    );
+    const items = study.elements.filter((i) => {
+      const owner = placementOwner(i);
+      return (
+        owner.placement.mode === 'wall' && owner.placement.wall === wall.id
+      );
+    });
     const openings = study.openings.filter((o) => o.wall === wall.id);
     if (!items.length && !openings.length) return [];
     const plane = {
@@ -272,7 +285,7 @@ export function elevationSheets(study: Study): ElevationSheet[] {
     label: 'Island',
   }));
   const free = study.elements.filter(
-    (i) => i.placement.mode === 'floor' && !i.islandId,
+    (i) => placementOwner(i).placement.mode === 'floor' && !i.islandId,
   );
   if (free.length) {
     const points = free.flatMap((i) => {
@@ -422,6 +435,7 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
             key={item.id}
           >
             <rect
+              style={item.autoPanel ? {fill: 'none'} : undefined}
               x={sx(item.x)}
               y={sy(item.y + item.height)}
               width={item.width * scale}
@@ -435,12 +449,15 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
                 )
                 .join(' ')}
             />
-            <text
-              x={sx(item.x + item.width / 2)}
-              y={sy(item.y + item.height / 2)}
-            >
-              {item.label}
-            </text>
+            <title>{item.label}</title>
+            {!item.autoPanel && (
+              <text
+                x={sx(item.x + item.width / 2)}
+                y={sy(item.y + item.height / 2)}
+              >
+                {item.label}
+              </text>
+            )}
             <path
               className="cc-elevation-dimension"
               d={`M${sx(item.x)},${pad - 13}H${sx(item.x + item.width)} ${tick(sx(item.x), pad - 13)} ${tick(sx(item.x + item.width), pad - 13)}`}
@@ -452,13 +469,15 @@ function Sheet({sheet}: {sheet: ElevationSheet}) {
             >
               {Number(item.width.toFixed(3))}″
             </text>
-            <text
-              className="cc-dimension-text"
-              x={sx(item.x + item.width / 2)}
-              y={sy(item.y) - 5}
-            >
-              {item.height}″ high{item.y ? ` · bottom ${item.y}″` : ''}
-            </text>
+            {!item.autoPanel && (
+              <text
+                className="cc-dimension-text"
+                x={sx(item.x + item.width / 2)}
+                y={sy(item.y) - 5}
+              >
+                {item.height}″ high{item.y ? ` · bottom ${item.y}″` : ''}
+              </text>
+            )}
           </g>
         ))}
         {sheet.countertops.map((top, index) => (

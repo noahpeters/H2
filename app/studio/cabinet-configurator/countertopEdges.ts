@@ -1,3 +1,5 @@
+import {DEFAULT_PANEL_THICKNESS} from './roomPanels';
+import {automaticFinishPanels, isAutoPanel} from './automaticFinishPanels';
 import {wallToFloor, type RoomElement, type Room} from './model';
 
 export type CountertopEdges = {
@@ -20,11 +22,30 @@ export function countertopEdges(
   room: Room,
 ): CountertopEdges {
   const edges = {...DEFAULT_COUNTERTOP_EDGES};
+  const supplied = elements.filter(isAutoPanel);
+  const generated = room.useMapleInternals
+    ? supplied.length
+      ? supplied
+      : automaticFinishPanels(elements, room)
+    : [];
+  if (item.kind === 'base') {
+    const panels = generated.filter(
+      (p) =>
+        p.autoPanel.ownerId === item.id &&
+        Math.abs(p.autoPanel.bottom + p.height - item.height) < 0.001,
+    );
+    for (const side of ['left', 'right', 'back'] as const)
+      if (panels.some((p) => p.autoPanel.surface === side))
+        edges[side] += DEFAULT_PANEL_THICKNESS;
+  }
   const origin = wallToFloor(item, room);
   const angle = (origin.rotation * Math.PI) / 180;
   const elevation = item.placement.elevation ?? 0;
   const top = elevation + item.height;
-  for (const other of elements) {
+  for (const other of [
+    ...elements.filter((e) => !isAutoPanel(e)),
+    ...generated.filter((p) => p.autoPanel.ownerId !== item.id),
+  ]) {
     if (
       other.id === item.id ||
       other.kind === 'base' ||
@@ -56,15 +77,39 @@ export function countertopEdges(
     const clearance = 0.02;
     const tolerance = 0.001;
     if (maxZ > -item.depth / 2 && minZ < item.depth / 2) {
-      if (minX >= item.width / 2 - tolerance)
+      if (
+        minX >= item.width / 2 - tolerance ||
+        (other.kind === 'panel' &&
+          x > 0 &&
+          maxX >= item.width / 2 &&
+          minX <= item.width / 2)
+      )
         edges.right = Math.min(edges.right, minX - item.width / 2 - clearance);
-      if (maxX <= -item.width / 2 + tolerance)
+      if (
+        maxX <= -item.width / 2 + tolerance ||
+        (other.kind === 'panel' &&
+          x < 0 &&
+          minX <= -item.width / 2 &&
+          maxX >= -item.width / 2)
+      )
         edges.left = Math.min(edges.left, -item.width / 2 - maxX - clearance);
     }
     if (maxX > -item.width / 2 && minX < item.width / 2) {
-      if (minZ >= item.depth / 2 - tolerance)
+      if (
+        minZ >= item.depth / 2 - tolerance ||
+        (other.kind === 'panel' &&
+          z > 0 &&
+          maxZ >= item.depth / 2 &&
+          minZ <= item.depth / 2)
+      )
         edges.front = Math.min(edges.front, minZ - item.depth / 2 - clearance);
-      if (maxZ <= -item.depth / 2 + tolerance)
+      if (
+        maxZ <= -item.depth / 2 + tolerance ||
+        (other.kind === 'panel' &&
+          z < 0 &&
+          minZ <= -item.depth / 2 &&
+          maxZ >= -item.depth / 2)
+      )
         edges.back = Math.min(edges.back, -item.depth / 2 - maxZ - clearance);
     }
   }

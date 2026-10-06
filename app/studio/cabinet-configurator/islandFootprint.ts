@@ -1,3 +1,5 @@
+import {DEFAULT_PANEL_THICKNESS} from './roomPanels';
+import {automaticFinishPanels, isAutoPanel} from './automaticFinishPanels';
 import type {Island, Room, RoomElement} from './model';
 
 /** Island body and seating area used for snapping and grouping. */
@@ -23,7 +25,7 @@ export const DEFAULT_ISLAND_COUNTERTOP_OVERHANG = 0.125;
 export function islandCountertopOutline(
   island: Island,
   elements: RoomElement[],
-  room?: Pick<Room, 'overlay' | 'islandCountertopOverhang'>,
+  room?: Pick<Room, 'overlay' | 'islandCountertopOverhang'> & Partial<Room>,
 ) {
   const edge =
     room?.islandCountertopOverhang ?? DEFAULT_ISLAND_COUNTERTOP_OVERHANG;
@@ -53,6 +55,48 @@ export function islandCountertopOutline(
     body.right = Math.max(body.right, island.width / 2 + Math.max(0, dx));
     body.top = Math.min(body.top, -island.depth / 2 + Math.min(0, dz));
     body.bottom = Math.max(body.bottom, island.depth / 2 + Math.max(0, dz));
+  }
+  if (room?.useMapleInternals && room.width && room.depth && room.height) {
+    // Finish stock receives an allowance at the fixed island boundary, just as
+    // face frames do. Moving members does not expand the island envelope.
+    const supplied = elements.filter(isAutoPanel);
+    const panels = (
+      supplied.length ? supplied : automaticFinishPanels(elements, room as Room)
+    ).filter((p) => p.islandId === island.id);
+    const allowance = {left: 0, right: 0, top: 0, bottom: 0};
+    for (const panel of panels) {
+      const owner = elements.find((e) => e.id === panel.autoPanel.ownerId)!;
+      if (
+        owner.kind !== 'base' ||
+        Math.abs(panel.autoPanel.bottom + panel.height - owner.height) > 0.001
+      )
+        continue;
+      const angle =
+        (((owner.placement.mode === 'floor' ? owner.placement.rotation : 0) -
+          island.rotation) *
+          Math.PI) /
+        180;
+      const sign = panel.autoPanel.surface === 'right' ? 1 : -1;
+      const x =
+        panel.autoPanel.surface === 'back'
+          ? Math.sin(angle)
+          : sign * Math.cos(angle);
+      const z =
+        panel.autoPanel.surface === 'back'
+          ? -Math.cos(angle)
+          : sign * Math.sin(angle);
+      allowance.left = Math.max(allowance.left, -x * DEFAULT_PANEL_THICKNESS);
+      allowance.right = Math.max(allowance.right, x * DEFAULT_PANEL_THICKNESS);
+      allowance.top = Math.max(allowance.top, -z * DEFAULT_PANEL_THICKNESS);
+      allowance.bottom = Math.max(
+        allowance.bottom,
+        z * DEFAULT_PANEL_THICKNESS,
+      );
+    }
+    body.left -= allowance.left;
+    body.right += allowance.right;
+    body.top -= allowance.top;
+    body.bottom += allowance.bottom;
   }
   const seating = islandOutline(island);
   return {

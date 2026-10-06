@@ -123,9 +123,12 @@ test('preserves a saved room outline while exposing only wall geometry editing',
     screen.queryByLabelText('Room outline preset'),
   ).not.toBeInTheDocument();
   fireEvent.click(screen.getByText('Edit room outline'));
-  fireEvent.change(screen.getByRole('spinbutton', {name: 'Selected wall thickness'}), {
-    target: {value: '7'},
-  });
+  fireEvent.change(
+    screen.getByRole('spinbutton', {name: 'Selected wall thickness'}),
+    {
+      target: {value: '7'},
+    },
+  );
   expect(state.latest!.room.outline).toEqual(outline);
   expect(state.latest!.room.wallThicknesses?.back).toBe(7);
 });
@@ -153,9 +156,12 @@ test('walls and openings only select or drag during room editing, and handles di
   fireEvent.click(screen.getByText('Edit room outline'));
   fireEvent.keyDown(wall, {key: 'Enter'});
   expect(screen.getByLabelText(/Wall to edit/i)).toHaveValue('segment-divider');
-  fireEvent.change(screen.getByRole('spinbutton', {name: 'Selected wall thickness'}), {
-    target: {value: '8'},
-  });
+  fireEvent.change(
+    screen.getByRole('spinbutton', {name: 'Selected wall thickness'}),
+    {
+      target: {value: '8'},
+    },
+  );
   expect(state.latest!.room.wallThicknesses?.['segment-divider']).toBe(8);
   expect(screen.getByLabelText('Resize wall end')).toBeInTheDocument();
   fireEvent.keyDown(screen.getByLabelText('Resize wall end'), {key: 'ArrowUp'});
@@ -454,4 +460,46 @@ test('room-wide maple internals toggle changes the saved design without changing
   expect(state.latest!.elements.map((e) => e.material)).toEqual(materials);
   fireEvent.click(toggle);
   expect(state.latest!.room.useMapleInternals).toBe(false);
+});
+
+test('automatic panels are grey, selectable and fixed; the controlling cabinet can disable them', () => {
+  state.initial!.room.useMapleInternals = true;
+  state.initial!.room.partitions = [];
+  state.initial!.elements = [
+    {
+      id: 'auto-owner',
+      kind: 'base',
+      width: 30,
+      depth: 24,
+      height: 34.5,
+      face: 'shaker',
+      placement: {mode: 'floor', x: 60, z: 60, rotation: 0},
+    },
+  ];
+  state.initial!.selected = null;
+  const {container} = render(<CabinetConfigurator />);
+  const panels = Array.from(
+    container.querySelectorAll('g.cc-panel rect'),
+  ).filter((r) => (r as SVGElement).style.fill === '#999999');
+  expect(panels).toHaveLength(3);
+  const panel = panels[0].parentElement!;
+  fireEvent.pointerDown(panel, {pointerId: 1, clientX: 100, clientY: 100});
+  fireEvent.click(panel);
+  expect(
+    screen.getByText(
+      'Attached to its cabinet. Size and position are not editable.',
+    ),
+  ).toBeVisible();
+  expect(screen.queryByLabelText('Thickness')).not.toBeInTheDocument();
+  expect(state.latest!.elements).toHaveLength(1);
+  fireEvent.click(
+    screen.getByRole('button', {name: 'Select controlling cabinet'}),
+  );
+  fireEvent.click(screen.getByLabelText('Disable automatic finish panels'));
+  expect(state.latest!.elements[0].disableAutoPanels).toBe(true);
+  expect(
+    Array.from(container.querySelectorAll('g.cc-panel rect')).filter(
+      (r) => (r as SVGElement).style.fill === '#999999',
+    ),
+  ).toHaveLength(0);
 });

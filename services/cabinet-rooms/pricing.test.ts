@@ -897,3 +897,36 @@ it.each([
     });
   },
 );
+
+it('prices only the derived finish panels with maple internals, without duplicate end/back allowances', () => {
+  const {rates} = setup();
+  const s = study([
+    {...cabinet, placement: {mode: 'floor', x: 60, z: 60, rotation: 0}},
+  ]);
+  s.room.useMapleInternals = true;
+  const schedule = projectSchedule(s).lines;
+  expect(schedule).toHaveLength(4);
+  expect(schedule[0]).toMatchObject({endPanels: 0, finishedBack: 0});
+  const panels = schedule.filter((line) => line.id.startsWith('auto-panel:'));
+  expect(panels.map((line) => line.faceArea)).toEqual([
+    (24 * 34.5) / 144,
+    (24 * 34.5) / 144,
+    (30 * 34.5) / 144,
+  ]);
+  expect(
+    panels.every(
+      (line) =>
+        line.material === cabinet.material &&
+        line.boxUnits === 0 &&
+        line.drawers === 0 &&
+        !line.beadedFaces &&
+        !line.beadedFlatFaces,
+    ),
+  ).toBe(true);
+  s.elements[0].disableAutoPanels = true;
+  const disabled = projectSchedule(s).lines;
+  expect(disabled).toHaveLength(1);
+  expect(calculatePrice(schedule, rates).price).toBeGreaterThan(
+    calculatePrice(disabled, rates).price,
+  );
+});

@@ -283,6 +283,9 @@ export function validStudy(value: any): boolean {
             e.depth <= 36 &&
             e.height >= 12 &&
             e.height <= 120)) &&
+        (e.disableAutoPanels === undefined ||
+          typeof e.disableAutoPanels === 'boolean') &&
+        e.autoPanel === undefined &&
         (e.material === undefined ||
           Object.hasOwn(CABINET_MATERIALS, e.material)) &&
         (e.paintColor === undefined ||

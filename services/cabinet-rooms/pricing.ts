@@ -1,4 +1,8 @@
 import {
+  automaticFinishPanels,
+  isAutoPanel,
+} from '../../app/studio/cabinet-configurator/automaticFinishPanels';
+import {
   combinationProfiles,
   isCombinationFace,
   resolvePartFaces,
@@ -60,6 +64,7 @@ export const EXCLUSIONS = [
   'specialty pull-out and corner mechanisms',
 ];
 export type ScheduleLine = {
+  autoPanelOwnerId?: string;
   id: string;
   width: number;
   depth: number;
@@ -94,7 +99,10 @@ export function projectSchedule(study: Study) {
     'Visible fronts use sheet-area allowances, not a detailed rail-and-stile cut list.',
     'Four Axilo feet per base/tall cabinet; their default cost is covered by project miscellaneous materials.',
   ]);
-  for (const e of study.elements) {
+  for (const e of [
+    ...study.elements,
+    ...automaticFinishPanels(study.elements, study.room),
+  ]) {
     const panel =
       e.kind === 'appliance' &&
       ['refrigerator', 'dishwasher'].includes(e.applianceKind ?? '') &&
@@ -115,6 +123,7 @@ export function projectSchedule(study: Study) {
       // Room panels store thickness in width and the visible span in depth.
       lines.push({
         id: e.id,
+        autoPanelOwnerId: isAutoPanel(e) ? e.autoPanel.ownerId : undefined,
         width: e.width,
         depth: e.depth,
         height: e.height,
@@ -212,7 +221,7 @@ export function projectSchedule(study: Study) {
       assumptions.add(
         'Panel-ready appliances include face panels and one finishing unit only; appliance-supplied mounting hardware and hinges are excluded.',
       );
-    else
+    else if (!study.room.useMapleInternals)
       assumptions.add(
         'Two finished ends per cabinet are assumed conservatively; full finished backs are included for island-assigned cabinets. Verify actual exposure.',
       );
@@ -352,8 +361,11 @@ export function projectSchedule(study: Study) {
             ? 4
             : 2),
       frontCoverage,
-      endPanels: panel ? 0 : 2,
-      finishedBack: !panel && !storage && e.islandId ? 1 : 0,
+      endPanels: panel || study.room.useMapleInternals ? 0 : 2,
+      finishedBack:
+        !study.room.useMapleInternals && !panel && !storage && e.islandId
+          ? 1
+          : 0,
       visibleBox,
       ...(storage
         ? {
@@ -374,6 +386,10 @@ export function projectSchedule(study: Study) {
         : {}),
     });
   }
+  if (study.room.useMapleInternals)
+    assumptions.add(
+      'Automatic finish panels cover exposed cabinet side/back areas; attached panels use the cabinet exterior finish and can be disabled per cabinet.',
+    );
   return {lines, assumptions: [...assumptions]};
 }
 /** Internal-only result, never serialize this object in an HTTP response. */
@@ -516,7 +532,7 @@ export function estimateProject(study: Study, rates: Rates) {
     tolerancePercentBeforeRounding: 10,
     scope: 'Cabinetry, room panels and selected appliance face panels only',
     estimateOnly: true,
-    pricedItemCount: lines.length,
+    pricedItemCount: lines.filter((line) => !line.autoPanelOwnerId).length,
     assumptions: lines.length
       ? assumptions
       : [
