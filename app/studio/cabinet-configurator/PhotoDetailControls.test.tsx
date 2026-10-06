@@ -16,6 +16,7 @@ test('daylight first selects a physical enclosure, then preserves explicit user 
     );
   }
   render(<Harness />);
+  expect(screen.getByLabelText('Surface texture detail')).toHaveValue('auto');
   fireEvent.click(screen.getByRole('checkbox', {name: 'Directional daylight'}));
   expect(
     screen.getByRole('checkbox', {name: 'Include a ceiling'}),
@@ -41,4 +42,10 @@ test('daylight first selects a physical enclosure, then preserves explicit user 
       }
     ).textureResolution,
   ).toBe(2048);
+  fireEvent.change(screen.getByLabelText('Surface texture detail'), {
+    target: {value: 'auto'},
+  });
+  expect(
+    JSON.parse(screen.getByTestId('settings').textContent!),
+  ).not.toHaveProperty('textureResolution');
 });

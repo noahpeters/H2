@@ -1,8 +1,27 @@
 import {expect, test, vi} from 'vitest';
 import * as THREE from 'three';
-import {finishPhoto} from './photoFinish';
+import {finishPhoto, canMeterDiffuseWhiteBalance} from './photoFinish';
 import {DEFAULT_PHOTO_CAMERA} from './photoCamera';
 vi.mock('./photoGpu', () => ({waitForPhotoGpu: vi.fn()}));
+
+test('WB illuminant candidates exclude metallic, glossy, transparent and emissive materials', () => {
+  expect(
+    canMeterDiffuseWhiteBalance(new THREE.MeshStandardMaterial({roughness: 1})),
+  ).toBe(true);
+  for (const material of [
+    new THREE.MeshBasicMaterial(),
+    new THREE.MeshStandardMaterial({metalness: 1}),
+    new THREE.MeshStandardMaterial({metalnessMap: new THREE.Texture()}),
+    new THREE.MeshStandardMaterial({roughness: 0.1}),
+    new THREE.MeshStandardMaterial({emissive: 'white'}),
+    new THREE.MeshStandardMaterial({emissiveMap: new THREE.Texture()}),
+    new THREE.MeshStandardMaterial({transparent: true}),
+    new THREE.MeshStandardMaterial({opacity: 0.5}),
+    new THREE.MeshPhysicalMaterial({transmission: 1}),
+    new THREE.MeshPhysicalMaterial({clearcoat: 1}),
+  ])
+    expect(canMeterDiffuseWhiteBalance(material)).toBe(false);
+});
 
 test('finishing meters in linear HDR, applies AgX once, and releases only temporary resources', async () => {
   const scene = new THREE.Scene();
@@ -67,13 +86,13 @@ test('finishing meters in linear HDR, applies AgX once, and releases only tempor
       DEFAULT_PHOTO_CAMERA,
       1,
     );
-    expect(configurations).toHaveLength(3);
+    expect(configurations).toHaveLength(4);
     expect(configurations[0]).toEqual([
       THREE.NoToneMapping,
       THREE.LinearSRGBColorSpace,
       expect.any(THREE.WebGLRenderTarget),
     ]);
-    expect(configurations[2]).toEqual([
+    expect(configurations[3]).toEqual([
       THREE.ACESFilmicToneMapping,
       THREE.SRGBColorSpace,
       null,

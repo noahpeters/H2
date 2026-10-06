@@ -58,7 +58,7 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
     128,
     128,
   );
-  expect(render).toHaveBeenCalledTimes(7);
+  expect(render).toHaveBeenCalledTimes(8);
   const guide = render.mock.calls[0][0] as THREE.Scene;
   expect(guide).not.toBe(scene);
   expect((guide.children[0] as THREE.Mesh).geometry).toBe(geometry);
@@ -86,7 +86,7 @@ test('guide/filter passes preserve source materials, geometry, texture ownership
   expect(releaseTexture).not.toHaveBeenCalled();
   expect(releaseSource).not.toHaveBeenCalled();
   expect(releaseGeometry).not.toHaveBeenCalled();
-  expect(releaseTarget).toHaveBeenCalledTimes(5);
+  expect(releaseTarget).toHaveBeenCalledTimes(6);
   expect(currentTarget).toBe(previousTarget);
   expect(renderer.toneMapping).toBe(THREE.ACESFilmicToneMapping);
   expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
@@ -119,7 +119,7 @@ test('failed GPU guide rendering releases temporary targets and restores output 
       64,
     ),
   ).rejects.toThrow('GPU failure');
-  expect(dispose).toHaveBeenCalledTimes(5);
+  expect(dispose).toHaveBeenCalledTimes(6);
   expect(current).toBe(previous);
   expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
   expect(renderer.autoClear).toBe(false);

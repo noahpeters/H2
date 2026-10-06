@@ -125,19 +125,20 @@ export function PhotoDetailControls({
         </PhotoSettingField>
         <PhotoSettingField
           label="Surface texture detail"
-          help="Higher texture budgets retain detail from higher-resolution source assets and use more memory. They do not add detail to a lower-resolution source."
+          help="Automatic uses finer surface detail for larger photos while fitting the room's memory needs. Higher manual settings use more memory."
         >
           <select
-            value={value.textureResolution ?? 1024}
+            value={value.textureResolution ?? 'auto'}
             onChange={(event) =>
               update({
-                textureResolution: Number(event.target.value) as
-                  | 1024
-                  | 2048
-                  | 4096,
+                textureResolution:
+                  event.target.value === 'auto'
+                    ? undefined
+                    : (Number(event.target.value) as 1024 | 2048 | 4096),
               })
             }
           >
+            <option value="auto">Automatic</option>
             <option value={1024}>Standard · 1K</option>
             <option value={2048}>Detailed · 2K</option>
             <option value={4096}>Maximum · 4K</option>

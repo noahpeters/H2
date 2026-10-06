@@ -1,0 +1,84 @@
+<!doctype html><title>Photo white balance GPU check</title>
+<p id="status">Running</p>
+<pre id="results"></pre>
+<script type="module">
+  import * as THREE from 'three';
+  import {finishPhoto} from '/app/studio/cabinet-configurator/photoFinish.ts';
+  import {DEFAULT_PHOTO_CAMERA} from '/app/studio/cabinet-configurator/photoCamera.ts';
+  const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
+  renderer.setSize(64, 64);
+  renderer.toneMapping = THREE.AgXToneMapping;
+  const scene = new THREE.Scene();
+  scene.background = null;
+  const wood = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0.6, 0.3, 0.2),
+    roughness: 1,
+  });
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(4, 4), wood));
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 10);
+  camera.position.z = 2;
+  camera.updateMatrixWorld(true);
+  const results = [];
+  try {
+    for (const mode of ['neutral', 'warm', 'reflective']) {
+      wood.metalness = mode === 'reflective' ? 1 : 0;
+      const rgb = mode === 'neutral' ? [0.3, 0.15, 0.1] : [0.42, 0.15, 0.07];
+      const data = new Float32Array(
+        Array.from({length: 64 * 64}, () => [...rgb, 1]).flat(),
+      );
+      const texture = new THREE.DataTexture(
+        data,
+        64,
+        64,
+        THREE.RGBAFormat,
+        THREE.FloatType,
+      );
+      texture.needsUpdate = true;
+      const measured = await finishPhoto(
+        renderer,
+        scene,
+        camera,
+        texture,
+        64,
+        64,
+        DEFAULT_PHOTO_CAMERA,
+        1,
+      );
+      if (
+        mode === 'neutral' &&
+        measured.gains.some((g) => Math.abs(g - 1) > 0.001)
+      )
+        throw new Error('Neutral illumination changed wood color');
+      if (
+        mode === 'warm' &&
+        !(
+          measured.gains[0] < 1 &&
+          measured.gains[2] > 1 &&
+          measured.fallbackCount > 8 &&
+          measured.neutralCount === 0
+        )
+      )
+        throw new Error('Warm illuminant not detected');
+      if (
+        mode === 'reflective' &&
+        (measured.fallbackCount !== 0 || measured.gains.some((g) => g !== 1))
+      )
+        throw new Error('Reflection informed WB');
+      results.push({mode, measured});
+      texture.dispose();
+    }
+    document.querySelector('#status').textContent = 'Passed';
+  } catch (e) {
+    document.querySelector('#status').textContent = 'Failed: ' + e.stack;
+    throw e;
+  } finally {
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    wood.dispose();
+    scene.children[0].geometry.dispose();
+    renderer.dispose();
+  }
+</script>

@@ -4,6 +4,23 @@ import {meterPhoto, type PhotoCameraSettings} from './photoCamera';
 import {temperatureColor} from './photoLighting';
 import {waitForPhotoGpu} from './photoGpu';
 
+/** Exclude surfaces whose beauty color is dominated by reflection or emission. */
+export function canMeterDiffuseWhiteBalance(material: THREE.Material) {
+  if (!(material instanceof THREE.MeshStandardMaterial)) return false;
+  const physical = material as THREE.MeshPhysicalMaterial;
+  return (
+    material.opacity === 1 &&
+    !material.transparent &&
+    material.metalness === 0 &&
+    !material.metalnessMap &&
+    material.roughness >= 0.45 &&
+    !material.emissiveMap &&
+    material.emissive.getHex() === 0 &&
+    !(physical.transmission > 0) &&
+    !(physical.clearcoat > 0)
+  );
+}
+
 /** All metering, WB, bloom, reconstruction and AgX run on captured linear HDR.
  * There is exactly one display transform, after the denoiser and area resolve. */
 export async function finishPhoto(
@@ -20,6 +37,7 @@ export async function finishPhoto(
   const meter = new THREE.WebGLRenderTarget(64, 64, {type: THREE.FloatType});
   const guide = scene.clone(true);
   const materials: THREE.Material[] = [];
+  const eligibilityMask = {value: false};
   // Clear alpha identifies empty pixels independently of black surface albedo.
   guide.background = null;
   guide.traverse((object) => {
@@ -34,6 +52,17 @@ export async function finishPhoto(
         transparent: original.transparent,
         alphaTest: original.alphaTest,
       });
+      const eligible = canMeterDiffuseWhiteBalance(original);
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.photoWbMask = eligibilityMask;
+        shader.fragmentShader =
+          'uniform bool photoWbMask;\n' + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <opaque_fragment>',
+          `#include <opaque_fragment>\nif (photoWbMask) gl_FragColor.rgb = vec3(${eligible ? '1.0' : '0.0'});`,
+        );
+      };
+      material.customProgramCacheKey = () => `photo-meter-${eligible}`;
       materials.push(material);
       return material;
     };
@@ -106,11 +135,22 @@ export async function finishPhoto(
     await waitForPhotoGpu(renderer.getContext(), signal);
     const albedo = new Float32Array(64 * 64 * 4);
     renderer.readRenderTargetPixels(meter, 0, 0, 64, 64, albedo);
+    eligibilityMask.value = true;
+    renderer.render(guide, camera);
+    await waitForPhotoGpu(renderer.getContext(), signal);
+    const diffuseMask = new Float32Array(albedo.length);
+    renderer.readRenderTargetPixels(meter, 0, 0, 64, 64, diffuseMask);
     quad.render(renderer);
     await waitForPhotoGpu(renderer.getContext(), signal);
     const pixels = new Float32Array(albedo.length);
     renderer.readRenderTargetPixels(meter, 0, 0, 64, 64, pixels);
-    const measured = meterPhoto(pixels, albedo, settings, manualExposure);
+    const measured = meterPhoto(
+      pixels,
+      albedo,
+      settings,
+      manualExposure,
+      diffuseMask,
+    );
     let gains = measured.gains;
     if (!settings.autoWhiteBalance) {
       const white = temperatureColor(settings.temperature);
