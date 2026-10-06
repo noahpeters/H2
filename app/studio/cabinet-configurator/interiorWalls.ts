@@ -1,70 +1,132 @@
 import type {Partition, Room} from './model';
-import {wallThickness} from './wallDimensions';
-import {boxInRoom, pointInRoom, roomSegments, roomPoints} from './roomOutline';
+import {wallThickness, wallFootprint} from './wallDimensions';
+import {quantizePosition} from './positioningPrecision';
+import {pointInRoom, roomSegments} from './roomOutline';
 type Point = {x: number; z: number};
 const minimum = 6;
 const epsilon = 0.01;
-const distance = (p: Point, s: ReturnType<typeof roomSegments>[number]) =>
-  Math.hypot(
-    p.x - Math.max(s.x, Math.min(s.x + (s.horizontal ? s.length : 0), p.x)),
-    p.z - Math.max(s.z, Math.min(s.z + (s.horizontal ? 0 : s.length), p.z)),
+const distance = (p: Point, s: ReturnType<typeof roomSegments>[number]) => {
+  const along = Math.max(
+    0,
+    Math.min(s.length, (p.x - s.a.x) * s.tx + (p.z - s.a.z) * s.tz),
   );
+  return Math.hypot(p.x - s.a.x - along * s.tx, p.z - s.a.z - along * s.tz);
+};
+export function partitionEnds(p: Partition) {
+  const radians =
+    ((p.angle ?? (p.orientation === 'horizontal' ? 0 : 90)) * Math.PI) / 180;
+  return {
+    start: {x: p.x, z: p.z},
+    end: {
+      x: p.x + Math.cos(radians) * p.length,
+      z: p.z + Math.sin(radians) * p.length,
+    },
+  };
+}
+function fromEnds(wall: Partition, a: Point, b: Point): Partition {
+  // Retain the original positive-axis convention, including after an endpoint passes the other.
+  if (b.x < a.x - epsilon || (Math.abs(b.x - a.x) < epsilon && b.z < a.z))
+    [a, b] = [b, a];
+  const dx = b.x - a.x,
+    dz = b.z - a.z;
+  return {
+    ...wall,
+    x: a.x,
+    z: a.z,
+    length: Math.hypot(dx, dz),
+    orientation: Math.abs(dz) < epsilon ? 'horizontal' : 'vertical',
+    angle: (Math.atan2(dz, dx) * 180) / Math.PI,
+  };
+}
+const cross = (a: Point, b: Point) => a.x * b.z - a.z * b.x;
+/** Parameters where a finite line meets the room boundary. */
+function boundaryCuts(room: Room, a: Point, b: Point) {
+  const d = {x: b.x - a.x, z: b.z - a.z};
+  return roomSegments({...room, partitions: []}).flatMap((s) => {
+    const e = {x: s.b.x - s.a.x, z: s.b.z - s.a.z};
+    const denominator = cross(d, e);
+    if (Math.abs(denominator) < 1e-7) return [];
+    const q = {x: s.a.x - a.x, z: s.a.z - a.z};
+    const t = cross(q, e) / denominator,
+      u = cross(q, d) / denominator;
+    return t > 0 && t < 1 && u >= 0 && u <= 1 ? [t] : [];
+  });
+}
+function lineInRoom(
+  room: Room,
+  a: Point,
+  b: Point,
+  supports: ReturnType<typeof roomSegments> = [],
+) {
+  const cuts = [0, ...boundaryCuts(room, a, b), 1].sort((x, y) => x - y);
+  return [0, 1, ...cuts.slice(1).map((t, i) => (t + cuts[i]) / 2)].every(
+    (t) =>
+      pointInRoom(room, a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t) ||
+      supports.some(
+        (s) =>
+          distance({x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t}, s) <=
+          wallThickness(room, s.id) + epsilon,
+      ),
+  );
+}
 const without = (room: Room, id: string) => ({
   ...room,
   partitions: room.partitions?.filter((p) => p.id !== id),
 });
 function intersections(room: Room, horizontal: boolean, across: number) {
   return roomSegments(room)
-    .filter(
-      (s) =>
-        s.horizontal !== horizontal &&
-        across >= (horizontal ? s.z : s.x) - epsilon &&
-        across <= (horizontal ? s.z : s.x) + s.length + epsilon,
-    )
-    .map((s) => (horizontal ? s.x : s.z))
+    .flatMap((s) => {
+      const start = horizontal ? s.a.z : s.a.x,
+        finish = horizontal ? s.b.z : s.b.x;
+      if (Math.abs(finish - start) < epsilon) return [];
+      const t = (across - start) / (finish - start);
+      return t >= 0 && t <= 1
+        ? [
+            horizontal
+              ? s.a.x + (s.b.x - s.a.x) * t
+              : s.a.z + (s.b.z - s.a.z) * t,
+          ]
+        : [];
+    })
     .sort((a, b) => a - b);
 }
 export function wallFits(room: Room, p: Partition) {
-  const horizontal = p.orientation === 'horizontal',
-    axis = horizontal ? 'x' : 'z';
-  const start = p[axis],
-    end = start + p.length;
-  const breaks = [
-    start,
-    ...roomPoints(room)
-      .map((point) => point[axis])
-      .filter((v) => v > start && v < end),
-    end,
-  ].sort((a, b) => a - b);
-  return (
-    p.length >= minimum &&
-    boxInRoom(room, {
-      left: p.x - (horizontal ? 0 : wallThickness(room, p.id) / 2),
-      right: p.x + (horizontal ? p.length : wallThickness(room, p.id) / 2),
-      top: p.z - (horizontal ? wallThickness(room, p.id) / 2 : 0),
-      bottom: p.z + (horizontal ? wallThickness(room, p.id) / 2 : p.length),
-    }) &&
-    breaks
-      .slice(1)
-      .every((v, i) =>
-        pointInRoom(
-          room,
-          horizontal ? (v + breaks[i]) / 2 : p.x,
-          horizontal ? p.z : (v + breaks[i]) / 2,
-        ),
-      ) &&
-    !roomSegments(without(room, p.id)).some(
-      (s) =>
-        s.horizontal === horizontal &&
-        Math.abs((horizontal ? s.z : s.x) - (horizontal ? p.z : p.x)) <
-          (room.partitions?.some((p) => p.id === s.id)
-            ? (wallThickness(room, p.id) + wallThickness(room, s.id)) / 2
-            : wallThickness(room, p.id) / 2) -
-            epsilon &&
-        Math.max(start, horizontal ? s.x : s.z) <
-          Math.min(end, (horizontal ? s.x : s.z) + s.length) - epsilon,
-    )
+  if (!Number.isFinite(p.length) || p.length < minimum) return false;
+  const candidateRoom = {
+    ...without(room, p.id),
+    partitions: [...(without(room, p.id).partitions ?? []), p],
+  };
+  const footprint = wallFootprint(candidateRoom, p.id);
+  const {start: a, end: b} = partitionEnds(p);
+  if (!lineInRoom(room, a, b)) return false;
+  // A connected cap may meet the supporting perimeter's solid wall stock.
+  const supports = roomSegments({...room, partitions: []}).filter(
+    (s) => distance(a, s) < epsilon || distance(b, s) < epsilon,
   );
+  if (
+    !footprint.every((a, i) =>
+      lineInRoom(room, a, footprint[(i + 1) % footprint.length], supports),
+    )
+  )
+    return false;
+  const tx = (b.x - a.x) / p.length,
+    tz = (b.z - a.z) / p.length;
+  return !roomSegments(without(room, p.id)).some((s) => {
+    if (Math.abs(tx * s.tz - tz * s.tx) > epsilon) return false;
+    const separation = Math.abs((s.a.x - a.x) * -tz + (s.a.z - a.z) * tx);
+    const clearance =
+      (wallThickness(room, p.id) +
+        (room.partitions?.some((w) => w.id === s.id)
+          ? wallThickness(room, s.id)
+          : 0)) /
+      2;
+    const offsets = [s.a, s.b].map((v) => (v.x - a.x) * tx + (v.z - a.z) * tz);
+    return (
+      separation < clearance - epsilon &&
+      Math.max(0, Math.min(...offsets)) <
+        Math.min(p.length, Math.max(...offsets)) - epsilon
+    );
+  });
 }
 /** Span only the connected space containing the cursor, stopping at its first walls. */
 export function previewInteriorWall(
@@ -103,7 +165,74 @@ export function resizeInteriorWall(
   end: 'start' | 'end',
   cursor: Point,
   tolerance = 4,
+  free = false,
 ): Partition {
+  if (free || wall.angle !== undefined) {
+    const ends = partitionEnds(wall);
+    const fixed = ends[end === 'start' ? 'end' : 'start'];
+    let moved = {
+      x: quantizePosition(cursor.x, room),
+      z: quantizePosition(cursor.z, room),
+    };
+    if (!free) {
+      const current = ends[end];
+      const dx = current.x - fixed.x,
+        dz = current.z - fixed.z;
+      const length = Math.hypot(dx, dz);
+      const ux = dx / length,
+        uz = dz / length;
+      const hits = roomSegments(without(room, wall.id)).flatMap((s) => {
+        const e = {x: s.b.x - s.a.x, z: s.b.z - s.a.z};
+        const denominator = cross({x: ux, z: uz}, e);
+        if (Math.abs(denominator) < 1e-7) return [];
+        const q = {x: s.a.x - fixed.x, z: s.a.z - fixed.z};
+        const along = cross(q, e) / denominator,
+          onSupport = cross(q, {x: ux, z: uz}) / denominator;
+        return along >= minimum && onSupport >= 0 && onSupport <= 1
+          ? [along]
+          : [];
+      });
+      const along = Math.max(
+        minimum,
+        snap(
+          ((cursor.x - fixed.x) * dx + (cursor.z - fixed.z) * dz) / length,
+          hits,
+          tolerance,
+        ),
+      );
+      moved = {
+        x: fixed.x + (dx * along) / length,
+        z: fixed.z + (dz * along) / length,
+      };
+    } else if (tolerance > 0) {
+      const nearest = roomSegments(without(room, wall.id))
+        .map((s) => {
+          const along = Math.max(
+            0,
+            Math.min(
+              s.length,
+              (moved.x - s.a.x) * s.tx + (moved.z - s.a.z) * s.tz,
+            ),
+          );
+          return {x: s.a.x + along * s.tx, z: s.a.z + along * s.tz};
+        })
+        .sort(
+          (a, b) =>
+            Math.hypot(a.x - moved.x, a.z - moved.z) -
+            Math.hypot(b.x - moved.x, b.z - moved.z),
+        )[0];
+      if (
+        nearest &&
+        Math.hypot(nearest.x - moved.x, nearest.z - moved.z) <= tolerance
+      )
+        moved = nearest;
+    }
+    const next =
+      end === 'start'
+        ? fromEnds(wall, moved, fixed)
+        : fromEnds(wall, fixed, moved);
+    return wallFits(room, next) ? next : wall;
+  }
   const horizontal = wall.orientation === 'horizontal',
     axis = horizontal ? 'x' : 'z';
   const start = wall[axis],
@@ -128,9 +257,17 @@ export function resizeInteriorWall(
 export function moveInteriorWall(
   room: Room,
   wall: Partition,
-  position: number,
+  position: number | Point,
   tolerance = 4,
 ): Partition {
+  if (typeof position !== 'number') {
+    const next = {
+      ...wall,
+      x: quantizePosition(position.x, room),
+      z: quantizePosition(position.z, room),
+    };
+    return wallFits(room, next) ? next : wall;
+  }
   const horizontal = wall.orientation === 'horizontal',
     axis = horizontal ? 'x' : 'z',
     cross = horizontal ? 'z' : 'x';

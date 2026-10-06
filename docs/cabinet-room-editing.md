@@ -33,7 +33,10 @@ helper text below the buttons.
 
 Select an interior wall directly on the plan. Drag its line perpendicular to
 itself to move it. Drag either square end handle along the wall to shorten or
-extend that end. Ends snap to nearby walls; pulling them away creates a detached
+extend that end. Hold Command while dragging either endpoint to set any angle,
+just as with perimeter walls; Command plus arrow keys moves that endpoint freely.
+Ordinary endpoint dragging retains the wall's angle, and dragging an angled wall
+moves it without changing its length or angle. Ends snap to nearby walls; pulling them away creates a detached
 or entirely free-standing wall. The handles also support arrow keys. Wall
 lengths appear on the plan; no wall names or coordinate-entry form are needed.
 

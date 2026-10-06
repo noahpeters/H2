@@ -90,6 +90,8 @@ import {createCabinetRenderer} from './sceneRenderer';
 import {
   previewInteriorWall,
   resizeInteriorWall,
+  partitionEnds,
+  wallFits,
   moveInteriorWall,
 } from './interiorWalls';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -115,7 +117,6 @@ import {
   automaticallyPlaceOpening,
 } from './automaticPlacement';
 import {
-  boxInRoom,
   roomPoints,
   roomSegments,
   roomWall,
@@ -1450,6 +1451,7 @@ export function CabinetConfigurator({
     position: number;
     scale: number;
     horizontal: boolean;
+    startPoint: {x: number; z: number};
   } | null>(null);
   const [study, setStudy] = useState<Study>(() =>
     migrateDesignMaterials(initialStudy()),
@@ -1610,14 +1612,7 @@ export function CabinetConfigurator({
   const warnings = useMemo(() => {
     const result = validateLayout(study.elements, study.room);
     for (const p of study.room.partitions ?? []) {
-      if (
-        !boxInRoom(study.room, {
-          left: p.x,
-          top: p.z,
-          right: p.x + (p.orientation === 'horizontal' ? p.length : 0),
-          bottom: p.z + (p.orientation === 'vertical' ? p.length : 0),
-        })
-      )
+      if (!wallFits(study.room, p))
         result.set(p.id, [
           'Interior wall extends outside the room. Reposition or shorten it.',
         ]);
@@ -1862,23 +1857,42 @@ export function CabinetConfigurator({
   };
   const snapTolerance = () =>
     commandPressed.current ? 0 : snappingDistance(study.room);
-  const changePartition = (original: Study, partition: Partition) => {
+  const changePartition = (
+    original: Study,
+    partition: Partition,
+    resizing = true,
+  ) => {
     const next = clone(original),
       previous = next.room.partitions!.find((p) => p.id === partition.id)!;
+    const oldEnds = partitionEnds(previous),
+      newEnds = partitionEnds(partition);
+    const dx = newEnds.end.x - newEnds.start.x,
+      dz = newEnds.end.z - newEnds.start.z;
     const delta =
-      partition.orientation === 'horizontal'
-        ? partition.x - previous.x
-        : partition.z - previous.z;
+      ((partition.x - previous.x) * dx + (partition.z - previous.z) * dz) /
+      partition.length;
+    const rotated =
+      Math.abs(
+        (oldEnds.end.x - oldEnds.start.x) * dz -
+          (oldEnds.end.z - oldEnds.start.z) * dx,
+      ) > 0.01;
+    const previousRotation = roomWall(next.room, partition.id).rotation;
     Object.assign(previous, partition);
+    const rotationDelta =
+      roomWall(next.room, partition.id).rotation - previousRotation;
     // Moving an end must not drag the door or furniture along the wall with it.
     next.openings
       .filter((o) => o.wall === partition.id)
       .forEach((o) => {
-        o.offset -= delta;
+        if (resizing && !rotated) o.offset -= delta;
       });
     next.elements.forEach((e) => {
-      if (e.placement.mode === 'wall' && e.placement.wall === partition.id)
-        e.placement.offset -= delta;
+      if (e.placement.mode === 'wall' && e.placement.wall === partition.id) {
+        if (resizing && !rotated) e.placement.offset -= delta;
+        if (rotated)
+          e.placement.rotation =
+            (e.placement.rotation ?? previousRotation) + rotationDelta;
+      }
     });
     return next;
   };
@@ -1921,6 +1935,7 @@ export function CabinetConfigurator({
               a.end,
               point,
               snapTolerance(),
+              ev.metaKey,
             ),
           ),
         );
@@ -1947,15 +1962,23 @@ export function CabinetConfigurator({
         ((a.horizontal ? ev.clientY : ev.clientX) - a.pointer) / a.scale;
       const partition = a.study.room.partitions?.find((p) => p.id === a.id);
       if (partition) {
+        const point = planPoint(ev);
+        if (!point) return;
         setStudy(
           changePartition(
             a.study,
             moveInteriorWall(
               a.study.room,
               partition,
-              position,
+              partition.angle !== undefined
+                ? {
+                    x: partition.x + (point.x - a.startPoint.x),
+                    z: partition.z + (point.z - a.startPoint.z),
+                  }
+                : position,
               snapTolerance(),
             ),
+            false,
           ),
         );
         return;
@@ -3646,7 +3669,7 @@ export function CabinetConfigurator({
                     {addingWall
                       ? 'Move over the room · click to place · Esc to cancel'
                       : selectedPartition
-                        ? 'Drag wall to move · drag square ends to shorten or connect'
+                        ? 'Drag wall to move · drag square ends to shorten or connect · hold Command for any angle'
                         : `Drag the selected ${roomWall(study.room, selectedWall).label} wall to move it · drag square ends to reshape · hold Command for any angle`}
                   </span>
                 </div>
@@ -3873,6 +3896,7 @@ export function CabinetConfigurator({
                             position: s.horizontal ? s.z : s.x,
                             scale: scale * screenScale,
                             horizontal: s.horizontal,
+                            startPoint: planPoint(e)!,
                           };
                           setGuideTarget({kind: 'wall', id: s.id});
                         }}
@@ -4290,20 +4314,9 @@ export function CabinetConfigurator({
                   (['start', 'end'] as const).map((end) => {
                     const horizontal =
                       selectedPartition.orientation === 'horizontal';
-                    const x =
-                      pad +
-                      (selectedPartition.x +
-                        (horizontal && end === 'end'
-                          ? selectedPartition.length
-                          : 0)) *
-                        scale;
-                    const y =
-                      pad +
-                      (selectedPartition.z +
-                        (!horizontal && end === 'end'
-                          ? selectedPartition.length
-                          : 0)) *
-                        scale;
+                    const point = partitionEnds(selectedPartition)[end];
+                    const x = pad + point.x * scale;
+                    const y = pad + point.z * scale;
                     return (
                       <rect
                         key={end}
@@ -4322,7 +4335,12 @@ export function CabinetConfigurator({
                         stroke="#b57d45"
                         strokeWidth={2 / viewport.zoom}
                         style={{
-                          cursor: horizontal ? 'ew-resize' : 'ns-resize',
+                          cursor:
+                            selectedPartition.angle !== undefined
+                              ? 'move'
+                              : horizontal
+                                ? 'ew-resize'
+                                : 'ns-resize',
                           touchAction: 'none',
                         }}
                         onPointerDown={(event) => {
@@ -4344,32 +4362,35 @@ export function CabinetConfigurator({
                           });
                         }}
                         onKeyDown={(event) => {
-                          const delta = horizontal
-                            ? event.key === 'ArrowLeft'
-                              ? -1
-                              : event.key === 'ArrowRight'
-                                ? 1
-                                : 0
-                            : event.key === 'ArrowUp'
-                              ? -1
-                              : event.key === 'ArrowDown'
-                                ? 1
-                                : 0;
-                          if (!delta) return;
-                          event.preventDefault();
-                          const point = {
-                            x: selectedPartition.x,
-                            z: selectedPartition.z,
+                          const delta = {
+                            x:
+                              event.key === 'ArrowLeft'
+                                ? -1
+                                : event.key === 'ArrowRight'
+                                  ? 1
+                                  : 0,
+                            z:
+                              event.key === 'ArrowUp'
+                                ? -1
+                                : event.key === 'ArrowDown'
+                                  ? 1
+                                  : 0,
                           };
-                          point[horizontal ? 'x' : 'z'] +=
-                            (end === 'end' ? selectedPartition.length : 0) +
-                            delta;
+                          if (!delta.x && !delta.z) return;
+                          event.preventDefault();
+                          const endpoint =
+                            partitionEnds(selectedPartition)[end];
+                          const point = {
+                            x: endpoint.x + delta.x,
+                            z: endpoint.z + delta.z,
+                          };
                           const next = resizeInteriorWall(
                             study.room,
                             selectedPartition,
                             end,
                             point,
                             0,
+                            event.metaKey,
                           );
                           update((d) =>
                             Object.assign(d, changePartition(d, next)),
