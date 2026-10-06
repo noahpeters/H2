@@ -14,7 +14,12 @@ import {withWoodFinish} from './woodFinishes';
 import {validMaterialDefinition} from './materialDefinition';
 import {createMaterial, remapRoughnessPixels} from './materialRendering';
 import {CABINET_MATERIAL_DEFINITIONS} from './materials';
-import {detailedPhotoDefinition, photoTextureBytes} from './photoTextures';
+import {
+  detailedPhotoDefinition,
+  photoTextureBytes,
+  budgetedPhotoTextureResolution,
+  PHOTO_TEXTURE_BUDGET,
+} from './photoTextures';
 import {
   addPhotoCeiling,
   addDirectionalDaylight,
@@ -86,6 +91,37 @@ test('photo texture upgrades are allowlisted, leave saved sources unchanged and 
   );
   expect(photoTextureBytes(scene, 2048)).toBe(2048 * 2048 * 4);
 });
+test('automatic detailed atlas fits a larger room without changing texture transforms', () => {
+  const scene = new THREE.Scene();
+  const textures = Array.from({length: 18}, () => new THREE.Texture());
+  textures.forEach((texture) => {
+    texture.repeat.set(2, 3);
+    scene.add(
+      new THREE.Mesh(
+        new THREE.BoxGeometry(),
+        new THREE.MeshStandardMaterial({map: texture}),
+      ),
+    );
+  });
+  const resolution = budgetedPhotoTextureResolution(scene, 2048, 4096);
+  expect(resolution).toBe(1920);
+  expect(photoTextureBytes(scene, resolution)).toBeLessThanOrEqual(
+    PHOTO_TEXTURE_BUDGET,
+  );
+  expect(budgetedPhotoTextureResolution(scene, 2048, 1024)).toBe(1024);
+  expect(budgetedPhotoTextureResolution(scene, 1024, 4096)).toBe(1024);
+  textures.forEach((texture) =>
+    expect(texture.repeat.toArray()).toEqual([2, 3]),
+  );
+  const small = new THREE.Scene();
+  small.add(
+    new THREE.Mesh(
+      new THREE.BoxGeometry(),
+      new THREE.MeshStandardMaterial({map: textures[0]}),
+    ),
+  );
+  expect(budgetedPhotoTextureResolution(small, 2048, 4096)).toBe(2048);
+});
 test('directional daylight and concave ceilings use explicit settings and exact room boundaries', () => {
   const room = blankStudy().room;
   room.outline = [
@@ -121,6 +157,33 @@ test('directional daylight and concave ceilings use explicit settings and exact 
   sky.dispose();
   ceiling.geometry.dispose();
   (ceiling.material as THREE.Material).dispose();
+});
+test('directional daylight honors the same brightness control as opening lights', () => {
+  const low = new THREE.Scene(),
+    high = new THREE.Scene(),
+    off = new THREE.Scene();
+  const first = addDirectionalDaylight(low, DEFAULT_PHOTO_DAYLIGHT, 6500, 1);
+  const scaled = addDirectionalDaylight(
+    high,
+    DEFAULT_PHOTO_DAYLIGHT,
+    6500,
+    100,
+  );
+  const dark = addDirectionalDaylight(off, DEFAULT_PHOTO_DAYLIGHT, 6500, 0);
+  const pixel = (first.image.data as Float32Array).length - 4;
+  expect((scaled.image.data as Float32Array)[pixel]).toBeCloseTo(
+    (first.image.data as Float32Array)[pixel] * 100,
+  );
+  expect(
+    (high.getObjectByName('photo-sun') as THREE.RectAreaLight).intensity,
+  ).toBeCloseTo(
+    (low.getObjectByName('photo-sun') as THREE.RectAreaLight).intensity * 100,
+  );
+  expect((dark.image.data as Float32Array)[pixel]).toBe(0);
+  expect(
+    (off.getObjectByName('photo-sun') as THREE.RectAreaLight).intensity,
+  ).toBe(0);
+  [first, scaled, dark].forEach((texture) => texture.dispose());
 });
 test('transport adapters retain per-contact initialization and reject incompatible pinned shaders', () => {
   const material = new PhysicalPathTracingMaterial();

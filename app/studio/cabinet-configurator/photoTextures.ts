@@ -9,6 +9,24 @@ const DETAIL_FOLDERS = [
   'white-maple-veneer',
   'cherry-veneer',
 ];
+export const PHOTO_TEXTURE_BUDGET = 256 * 1024 * 1024;
+
+/** The tracer allocates every source at one shared size. Fit automatic detail
+ * to the visible layer count instead of failing a larger room at exactly 2K. */
+export function budgetedPhotoTextureResolution(
+  scene: THREE.Scene,
+  preferred: number,
+  maxTextureSize: number,
+) {
+  const layers = photoTextureBytes(scene, 1) / 4;
+  const limit = Math.min(
+    preferred,
+    maxTextureSize,
+    Math.sqrt(PHOTO_TEXTURE_BUDGET / (layers * 4)),
+  );
+  // Small alignment steps retain most of the 2K source without exceeding budget.
+  return Math.max(1024, Math.floor(limit / 128) * 128);
+}
 export function detailedPhotoDefinition(
   definition: MaterialDefinition,
   resolution: number,

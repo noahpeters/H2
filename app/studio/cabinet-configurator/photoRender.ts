@@ -34,7 +34,12 @@ import {configurePhotoContacts, DEFAULT_PHOTO_CONTACTS} from './photoContacts';
 import {denoisePhoto} from './photoDenoise';
 import {waitForPhotoGpu} from './photoGpu';
 import {PhotoRadianceHistory} from './photoHistory';
-import {upgradePhotoTextures, photoTextureBytes} from './photoTextures';
+import {
+  upgradePhotoTextures,
+  photoTextureBytes,
+  budgetedPhotoTextureResolution,
+  PHOTO_TEXTURE_BUDGET,
+} from './photoTextures';
 import {PHOTO_PASSES, configurePhotoTransport} from './photoTransport';
 import {
   photoManifest,
@@ -443,7 +448,10 @@ export async function renderPhoto(
       settings.denoise = false;
       settings.glossyFilter = 0;
     }
-    upgradePhotoTextures(snapshot.scene, settings.textureResolution ?? 1024);
+    const sourceResolution =
+      settings.textureResolution ??
+      (settings.maxDimension >= 1200 ? 2048 : 1024);
+    upgradePhotoTextures(snapshot.scene, sourceResolution);
     await waitForMaterialTextures(snapshot.scene);
     if (settings.sunSky?.enabled) {
       let room: Room | undefined;
@@ -547,10 +555,6 @@ export async function renderPhoto(
     configurePhotoContacts(tracer, settings.contacts ?? DEFAULT_PHOTO_CONTACTS);
     tracer.bounces = settings.bounces;
     tracer.filterGlossyFactor = settings.glossyFilter ?? 0.1;
-    tracer.textureSize.set(
-      settings.textureResolution ?? 1024,
-      settings.textureResolution ?? 1024,
-    );
     tracer.multipleImportanceSampling = true;
     tracer.tiles.set(3, 3);
     tracer.renderDelay = 0;
@@ -558,11 +562,17 @@ export async function renderPhoto(
     tracer.minSamples = 1;
     tracer.rasterizeScene = false;
     const traceScene = visiblePhotoScene(snapshot.scene);
+    const textureResolution =
+      settings.textureResolution ??
+      budgetedPhotoTextureResolution(
+        traceScene,
+        sourceResolution,
+        renderer.capabilities.maxTextureSize,
+      );
+    tracer.textureSize.set(textureResolution, textureResolution);
     if (
-      (settings.textureResolution ?? 1024) >
-        renderer.capabilities.maxTextureSize ||
-      photoTextureBytes(traceScene, settings.textureResolution ?? 1024) >
-        256 * 1024 * 1024
+      textureResolution > renderer.capabilities.maxTextureSize ||
+      photoTextureBytes(traceScene, textureResolution) > PHOTO_TEXTURE_BUDGET
     )
       throw new Error(
         'This surface texture detail exceeds the photo memory budget. Choose a smaller texture detail setting.',
@@ -752,6 +762,7 @@ export async function renderPhoto(
         manifest,
         result: {
           samples: beautySamples,
+          textureResolution,
           converged,
           checks: convergence.checks,
           measured,

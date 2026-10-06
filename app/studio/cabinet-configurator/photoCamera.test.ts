@@ -147,6 +147,90 @@ test('decorative background cannot change room exposure or WB, but black surface
   expect(empty.neutralCount).toBe(0);
 });
 
+test('diffuse fallback divides out wood color and robustly estimates warm illumination', () => {
+  const wood = pixels([0.6, 0.3, 0.2]);
+  const daylight = pixels([0.3, 0.15, 0.1]);
+  const unchanged = meterPhoto(
+    daylight,
+    wood,
+    DEFAULT_PHOTO_CAMERA,
+    1,
+    pixels([1, 1, 1]),
+  );
+  unchanged.gains.forEach((gain) => expect(gain).toBeCloseTo(1));
+  expect(unchanged.neutralCount).toBe(0);
+  expect(unchanged.fallbackCount).toBe(64);
+  const warm = pixels([0.42, 0.15, 0.07]);
+  // A handful of specular outliers must not define the illuminant.
+  for (let i = 0; i < 4 * 4; i += 4) warm.set([1, 1, 1, 1], i);
+  const corrected = meterPhoto(
+    warm,
+    wood,
+    DEFAULT_PHOTO_CAMERA,
+    1,
+    pixels([1, 1, 1]),
+  );
+  expect(corrected.gains[0]).toBeLessThan(1);
+  expect(corrected.gains[2]).toBeGreaterThan(1);
+  expect(Math.min(...corrected.gains)).toBeGreaterThanOrEqual(0.8);
+  expect(Math.max(...corrected.gains)).toBeLessThanOrEqual(1.25);
+  expect(corrected.exposure).toBe(
+    meterPhoto(warm, wood, DEFAULT_PHOTO_CAMERA, 1).exposure,
+  );
+  expect(
+    meterPhoto(
+      warm,
+      wood,
+      {...DEFAULT_PHOTO_CAMERA, autoWhiteBalance: false},
+      1,
+      pixels([1, 1, 1]),
+    ).gains,
+  ).toEqual([1, 1, 1]);
+});
+
+test('diffuse WB excludes reflection guides, dark colors and sparse samples; neutral surfaces take precedence', () => {
+  const warm = pixels([0.7, 0.4, 0.2]);
+  const reflective = pixels([0.5, 0.5, 0.5]);
+  for (let i = 3; i < reflective.length; i += 4) reflective[i] = 1;
+  expect(
+    meterPhoto(warm, reflective, DEFAULT_PHOTO_CAMERA, 1, pixels([0, 0, 0]))
+      .gains,
+  ).toEqual([1, 1, 1]);
+  expect(
+    meterPhoto(warm, reflective, DEFAULT_PHOTO_CAMERA, 1, pixels([0, 0, 0]))
+      .exposure,
+  ).toBe(
+    meterPhoto(warm, pixels([0.5, 0.5, 0.5]), DEFAULT_PHOTO_CAMERA, 1).exposure,
+  );
+  for (const base of [
+    [0.8, 0.1, 0.04],
+    [0.02, 0.02, 0.01],
+  ])
+    expect(
+      meterPhoto(warm, pixels(base), DEFAULT_PHOTO_CAMERA, 1, pixels([1, 1, 1]))
+        .gains,
+    ).toEqual([1, 1, 1]);
+  expect(
+    meterPhoto(
+      pixels([0.7, 0.4, 0.2], 7),
+      pixels([0.6, 0.3, 0.2], 7),
+      DEFAULT_PHOTO_CAMERA,
+      1,
+      pixels([1, 1, 1]),
+    ).gains,
+  ).toEqual([1, 1, 1]);
+  const neutral = pixels([0.5, 0.5, 0.5], 8);
+  const radiance = new Float32Array([...pixels([0.2, 0.2, 0.2], 8), ...warm]);
+  const guide = new Float32Array([...neutral, ...pixels([0.6, 0.3, 0.2])]);
+  meterPhoto(
+    radiance,
+    guide,
+    DEFAULT_PHOTO_CAMERA,
+    1,
+    pixels([1, 1, 1], 72),
+  ).gains.forEach((gain) => expect(gain).toBeCloseTo(1));
+});
+
 test('settings serialize and invalid camera inputs are rejected', () => {
   const settings = JSON.parse(
     JSON.stringify(DEFAULT_PHOTO_CAMERA),

@@ -35,6 +35,7 @@ export function addDirectionalDaylight(
   scene: THREE.Scene,
   daylight: PhotoDaylight,
   temperature: number,
+  intensity = 1,
 ) {
   const skyColor = temperatureColor(temperature);
   const width = 128,
@@ -44,7 +45,9 @@ export function addDirectionalDaylight(
     for (let x = 0; x < width; x++) {
       const elevation = -Math.cos(((y + 0.5) / height) * Math.PI);
       const radiance =
-        elevation > 0 ? daylight.sky * (0.5 + 0.5 * Math.sqrt(elevation)) : 0;
+        elevation > 0
+          ? intensity * daylight.sky * (0.5 + 0.5 * Math.sqrt(elevation))
+          : 0;
       data.set(
         [
           skyColor.r * radiance,
@@ -75,7 +78,7 @@ export function addDirectionalDaylight(
     const diameter = 2 * Math.tan((daylight.angularDiameter * Math.PI) / 360);
     const sun = new THREE.RectAreaLight(
       temperatureColor(5500),
-      daylight.sun / (diameter * diameter),
+      (intensity * daylight.sun) / (diameter * diameter),
       diameter * distance,
       diameter * distance,
     );

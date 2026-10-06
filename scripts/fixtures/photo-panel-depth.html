@@ -1,0 +1,182 @@
+<!doctype html><title>Recessed panel denoising GPU regression</title>
+<p id="status">Running</p>
+<pre id="results"></pre>
+<script type="module">
+  import * as THREE from 'three';
+  import {denoisePhoto} from '/app/studio/cabinet-configurator/photoDenoise.ts';
+  const size = 512,
+    renderer = new THREE.WebGLRenderer();
+  renderer.setSize(size, size);
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+  camera.position.z = 2;
+  camera.updateMatrixWorld(true);
+  const scene = new THREE.Scene(),
+    material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0.5, 0.5, 0.5),
+      roughness: 1,
+    });
+  for (const [w, h, x, y, z] of [
+    [0.075, 1.2, -0.5625, 0, 0],
+    [0.075, 1.2, 0.5625, 0, 0],
+    [1.05, 0.075, 0, -0.5625, 0],
+    [1.05, 0.075, 0, 0.5625, 0],
+    [1.05, 1.05, 0, 0, -0.005715],
+  ]) {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+  }
+  const edge = new THREE.Vector3(0.525, 0.525, -0.005715).project(camera);
+  const lo = Math.ceil(((1 - edge.x) * size) / 2),
+    hi = Math.floor(((1 + edge.x) * size) / 2);
+  const raw = new Float32Array(size * size * 4),
+    old = new Float32Array(raw.length),
+    truth = new Float32Array(size * size);
+  let seed = 41;
+  const random = () => {
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    return seed / 4294967296 - 0.5;
+  };
+  const band = [],
+    flat = [];
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const inside = x >= lo && x <= hi && y >= lo && y <= hi;
+      const shadow =
+        inside && (x < lo + 3 || x > hi - 3 || y < lo + 3 || y > hi - 3);
+      const value = shadow ? 0.14 : inside ? 0.3 : 0.45;
+      truth[y * size + x] = value;
+      if (y > lo + 25 && y < hi - 25 && x >= lo && x < lo + 3)
+        band.push(y * size + x);
+      if (x > lo + 25 && x < hi - 25 && y > lo + 25 && y < hi - 25)
+        flat.push(y * size + x);
+      raw.set(
+        [
+          value + random() * 0.06,
+          value + random() * 0.06,
+          value + random() * 0.06,
+          1,
+        ],
+        (y * size + x) * 4,
+      );
+      const i = (y * size + x) * 4;
+      old.set(
+        [
+          raw[i] + (random() * 0.06) / Math.sqrt(15),
+          raw[i + 1] + (random() * 0.06) / Math.sqrt(15),
+          raw[i + 2] + (random() * 0.06) / Math.sqrt(15),
+          1,
+        ],
+        i,
+      );
+    }
+  const tex = (data) => {
+    const t = new THREE.DataTexture(
+      data,
+      size,
+      size,
+      THREE.RGBAFormat,
+      THREE.FloatType,
+    );
+    t.needsUpdate = true;
+    return t;
+  };
+  const radiance = tex(raw),
+    previous = tex(old),
+    target = new THREE.WebGLRenderTarget(size, size, {type: THREE.FloatType});
+  const results = [];
+  try {
+    for (const [name, filter] of [['recessed-panel', denoisePhoto]]) {
+      await filter(
+        renderer,
+        scene,
+        camera,
+        radiance,
+        size,
+        size,
+        undefined,
+        target,
+        {samples: 256, previous, previousSamples: 240},
+      );
+      const output = new Float32Array(raw.length);
+      renderer.readRenderTargetPixels(target, 0, 0, size, size, output);
+      const mean = (indices) =>
+        indices.reduce((sum, i) => sum + output[i * 4], 0) / indices.length;
+      const rms = Math.sqrt(
+        flat.reduce((sum, i) => sum + (output[i * 4] - truth[i]) ** 2, 0) /
+          flat.length,
+      );
+      results.push({
+        name,
+        shadow: mean(band),
+        flat: mean(flat),
+        contrast: mean(flat) - mean(band),
+        rms,
+      });
+    }
+    if (results[0].contrast < 0.11 || results[0].rms > 0.007)
+      throw new Error('Panel contrast lost or noise not suppressed');
+    scene.children.slice().forEach((mesh) => {
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+    });
+    const bump = new THREE.DataTexture(
+      new Uint8Array([191, 128, 255, 255]),
+      1,
+      1,
+      THREE.RGBAFormat,
+    );
+    bump.needsUpdate = true;
+    material.normalMap = bump;
+    material.needsUpdate = true;
+    const slope = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), material);
+    slope.rotation.y = 0.4;
+    scene.add(slope);
+    for (let i = 0; i < raw.length; i += 4) {
+      const value = 0.3 + random() * 0.06;
+      raw.set([value, value, value, 1], i);
+      const p = value + (random() * 0.06) / Math.sqrt(15);
+      old.set([p, p, p, 1], i);
+    }
+    radiance.needsUpdate = true;
+    previous.needsUpdate = true;
+    await denoisePhoto(
+      renderer,
+      scene,
+      camera,
+      radiance,
+      size,
+      size,
+      undefined,
+      target,
+      {samples: 256, previous, previousSamples: 240},
+    );
+    const smooth = new Float32Array(raw.length);
+    renderer.readRenderTargetPixels(target, 0, 0, size, size, smooth);
+    const slopeRms = Math.sqrt(
+      flat.reduce((sum, i) => sum + (smooth[i * 4] - 0.3) ** 2, 0) /
+        flat.length,
+    );
+    if (slopeRms > 0.007) throw new Error('Sloped plane no longer denoises');
+    results.push({name: 'sloped-plane-with-bump', rms: slopeRms});
+    bump.dispose();
+    document.querySelector('#status').textContent = 'Passed';
+  } catch (e) {
+    document.querySelector('#status').textContent = 'Failed: ' + e.stack;
+    throw e;
+  } finally {
+    document.querySelector('#results').textContent = JSON.stringify(
+      results,
+      null,
+      2,
+    );
+    target.dispose();
+    radiance.dispose();
+    previous.dispose();
+    renderer.dispose();
+    scene.traverse((o) => o.geometry?.dispose());
+    material.dispose();
+  }
+</script>

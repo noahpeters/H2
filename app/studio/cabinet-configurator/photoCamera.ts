@@ -77,16 +77,19 @@ export function architecturalPhotoCamera(
 }
 
 /** Uniform global adaptation preserves the relative warmth/coolness of sources.
- * Only near-neutral albedo pixels inform WB, so oak/paint cannot define white. */
+ * Neutral surfaces take precedence. A diffuse-only fallback divides out known
+ * albedo, so a room with colored cabinetry can still estimate the illuminant. */
 export function meterPhoto(
   radiance: ArrayLike<number>,
   albedo: ArrayLike<number>,
   settings: PhotoCameraSettings,
   manualExposure: number,
+  diffuseMask?: ArrayLike<number>,
 ) {
   const luminances: number[] = [];
   const neutral = [0, 0, 0];
   let count = 0;
+  const illuminants: number[][] = [[], [], []];
   for (let i = 0; i < radiance.length; i += 4) {
     // The albedo guide marks empty background with zero alpha. It is decorative,
     // not room illumination, and must not set exposure or white balance.
@@ -99,6 +102,28 @@ export function meterPhoto(
     const base = [albedo[i], albedo[i + 1], albedo[i + 2]];
     const max = Math.max(...base),
       min = Math.min(...base);
+    // A separate material mask keeps reflections out of WB without changing
+    // albedo, opacity or the exposure occupancy guide.
+    if (
+      diffuseMask &&
+      diffuseMask[i] >= 0.99 &&
+      diffuseMask[i + 3] >= 0.99 &&
+      min >= 0.04 &&
+      max <= 1 &&
+      max / min <= 4 &&
+      l <= 4 &&
+      radiance[i + 3] >= 0.5
+    ) {
+      const light = rgb.map((v, channel) => v / base[channel]);
+      const brightness =
+        light[0] * 0.2126 + light[1] * 0.7152 + light[2] * 0.0722;
+      if (brightness > 1e-5)
+        light.forEach((v, channel) =>
+          illuminants[channel].push(v / brightness),
+        );
+    }
+    if (diffuseMask && !(diffuseMask[i] >= 0.99 && diffuseMask[i + 3] >= 0.99))
+      continue;
     if (max < 0.2 || max - min > max * 0.08 || l > 4 || radiance[i + 3] < 0.5)
       continue;
     rgb.forEach((v, channel) => {
@@ -119,12 +144,19 @@ export function meterPhoto(
     (settings.autoExposure ? auto : manualExposure) *
     2 ** settings.exposureCompensation;
   let gains = [1, 1, 1];
-  if (settings.autoWhiteBalance && count >= 8) {
-    const mean = neutral.map((v) => v / count);
+  const fallbackCount = illuminants[0].length;
+  if (settings.autoWhiteBalance && (count >= 8 || fallbackCount >= 8)) {
+    const mean =
+      count >= 8
+        ? neutral.map((v) => v / count)
+        : illuminants.map((values) => {
+            values.sort((a, b) => a - b);
+            return values[Math.floor(values.length / 2)];
+          });
     const gray = mean[0] * 0.2126 + mean[1] * 0.7152 + mean[2] * 0.0722;
     gains = mean.map((v) =>
       Math.max(0.8, Math.min(1.25, gray / Math.max(v, 0.001))),
     );
   }
-  return {exposure, gains, neutralCount: count};
+  return {exposure, gains, neutralCount: count, fallbackCount};
 }

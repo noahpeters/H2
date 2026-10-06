@@ -185,6 +185,7 @@ export function addPhotoLighting(scene: THREE.Scene, settings: PhotoSettings) {
       scene,
       settings.sunSky,
       settings.daylight.temperature,
+      settings.daylight.intensity,
     );
   for (const {opening, room} of sources) {
     if (settings.sunSky?.enabled && opening.kind === 'window') continue;
