@@ -1,7 +1,7 @@
 import {act, renderHook, waitFor, cleanup} from '@testing-library/react';
 import {useState} from 'react';
 import {beforeEach, afterEach, describe, it, expect, vi} from 'vitest';
-import {useSavedRooms} from './useSavedRooms';
+import {readSavedRooms, useSavedRooms} from './useSavedRooms';
 import {migrateStudy, type Study} from './CabinetConfigurator';
 const sample = (): Study => ({
   version: 2,
@@ -20,6 +20,11 @@ function useHarness(migrate: (study: Study) => Study = (s) => s) {
     setStudy,
     ...useSavedRooms(study, setStudy, sample, migrate, () => {}),
   };
+}
+function refreshWarns() {
+  const event = new Event('beforeunload', {cancelable: true});
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 describe('saved room lifecycle', () => {
   it('migrates recovery drafts when switching rooms through History', async () => {
@@ -67,6 +72,7 @@ describe('saved room lifecycle', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: string, init: any) => {
+        if (input === '/api/cabinet-analytics') return Response.json({ok: true});
         const slug = new URL(input, 'https://test.local').searchParams.get(
           'slug',
         );
@@ -188,6 +194,108 @@ describe('saved room lifecycle', () => {
         JSON.parse(localStorage.getItem('from-trees-room-history-v1')!) as any
       )[0].draft.room.width,
     ).toBe(190);
+  });
+  it('recovers a stale draft once, preserves the newer online room, and reloads without a warning', async () => {
+    const first = renderHook(useHarness);
+    await waitFor(() => expect(first.result.current.ready).toBe(true));
+    const original = first.result.current.recent[0];
+    first.unmount();
+    const remote = {...sample(), room: {...sample().room, width: 210}};
+    const draft = {...sample(), room: {...sample().room, width: 180}};
+    Object.assign(records.get(original.slug), {study: remote, revision: 2});
+    localStorage.setItem(
+      'from-trees-room-history-v1',
+      JSON.stringify([{...original, draft}]),
+    );
+    const recovered = renderHook(useHarness);
+    await waitFor(() => expect(recovered.result.current.study).toEqual(draft));
+    await waitFor(
+      () => expect(recovered.result.current.status).toBe('Saved online'),
+      {
+        timeout: 3000,
+      },
+    );
+    const copy = recovered.result.current.recent[0];
+    expect(copy.slug).not.toBe(original.slug);
+    expect(records.get(copy.slug).study).toEqual(draft);
+    expect(records.get(original.slug).study).toEqual(remote);
+    expect(
+      readSavedRooms().find((r) => r.slug === original.slug)?.draft,
+    ).toBeUndefined();
+    expect(sessionStorage.getItem('from-trees-active-room-v1')).toBe(copy.slug);
+    expect(refreshWarns()).toBe(false);
+    recovered.unmount();
+    const before = count;
+    const reload = renderHook(useHarness);
+    await waitFor(() => expect(reload.result.current.ready).toBe(true));
+    expect(reload.result.current.study).toEqual(draft);
+    expect(reload.result.current.recent[0].slug).toBe(copy.slug);
+    expect(refreshWarns()).toBe(false);
+    expect(count).toBe(before);
+  });
+  it('saves edits queued during conflict recovery to the recovered room without creating another copy', async () => {
+    const {result} = renderHook(useHarness);
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    const original = result.current.recent[0];
+    records.get(original.slug).revision = 2;
+    const fetchRoom = vi.mocked(fetch).getMockImplementation()!;
+    let finishCopy: (() => void) | undefined;
+    vi.mocked(fetch).mockImplementation(async (input, init: any) => {
+      if (init.method === 'POST')
+        await new Promise<void>((resolve) => {
+          finishCopy = resolve;
+        });
+      return fetchRoom(input, init);
+    });
+    act(() =>
+      result.current.setStudy({
+        ...sample(),
+        room: {...sample().room, width: 180},
+      }),
+    );
+    await waitFor(() => expect(finishCopy).toBeDefined(), {timeout: 3000});
+    expect(refreshWarns()).toBe(true);
+    act(() =>
+      result.current.setStudy({
+        ...sample(),
+        room: {...sample().room, width: 190},
+      }),
+    );
+    act(() => result.current.retry());
+    await act(async () => finishCopy!());
+    await waitFor(() => expect(result.current.status).toBe('Saved online'));
+    const copy = result.current.recent[0];
+    expect(copy.slug).not.toBe(original.slug);
+    expect(result.current.study.room.width).toBe(190);
+    expect(records.get(copy.slug).study.room.width).toBe(190);
+    expect(records.get(original.slug).study.room.width).toBe(144);
+    expect(count).toBe(2);
+    expect(refreshWarns()).toBe(false);
+  });
+  it('keeps the original recovery draft and warning when saving the recovered copy fails', async () => {
+    const {result} = renderHook(useHarness);
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    const original = result.current.recent[0];
+    records.get(original.slug).revision = 2;
+    const fetchRoom = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init: any) =>
+      init.method === 'POST'
+        ? Response.json({error: 'Offline'}, {status: 503})
+        : fetchRoom(input, init),
+    );
+    act(() =>
+      result.current.setStudy({
+        ...sample(),
+        room: {...sample().room, width: 180},
+      }),
+    );
+    await waitFor(() => expect(result.current.error).toBe(true), {
+      timeout: 3000,
+    });
+    expect(result.current.recent[0].slug).toBe(original.slug);
+    expect(readSavedRooms()[0].draft?.room.width).toBe(180);
+    expect(refreshWarns()).toBe(true);
+    expect(count).toBe(1);
   });
   it('does not create a sample or overwrite anything for a missing shared slug', async () => {
     window.history.replaceState(null, '', '?design=missing');
