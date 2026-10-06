@@ -15,8 +15,12 @@ export function panelGeometry(item: RoomElement) {
   mapMaterialPart(
     geometry,
     material,
-    {width: item.width, height: item.height, depth: item.depth},
-    'in',
+    {
+      width: item.width * INCH,
+      height: item.height * INCH,
+      depth: item.depth * INCH,
+    },
+    'm',
     'end',
   );
   const mesh = new THREE.Mesh(geometry, material);
