@@ -115,6 +115,9 @@ export function drawerBoxGeometry(
       }),
     );
     seams.name = 'drawer-dovetail-seams';
+    // Decorative lines must not capture clicks with Raycaster's world-space
+    // line tolerance, which can reach neighboring fronts in the meter-scale room.
+    seams.raycast = () => {};
     mesh.add(seams);
     mesh.geometry.addEventListener('dispose', () => {
       seams.geometry.dispose();
