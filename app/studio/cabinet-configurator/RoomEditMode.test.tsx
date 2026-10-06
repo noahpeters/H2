@@ -503,3 +503,132 @@ test('automatic panels are grey, selectable and fixed; the controlling cabinet c
     ),
   ).toHaveLength(0);
 });
+
+test('interior endpoint Command drag changes the angle, moves the handle and attached door, and supports Undo', () => {
+  state.initial!.room.partitions = [
+    {id: 'segment-divider', x: 40, z: 30, length: 60, orientation: 'vertical'},
+  ];
+  state.initial!.elements = [
+    {
+      id: 'attached',
+      kind: 'base',
+      width: 12,
+      depth: 12,
+      height: 34.5,
+      face: 'slab',
+      placement: {
+        mode: 'wall',
+        wall: 'segment-divider',
+        offset: 45,
+        rotation: 90,
+        elevation: 0,
+      },
+    },
+  ];
+  render(<CabinetConfigurator />);
+  fireEvent.click(screen.getByText('Edit room outline'));
+  fireEvent.keyDown(screen.getByLabelText(/Edit Interior wall 1/), {
+    key: 'Enter',
+  });
+  const plan = screen.getByLabelText('Dimensioned room plan');
+  const start = screen.getByLabelText('Resize wall start');
+  const end = screen.getByLabelText('Resize wall end');
+  const startX = Number(start.getAttribute('x')),
+    startY = Number(start.getAttribute('y'));
+  const endY = Number(end.getAttribute('y'));
+  const scale = (endY - startY) / 60;
+  Object.defineProperty(SVGElement.prototype, 'getScreenCTM', {
+    configurable: true,
+    value: () => ({a: 1, inverse: () => ({a: 1})}),
+  });
+  vi.stubGlobal(
+    'DOMPoint',
+    class {
+      constructor(
+        public x: number,
+        public y: number,
+      ) {}
+      matrixTransform() {
+        return this;
+      }
+    },
+  );
+  fireEvent.pointerDown(end, {
+    button: 0,
+    clientX: startX + 6,
+    clientY: endY + 6,
+  });
+  fireEvent.pointerMove(plan, {
+    clientX: startX + 6 + 40 * scale,
+    clientY: startY + 6 + 50 * scale,
+    metaKey: true,
+  });
+  fireEvent.pointerUp(plan, {metaKey: true});
+  expect(state.latest!.room.partitions![0].angle).toBeCloseTo(
+    (Math.atan2(50, 40) * 180) / Math.PI,
+  );
+  expect(state.latest!.openings[1].offset).toBe(12);
+  expect(state.latest!.elements[0].placement.rotation).toBeCloseTo(
+    state.latest!.room.partitions![0].angle!,
+  );
+  expect(state.latest!.elements[0].placement).toMatchObject({
+    mode: 'wall',
+    wall: 'segment-divider',
+    offset: 45,
+  });
+
+  expect(
+    Number(screen.getByLabelText('Resize wall end').getAttribute('x')),
+  ).toBeCloseTo(startX + 40 * scale);
+  expect(screen.getByText(/hold Command for any angle/)).toBeInTheDocument();
+  const length = state.latest!.room.partitions![0].length;
+  fireEvent.pointerDown(screen.getByLabelText(/Edit Interior wall 1/), {
+    button: 0,
+    clientX: startX + 6 + 20 * scale,
+    clientY: startY + 6 + 25 * scale,
+  });
+  fireEvent.pointerMove(plan, {
+    clientX: startX + 6 + 30 * scale,
+    clientY: startY + 6 + 30 * scale,
+  });
+  fireEvent.pointerUp(plan);
+  expect(state.latest!.room.partitions![0]).toMatchObject({
+    x: 50,
+    z: 35,
+    length,
+  });
+  expect(state.latest!.openings[1].offset).toBe(12);
+  expect(state.latest!.elements[0].placement).toMatchObject({offset: 45});
+  fireEvent.click(screen.getByRole('button', {name: 'Undo'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Undo'}));
+  expect(state.latest!.room.partitions![0]).toMatchObject({
+    x: 40,
+    z: 30,
+    length: 60,
+  });
+  expect(state.latest!.room.partitions![0].angle).toBeUndefined();
+});
+
+test('Command arrow keys freely move either interior endpoint and ordinary keys retain its angle', () => {
+  state.initial!.room.partitions = [
+    {id: 'segment-divider', x: 40, z: 30, length: 60, orientation: 'vertical'},
+  ];
+  render(<CabinetConfigurator />);
+  fireEvent.click(screen.getByText('Edit room outline'));
+  fireEvent.keyDown(screen.getByLabelText(/Edit Interior wall 1/), {
+    key: 'Enter',
+  });
+  fireEvent.keyDown(screen.getByLabelText('Resize wall end'), {
+    key: 'ArrowRight',
+    metaKey: true,
+  });
+  const angle = state.latest!.room.partitions![0].angle!;
+  expect(angle).toBeLessThan(90);
+  fireEvent.keyDown(screen.getByLabelText('Resize wall end'), {key: 'ArrowUp'});
+  expect(state.latest!.room.partitions![0].angle).toBeCloseTo(angle);
+  fireEvent.keyDown(screen.getByLabelText('Resize wall start'), {
+    key: 'ArrowLeft',
+    metaKey: true,
+  });
+  expect(state.latest!.room.partitions![0].x).toBe(39);
+});

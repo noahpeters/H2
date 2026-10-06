@@ -2,7 +2,7 @@ import {
   intervalsOverlap,
   type PositioningResolution,
 } from './positioningPrecision';
-import {isPartition, wallFaceOffset, wallBounds} from './wallDimensions';
+import {isPartition, wallFaceOffset, wallFootprint} from './wallDimensions';
 import {islandWorldBounds, islandCountertopOutline} from './islandFootprint';
 import {migrateFrontStyles, type Overlay} from './overlay';
 import {sinkAttachment, sinkFits} from './sinkAttachments';
@@ -42,6 +42,8 @@ export type Partition = {
   z: number;
   length: number;
   orientation: 'horizontal' | 'vertical';
+  /** Degrees from the positive X axis; omitted for legacy axis-aligned walls. */
+  angle?: number;
 };
 export type Opening = {
   arch?: import('./simpleArch').SimpleArch;
@@ -375,36 +377,36 @@ export function bounds(element: RoomElement, room: Room) {
   };
 }
 
-/** Separating-axis test in the same coordinate units as placement. Unlike
- * bounding boxes, this also handles touching cabinets on rotated islands. */
-export function footprintsOverlap(a: RoomElement, b: RoomElement, room: Room) {
-  const corners = (item: RoomElement) => {
-    const center = elementCenter(item, room);
-    const angle = (wallToFloor(item, room).rotation * Math.PI) / 180;
-    const c = Math.cos(angle),
-      s = Math.sin(angle);
-    return [
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-    ].map(([x, z]) => ({
-      x: center.x + ((x * item.width) / 2) * c - ((z * item.depth) / 2) * s,
-      z: center.z + ((x * item.width) / 2) * s + ((z * item.depth) / 2) * c,
-    }));
-  };
-  const first = corners(a),
-    second = corners(b);
-  for (const item of [a, b]) {
-    const angle = (wallToFloor(item, room).rotation * Math.PI) / 180;
-    for (const [x, z] of [
-      [Math.cos(angle), Math.sin(angle)],
-      [-Math.sin(angle), Math.cos(angle)],
-    ]) {
-      const project = (points: {x: number; z: number}[]) =>
-        points.map((p) => p.x * x + p.z * z);
-      const av = project(first),
-        bv = project(second);
+function elementCorners(item: RoomElement, room: Room) {
+  const center = elementCenter(item, room);
+  const angle = (wallToFloor(item, room).rotation * Math.PI) / 180;
+  const c = Math.cos(angle),
+    s = Math.sin(angle);
+  return [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([x, z]) => ({
+    x: center.x + ((x * item.width) / 2) * c - ((z * item.depth) / 2) * s,
+    z: center.z + ((x * item.width) / 2) * s + ((z * item.depth) / 2) * c,
+  }));
+}
+/** Separating-axis test for convex footprints, including angled partitions. */
+function polygonsOverlap(
+  first: {x: number; z: number}[],
+  second: {x: number; z: number}[],
+) {
+  for (const points of [first, second]) {
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i],
+        b = points[(i + 1) % points.length];
+      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      if (length < 1e-7) continue;
+      const x = -(b.z - a.z) / length,
+        z = (b.x - a.x) / length;
+      const av = first.map((p) => p.x * x + p.z * z),
+        bv = second.map((p) => p.x * x + p.z * z);
       if (
         !intervalsOverlap(
           Math.min(...av),
@@ -417,6 +419,9 @@ export function footprintsOverlap(a: RoomElement, b: RoomElement, room: Room) {
     }
   }
   return true;
+}
+export function footprintsOverlap(a: RoomElement, b: RoomElement, room: Room) {
+  return polygonsOverlap(elementCorners(a, room), elementCorners(b, room));
 }
 
 export function validateLayout(elements: RoomElement[], room: Room) {
@@ -433,10 +438,11 @@ export function validateLayout(elements: RoomElement[], room: Room) {
     const box = bounds(element, room);
     if (!boxInRoom(room, box)) add(element.id, 'Outside room bounds');
     for (const p of room.partitions ?? []) {
-      const wall = wallBounds(room, p.id);
       if (
-        intervalsOverlap(box.left, box.right, wall.left, wall.right) &&
-        intervalsOverlap(box.top, box.bottom, wall.top, wall.bottom)
+        polygonsOverlap(
+          elementCorners(element, room),
+          wallFootprint(room, p.id),
+        )
       )
         add(element.id, `Crosses ${p.name || 'an interior wall'}`);
     }

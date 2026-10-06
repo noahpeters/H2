@@ -25,8 +25,20 @@ export function roomSegments(room: Room) {
       a: {id: p.id, x: p.x, z: p.z},
       b: {
         id: p.id,
-        x: p.x + (p.orientation === 'horizontal' ? p.length : 0),
-        z: p.z + (p.orientation === 'vertical' ? p.length : 0),
+        x:
+          p.x +
+          (p.angle !== undefined
+            ? Math.cos((p.angle * Math.PI) / 180) * p.length
+            : p.orientation === 'horizontal'
+              ? p.length
+              : 0),
+        z:
+          p.z +
+          (p.angle !== undefined
+            ? Math.sin((p.angle * Math.PI) / 180) * p.length
+            : p.orientation === 'vertical'
+              ? p.length
+              : 0),
       },
       label: `Interior wall ${(room.partitions ?? []).indexOf(p) + 1}`,
     });

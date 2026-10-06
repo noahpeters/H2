@@ -105,7 +105,8 @@ export function validStudy(value: any): boolean {
           !num(p.z) ||
           !dimension(p.length) ||
           p.length < 6 ||
-          !['horizontal', 'vertical'].includes(p.orientation),
+          !['horizontal', 'vertical'].includes(p.orientation) ||
+          (p.angle !== undefined && (!num(p.angle) || Math.abs(p.angle) > 360)),
       ))
   )
     return false;
