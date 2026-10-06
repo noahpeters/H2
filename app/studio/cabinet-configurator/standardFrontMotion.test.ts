@@ -83,3 +83,47 @@ it.each(['slab', 'shaker', 'beaded-shaker'] as const)(
     expect(after.max.z - before.max.z).toBeCloseTo(22 * 0.0254);
   },
 );
+
+it.each(['slab', 'shaker', 'beaded-shaker'] as const)(
+  'picks only the clicked %s drawer even with another drawer open',
+  (face) => {
+    const group = cabinetGeometry(
+      {...base, face, configuration: 'three-drawer'},
+      false,
+    );
+    group.userData.id = base.id;
+    const fronts = group.children.filter(
+      (child) => child.name === 'cabinet-front',
+    );
+    const motion = new SceneInteractions();
+    for (const open of [false, true]) {
+      fronts[0].userData.updateOpening(open ? 1 : 0);
+      group.updateMatrixWorld(true);
+      for (const front of open ? fronts.slice(1) : fronts) {
+        const center = front.getWorldPosition(new THREE.Vector3());
+        const ray = new THREE.Raycaster(
+          center.clone().add(new THREE.Vector3(1, 0.7, 2)),
+          new THREE.Vector3(-1, -0.7, -2).normalize(),
+        );
+        const hits = ray.intersectObjects([group], true);
+        let picked: THREE.Object3D | null = hits[0]?.object ?? null;
+        while (picked && !picked.userData.updateOpening) picked = picked.parent;
+        expect(picked?.uuid).toBe(front.uuid);
+        expect(
+          hits.some((hit) => hit.object instanceof THREE.LineSegments),
+        ).toBe(false);
+        const positions = fronts.map((item) => item.position.clone());
+        expect(motion.toggle(hits[0].object)).toBe(true);
+        for (let i = 0; i < 20; i++) motion.update(group, 0.05);
+        expect(front.position.z).toBeGreaterThan(center.z);
+        fronts.forEach((sibling, index) => {
+          if (sibling !== front)
+            expect(sibling.position.equals(positions[index])).toBe(true);
+        });
+        motion.reset();
+        fronts[0].userData.updateOpening(open ? 1 : 0);
+        group.updateMatrixWorld(true);
+      }
+    }
+  },
+);
