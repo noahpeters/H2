@@ -18,6 +18,9 @@ test('daylight first selects a physical enclosure, then preserves explicit user 
   render(<Harness />);
   expect(screen.getByLabelText('Surface texture detail')).toHaveValue('auto');
   fireEvent.click(screen.getByRole('checkbox', {name: 'Directional daylight'}));
+  const sunSoftness = screen.getByLabelText('Sun softness (degrees)');
+  expect(sunSoftness).toHaveValue(0.5);
+  expect(sunSoftness).toBeValid();
   expect(
     screen.getByRole('checkbox', {name: 'Include a ceiling'}),
   ).toBeChecked();
