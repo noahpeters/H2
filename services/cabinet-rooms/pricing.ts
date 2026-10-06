@@ -1,4 +1,9 @@
 import {
+  combinationProfiles,
+  isCombinationFace,
+  resolvePartFaces,
+} from '../../app/studio/cabinet-configurator/combinationFaces';
+import {
   cabinetInteriorSelection,
   exposedCabinetInterior,
   internalCustomPart,
@@ -233,6 +238,24 @@ export function projectSchedule(study: Study) {
     }
     let beadedFaces = e.face === 'beaded-shaker' ? faceCount : 0;
     let beadedFlatFaces = e.face === 'beaded-flat' ? faceCount : 0;
+    if (isCombinationFace(e.face)) {
+      // Paired doors share the highest row. False fronts count; sink aprons do not.
+      const upperDoors = storage ? doors : e.kind === 'tall' ? doors : 0;
+      const topCount =
+        upperDoors ||
+        (e.kind === 'base' &&
+        ['door-drawer', 'three-drawer', 'sink'].includes(e.configuration ?? '')
+          ? 1
+          : drawers
+            ? 1
+            : faceCount);
+      const [top, lower] = combinationProfiles[e.face];
+      const count = (style: string) =>
+        (top === style ? topCount : 0) +
+        (lower === style ? faceCount - topCount : 0);
+      beadedFaces = count('beaded-shaker');
+      beadedFlatFaces = count('beaded-flat');
+    }
     let customAreas: Pick<
       ScheduleLine,
       'carcassArea' | 'faceArea' | 'backArea'
@@ -242,12 +265,17 @@ export function projectSchedule(study: Study) {
         e.customCabinet.definition,
         cabinetCompositionEnvelope(e, study.room),
       );
-      const parts = roomFrontParts(
-        {
-          ...unit,
-          parts: customUnitLayoutParts(unit) as NonNullable<typeof unit.parts>,
-        },
-        study.room.overlay ?? 'full-overlay',
+      const parts = resolvePartFaces(
+        roomFrontParts(
+          {
+            ...unit,
+            parts: customUnitLayoutParts(unit) as NonNullable<
+              typeof unit.parts
+            >,
+          },
+          study.room.overlay ?? 'full-overlay',
+        ),
+        e.face,
       );
       const area = (part: (typeof parts)[number]) => {
         const dimensions = [part.width, part.height, part.depth].sort(

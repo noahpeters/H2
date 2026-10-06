@@ -1,3 +1,4 @@
+import {resolvePartFaces} from '../combinationFaces';
 import {drawerBoxSelection, internalCustomPart} from '../cabinetInternals';
 import {archedFrontGeometry} from './archedFrontGeometry';
 import {decorateBackPanel} from '../backPanels';
@@ -34,10 +35,13 @@ export function customUnitGeometry(
 ): THREE.Group {
   definition = migrateFrontStyles(definition);
   const layout = customUnitLayoutParts(definition) as CabinetPart[];
-  const parts = roomFrontParts(
-    {...definition, parts: layout},
-    appearance?.overlay ?? 'full-overlay',
-    {left: Boolean(neighbors.left), right: Boolean(neighbors.right)},
+  const parts = resolvePartFaces(
+    roomFrontParts(
+      {...definition, parts: layout},
+      appearance?.overlay ?? 'full-overlay',
+      {left: Boolean(neighbors.left), right: Boolean(neighbors.right)},
+    ),
+    appearance?.face,
   );
   const group = new THREE.Group();
   group.name = `custom-unit:${definition.id}`;
@@ -70,7 +74,9 @@ export function customUnitGeometry(
       part.faceStyle ??
       (part.kind === 'drawer' && appearance?.face === 'shaker-glass'
         ? 'shaker'
-        : appearance?.face);
+        : appearance?.face === 'shaker-glass'
+          ? 'shaker-glass'
+          : undefined);
     let geometry: THREE.BufferGeometry;
     if (part.outline) {
       geometry = archedFrontGeometry(part, face);

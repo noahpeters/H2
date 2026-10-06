@@ -117,6 +117,7 @@ export type RoomElement = {
   depth: number;
   height: number;
   face:
+    | import('./combinationFaces').CombinationFace
     | 'shaker'
     | 'beaded-shaker'
     | 'beaded-flat'
