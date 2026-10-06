@@ -1,3 +1,4 @@
+import {isCombinationFace} from './combinationFaces';
 import {createFixture, type FixtureKind} from './fixtures';
 import {fixtureGeometry} from './fixtureGeometry';
 import {createSink, type SinkKind} from './sinkAttachments';
@@ -83,6 +84,7 @@ export function previewElement(
   }
   if (category === 'front') {
     item.face = value as RoomElement['face'];
+    if (isCombinationFace(value)) item.configuration = 'door-drawer';
     if (value === 'shaker-glass') item.kind = 'wall-cabinet';
   }
   if (category === 'appliance-front') {

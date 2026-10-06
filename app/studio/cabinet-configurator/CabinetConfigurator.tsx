@@ -1,3 +1,4 @@
+import {COMBINATION_FACE_STYLES} from './combinationFaces';
 import {CameraPositions} from './SavedCameraPositions';
 import {
   captureCameraPosition,
@@ -2972,6 +2973,13 @@ export function CabinetConfigurator({
                           });
                         }}
                       >
+                        {Object.entries(COMBINATION_FACE_STYLES).map(
+                          ([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ),
+                        )}
                         <option value="shaker">Shaker</option>
                         <option value="beaded-shaker">Beaded Shaker</option>
                         <option value="beaded-flat">Beaded Flat</option>

@@ -1,3 +1,4 @@
+import {COMBINATION_FACE_STYLES} from '../combinationFaces';
 import type {PositioningResolution} from '../positioningPrecision';
 import {hasCabinetArch} from './cabinetArch';
 import {migrateFrontStyles} from '../overlay';
@@ -638,7 +639,10 @@ export function CustomUnitEditor({
                     })
                   }
                 >
-                  {Object.entries(FACE_STYLES).map(([value, label]) => (
+                  {Object.entries({
+                    ...FACE_STYLES,
+                    ...COMBINATION_FACE_STYLES,
+                  }).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>

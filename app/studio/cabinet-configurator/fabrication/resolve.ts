@@ -1,3 +1,4 @@
+import {resolvePartFaces} from '../combinationFaces';
 import {
   SHAKER_PANEL_SETBACK,
   shakerPanelDepth,
@@ -581,13 +582,16 @@ export function resolveFabrication(
       const definition = fitDefinition(item.customCabinet.definition, envelope);
       const layout = customUnitLayoutParts(definition) as CabinetPart[];
       const boards: FabricationPart[] = [];
-      for (const part of roomFrontParts(
-        {...definition, parts: layout},
-        design.room.overlay ?? 'full-overlay',
-        {
-          left: Boolean(frameRuns.get(item.id)?.left),
-          right: Boolean(frameRuns.get(item.id)?.right),
-        },
+      for (const part of resolvePartFaces(
+        roomFrontParts(
+          {...definition, parts: layout},
+          design.room.overlay ?? 'full-overlay',
+          {
+            left: Boolean(frameRuns.get(item.id)?.left),
+            right: Boolean(frameRuns.get(item.id)?.right),
+          },
+        ),
+        item.face,
       )) {
         const start = local.length;
         if (part.kind === 'door' || part.kind === 'drawer') {
@@ -952,8 +956,12 @@ export function resolveFabrication(
         if (neighbors?.left)
           sharedStiles.set(`${neighbors.left}:${item.id}:duplicate`, boards[0]);
       }
+      const resolvedFronts = resolvePartFaces(
+        fronts.map((entry) => entry.part),
+        item.face,
+      );
       fronts.forEach((entry, i) => {
-        const part = {...entry.part};
+        const part = {...resolvedFronts[i]};
         let opening = {x: t, y: part.y, width: inner, height: part.height};
         if (framed) {
           opening = frame.openings[i];

@@ -837,3 +837,63 @@ it('adds exactly $5 per beaded flat face and sums mixed profile overrides', () =
       calculatePrice(projectSchedule(study([plain])).lines, rates).price,
   ).toBeCloseTo(15, 6);
 });
+
+it.each([
+  ['flat-shaker', 0, 0, 0],
+  ['beaded-flat-beaded-shaker', 2, 1, 25],
+  ['flat-beaded-shaker', 2, 0, 20],
+] as const)(
+  'prices %s per resolved drawer face',
+  (face, beadedFaces, beadedFlatFaces, charge) => {
+    const {rates} = setup();
+    const item = {...cabinet, face};
+    const lines = projectSchedule(study([item])).lines;
+    expect(lines[0]).toMatchObject({beadedFaces, beadedFlatFaces});
+    const baseline = projectSchedule(study([{...item, face: 'shaker'}])).lines;
+    expect(
+      calculatePrice(lines, rates).price -
+        calculatePrice(baseline, rates).price,
+    ).toBeCloseTo(charge, 6);
+    // A custom three-drawer layout must produce the same resolved counts.
+    const definition = configurationTemplate(cabinet);
+    definition.parts = [0, 9, 18].map((y, i) => ({
+      id: `drawer-${i}`,
+      kind: 'drawer',
+      x: 1,
+      y,
+      z: -0.75,
+      width: 28,
+      height: 8,
+      depth: 0.75,
+    }));
+    const custom = {
+      ...item,
+      customCabinet: {libraryId: 'test', libraryVersion: 1, definition},
+    };
+    expect(projectSchedule(study([custom])).lines[0]).toMatchObject({
+      beadedFaces,
+      beadedFlatFaces,
+    });
+  },
+);
+it.each([
+  ['door-drawer', 36, 2, 1],
+  ['sink', 36, 2, 1],
+  ['farmhouse-sink', 36, 0, 2],
+  ['single-door', 36, 0, 2],
+  ['pullout', 30, 0, 1],
+] as const)(
+  'prices physical rows for %s, excluding sink aprons',
+  (configuration, width, beadedFaces, beadedFlatFaces) => {
+    const item = {
+      ...cabinet,
+      configuration,
+      width,
+      face: 'beaded-flat-beaded-shaker' as const,
+    };
+    expect(projectSchedule(study([item])).lines[0]).toMatchObject({
+      beadedFaces,
+      beadedFlatFaces,
+    });
+  },
+);

@@ -1,3 +1,4 @@
+import {resolveFaceRows, type AtomicFace} from './combinationFaces';
 import {facePreviewGeometry} from './custom-unit/facePreview';
 import {
   isShakerFace,
@@ -323,6 +324,7 @@ export function cabinetGeometry(
     x: number;
     y: number;
     drawer: boolean;
+    eligible?: boolean;
   }[] = [];
   const front = (
     width: number,
@@ -339,6 +341,7 @@ export function cabinetGeometry(
     x: number,
     y: number,
     drawer: boolean,
+    face: AtomicFace | undefined,
   ) => {
     const firstChild = group.children.length;
     const inset = room?.overlay === 'inset';
@@ -348,8 +351,8 @@ export function cabinetGeometry(
         ? d / 2 + 0.75
         : d / 2;
     const glass =
-      item.face === 'shaker-glass' && item.kind === 'wall-cabinet' && !drawer;
-    const framed = isShakerFace(item.face);
+      face === 'shaker-glass' && item.kind === 'wall-cabinet' && !drawer;
+    const framed = isShakerFace(face);
     const railWidth = shakerFrameWidth(width, height);
     const frontPanel = box(
       group,
@@ -371,13 +374,14 @@ export function cabinetGeometry(
       drawer ? 'drawer' : 'door',
     );
     frontPanel.name = 'cabinet-front';
-    if (item.face === 'beaded-flat') {
+    frontPanel.userData.faceStyle = face;
+    if (face === 'beaded-flat') {
       frontPanel.geometry.dispose();
       frontPanel.geometry = facePreviewGeometry(
         width,
         height,
         0.75,
-        item.face,
+        face,
         false,
         drawer ? 'x' : 'y',
       )
@@ -393,7 +397,7 @@ export function cabinetGeometry(
       );
     }
 
-    if (item.face === 'vertical-slat') {
+    if (face === 'vertical-slat') {
       const spacing = Math.max(1.75, Math.min(2.5, width / 8));
       const count = Math.max(2, Math.floor(width / spacing));
       for (let index = 1; index < count; index++)
@@ -410,7 +414,7 @@ export function cabinetGeometry(
     }
     if (framed) {
       const rail =
-        railWidth - (item.face === 'beaded-shaker' ? SHAKER_BEAD_WIDTH : 0);
+        railWidth - (face === 'beaded-shaker' ? SHAKER_BEAD_WIDTH : 0);
       for (const side of [-1, 1]) {
         box(
           group,
@@ -436,7 +440,7 @@ export function cabinetGeometry(
         );
       }
     }
-    if (item.face === 'beaded-shaker') {
+    if (face === 'beaded-shaker') {
       const bx = width / 2 - railWidth,
         by = height / 2 - railWidth;
       const geometry = shakerBeadGeometry(
@@ -488,7 +492,7 @@ export function cabinetGeometry(
       width,
       height,
       absoluteTop: (item.placement.elevation ?? 0) + h / 2 + y + height / 2,
-      faceStyle: item.face,
+      faceStyle: face ?? 'slab',
       hingeSide,
       horizontal: drawer,
       drawer,
@@ -769,6 +773,7 @@ export function cabinetGeometry(
   } else if (item.kind === 'base' && config === 'farmhouse-sink') {
     const apronHeight = Math.min(10, usable * 0.35);
     front(w - 0.25, apronHeight, 0, h / 2 - apronHeight / 2 - 0.125, false);
+    frontCells[frontCells.length - 1].eligible = false;
     const doorHeight = usable - apronHeight - 0.125;
     for (const side of [-1, 1])
       front(
@@ -789,6 +794,14 @@ export function cabinetGeometry(
       toe / 2,
       item.kind === 'base' && config === 'pullout',
     );
+  const frontStyles = resolveFaceRows(
+    frontCells.map((c) => ({
+      top: c.y + c.height / 2,
+      eligible: c.eligible,
+      faceStyle: c.eligible === false ? ('slab' as const) : undefined,
+    })),
+    item.face,
+  );
   if (room?.overlay === 'inset' || room?.overlay === 'partial-overlay') {
     const frame = cabinetFaceFrame(
       frontCells.map((c) => ({
@@ -834,11 +847,12 @@ export function cabinetGeometry(
         o.x + o.width / 2,
         o.y + o.height / 2,
         c.drawer,
+        frontStyles[i],
       );
     });
   } else
-    for (const c of frontCells)
-      drawFront(c.width, c.height, c.x, c.y, c.drawer);
+    for (const [i, c] of frontCells.entries())
+      drawFront(c.width, c.height, c.x, c.y, c.drawer, frontStyles[i]);
   if (countertop && item.kind === 'base')
     addBaseCountertop(group, item, sharedCountertop, edges);
   return group;
