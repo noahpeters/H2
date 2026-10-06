@@ -39,13 +39,15 @@ export function withWoodFinish(
   if (finish === 'source')
     return {
       ...next,
-      finish: {},
+      finish: next.finish.color ? next.finish : {},
       pbr: {...pbr, roughness: next.textures?.roughness ? 1 : 0.7},
     };
   const preset = WOOD_FINISHES[finish];
   return {
     ...next,
-    finish: {...next.finish, system: `H2 ${finish} preview v1`},
+    finish: next.finish.color
+      ? next.finish
+      : {...next.finish, system: `H2 ${finish} preview v1`},
     pbr: {
       ...pbr,
       roughness: next.textures?.roughness
@@ -61,4 +63,19 @@ export function withWoodFinish(
       normalStrength: preset.normalStrength,
     },
   };
+}
+
+/** Sheen remains independent of the selected wood color. */
+export function woodSheen(
+  definition?: MaterialDefinition,
+): keyof typeof WOOD_FINISHES | 'source' {
+  return (
+    (Object.keys(WOOD_FINISHES) as (keyof typeof WOOD_FINISHES)[]).find(
+      (key) =>
+        definition?.finish.system === `H2 ${key} preview v1` ||
+        (definition?.pbr.clearcoat === WOOD_FINISHES[key].clearcoat &&
+          definition?.pbr.clearcoatRoughness ===
+            WOOD_FINISHES[key].clearcoatRoughness),
+    ) ?? 'source'
+  );
 }

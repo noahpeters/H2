@@ -118,3 +118,63 @@ it('edits shared finishes and grain and reassigns objects before removing a mate
     true,
   );
 });
+
+it('offers four wood colors, carries the selected color between species and keeps cherry unchanged', () => {
+  function Harness() {
+    const [study, setStudy] = useState(() =>
+      migrateDesignMaterials({...blankStudy(), elements: [element]}),
+    );
+    return (
+      <>
+        <MaterialsSection
+          study={study}
+          update={(change) =>
+            setStudy((current) => {
+              const next = structuredClone(current);
+              change(next);
+              syncDesignMaterials(next);
+              return next;
+            })
+          }
+        />
+        <output data-testid="design">{JSON.stringify(study)}</output>
+      </>
+    );
+  }
+  render(<Harness />);
+  const read = () =>
+    JSON.parse(screen.getByTestId('design').textContent!) as Study;
+  expect(read().elements[0].materialDefinition).toBeUndefined();
+  const wood = screen.getByLabelText('Wood color');
+  expect(
+    within(wood)
+      .getAllByRole('option')
+      .filter((o) => !(o as HTMLOptionElement).disabled)
+      .map((o) => o.textContent),
+  ).toEqual(['Chocolate', 'Natural', 'Pure', 'White']);
+  fireEvent.change(wood, {target: {value: 'white'}});
+  expect(read().elements[0].materialDefinition!.finish.color).toBe('White');
+  fireEvent.change(screen.getByLabelText('Wood sheen'), {
+    target: {value: 'satin'},
+  });
+  expect(read().elements[0].materialDefinition!.finish.color).toBe('White');
+  const species = within(
+    screen.getByRole('group', {name: 'Finish for Walnut'}),
+  ).getByRole('combobox');
+  for (const [id, reference] of [
+    ['plain-white-oak', 'white-oak-solid'],
+    ['rift-white-oak', 'white-oak-veneer'],
+    ['maple', 'hard-maple'],
+  ]) {
+    fireEvent.change(species, {target: {value: id}});
+    const definition = read().elements[0].materialDefinition!;
+    expect(definition.finish.color).toBe('White');
+    expect(definition.textures!.albedo!.provenance.source).toContain(
+      `_${reference}_white.jpg`,
+    );
+    expect(screen.getByLabelText('Wood sheen')).toHaveValue('satin');
+  }
+  fireEvent.change(species, {target: {value: 'cherry'}});
+  expect(screen.queryByLabelText('Wood color')).toBeNull();
+  expect(read().elements[0].materialDefinition).toBeUndefined();
+});

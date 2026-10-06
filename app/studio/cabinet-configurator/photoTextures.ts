@@ -33,6 +33,14 @@ export function detailedPhotoDefinition(
 ): MaterialDefinition {
   const next = structuredClone(definition);
   if (resolution < 2048) return next;
+  const albedo = next.textures?.albedo;
+  if (
+    albedo &&
+    /^\/studio\/materials\/rubio-oil-plus-2c\/(plain-white-oak|rift-white-oak|walnut|maple)-(chocolate|natural|pure|white)\.jpg$/.test(
+      albedo.uri,
+    )
+  )
+    albedo.uri = albedo.uri.replace('.jpg', '-2k.jpg');
   for (const slot of ['albedo', 'normal', 'roughness'] as const) {
     const asset = next.textures?.[slot];
     if (

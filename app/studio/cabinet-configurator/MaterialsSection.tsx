@@ -11,7 +11,14 @@ import {
   type CabinetPaint,
   resolveCabinetMaterial,
 } from './materials';
-import {WOOD_FINISHES, withWoodFinish} from './woodFinishes';
+import {WOOD_FINISHES, withWoodFinish, woodSheen} from './woodFinishes';
+import {
+  RUBIO_COLORS,
+  hasRubioColors,
+  rubioColor,
+  withRubioColor,
+  type RubioColor,
+} from './rubioFinishes';
 import {removeDesignMaterial, type FlatGrain} from './designMaterials';
 
 export function MaterialsSection({
@@ -99,8 +106,16 @@ export function MaterialsSection({
                     onChange={(e) => {
                       const value = e.currentTarget.value as CabinetMaterial;
                       edit((m) => {
+                        const color = rubioColor(m.materialDefinition);
+                        const sheen = woodSheen(m.materialDefinition);
                         m.material = value;
                         delete m.materialDefinition;
+                        if (color && hasRubioColors(value)) {
+                          m.materialDefinition = withWoodFinish(
+                            withRubioColor(resolveCabinetMaterial(m), color),
+                            sheen,
+                          );
+                        }
                       });
                     }}
                   >
@@ -137,29 +152,49 @@ export function MaterialsSection({
                     </VisualSelect>
                   </div>
                 )}
+                {hasRubioColors(material.material) && (
+                  <label>
+                    Wood color
+                    <select
+                      value={rubioColor(material.materialDefinition)}
+                      onChange={(event) => {
+                        const color = event.target.value as RubioColor;
+                        edit((m) => {
+                          m.materialDefinition = withRubioColor(
+                            resolveCabinetMaterial(m),
+                            color,
+                          );
+                        });
+                      }}
+                    >
+                      {!rubioColor(material.materialDefinition) && (
+                        <option value="" disabled>
+                          Choose a color (current finish retained)
+                        </option>
+                      )}
+                      {Object.entries(RUBIO_COLORS).map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {material.material !== 'paint-grade' && (
                   <label>
                     Wood sheen
                     <select
-                      value={
-                        Object.keys(WOOD_FINISHES).find(
-                          (key) =>
-                            material.materialDefinition?.finish.system ===
-                            `H2 ${key} preview v1`,
-                        ) ?? 'source'
-                      }
+                      aria-label="Wood sheen"
+                      value={woodSheen(material.materialDefinition)}
                       onChange={(event) => {
                         const finish = event.target.value as
                           | keyof typeof WOOD_FINISHES
                           | 'source';
                         edit((m) => {
-                          m.materialDefinition =
-                            finish === 'source'
-                              ? undefined
-                              : withWoodFinish(
-                                  resolveCabinetMaterial(m),
-                                  finish,
-                                );
+                          m.materialDefinition = withWoodFinish(
+                            resolveCabinetMaterial(m),
+                            finish,
+                          );
                         });
                       }}
                     >
