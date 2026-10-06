@@ -424,7 +424,15 @@ export function projectSchedule(study: Study) {
     );
   return {lines, assumptions: [...assumptions]};
 }
-/** Internal-only result, never serialize this object in an HTTP response. */
+export type PricingComponent = {
+  id: string;
+  option: string;
+  quantity: number;
+  unit: string;
+  cost: number;
+  price: number;
+};
+/** Internal economics: serialize only through the authenticated admin report. */
 export function calculatePrice(
   lines: ScheduleLine[],
   rates: Rates,
@@ -434,6 +442,7 @@ export function calculatePrice(
   purchases: Record<string, number>;
   individualFramePrice: number;
   continuousFramePremium: number;
+  components: PricingComponent[];
 } {
   const rate = (key: string): number => {
     // Plain-sawn white oak follows maple pricing; purchase pools stay separate.
@@ -456,13 +465,35 @@ export function calculatePrice(
       throw new PricingError('pricing_not_configured', [rateKey]);
     return value;
   };
+  const components: PricingComponent[] = [];
+  let currentId = '';
+  const component = (
+    option: string,
+    quantity: number,
+    unit: string,
+    cost: number,
+    price = 0,
+  ) => {
+    const item = {id: currentId, option, quantity, unit, cost, price};
+    components.push(item);
+    return item;
+  };
   const pools = new Map<
     string,
-    {net: number; waste: string; divisor: number}
+    {net: number; waste: string; divisor: number; items: PricingComponent[]}
   >();
-  const add = (key: string, net: number, waste: string, divisor = 32) => {
+  const add = (
+    key: string,
+    net: number,
+    waste: string,
+    divisor = 32,
+    label = key,
+  ) => {
     if (net <= 0) return;
-    const p = pools.get(key) ?? {net: 0, waste, divisor};
+    const p = pools.get(key) ?? {net: 0, waste, divisor, items: []};
+    p.items.push(
+      component(label, net, divisor === 1 ? 'net linear feet' : 'net sq ft', 0),
+    );
     p.net += net;
     pools.set(key, p);
   };
@@ -473,6 +504,7 @@ export function calculatePrice(
       purchases: {},
       individualFramePrice: 0,
       continuousFramePremium: 0,
+      components,
     };
   let hours = 0,
     hardware = 0,
@@ -480,6 +512,8 @@ export function calculatePrice(
     frameMaterials = 0,
     continuousFrameMaterials = 0;
   for (const c of lines) {
+    currentId = c.autoPanelOwnerId ?? c.id;
+    const prefix = c.autoPanelOwnerId ? 'Attached finish panel: ' : '';
     const w = c.width,
       d = c.depth,
       h = Math.max(0, c.height - (c.toeKickHeight ?? (c.feet ? 4 : 0))),
@@ -496,13 +530,28 @@ export function calculatePrice(
         (c.feet ? c.boxUnits * w * (c.toeKickHeight ?? 4) : 0)) /
         144;
     if (c.interiorMaterial)
-      add(`face_${c.interiorMaterial}`, carcass, 'face_waste');
-    else add('box_sheet', c.visibleBox ? 0 : carcass, 'box_waste');
+      add(
+        `face_${c.interiorMaterial}`,
+        carcass,
+        'face_waste',
+        32,
+        `${prefix}Carcass stock (${c.interiorMaterial})`,
+      );
+    else
+      add(
+        'box_sheet',
+        c.visibleBox ? 0 : carcass,
+        'box_waste',
+        32,
+        `${prefix}Carcass stock`,
+      );
     add(
       `face_${c.material}`,
       Math.max(0, face - (c.frameSheetAreaCredit ?? 0)) +
         (!c.interiorMaterial && c.visibleBox ? carcass : 0),
       'face_waste',
+      32,
+      `${prefix}Exterior stock (${c.material})`,
     );
     const backArea =
       c.backArea ?? (c.boxUnits * iw * h * (c.backSheetFactor ?? 1)) / 144;
@@ -510,6 +559,8 @@ export function calculatePrice(
       c.interiorMaterial ? `face_${c.interiorMaterial}` : 'back_sheet',
       backArea,
       c.interiorMaterial ? 'face_waste' : 'back_waste',
+      32,
+      `${prefix}Back stock (${c.interiorMaterial ?? 'back sheet'})`,
     );
     const drawerSuffix =
       c.drawerMaterial && c.drawerMaterial !== 'maple'
@@ -520,11 +571,14 @@ export function calculatePrice(
       (c.drawers * 2 * (d - 3 + (w - 1.25))) / 12,
       'drawer_stock_waste',
       1,
+      `Drawer box stock (${c.drawerMaterial ?? 'maple'})`,
     );
     add(
       `drawer_bottom_sheet${drawerSuffix}`,
       (c.drawers * (d - 3) * (w - 1.25)) / 144,
       'drawer_bottom_waste',
+      32,
+      `Drawer bottom stock (${c.drawerMaterial ?? 'maple'})`,
     );
     if (c.faceFrameBoardFeet) {
       const frameCost =
@@ -532,9 +586,85 @@ export function calculatePrice(
           (1 + rate('face_waste')) *
           rate(`face_${c.material}`)) /
         24;
+      component(
+        'Face frame stock',
+        c.faceFrameBoardFeet,
+        'net board feet',
+        frameCost,
+      );
+      if (c.continuousFrame)
+        component(
+          'Continuous face frame premium',
+          1,
+          'allowance',
+          0,
+          ((frameCost * (1 + rate('overhead'))) / (1 - rate('margin'))) * 0.2,
+        );
       frameMaterials += frameCost;
       if (c.continuousFrame) continuousFrameMaterials += frameCost;
     }
+    const laborRate =
+      rates.labor_rate == null
+        ? rate('weekly_cost') / rate('weekly_hours')
+        : rate('labor_rate');
+    for (const [label, count, key] of [
+      ['Box assembly labor', c.boxUnits, 'box_hours'],
+      ['Drawer assembly labor', c.drawers, 'drawer_hours'],
+      [`${prefix}Finishing labor`, c.finishUnits, 'finish_hours'],
+    ] as const)
+      if (count)
+        component(
+          label,
+          count * rate(key),
+          'hours',
+          count * rate(key) * laborRate,
+        );
+    if (c.drawers)
+      component(
+        'Drawer slides',
+        c.drawers,
+        'pairs',
+        c.drawers * rate('slide_pair'),
+      );
+    if (c.hinges)
+      component(
+        'Door hinges',
+        c.hinges / 2,
+        'pairs',
+        (c.hinges / 2) * rate('hinge_pair'),
+      );
+    if (c.feet)
+      component('Axilo feet', c.feet, 'feet', c.feet * rate('axilo_foot'));
+    if (c.rodFeet)
+      component(
+        'Hanging rods',
+        c.rodFeet,
+        'linear feet',
+        c.rodFeet * rate('hanging_rod_lf'),
+      );
+    if (c.finishUnits)
+      component(
+        `${prefix}Finish consumables`,
+        c.finishUnits,
+        'allowances',
+        c.finishUnits * rate('finish_consumables'),
+      );
+    if (c.beadedFaces)
+      component(
+        'Beaded Shaker face premium',
+        c.beadedFaces,
+        'faces',
+        0,
+        c.beadedFaces * BEADED_FACE_SURCHARGE,
+      );
+    if (c.beadedFlatFaces)
+      component(
+        'Beaded Flat face premium',
+        c.beadedFlatFaces,
+        'faces',
+        0,
+        c.beadedFlatFaces * BEADED_FLAT_SURCHARGE,
+      );
     hours +=
       c.boxUnits * rate('box_hours') +
       c.drawers * rate('drawer_hours') +
@@ -550,7 +680,9 @@ export function calculatePrice(
   let materials = 0;
   for (const [key, p] of pools) {
     purchases[key] = Math.ceil((p.net * (1 + rate(p.waste))) / p.divisor);
-    materials += purchases[key] * rate(key);
+    const poolCost = purchases[key] * rate(key);
+    materials += poolCost;
+    for (const item of p.items) item.cost = (poolCost * item.quantity) / p.net;
   }
   const laborRate =
     rates.labor_rate == null
@@ -586,7 +718,32 @@ export function calculatePrice(
       BEADED_FLAT_SURCHARGE;
   if (!Number.isFinite(price) || price > Number.MAX_SAFE_INTEGER / 100)
     throw new PricingError('pricing_not_configured', ['price overflow']);
-  return {cost, price, purchases, individualFramePrice, continuousFramePremium};
+  const owners = [
+    ...new Set(lines.map((line) => line.autoPanelOwnerId ?? line.id)),
+  ];
+  for (const id of owners) {
+    currentId = id;
+    component(
+      'Project miscellaneous allocation',
+      1 / owners.length,
+      'project share',
+      rate('misc') / owners.length,
+    );
+  }
+  const basePrice =
+    price - components.reduce((sum, item) => sum + item.price, 0);
+  for (const item of components) {
+    item.cost *= 1 + rate('overhead');
+    item.price += cost ? (item.cost / cost) * basePrice : 0;
+  }
+  return {
+    cost,
+    price,
+    purchases,
+    individualFramePrice,
+    continuousFramePremium,
+    components,
+  };
 }
 export function priceRange(price: number) {
   return {

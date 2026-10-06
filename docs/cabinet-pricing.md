@@ -79,3 +79,30 @@ The live selected-material sheet rate is converted to a provisional lumber rate:
 Only actual matched continuous runs receive the **20% premium on the whole equivalent individual frame material selling price**. Pricing retains the separate-frame stock baseline (including outer finish-panel extensions) rather than reducing the baseline for shared stiles. Eligibility uses the same neighbor matching as rendering/fabrication: overlay, adjacency, material, depth, height, elevation and orientation must match. Isolated frames retain individual pricing even if the room option is enabled.
 
 The additional selling price is `eligible frame bdft × (1 + face_waste) × derived lumber $/bdft × (1 + overhead) / (1 - margin) × 0.20`. It enters after the optional project profit cap, like the existing profile additions, so the cap cannot erase the approved premium. The usual $500 range rounding can conceal small differences in the displayed range. No rate migration or production rate change is required, and saved quote snapshots remain unchanged.
+
+## Private FTOPS cost / price report
+
+`GET /admin/cost-report?slug=…&revision=…` requires the separate
+`ANALYTICS_READ_TOKEN`, never the public service token. FTOPS additionally requires
+an authenticated system administrator. The exact displayed revision is mandatory;
+a changed design returns 409, an invalid saved design 422 and unavailable rates 503. Responses are no-store. Public website price responses remain unchanged and
+never include the internal components.
+
+The report uses the existing pricing calculation and current administrator rates.
+It contains USD cost, selling price, profit and gross profit margin per cabinet
+and modeled option, with cent allocation that reconciles to project totals. Stock
+purchases are still rounded at project level after waste, then allocated to options
+by net usage within each purchase pool. Direct labor/hardware/finishing and frame
+costs stay with their cabinet; attached automatic finish panels stay with their
+owner. Miscellaneous is split equally across primary priced items. Overhead is
+included in costs. The margin/profit-cap base selling price is allocated by cost;
+continuous frame and beaded face selling additions remain explicit options.
+
+Selected materials, front/layout/overlay choices and dimensions accompany each
+cabinet. Options without separately modeled cost are covered by standard
+allowances, or explicitly excluded in the report; premiums with zero modeled
+incremental cost do not imply free fabrication. The CSV includes design/rates
+versions, generation time, assumptions and exclusions. Historical price requests
+are not repriced or modified. No migration is needed. Release this H2 endpoint
+before the companion FTOPS UI change through the normal human merge and Actions
+workflow.
