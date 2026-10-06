@@ -139,7 +139,7 @@ export function facePreviewGeometry(
     const flat = style === 'beaded-flat';
     const rail = flat ? BEADED_FLAT_INSET : shakerFrameWidth(w, h);
     const bead = isBeadedFace(style);
-    frame(w, h, bead ? rail - SHAKER_BEAD_WIDTH : rail, d, 0, flat);
+    if (!flat) frame(w, h, bead ? rail - SHAKER_BEAD_WIDTH : rail, d, 0);
 
     if (bead) {
       const geometry = shakerBeadGeometry(

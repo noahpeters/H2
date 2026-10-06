@@ -3,8 +3,8 @@ import * as THREE from 'three';
 /** Physical profile dimensions in inches, measured from the front face. */
 export const SHAKER_PANEL_SETBACK = 5 / 16;
 export const SHAKER_BEAD_WIDTH = 1 / 4;
-/** Flat faces retain a 1/4-inch outer land plus the 1/4-inch perimeter bead. */
-export const BEADED_FLAT_INSET = SHAKER_BEAD_WIDTH * 2;
+/** The flat center meets a 1/4-inch bead at the outer edge, without a land. */
+export const BEADED_FLAT_INSET = SHAKER_BEAD_WIDTH;
 export const isBeadedFace = (style?: string) =>
   style === 'beaded-shaker' || style === 'beaded-flat';
 export const BEAD_SEGMENTS = 16;

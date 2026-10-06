@@ -28,26 +28,27 @@ export function archPath(points: ArchPoint[]) {
 export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
   const shape = archPath(part.outline!);
   const flat = style === 'beaded-flat';
-  const pane =
-    part.cabinetArch && (isShakerFace(style) || flat)
-      ? cabinetArchPane(
-          part,
-          flat ? BEADED_FLAT_INSET : shakerFrameWidth(part.width, part.height),
-        )
+  const pane = flat
+    ? offsetProfile(part.outline!, -BEADED_FLAT_INSET)
+    : part.cabinetArch && isShakerFace(style)
+      ? cabinetArchPane(part, shakerFrameWidth(part.width, part.height))
       : [];
   const bead = isBeadedFace(style) && pane.length >= 3;
-  if (pane.length >= 3)
+  if (!flat && pane.length >= 3)
     shape.holes.push(
       archPath(
         [...(bead ? offsetProfile(pane, SHAKER_BEAD_WIDTH) : pane)].reverse(),
       ),
     );
-  const frame = new THREE.ExtrudeGeometry(shape, {
-    depth: part.depth,
-    bevelEnabled: false,
-  });
-  frame.translate(-part.width / 2, -part.height / 2, -part.depth / 2);
-  if (pane.length < 3) return frame;
+  const frame =
+    flat && pane.length >= 3
+      ? undefined
+      : new THREE.ExtrudeGeometry(shape, {
+          depth: part.depth,
+          bevelEnabled: false,
+        });
+  frame?.translate(-part.width / 2, -part.height / 2, -part.depth / 2);
+  if (pane.length < 3) return frame!;
   const panel = new THREE.ExtrudeGeometry(archPath(pane), {
     depth: flat ? part.depth : shakerPanelDepth(part.depth),
     bevelEnabled: false,
@@ -57,7 +58,8 @@ export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
     -part.height / 2,
     -part.depth / 2 + (flat ? 0 : SHAKER_PANEL_SETBACK),
   );
-  const pieces: THREE.BufferGeometry[] = [frame, panel];
+  // An edge bead fills the entire perimeter band; no outer frame remains.
+  const pieces: THREE.BufferGeometry[] = frame ? [frame, panel] : [panel];
   if (bead)
     pieces.push(
       shakerBeadGeometry(pane, part.depth)
@@ -68,9 +70,7 @@ export function archedFrontGeometry(part: RoomFrontPart, style?: string) {
   result.groups.forEach((group) => {
     group.materialIndex = 0;
   });
-  result.groups[1].materialIndex = style === 'shaker-glass' ? 1 : 0;
-  frame.dispose();
-  panel.dispose();
-  pieces[2]?.dispose();
+  if (style === 'shaker-glass') result.groups[1].materialIndex = 1;
+  pieces.forEach((piece) => piece.dispose());
   return result;
 }
