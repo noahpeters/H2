@@ -321,9 +321,14 @@ it.each([false, true])(
       'x',
     );
     expect(frontHit(geometry)).toBeCloseTo(-0.375, 6);
-    expect(frontHit(geometry, 8.625)).toBeCloseTo(-0.375, 6);
-    expect(frontHit(geometry, 8.5625)).toBeGreaterThan(-0.375);
-    expect(frontHit(geometry, 8.8)).toBeCloseTo(-0.375, 6);
+    expect(frontHit(geometry, 8.875)).toBeCloseTo(-0.375, 6);
+    expect(frontHit(geometry, 8.8125)).toBeGreaterThan(-0.375);
+    expect(frontHit(geometry, 8.99)).toBeGreaterThan(-0.375);
+    expect(frontHit(geometry, 0, 14.875)).toBeCloseTo(-0.375, 6);
+    expect(frontHit(geometry, 0, 14.99)).toBeGreaterThan(-0.375);
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox!.min.toArray()).toEqual([-9, -15, -0.375]);
+    expect(geometry.boundingBox!.max.toArray()).toEqual([9, 15, 0.375]);
     expect(new Set(geometry.getAttribute('materialGrainAxis').array)).toEqual(
       new Set([0]),
     );
@@ -376,6 +381,54 @@ it('Beaded Flat renders moving standard doors/drawers and exports flush profiled
     );
     geometry.setIndex(part.mesh!.faces.flat());
     expect(frontHit(geometry)).toBeCloseTo(0, 6);
+    geometry.dispose();
+  }
+});
+
+it('arched Beaded Flat places its flush bead on every clipped door edge', () => {
+  const unit = createCustomUnit({
+    width: 36,
+    height: 60,
+    root: {id: 'doors', type: 'section', sectionType: 'doors'},
+  });
+  unit.frontArch = 'simple';
+  const parts = roomFrontParts(
+    {...unit, parts: customUnitLayoutParts(unit) as CabinetPart[]},
+    'inset',
+  ).filter((part) => part.kind === 'door');
+  for (const part of parts) {
+    const geometry = archedFrontGeometry(part, 'beaded-flat');
+    expect(frontHit(geometry)).toBeCloseTo(-part.depth / 2, 6);
+    expect(frontHit(geometry, -part.width / 2 + 0.125)).toBeCloseTo(
+      -part.depth / 2,
+      6,
+    );
+    expect(frontHit(geometry, -part.width / 2 + 0.01)).toBeGreaterThan(
+      -part.depth / 2,
+    );
+    const positions = geometry.getAttribute('position');
+    for (const point of part.outline!) {
+      // The outermost bead section follows the actual cut outline, including
+      // the arch and paired doors' meeting edges, without a surrounding land.
+      const edgeVertices = Array.from(
+        {length: positions.count},
+        (_, i) => i,
+      ).filter(
+        (i) =>
+          Math.hypot(
+            positions.getX(i) + part.width / 2 - point.x,
+            positions.getY(i) + part.height / 2 - point.y,
+          ) < 1e-5,
+      );
+      expect(edgeVertices.length).toBeGreaterThan(0);
+      expect(
+        edgeVertices.some(
+          (i) => Math.abs(positions.getZ(i) + part.depth / 2 - 0.125) < 1e-5,
+        ),
+      ).toBe(true);
+    }
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox!.min.z).toBeCloseTo(-part.depth / 2, 6);
     geometry.dispose();
   }
 });
