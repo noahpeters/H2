@@ -17,7 +17,7 @@ export const DEFAULT_PHOTO_DAYLIGHT: PhotoDaylight = {
   altitude: 35,
   sky: 1,
   sun: 10,
-  angularDiameter: 0.53,
+  angularDiameter: 0.5,
 };
 export function sunDirection(value: PhotoDaylight) {
   const a = (value.azimuth * Math.PI) / 180,
