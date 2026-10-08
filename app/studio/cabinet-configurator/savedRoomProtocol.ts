@@ -1,4 +1,5 @@
 import {validCameraPositions} from './cameraPositions';
+import {validGlbObjectInstance} from './glbObject';
 import {POSITIONING_RESOLUTIONS} from './positioningPrecision';
 import {validDesignMaterials, FLAT_GRAIN_OPTIONS} from './designMaterials';
 import {OVERLAY_OPTIONS} from './overlay';
@@ -232,7 +233,27 @@ export function validStudy(value: any): boolean {
           'panel',
           'appliance',
           'fixture',
+          'object',
         ].includes(e.kind) &&
+        (e.kind === 'object'
+          ? validGlbObjectInstance(e.libraryObject) &&
+            e.customCabinet === undefined &&
+            e.storage === undefined &&
+            e.sink == null &&
+            e.configuration === undefined &&
+            e.applianceKind === undefined &&
+            e.fixtureKind === undefined &&
+            e.islandId === undefined &&
+            e.placement?.mode !== 'hosted' &&
+            ['depth', 'height'].every(
+              (key) =>
+                Math.abs(
+                  e[key] / e.width -
+                    e.libraryObject.definition.dimensions[key] /
+                      e.libraryObject.definition.dimensions.width,
+                ) < 0.00001,
+            )
+          : e.libraryObject === undefined) &&
         validSink(e.sink) &&
         (e.kind !== 'panel' ||
           (e.storage === undefined &&

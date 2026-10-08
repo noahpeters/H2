@@ -157,6 +157,7 @@ export function snapWall(
   delete item.islandId;
 }
 export function islandAt(item: RoomElement, islands: Island[], room: Room) {
+  if (item.kind === 'object') return undefined;
   const current = islands.find((i) => i.id === item.islandId);
   if (current && islandOverlapsElement(item, current)) return current.id;
   const p = elementCenter(item, room);

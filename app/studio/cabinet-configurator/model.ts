@@ -62,6 +62,7 @@ export type ElementKind =
   | 'tall'
   | 'panel'
   | 'appliance'
+  | 'object'
   | 'fixture';
 export type ApplianceKind =
   | 'refrigerator'
@@ -98,6 +99,7 @@ export type Placement =
     };
 
 export type RoomElement = {
+  libraryObject?: import('./glbObject').GlbObjectInstance;
   fixtureKind?: import('./fixtures').FixtureKind;
   showerOpening?: {
     side: import('./fixtures').FixtureSide;

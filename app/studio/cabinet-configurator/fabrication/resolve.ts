@@ -127,7 +127,12 @@ export function resolveFabrication(
     frameRuns.set(id, override);
   const sharedStiles = new Map<string, FabricationPart>();
   for (const item of design.elements) {
-    if (item.kind === 'appliance' || item.kind === 'fixture') continue;
+    if (
+      item.kind === 'appliance' ||
+      item.kind === 'fixture' ||
+      item.kind === 'object'
+    )
+      continue;
     const envelope = cabinetCompositionEnvelope(item, design.room);
     const toe = cabinetToeKick(item, design.room);
     const transform = wallToFloor(item, design.room);

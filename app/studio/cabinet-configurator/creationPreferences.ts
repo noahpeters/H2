@@ -84,7 +84,7 @@ export function rememberCreationPreferences(
   preferences: CreationPreferences,
   item: RoomElement,
 ): CreationPreferences {
-  if (item.kind === 'fixture') return preferences;
+  if (item.kind === 'fixture' || item.kind === 'object') return preferences;
   const next: CreationPreferences = {
     version: 1,
     sharedCabinet: preferences.sharedCabinet,
@@ -134,6 +134,7 @@ export function applyCreationPreferences(
   preferences: CreationPreferences,
   room: Room,
 ): RoomElement {
+  if (item.kind === 'object') return {...item, placement: {...item.placement}};
   const scoped = preferences.scopes[scopeFor(item)] ?? {};
   const shared =
     item.kind === 'appliance' ? {} : (preferences.sharedCabinet ?? {});

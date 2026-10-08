@@ -10,6 +10,7 @@ vi.mock('./studyScene', async (original) => {
   return {
     ...actual,
     StudyScene: class {
+      assetErrors: string[] = [];
       root = new THREE.Group();
       selectable: THREE.Object3D[];
       constructor(scene: THREE.Scene) {

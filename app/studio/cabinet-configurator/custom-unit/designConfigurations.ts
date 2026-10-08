@@ -34,6 +34,7 @@ export function compatibleConfiguration(
   return (
     item.kind !== 'appliance' &&
     item.kind !== 'fixture' &&
+    item.kind !== 'object' &&
     configurationCategory(item) === configuration.category
   );
 }

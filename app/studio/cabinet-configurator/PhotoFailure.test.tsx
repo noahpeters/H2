@@ -19,6 +19,7 @@ vi.mock('./studyScene', async (original) => ({
   StudyScene: class {
     root = new THREE.Group();
     ready = true;
+    assetErrors: string[] = [];
     selectable = [];
     async update() {}
     dispose() {}

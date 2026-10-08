@@ -40,6 +40,7 @@ const ELEMENT_PRICING = {
   panel: 'panel',
   appliance: 'appliance',
   fixture: 'excluded',
+  object: 'excluded',
 } satisfies Record<ElementKind, 'cabinet' | 'panel' | 'appliance' | 'excluded'>;
 
 export class PricingError extends Error {

@@ -1,5 +1,10 @@
 import {withAutomaticFinishPanels} from './automaticFinishPanels';
 import {
+  glbObjectGeometry,
+  waitForGlbObject,
+  releaseGlbObject,
+} from './glbGeometry';
+import {
   coreObjectById,
   coreObjectForElement,
   coreObjectForOpening,
@@ -48,6 +53,7 @@ export function elementTransform(element: RoomElement, room: Room) {
 
 /** Release owned geometry/materials once, including selection lines. */
 export function disposeStudyObject(object: THREE.Object3D) {
+  releaseGlbObject(object);
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   object.traverse((part) => {
@@ -180,52 +186,63 @@ function desiredObjects(study: Study): Desired[] {
       selectable: true,
       // Position/rotation/selection are updates to an existing mesh. Elevation
       // stays in the key because tall-cabinet hardware uses it in local geometry.
-      signature: JSON.stringify([
-        {...item, placement: {elevation: item.placement.elevation}},
-        study.countertop,
-        room.countertopMaterial,
-        shared,
-        edges,
-        room.toeKick,
-        room.overlay,
-        room.useMapleInternals,
-        frameRuns.get(item.id),
-        toeRuns.get(item.id),
-        room.height,
-      ]),
+      signature:
+        item.kind === 'object'
+          ? JSON.stringify([
+              item.libraryObject,
+              item.width,
+              item.depth,
+              item.height,
+            ])
+          : JSON.stringify([
+              {...item, placement: {elevation: item.placement.elevation}},
+              study.countertop,
+              room.countertopMaterial,
+              shared,
+              edges,
+              room.toeKick,
+              room.overlay,
+              room.useMapleInternals,
+              frameRuns.get(item.id),
+              toeRuns.get(item.id),
+              room.height,
+            ]),
       build: () => {
         const body =
-          item.kind === 'panel'
-            ? panelGeometry(item)
-            : item.kind === 'fixture'
-              ? fixtureGeometry(item, room)
-              : item.kind === 'appliance'
-                ? applianceGeometry(
-                    item.applianceKind ?? 'dishwasher',
-                    item.width * INCH,
-                    item.height * INCH,
-                    item.depth * INCH,
-                    item.applianceFront,
-                    item.rangeHood,
-                    cabinetColor(item),
-                    study.countertop && !item.islandId,
-                    item,
-                    edges,
-                  )
-                : cabinetGeometry(
-                    item,
-                    study.countertop,
-                    shared,
-                    room,
-                    edges,
-                    frameRuns.get(item.id),
-                    toeRun ? {...toeRun, hidden: true} : undefined,
-                  );
+          item.kind === 'object'
+            ? glbObjectGeometry(item)
+            : item.kind === 'panel'
+              ? panelGeometry(item)
+              : item.kind === 'fixture'
+                ? fixtureGeometry(item, room)
+                : item.kind === 'appliance'
+                  ? applianceGeometry(
+                      item.applianceKind ?? 'dishwasher',
+                      item.width * INCH,
+                      item.height * INCH,
+                      item.depth * INCH,
+                      item.applianceFront,
+                      item.rangeHood,
+                      cabinetColor(item),
+                      study.countertop && !item.islandId,
+                      item,
+                      edges,
+                    )
+                  : cabinetGeometry(
+                      item,
+                      study.countertop,
+                      shared,
+                      room,
+                      edges,
+                      frameRuns.get(item.id),
+                      toeRun ? {...toeRun, hidden: true} : undefined,
+                    );
         applyCountertops(body, room);
         body.userData.id = item.id;
-        body.userData.objectLibrary = coreObjectReference(
-          coreObjectForElement(item),
-        );
+        if (item.kind !== 'object')
+          body.userData.objectLibrary = coreObjectReference(
+            coreObjectForElement(item),
+          );
         return body;
       },
       place: (object) => {
@@ -274,7 +291,18 @@ export class StudyScene {
   }
 
   get ready() {
-    return !this.disposed && this.pending.size === 0 && this.entries.size > 0;
+    return (
+      !this.disposed &&
+      this.pending.size === 0 &&
+      this.entries.size > 0 &&
+      this.assetErrors.length === 0
+    );
+  }
+
+  get assetErrors(): string[] {
+    return [...this.entries.values()]
+      .filter((entry) => entry.object.userData.glbError)
+      .map((entry) => String(entry.object.userData.glbError));
   }
 
   async update(study: Study) {
@@ -297,9 +325,10 @@ export class StudyScene {
       [...next].filter(([key, entry]) => this.entries.get(key) !== entry),
     );
     await Promise.all(
-      [...this.pending.values()].map((entry) =>
-        waitForMaterialTextures(entry.object),
-      ),
+      [...this.pending.values()].map(async (entry) => {
+        await waitForGlbObject(entry.object);
+        await waitForMaterialTextures(entry.object);
+      }),
     );
     if (this.disposed || revision !== this.revision) return;
 

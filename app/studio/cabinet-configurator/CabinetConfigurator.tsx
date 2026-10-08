@@ -1,3 +1,5 @@
+import {GlbObjectImport} from './GlbObjectImport';
+import {createGlbObject, resizeGlbObject} from './glbObject';
 import {automaticFinishPanels, isAutoPanel} from './automaticFinishPanels';
 import {COMBINATION_FACE_STYLES} from './combinationFaces';
 import {CameraPositions} from './SavedCameraPositions';
@@ -810,6 +812,7 @@ export function ThreeStudy({
   const controlsRef = useRef<OrbitControls | null>(null);
   const [selectedCameraPosition, setSelectedCameraPosition] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
+  const [glbErrors, setGlbErrors] = useState<string[]>([]);
   const navigation = useRef<{
     zoom: (factor: number) => void;
     fit: () => void;
@@ -868,9 +871,13 @@ export function ThreeStudy({
     const content = new StudyScene(scene);
     const interactions = new SceneInteractions();
     photoRef.current = () => {
+      if (content.assetErrors.length)
+        throw new Error(
+          `A GLB object could not load: ${content.assetErrors[0]}`,
+        );
       if (!content.ready)
         throw new Error(
-          'Room materials are loading. Please try again in a moment.',
+          'Room models or materials are loading. Please try again in a moment.',
         );
       return createPhotoSnapshot(scene, camera, controls.target);
     };
@@ -975,7 +982,10 @@ export function ThreeStudy({
         resize();
       void content
         .update(next)
-        .then(invalidate)
+        .then(() => {
+          setGlbErrors(content.assetErrors);
+          invalidate();
+        })
         .catch((error: unknown) =>
           console.error('Cabinet scene update failed', error),
         );
@@ -1090,6 +1100,12 @@ export function ThreeStudy({
 
   return (
     <>
+      {Array.from(new Set(glbErrors)).map((error) => (
+        <p role="alert" key={error}>
+          GLB object unavailable: {error}. Select it in plan to reload or remove
+          it.
+        </p>
+      ))}
       {showControls && (
         <div className="cc-panel-label">
           <span>
@@ -2754,15 +2770,17 @@ export function CabinetConfigurator({
                 )}
                 <div className="cc-selected-heading">
                   <strong>
-                    {selected.kind === 'panel'
-                      ? 'Room panel'
-                      : selected.fixtureKind
-                        ? FIXTURE_CATALOG[selected.fixtureKind].label
-                        : selected.storage
-                          ? OPEN_STORAGE[selected.storage.type]
-                          : selected.applianceKind
-                            ? APPLIANCE_CATALOG[selected.applianceKind].label
-                            : selected.kind}
+                    {selected.libraryObject
+                      ? selected.libraryObject.definition.name
+                      : selected.kind === 'panel'
+                        ? 'Room panel'
+                        : selected.fixtureKind
+                          ? FIXTURE_CATALOG[selected.fixtureKind].label
+                          : selected.storage
+                            ? OPEN_STORAGE[selected.storage.type]
+                            : selected.applianceKind
+                              ? APPLIANCE_CATALOG[selected.applianceKind].label
+                              : selected.kind}
                   </strong>
                   <button
                     onClick={() =>
@@ -2858,6 +2876,7 @@ export function CabinetConfigurator({
                   </>
                 )}
                 {selected.kind !== 'appliance' &&
+                  selected.kind !== 'object' &&
                   selected.kind !== 'fixture' &&
                   selected.kind !== 'panel' && (
                     <>
@@ -2955,6 +2974,7 @@ export function CabinetConfigurator({
                   </label>
                 )}
                 {(selected.kind === 'panel' ||
+                  selected.kind === 'object' ||
                   selected.kind === 'appliance' ||
                   (selected.kind === 'fixture' &&
                     selected.fixtureKind !== 'mirror')) &&
@@ -3009,6 +3029,7 @@ export function CabinetConfigurator({
                   </label>
                 )}
                 {selected.kind !== 'panel' &&
+                  selected.kind !== 'object' &&
                   selected.kind !== 'fixture' &&
                   selected.kind !== 'appliance' &&
                   (!selected.storage ||
@@ -3055,6 +3076,7 @@ export function CabinetConfigurator({
                     </div>
                   )}
                 {selected.kind !== 'panel' &&
+                  selected.kind !== 'object' &&
                   selected.kind !== 'fixture' &&
                   selected.kind !== 'appliance' &&
                   (!selected.storage || selected.storage.doors) &&
@@ -3187,6 +3209,7 @@ export function CabinetConfigurator({
                     </label>
                   )}
                 {(selected.kind === 'wall-cabinet' ||
+                  selected.kind === 'object' ||
                   selected.kind === 'panel' ||
                   selected.fixtureKind === 'mirror') && (
                   <label>
@@ -3309,8 +3332,35 @@ export function CabinetConfigurator({
                     </label>
                   </>
                 )}
+                {selected.libraryObject && (
+                  <>
+                    <p>
+                      GLB model · {selected.depth.toFixed(2)}″ deep ×{' '}
+                      {selected.height.toFixed(2)}″ high. Width scales the
+                      entire model.
+                    </p>
+                    <button
+                      onClick={() =>
+                        update((d) => {
+                          const item = d.elements.find(
+                            (e) => e.id === selected.id,
+                          );
+                          if (item?.libraryObject)
+                            item.libraryObject.loadRevision =
+                              (item.libraryObject.loadRevision ?? 0) + 1;
+                        })
+                      }
+                    >
+                      Reload model
+                    </button>
+                  </>
+                )}
                 <label>
-                  {selected.kind === 'panel' ? 'Thickness' : 'Width'}
+                  {selected.kind === 'object'
+                    ? 'Model width'
+                    : selected.kind === 'panel'
+                      ? 'Thickness'
+                      : 'Width'}
                   <span>
                     <input
                       type="number"
@@ -3329,7 +3379,8 @@ export function CabinetConfigurator({
                             value <= 10000 &&
                             (!x.storage || (value >= 12 && value <= 96))
                           )
-                            x.width = value;
+                            if (x.kind === 'object') resizeGlbObject(x, value);
+                            else x.width = value;
                         })
                       }
                     />{' '}
@@ -3528,6 +3579,21 @@ export function CabinetConfigurator({
                         ))}
                     </div>
                   </details>
+                  <GlbObjectImport
+                    onAdd={(name, url, dimensions) => {
+                      const item = createGlbObject(
+                        name,
+                        url,
+                        dimensions,
+                        makeId(),
+                        study.room,
+                      );
+                      update((d) => {
+                        d.elements.push(automaticallyPlaceElement(item, d));
+                        d.selected = item.id;
+                      });
+                    }}
+                  />
                   <button
                     onClick={() =>
                       update((d) => {
@@ -4200,19 +4266,21 @@ export function CabinetConfigurator({
                                 : undefined
                             }
                           >
-                            {e.fixtureKind
-                              ? {
-                                  mirror: 'Mirror',
-                                  'freestanding-tub': 'Tub',
-                                  'alcove-tub': 'Alcove tub',
-                                  'glass-shower': 'Shower',
-                                  toilet: 'Toilet',
-                                }[e.fixtureKind]
-                              : e.storage
-                                ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
-                                : e.applianceKind
-                                  ? APPLIANCE_CATALOG[e.applianceKind].label
-                                  : `${e.width}″`}
+                            {e.libraryObject
+                              ? e.libraryObject.definition.name
+                              : e.fixtureKind
+                                ? {
+                                    mirror: 'Mirror',
+                                    'freestanding-tub': 'Tub',
+                                    'alcove-tub': 'Alcove tub',
+                                    'glass-shower': 'Shower',
+                                    toilet: 'Toilet',
+                                  }[e.fixtureKind]
+                                : e.storage
+                                  ? `${OPEN_STORAGE[e.storage.type]} · ${e.width}″`
+                                  : e.applianceKind
+                                    ? APPLIANCE_CATALOG[e.applianceKind].label
+                                    : `${e.width}″`}
                           </text>
                         )}
                       </g>

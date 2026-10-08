@@ -30,6 +30,7 @@ vi.mock('./useSavedRooms', () => ({
 vi.mock('./studyScene', async (original) => ({
   ...(await original<typeof import('./studyScene')>()),
   StudyScene: class {
+    assetErrors: string[] = [];
     root = new THREE.Group();
     ready = true;
     selectable = [];

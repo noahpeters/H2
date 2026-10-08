@@ -66,7 +66,7 @@ export function migrateDesignMaterials<T extends MaterialStudy>(study: T): T {
     next.materials = [];
     const finishes = new Map<string, string>();
     for (const item of next.elements) {
-      if (item.kind === 'fixture') continue;
+      if (item.kind === 'fixture' || item.kind === 'object') continue;
       const key = finishKey(item);
       let id = finishes.get(key);
       if (!id) {
@@ -108,7 +108,7 @@ export function syncDesignMaterials(
   if (!materials?.length) return;
   const selected = study.elements.find((e) => e.id === study.selected);
   for (const item of study.elements) {
-    if (item.kind === 'fixture') continue;
+    if (item.kind === 'fixture' || item.kind === 'object') continue;
     const material =
       materials.find((m) => m.id === item.materialId) ??
       materials.find((m) => m.id === selected?.materialId) ??

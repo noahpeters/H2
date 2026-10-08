@@ -197,7 +197,7 @@ export function coreObjectById(id: string): ObjectDefinition | undefined {
 export function coreObjectForElement(
   item: RoomElement,
 ): ObjectDefinition | undefined {
-  if (item.customCabinet) return undefined;
+  if (item.customCabinet || item.kind === 'object') return undefined;
   const key =
     item.kind === 'fixture'
       ? `fixture:${item.fixtureKind ?? 'glass-shower'}`

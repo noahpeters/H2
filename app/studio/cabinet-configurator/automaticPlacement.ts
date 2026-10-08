@@ -84,7 +84,7 @@ export function validAutomaticPlacement(
     return false;
   const box = bounds(item, layout.room);
   if (item.islandId) {
-    if (item.kind === 'fixture') return false;
+    if (item.kind === 'fixture' || item.kind === 'object') return false;
     const island = layout.islands.find((i) => i.id === item.islandId);
     if (
       !island ||

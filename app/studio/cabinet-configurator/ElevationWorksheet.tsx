@@ -92,15 +92,17 @@ function mergeCountertops(spans: CountertopSpan[]) {
 }
 
 const itemLabel = (item: RoomElement) =>
-  isAutoPanel(item)
-    ? `Automatic ${item.autoPanel.surface} panel`
-    : item.applianceKind
-      ? APPLIANCE_CATALOG[item.applianceKind].label
-      : item.fixtureKind
-        ? item.fixtureKind.replaceAll('-', ' ')
-        : item.storage
-          ? OPEN_STORAGE[item.storage.type]
-          : item.kind.replace('-', ' ');
+  item.libraryObject
+    ? item.libraryObject.definition.name
+    : isAutoPanel(item)
+      ? `Automatic ${item.autoPanel.surface} panel`
+      : item.applianceKind
+        ? APPLIANCE_CATALOG[item.applianceKind].label
+        : item.fixtureKind
+          ? item.fixtureKind.replaceAll('-', ' ')
+          : item.storage
+            ? OPEN_STORAGE[item.storage.type]
+            : item.kind.replace('-', ' ');
 
 const INCH = 0.0254;
 type Plane = {x: number; z: number; ux: number; uz: number};
@@ -122,6 +124,18 @@ function projectedItem(
   const left = Math.min(...corners),
     right = Math.max(...corners);
   const bottom = item.placement.elevation ?? 0;
+  if (item.kind === 'object')
+    return {
+      id: item.id,
+      label: `${itemLabel(item)} (model bounds)`,
+      x: left,
+      y: bottom,
+      width: right - left,
+      height: item.height,
+      kind: item.kind,
+      lines: [],
+      countertops: [],
+    };
   const shared = study.islands.some((island) => island.id === item.islandId);
   const edges = countertopEdges(item, study.elements, study.room);
   const group =
