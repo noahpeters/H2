@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {coreObjectById, coreObjectReference} from './coreObjectLibrary';
 import type {PullLayout} from './hardwarePlacement';
 
 /** Mount only to this moving front, including its actual rails and curved surface. */
@@ -70,6 +71,9 @@ export function mountedPull(
     }),
   );
   pull.castShadow = true;
+  pull.userData.objectLibrary = coreObjectReference(
+    coreObjectById('core:pull'),
+  );
   pull.quaternion.setFromUnitVectors(
     new THREE.Vector3(0, 0, direction),
     normal,

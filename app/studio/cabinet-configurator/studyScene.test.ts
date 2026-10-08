@@ -53,6 +53,10 @@ test('drag and selection updates reuse loaded meshes, maps and room geometry', a
     await pending;
     const cabinet = content.selectable[0],
       mesh = firstMesh(cabinet);
+    expect(cabinet.userData.objectLibrary).toEqual({
+      libraryId: 'cabinitron-core',
+      objectId: 'core:cabinet:base:single-door',
+    });
     const geometry = mesh.geometry,
       material = mesh.material as THREE.MeshStandardMaterial;
     const dispose = vi.fn();
@@ -71,6 +75,9 @@ test('drag and selection updates reuse loaded meshes, maps and room geometry', a
         ],
       });
       expect(content.selectable[0]).toBe(cabinet);
+      expect(cabinet.userData.objectLibrary.objectId).toBe(
+        'core:cabinet:base:single-door',
+      );
       expect(firstMesh(cabinet).geometry).toBe(geometry);
       expect(firstMesh(cabinet).material).toBe(material);
       expect(content.root.children[0]).toBe(room);

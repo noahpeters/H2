@@ -4,8 +4,7 @@ import {
 } from './custom-unit/library';
 import {cabinetCompositionEnvelope} from './cabinetEnvelope';
 import {fitDefinition} from './custom-unit/designConfigurations';
-import {BASE_CABINET_TYPES} from './baseCabinetTypes';
-import {OPEN_STORAGE, createOpenStorage, type StorageKind} from './openStorage';
+import {coreCabinetChoices} from './coreCabinets';
 import {
   applyConfiguration,
   type DesignConfiguration,
@@ -27,76 +26,12 @@ export function cabinetCategory(item: RoomElement): CabinetCategory {
       ? 'Tall'
       : 'Base';
 }
-const base: RoomElement = {
-  id: 'preview',
-  kind: 'base',
-  width: 30,
-  height: 34.5,
-  depth: 24,
-  face: 'shaker',
-  placement: {mode: 'wall', wall: 'back', offset: 0, elevation: 0},
-};
 export function cabinetTypes(
   configurations: DesignConfiguration[] = [],
   elements: RoomElement[] = [],
   library: CustomCabinetLibraryItem[] = [],
 ): CabinetTypeChoice[] {
-  const standards: CabinetTypeChoice[] = [
-    ...BASE_CABINET_TYPES.map(([kind, label]) => ({
-      id: `base:${kind}`,
-      label,
-      category: 'Base' as const,
-      item: {
-        ...base,
-        configuration: kind,
-        width: kind === 'farmhouse-sink' ? 36 : 30,
-      },
-    })),
-    {
-      id: 'wall',
-      label: 'Standard wall cabinet',
-      category: 'Wall',
-      item: {
-        ...base,
-        kind: 'wall-cabinet',
-        height: 30,
-        depth: 12,
-        placement: {...base.placement, elevation: 54},
-      },
-    },
-    ...(
-      [
-        ['standard', 'Standard cabinet'],
-        ['one-oven', '1 oven · drawers below'],
-        ['two-oven', '2 ovens · drawers below'],
-        ['coffee-maker', 'Coffee maker · counter height'],
-      ] as const
-    ).map(([kind, label]) => ({
-      id: `tall:${kind}`,
-      label,
-      category: 'Tall' as const,
-      item: {
-        ...base,
-        kind: 'tall' as const,
-        height: kind === 'two-oven' ? 90 : 84,
-        tallConfiguration: kind,
-      },
-    })),
-    {
-      id: 'corner',
-      label: 'L-shaped corner base',
-      category: 'Base',
-      item: {...base, configuration: 'corner', width: 36, depth: 36},
-    },
-    ...Object.entries(OPEN_STORAGE).map(([kind, label]) => ({
-      id: `open:${kind}`,
-      label,
-      category: cabinetCategory(
-        createOpenStorage(kind as StorageKind, 'preview'),
-      ),
-      item: createOpenStorage(kind as StorageKind, 'preview'),
-    })),
-  ];
+  const standards = coreCabinetChoices();
   return [
     ...standards,
     ...library

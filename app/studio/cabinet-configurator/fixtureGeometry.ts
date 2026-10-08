@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {coreObjectById, coreObjectReference} from './coreObjectLibrary';
 import type {RoomElement, Room} from './model';
 import {showerGlassSides} from './fixtures';
 import {SINK_CATALOG, type SinkAttachment} from './sinkAttachments';
@@ -201,6 +202,9 @@ export function sinkGeometry(
   cabinetDepth: number,
 ) {
   const group = new THREE.Group();
+  group.userData.objectLibrary = coreObjectReference(
+    coreObjectById(`core:sink:${s.kind}`),
+  );
   const mat =
     s.kind === 'undermount'
       ? new THREE.MeshStandardMaterial({

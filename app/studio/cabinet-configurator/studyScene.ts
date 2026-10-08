@@ -1,4 +1,10 @@
 import {withAutomaticFinishPanels} from './automaticFinishPanels';
+import {
+  coreObjectById,
+  coreObjectForElement,
+  coreObjectForOpening,
+  coreObjectReference,
+} from './coreObjectLibrary';
 import {continuousToeKicks} from './continuousToeKicks';
 import {roomSegments} from './roomOutline';
 import {ROOM_MATERIALS, applyRoomSurface} from './roomMaterials';
@@ -122,6 +128,9 @@ function desiredObjects(study: Study): Desired[] {
       ]),
       build: () => {
         const top = islandCountertop(island, study.elements, room);
+        top.userData.objectLibrary = coreObjectReference(
+          coreObjectById('core:island'),
+        );
         applyCountertops(top, room);
         return top;
       },
@@ -214,6 +223,9 @@ function desiredObjects(study: Study): Desired[] {
                   );
         applyCountertops(body, room);
         body.userData.id = item.id;
+        body.userData.objectLibrary = coreObjectReference(
+          coreObjectForElement(item),
+        );
         return body;
       },
       place: (object) => {
@@ -233,7 +245,13 @@ function desiredObjects(study: Study): Desired[] {
       key: `opening:${opening.id}`,
       signature: JSON.stringify([opening, room]),
       selectable: true,
-      build: () => openingGeometry(opening, room),
+      build: () => {
+        const object = openingGeometry(opening, room);
+        object.userData.objectLibrary = coreObjectReference(
+          coreObjectForOpening(opening),
+        );
+        return object;
+      },
     });
   return desired;
 }

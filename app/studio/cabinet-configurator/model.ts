@@ -27,13 +27,11 @@ export type BaseConfiguration =
   | 'microwave-drawer'
   | 'sink'
   | 'farmhouse-sink';
-export const DOOR_TYPES = [
-  ['swing', 'Standard swing door'],
-  ['sliding-glass', 'Sliding glass door'],
-  ['pocket', 'Pocket door'],
-  ['sliding-closet', 'Sliding closet door'],
-  ['double-swing', 'Double swing door (French doors)'],
-] as const;
+export {DOOR_TYPES} from './coreObjectCatalog';
+import {
+  DOOR_TYPES,
+  CORE_APPLIANCES as APPLIANCE_CATALOG,
+} from './coreObjectCatalog';
 export type DoorType = (typeof DOOR_TYPES)[number][0];
 export type Partition = {
   id: Wall;
@@ -149,56 +147,7 @@ export function minimumTallHeight(
         : 12;
 }
 
-export const APPLIANCE_CATALOG: Record<
-  ApplianceKind,
-  Pick<RoomElement, 'width' | 'depth' | 'height'> & {
-    label: string;
-    elevation: number;
-  }
-> = {
-  refrigerator: {
-    label: 'Refrigerator',
-    width: 36,
-    depth: 30,
-    height: 70,
-    elevation: 0,
-  },
-  dishwasher: {
-    label: 'Dishwasher',
-    width: 24,
-    depth: 24,
-    height: 34.5,
-    elevation: 0,
-  },
-  range: {
-    label: 'Freestanding range',
-    width: 30,
-    depth: 27,
-    height: 36,
-    elevation: 0,
-  },
-  'wall-oven': {
-    label: 'Wall oven',
-    width: 30,
-    depth: 24,
-    height: 30,
-    elevation: 42,
-  },
-  microwave: {
-    label: 'Microwave',
-    width: 30,
-    depth: 16,
-    height: 17,
-    elevation: 54,
-  },
-  'coffee-maker': {
-    label: 'Coffee maker',
-    width: 10,
-    depth: 12,
-    height: 14,
-    elevation: 36,
-  },
-};
+export {CORE_APPLIANCES as APPLIANCE_CATALOG} from './coreObjectCatalog';
 
 export function createAppliance(
   applianceKind: ApplianceKind,

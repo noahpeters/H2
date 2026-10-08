@@ -1,3 +1,4 @@
+import {coreObjectById, coreObjectReference} from './coreObjectLibrary';
 import {SHAKER_PANEL_SETBACK} from './faceProfiles';
 import * as THREE from 'three';
 import {
@@ -90,6 +91,9 @@ export function applianceGeometry(
     const hoodZ = -d / 2 + hoodDepth / 2;
     const hood = box(w, 4 * 0.0254, hoodDepth, 0, bottom + 2 * 0.0254, hoodZ);
     hood.name = 'range-hood';
+    hood.userData.objectLibrary = coreObjectReference(
+      coreObjectById('core:range-hood'),
+    );
     box(w * 0.8, 0.008, hoodDepth * 0.75, 0, bottom - 0.004, hoodZ, dark);
     box(
       w * 0.38,

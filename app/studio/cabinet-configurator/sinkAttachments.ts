@@ -1,15 +1,6 @@
 import type {RoomElement} from './model';
-export const SINK_CATALOG = {
-  undermount: {label: 'Standard undermount', width: 22, depth: 16, height: 7},
-  farmhouse: {
-    label: 'Farmhouse / apron front',
-    width: 22,
-    depth: 16,
-    height: 9,
-  },
-  oval: {label: 'Oval bathroom undermount', width: 17, depth: 13, height: 6},
-  vessel: {label: 'Vessel / top-mount basin', width: 16, depth: 14, height: 5},
-} as const;
+export {CORE_SINKS as SINK_CATALOG} from './coreObjectCatalog';
+import {CORE_SINKS as SINK_CATALOG} from './coreObjectCatalog';
 export type SinkKind = keyof typeof SINK_CATALOG;
 /** Inches relative to countertop center; dimensions never resize the cabinet. */
 export type SinkAttachment = {

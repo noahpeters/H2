@@ -1,27 +1,7 @@
 import {elementCenter, wallToFloor, type RoomElement, type Room} from './model';
 import {roomSegments} from './roomOutline';
-export const FIXTURE_CATALOG = {
-  mirror: {label: 'Mirror', width: 30, depth: 1, height: 36},
-  toilet: {label: 'Toilet', width: 20, depth: 29, height: 30},
-  'freestanding-tub': {
-    label: 'Freestanding bathtub',
-    width: 66,
-    depth: 32,
-    height: 24,
-  },
-  'alcove-tub': {
-    label: 'Rectangular / alcove bathtub',
-    width: 60,
-    depth: 32,
-    height: 22,
-  },
-  'glass-shower': {
-    label: 'Glass shower enclosure',
-    width: 48,
-    depth: 36,
-    height: 96,
-  },
-} as const;
+export {CORE_FIXTURES as FIXTURE_CATALOG} from './coreObjectCatalog';
+import {CORE_FIXTURES as FIXTURE_CATALOG} from './coreObjectCatalog';
 export type FixtureKind = keyof typeof FIXTURE_CATALOG;
 export type FixtureSide = 'front' | 'back' | 'left' | 'right';
 export function createFixture(
