@@ -54,3 +54,43 @@ it('waits for analytics permission, initializes once, and updates revoked consen
   ]);
   expect(document.querySelectorAll('script')).toHaveLength(1);
 });
+
+it('initializes when Shopify privacy becomes ready without a new consent choice', () => {
+  const dataLayer: unknown[] = [];
+  vi.stubGlobal('dataLayer', dataLayer);
+  const view = render(<GoogleTag id="GT-TEST" />);
+  expect(document.querySelector('script')).toBeNull();
+
+  permission.canTrack.mockReturnValue(true);
+  document.dispatchEvent(new Event('shopifyCustomerPrivacyApiLoaded'));
+  expect(document.querySelector('script')?.src).toBe(
+    'https://www.googletagmanager.com/gtag/js?id=GT-TEST',
+  );
+  const commands = () =>
+    dataLayer.map((command) => Array.from(command as ArrayLike<unknown>));
+  expect(commands().filter(([command]) => command === 'config')).toEqual([
+    ['config', 'GT-TEST'],
+  ]);
+
+  document.dispatchEvent(new Event('shopifyCustomerPrivacyApiLoaded'));
+  document.dispatchEvent(new Event('visitorConsentCollected'));
+  expect(document.querySelectorAll('script')).toHaveLength(1);
+  expect(commands().filter(([command]) => command === 'config')).toHaveLength(
+    1,
+  );
+
+  view.unmount();
+  const count = dataLayer.length;
+  document.dispatchEvent(new Event('shopifyCustomerPrivacyApiLoaded'));
+  document.dispatchEvent(new Event('visitorConsentCollected'));
+  expect(dataLayer).toHaveLength(count);
+});
+
+it('keeps Google unloaded if privacy becomes ready with analytics denied', () => {
+  const dataLayer: unknown[] = [];
+  vi.stubGlobal('dataLayer', dataLayer);
+  render(<GoogleTag id="GT-TEST" />);
+  document.dispatchEvent(new Event('shopifyCustomerPrivacyApiLoaded'));
+  expect(document.querySelector('script')).toBeNull();
+  expect(dataLayer).toEqual([]);
+});

@@ -23,6 +23,7 @@ import {PageLayout} from './components/PageLayout';
 import {StudioNotFound} from './studio/StudioNotFound';
 import {useEffect} from 'react';
 import {MetaPixel} from '~/components/MetaPixel';
+import {getCheckoutDomain} from '~/lib/checkoutDomain';
 
 declare global {
   interface Window {
@@ -115,7 +116,10 @@ export async function loader(args: Route.LoaderArgs) {
       publicStorefrontId: env.PUBLIC_STOREFRONT_ID,
     }),
     consent: {
-      checkoutDomain: env.PUBLIC_CHECKOUT_DOMAIN,
+      checkoutDomain: getCheckoutDomain(
+        env,
+        criticalData.header?.shop.primaryDomain.url,
+      ),
       storefrontAccessToken: env.PUBLIC_STOREFRONT_API_TOKEN,
       withPrivacyBanner: false,
       // localize the privacy banner

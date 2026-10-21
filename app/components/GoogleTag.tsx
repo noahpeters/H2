@@ -49,9 +49,15 @@ export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
       document.head.appendChild(script);
     };
     syncConsent();
+    document.addEventListener('shopifyCustomerPrivacyApiLoaded', syncConsent);
     document.addEventListener('visitorConsentCollected', syncConsent);
-    return () =>
+    return () => {
+      document.removeEventListener(
+        'shopifyCustomerPrivacyApiLoaded',
+        syncConsent,
+      );
       document.removeEventListener('visitorConsentCollected', syncConsent);
+    };
   }, [canTrack, id, nonce]);
   return null;
 }

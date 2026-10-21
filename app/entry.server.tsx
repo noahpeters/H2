@@ -6,6 +6,7 @@ import {
   type HydrogenRouterContextProvider,
 } from '@shopify/hydrogen';
 import type {EntryContext} from 'react-router';
+import {getCheckoutDomain} from '~/lib/checkoutDomain';
 
 export default async function handleRequest(
   request: Request,
@@ -14,6 +15,9 @@ export default async function handleRequest(
   reactRouterContext: EntryContext,
   context: HydrogenRouterContextProvider,
 ) {
+  const rootData = reactRouterContext.staticHandlerContext.loaderData.root as
+    | {consent?: {checkoutDomain?: string}}
+    | undefined;
   const {nonce, header, NonceProvider} = createContentSecurityPolicy({
     // PNG previews stay local to the browser; retain the default image origins.
     imgSrc: [
@@ -23,7 +27,8 @@ export default async function handleRequest(
       'https://shopify.com',
     ],
     shop: {
-      checkoutDomain: context.env.PUBLIC_CHECKOUT_DOMAIN,
+      checkoutDomain:
+        rootData?.consent?.checkoutDomain || getCheckoutDomain(context.env),
       storeDomain: context.env.PUBLIC_STORE_DOMAIN,
     },
   });
