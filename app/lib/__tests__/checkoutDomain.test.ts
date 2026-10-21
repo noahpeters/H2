@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {getCheckoutDomain} from './checkoutDomain';
+import {getCheckoutDomain} from '../checkoutDomain';
 
 describe('checkout domain', () => {
   it('preserves an explicit custom checkout', () => {
