@@ -1,3 +1,7 @@
+import {
+  cabinitronEmbedUrl,
+  cabinitronMigrationReady,
+} from '~/studio/cabinitronEmbed';
 import customUnitStyles from '~/styles/custom-unit-editor.css?url';
 import {useEffect, useState} from 'react';
 import {readSavedRooms} from '~/studio/cabinet-configurator/useSavedRooms';
@@ -28,6 +32,14 @@ export const meta: Route.MetaFunction = () => [
 
 export async function loader({context, request}: Route.LoaderArgs) {
   const params = new URL(request.url).searchParams;
+  if (await cabinitronMigrationReady())
+    return {
+      embedded: true,
+      designerUrl: cabinitronEmbedUrl(request.url),
+      showStartSheet: false,
+      turnstileSiteKey: '',
+      customCabinets: [] as CustomCabinetLibraryItem[],
+    };
   const env = context.env as unknown as {
     CABINET_ROOMS_URL?: string;
     CABINET_ROOMS_TOKEN?: string;
@@ -46,6 +58,8 @@ export async function loader({context, request}: Route.LoaderArgs) {
     }
   }
   return {
+    embedded: false,
+    designerUrl: '',
     showStartSheet: !params.get('design') && !params.get('preset'),
     turnstileSiteKey:
       (context.env as unknown as {TURNSTILE_SITE_KEY?: string})
@@ -54,21 +68,35 @@ export async function loader({context, request}: Route.LoaderArgs) {
   };
 }
 export default function CabinetPage() {
-  const {turnstileSiteKey, showStartSheet, customCabinets} =
-    useLoaderData<typeof loader>();
+  const {
+    turnstileSiteKey,
+    showStartSheet,
+    customCabinets,
+    embedded,
+    designerUrl,
+  } = useLoaderData<typeof loader>();
   const [hasSavedRoom, setHasSavedRoom] = useState<boolean | null>(null);
   useEffect(() => {
-    setHasSavedRoom(readSavedRooms().length > 0);
-  }, []);
+    if (!embedded) setHasSavedRoom(readSavedRooms().length > 0);
+  }, [embedded]);
   return (
-    <div className="studio-cabinet-page">
+    <div
+      className={`studio-cabinet-page ${embedded ? 'studio-cabinitron-page' : ''}`}
+    >
       <StudioHeader
         links={[
           {label: 'Back to the studio', to: '/'},
           {label: 'Shape Your Table', to: '/configurator'},
         ]}
       />
-      {showStartSheet && hasSavedRoom === null ? (
+      {embedded ? (
+        <iframe
+          className="studio-cabinitron-frame"
+          src={designerUrl}
+          title="From Trees cabinet designer"
+          allow="fullscreen"
+        />
+      ) : showStartSheet && hasSavedRoom === null ? (
         <p role="status">Opening room…</p>
       ) : showStartSheet && !hasSavedRoom ? (
         <CabinetStartSheet />

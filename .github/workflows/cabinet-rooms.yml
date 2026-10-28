@@ -27,6 +27,9 @@ jobs:
           DATABASE_ID: ${{ vars.CABINET_ROOMS_DATABASE_ID }}
         run: |
           node --input-type=module -e 'import fs from "node:fs"; const id=process.env.DATABASE_ID; if(!/^[a-f0-9-]{36}$/.test(id || "")) throw new Error("Set CABINET_ROOMS_DATABASE_ID"); const p="services/cabinet-rooms/wrangler.jsonc"; fs.writeFileSync(p,fs.readFileSync(p,"utf8").replace("REPLACE_WITH_D1_DATABASE_ID",id));'
+      - name: Verify Cabinitron migration receiver before freezing legacy writes
+        run: |
+          curl --fail --silent --show-error https://cabinitron.com/t/from-trees/api/h2-migration-status | node --input-type=module -e 'let text="";for await(const part of process.stdin)text+=part;if(JSON.parse(text).available!==true)throw new Error("Release the Cabinitron migration receiver before this cutover");'
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
