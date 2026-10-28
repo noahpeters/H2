@@ -335,3 +335,91 @@ describe('D1 room API with SQLite migration', () => {
     }
   });
 });
+
+describe('Cabinitron cloud cutover', () => {
+  it('forwards only authenticated design operations after freezing source writes', async () => {
+    const {db, call, env} = setup();
+    const saved = (await (
+      await call('POST', undefined, {study})
+    ).json()) as any;
+    db.exec(
+      readFileSync(
+        new URL('./migrations/0010_cabinitron_cutover.sql', import.meta.url),
+        'utf8',
+      ),
+    );
+    let delegated = 0;
+    const migrated = {
+      ...env,
+      CABINITRON: {
+        fetch: async (request: Request) => {
+          delegated++;
+          expect(request.headers.get('Authorization')).toBe(
+            'Bearer test-service',
+          );
+          return Response.json({forwarded: true});
+        },
+      },
+    };
+    expect(
+      (
+        await worker.fetch(
+          new Request('https://legacy.test/', {
+            headers: {Authorization: 'Bearer wrong'},
+          }),
+          migrated as any,
+        )
+      ).status,
+    ).toBe(401);
+    expect(delegated).toBe(0);
+    for (const path of [
+      '/?slug=' + saved.slug,
+      '/share',
+      '/quote',
+      '/price?slug=' + saved.slug,
+    ]) {
+      const response = await worker.fetch(
+        new Request('https://legacy.test' + path, {
+          headers: {Authorization: 'Bearer test-service'},
+          method: path === '/share' || path === '/quote' ? 'POST' : 'GET',
+        }),
+        migrated as any,
+      );
+      expect(await response.json()).toEqual({forwarded: true});
+    }
+    expect(delegated).toBe(4);
+    expect(
+      (
+        await call('PUT', saved.slug, {
+          study,
+          editKey: saved.editKey,
+          revision: 1,
+        })
+      ).status,
+    ).not.toBe(200);
+    expect(
+      db.prepare('SELECT revision FROM rooms WHERE slug=?').get(saved.slug),
+    ).toMatchObject({revision: 1});
+    expect(() => db.prepare('DELETE FROM rooms').run()).toThrow();
+  });
+  it('fails closed if the source has not been frozen instead of creating a second writer', async () => {
+    const {env} = setup();
+    let delegated = false;
+    const response = await worker.fetch(
+      new Request('https://legacy.test/', {
+        headers: {Authorization: 'Bearer test-service'},
+      }),
+      {
+        ...env,
+        CABINITRON: {
+          fetch: async () => {
+            delegated = true;
+            return Response.json({});
+          },
+        },
+      } as any,
+    );
+    expect(response.status).toBe(503);
+    expect(delegated).toBe(false);
+  });
+});

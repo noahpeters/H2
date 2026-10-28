@@ -10,7 +10,9 @@ function setup() {
   const db = new DatabaseSync(':memory:');
   databases.push(db);
   for (const name of readdirSync(new URL('./migrations/', import.meta.url))
-    .filter((name) => name.endsWith('.sql'))
+    .filter(
+      (name) => name.endsWith('.sql') && name !== '0010_cabinitron_cutover.sql',
+    )
     .sort())
     db.exec(
       readFileSync(new URL(`./migrations/${name}`, import.meta.url), 'utf8'),

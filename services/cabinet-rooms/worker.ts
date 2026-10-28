@@ -29,6 +29,7 @@ interface Statement {
   run(): Promise<{meta: {changes: number}}>;
 }
 interface Env extends IntakeServiceEnv {
+  CABINITRON?: {fetch(request: Request): Promise<Response>};
   DB: {prepare(sql: string): Statement};
   SERVICE_TOKEN: string;
   ANALYTICS_READ_TOKEN?: string;
@@ -117,6 +118,30 @@ export default {
       request.headers.get('Authorization') !== `Bearer ${env.SERVICE_TOKEN}`
     )
       return jsonResponse({error: 'Unauthorized'}, 401);
+    const migrationPath = new URL(request.url).pathname;
+    if (
+      env.CABINITRON &&
+      ['/', '/share', '/quote', '/price'].includes(migrationPath)
+    ) {
+      try {
+        const fence = await env.DB.prepare(
+          'SELECT destination FROM cabinitron_cutover WHERE id=1',
+        )
+          .bind()
+          .first<{destination: string}>();
+        if (fence?.destination !== 'from-trees')
+          return jsonResponse(
+            {error: 'Cabinet migration is not ready. Please retry.'},
+            503,
+          );
+        return await env.CABINITRON.fetch(request);
+      } catch {
+        return jsonResponse(
+          {error: 'Cloud saving is temporarily unavailable. Please retry.'},
+          503,
+        );
+      }
+    }
     const slug = new URL(request.url).searchParams.get('slug');
     if (slug && !SLUG.test(slug))
       return jsonResponse({error: 'Invalid room link'}, 400);

@@ -99,6 +99,8 @@ function patchTurnstileCsp(
   const cf = 'https://challenges.cloudflare.com';
   out = addCspSource(out, 'script-src', cf);
   out = addCspSource(out, 'frame-src', cf);
+  if (new URL(requestUrl).pathname === '/cabinet-configurator')
+    out = addCspSource(out, 'frame-src', 'https://cabinitron.com');
   out = addCspSource(out, 'connect-src', cf);
 
   // Allow Oxygen CDN scripts in production
