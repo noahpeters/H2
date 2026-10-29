@@ -151,6 +151,7 @@ legend span { font-family:Arial,sans-serif; font-size:9px; letter-spacing:.12em;
 .option-note { margin:13px 0 0; color:#77786f; font-size:9px; line-height:1.5; }
 footer { background:var(--forest); color:var(--paper); padding:130px 3vw 35px; }
 .footer-main { display:flex; justify-content:space-between; align-items:flex-start; gap:60px; }
+.footer-brand { display:flex; flex-direction:column; align-items:flex-start; gap:24px; }
 .footer-logo { width:min(270px,25vw); height:auto; object-fit:contain; filter:brightness(0) invert(1); opacity:.92; }
 footer h2 { font-size:clamp(60px,7vw,110px); margin:30px 0 55px; }
 footer>div:first-child>a { border-bottom:1px solid #82877a; padding:0 0 9px; font-size:13px; }

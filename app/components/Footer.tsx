@@ -2,6 +2,7 @@ import {Suspense} from 'react';
 import {Await, NavLink} from 'react-router';
 import type {FooterQuery, HeaderQuery} from 'storefrontapi.generated';
 import stylex from '~/lib/stylex';
+import {BBBSeal} from '~/components/BBBSeal';
 
 interface FooterProps {
   footer: Promise<FooterQuery | null>;
@@ -18,6 +19,11 @@ const styles = stylex.create({
     display: 'flex',
     flexWrap: 'wrap',
     gap: '1rem',
+    justifyContent: 'center',
+    padding: '1rem',
+  },
+  seal: {
+    display: 'flex',
     justifyContent: 'center',
     padding: '1rem',
   },
@@ -48,6 +54,9 @@ export function Footer({
       <Await resolve={footerPromise}>
         {(footer) => (
           <footer className={stylex(styles.footer)}>
+            <div className={stylex(styles.seal)}>
+              <BBBSeal />
+            </div>
             {footer?.menu && header.shop.primaryDomain?.url && (
               <FooterMenu
                 menu={footer.menu}

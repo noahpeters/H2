@@ -19,12 +19,13 @@ export default async function handleRequest(
     | {consent?: {checkoutDomain?: string}}
     | undefined;
   const {nonce, header, NonceProvider} = createContentSecurityPolicy({
-    // PNG previews stay local to the browser; retain the default image origins.
+    // Keep local PNG previews and allow the externally hosted BBB trust seal.
     imgSrc: [
       "'self'",
       'blob:',
       'https://cdn.shopify.com',
       'https://shopify.com',
+      'https://seal-utah.bbb.org',
     ],
     shop: {
       checkoutDomain:
