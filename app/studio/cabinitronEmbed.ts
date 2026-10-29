@@ -38,3 +38,41 @@ export async function cabinitronMigrationReady(fetcher: typeof fetch = fetch) {
     return false;
   }
 }
+
+// Match Cabinitron's embed loader protocol while retaining this storefront's
+// full-height frame and existing design/share query parameters.
+const INSTALLATION_TEST_KEY =
+  'cabinitron:https://cabinitron.com:from-trees:test';
+export function cabinitronInstallationUrl(
+  designerUrl: string,
+  browser: Pick<Window, 'location' | 'history' | 'sessionStorage'>,
+) {
+  const fragment = new URLSearchParams(browser.location.hash.slice(1));
+  const token = fragment.get('cabinitron-test') ?? '';
+  let test = /^[a-f0-9]{64}$/.test(token) ? token : '';
+  try {
+    if (test) browser.sessionStorage.setItem(INSTALLATION_TEST_KEY, 'staff');
+    else if (browser.sessionStorage.getItem(INSTALLATION_TEST_KEY))
+      test = 'staff';
+  } catch {
+    // The current test still works when browser storage is unavailable.
+  }
+  if (fragment.has('cabinitron-test')) {
+    fragment.delete('cabinitron-test');
+    const remaining = fragment.toString();
+    try {
+      browser.history.replaceState(
+        browser.history.state,
+        '',
+        browser.location.pathname +
+          browser.location.search +
+          (remaining ? `#${remaining}` : ''),
+      );
+    } catch {
+      // History restrictions must not prevent passing the test to the frame.
+    }
+  }
+  const target = new URL(designerUrl);
+  if (test) target.searchParams.set('installTest', test);
+  return target.href;
+}

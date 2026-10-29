@@ -4,6 +4,7 @@ import CabinetPage from '../../routes/cabinet-configurator';
 const state = vi.hoisted(() => ({embedded: false}));
 
 vi.mock('react-router', () => ({
+  useLocation: () => ({hash: '', key: 'default'}),
   useLoaderData: () => ({
     showStartSheet: true,
     turnstileSiteKey: '',
