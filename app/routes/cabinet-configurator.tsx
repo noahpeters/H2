@@ -2,6 +2,7 @@ import {
   cabinitronEmbedUrl,
   cabinitronMigrationReady,
 } from '~/studio/cabinitronEmbed';
+import {CabinitronFrame} from '~/studio/CabinitronFrame';
 import customUnitStyles from '~/styles/custom-unit-editor.css?url';
 import {useEffect, useState} from 'react';
 import {readSavedRooms} from '~/studio/cabinet-configurator/useSavedRooms';
@@ -90,12 +91,7 @@ export default function CabinetPage() {
         ]}
       />
       {embedded ? (
-        <iframe
-          className="studio-cabinitron-frame"
-          src={designerUrl}
-          title="From Trees cabinet designer"
-          allow="fullscreen"
-        />
+        <CabinitronFrame designerUrl={designerUrl} />
       ) : showStartSheet && hasSavedRoom === null ? (
         <p role="status">Opening room…</p>
       ) : showStartSheet && !hasSavedRoom ? (
