@@ -4,6 +4,7 @@ import type {Route} from './+types/inquire.$kind';
 import {loader as contactLoader, action as contactAction} from './contact';
 import {adLandings, isAdLandingKind} from '~/studio/adLandingContent';
 import {ProjectForm} from '~/studio/ProjectForm';
+import {BBBSeal} from '~/components/BBBSeal';
 import studioStyles from '~/styles/studio.css?url';
 import landingStyles from '~/styles/ad-landings.css?url';
 
@@ -195,6 +196,7 @@ export function InquiryLayout({
         </section>
       </div>
       <footer className="ad-footer">
+        <BBBSeal />
         <Link to="/">from trees / Riverside, California</Link>
         <Link to="/policies/privacy-policy">Privacy</Link>
         <Link to="/pages/data-sharing-opt-out">Your privacy choices</Link>

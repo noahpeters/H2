@@ -2,6 +2,7 @@ import {Suspense} from 'react';
 import {Await, Link, useRouteLoaderData} from 'react-router';
 import type {FooterQuery} from 'storefrontapi.generated';
 import type {RootLoader} from '~/root';
+import {BBBSeal} from '~/components/BBBSeal';
 
 const fallbackPolicies = [
   {id: 'terms', title: 'Terms of service', url: '/policies/terms-of-service'},
@@ -91,11 +92,14 @@ export function StudioFooter() {
             </a>
           </div>
         </div>
-        <img
-          className="footer-logo"
-          src="/from-trees-logo.png"
-          alt="from trees"
-        />
+        <div className="footer-brand">
+          <img
+            className="footer-logo"
+            src="/from-trees-logo.png"
+            alt="from trees"
+          />
+          <BBBSeal />
+        </div>
       </div>
       <Suspense fallback={<PolicyMenu footer={null} />}>
         <Await resolve={footer}>
