@@ -92,7 +92,11 @@ function patchTurnstileCsp(
   nonce?: string,
 ): string {
   let out = csp;
-  if (new URL(requestUrl).pathname === '/cabinet-configurator') {
+  // React Router serves this page with or without a trailing slash.
+  const isCabinetConfigurator =
+    new URL(requestUrl).pathname.replace(/\/+$/, '') ===
+    '/cabinet-configurator';
+  if (isCabinetConfigurator) {
     out = addCspSource(out, 'img-src', 'data:');
   }
 
@@ -100,7 +104,7 @@ function patchTurnstileCsp(
   const cf = 'https://challenges.cloudflare.com';
   out = addCspSource(out, 'script-src', cf);
   out = addCspSource(out, 'frame-src', cf);
-  if (new URL(requestUrl).pathname === '/cabinet-configurator')
+  if (isCabinetConfigurator)
     out = addCspSource(out, 'frame-src', 'https://cabinitron.com');
   out = addCspSource(out, 'connect-src', cf);
 
