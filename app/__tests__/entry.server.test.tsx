@@ -46,6 +46,26 @@ function sources(header: string, directive: string) {
 }
 
 describe('Storefront content security policy', () => {
+  it.each([
+    '/',
+    '/configurator',
+    '/cabinet-configurator/',
+    '/collections/all',
+    '/cart',
+  ])(
+    'allows the Cloudflare beacon and reporting endpoint on %s',
+    async (path) => {
+      const header = await policy(path);
+      expect(sources(header, 'script-src')).toContain(
+        'https://static.cloudflareinsights.com',
+      );
+      expect(sources(header, 'connect-src')).toContain(
+        'https://cloudflareinsights.com',
+      );
+      expect(sources(header, 'script-src')).not.toContain('*');
+      expect(sources(header, 'script-src')).not.toContain("'unsafe-inline'");
+    },
+  );
   it.each(['/', '/configurator', '/cabinet-configurator/'])(
     'permits DoubleClick collection requests and image fallbacks on %s',
     async (path) => {

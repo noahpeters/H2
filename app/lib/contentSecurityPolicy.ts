@@ -56,6 +56,14 @@ function applyStorefrontSources(
   // must be allowed on every entry page, not only on the designer route.
   out = addCspSource(out, 'img-src', 'data:');
 
+  // Cloudflare Web Analytics is injected sitewide. Allow its script and reports.
+  out = addCspSource(
+    out,
+    'script-src',
+    'https://static.cloudflareinsights.com',
+  );
+  out = addCspSource(out, 'connect-src', 'https://cloudflareinsights.com');
+
   // Turnstile
   const cf = 'https://challenges.cloudflare.com';
   out = addCspSource(out, 'script-src', cf);
