@@ -5,6 +5,8 @@ node_modules
 /public/build
 /.mf
 .env
+/migration-private/
+/migration-exports/
 .shopify
 .react-router
 **/.wrangler/
