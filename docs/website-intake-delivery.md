@@ -55,6 +55,15 @@ All call the shared Oxygen `acceptIntake` adapter. General inquiries and study d
 no longer require cabinet-service credentials. Actual cabinet saving/pricing/sharing
 retains its pre-existing cabinet-service dependency.
 
+## Cabinetry Google Ads conversion
+
+The storefront sends accepted cabinetry inquiries to the **Cabinetry inquiry
+completed** website action in Google Ads. The action counts **One** per ad
+interaction, with no monetary value. The existing Google tag fires the event
+only on the production storefront after analytics and marketing consent. It
+uses the inquiry receipt ID for deduplication. Verify the event in Google Tag
+Assistant after deployment before using it to optimize bidding.
+
 ## Deployment and validation
 
 The storefront deployment depends only on its normal validation job. It does not

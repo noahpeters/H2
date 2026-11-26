@@ -1,4 +1,4 @@
-import {useEffect} from 'react';
+import {useEffect, useRef} from 'react';
 import {useAnalytics} from '@shopify/hydrogen';
 
 type GoogleWindow = Window & {
@@ -11,8 +11,18 @@ type GoogleWindow = Window & {
   };
 };
 
-export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
+export function GoogleTag({
+  id,
+  nonce,
+  cabinetryConversion,
+}: {
+  id: string;
+  nonce?: string;
+  cabinetryConversion?: {destination: string; receiptId: string} | null;
+}) {
   const {canTrack} = useAnalytics();
+  const {destination, receiptId} = cabinetryConversion ?? {};
+  const sentReceipt = useRef<string>();
   useEffect(() => {
     const target = window as GoogleWindow;
     // Google's queue expects an arguments object for each command.
@@ -35,18 +45,29 @@ export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
       };
       if (existing) {
         gtag('consent', 'update', consent);
-        return;
+      } else if (analytics) {
+        gtag('consent', 'default', consent);
+        gtag('js', new Date());
+        gtag('config', id);
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+        if (nonce) script.nonce = nonce;
+        document.head.appendChild(script);
       }
-      // Do not load Google until the privacy API permits analytics.
-      if (!analytics) return;
-      gtag('consent', 'default', consent);
-      gtag('js', new Date());
-      gtag('config', id);
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
-      if (nonce) script.nonce = nonce;
-      document.head.appendChild(script);
+      if (
+        analytics &&
+        marketing &&
+        destination &&
+        receiptId &&
+        sentReceipt.current !== receiptId
+      ) {
+        gtag('event', 'conversion', {
+          send_to: destination,
+          transaction_id: receiptId,
+        });
+        sentReceipt.current = receiptId;
+      }
     };
     syncConsent();
     document.addEventListener('shopifyCustomerPrivacyApiLoaded', syncConsent);
@@ -58,6 +79,6 @@ export function GoogleTag({id, nonce}: {id: string; nonce?: string}) {
       );
       document.removeEventListener('visitorConsentCollected', syncConsent);
     };
-  }, [canTrack, id, nonce]);
+  }, [canTrack, destination, id, nonce, receiptId]);
   return null;
 }

@@ -105,9 +105,18 @@ export async function loader(args: Route.LoaderArgs) {
       ? storedReceipt
       : null;
   if (storedReceipt) session.unset('projectReceipt');
+  const cabinetryConversion =
+    projectReceipt?.kind === 'cabinetry' &&
+    new URL(args.request.url).origin === 'https://from-trees.com'
+      ? {
+          destination: 'AW-17800572089/ueg3CK-mlsAdELnZ_KdC',
+          receiptId: projectReceipt.eventId,
+        }
+      : null;
 
   return {
     projectReceipt,
+    cabinetryConversion,
     ...deferredData,
     ...criticalData,
     publicStoreDomain: env.PUBLIC_STORE_DOMAIN,
