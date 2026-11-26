@@ -55,6 +55,16 @@ All call the shared Oxygen `acceptIntake` adapter. General inquiries and study d
 no longer require cabinet-service credentials. Actual cabinet saving/pricing/sharing
 retains its pre-existing cabinet-service dependency.
 
+## Cabinetry Google Ads conversion
+
+Set `PUBLIC_GOOGLE_ADS_CABINETRY_CONVERSION` in Oxygen to the `AW-…/…` value
+from the cabinetry website action's Google Ads event snippet. The destination is
+a public tag identifier. Set up the action for a lead with no monetary value
+and choose **One** as the counting setting. This event uses the existing Google
+tag, fires only for an accepted `/inquire/cabinetry` receipt with analytics and
+marketing consent, and uses the receipt ID for Google Ads deduplication. Verify
+the event in Tag Assistant after deploying, before using it to optimize bidding.
+
 ## Deployment and validation
 
 The storefront deployment depends only on its normal validation job. It does not
