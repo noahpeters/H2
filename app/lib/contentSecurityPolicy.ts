@@ -74,6 +74,8 @@ function applyStorefrontSources(
   // Allow Oxygen CDN scripts in production
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'script-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'script-src', 'https://www.google.com');
   out = addCspSource(out, 'script-src', "'self'");
   out = addCspSource(out, 'script-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'script-src', 'https://*.tawk.to');
@@ -128,6 +130,7 @@ function applyStorefrontSources(
   );
   out = addCspSource(out, 'frame-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'frame-src', 'https://*.tawk.to');
+  out = addCspSource(out, 'img-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'img-src', 'https://ad.doubleclick.net');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');

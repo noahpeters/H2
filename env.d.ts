@@ -5,9 +5,3 @@
 
 // Enhance TypeScript's built-in typings.
 import '@total-typescript/ts-reset';
-
-declare global {
-  interface Env {
-    PUBLIC_GOOGLE_ADS_CABINETRY_CONVERSION?: string;
-  }
-}

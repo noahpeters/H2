@@ -105,12 +105,13 @@ export async function loader(args: Route.LoaderArgs) {
       ? storedReceipt
       : null;
   if (storedReceipt) session.unset('projectReceipt');
-  const conversionDestination = env.PUBLIC_GOOGLE_ADS_CABINETRY_CONVERSION;
   const cabinetryConversion =
     projectReceipt?.kind === 'cabinetry' &&
-    conversionDestination &&
-    /^AW-\d+\/[A-Za-z0-9_-]+$/.test(conversionDestination)
-      ? {destination: conversionDestination, receiptId: projectReceipt.eventId}
+    new URL(args.request.url).origin === 'https://from-trees.com'
+      ? {
+          destination: 'AW-17800572089/ueg3CK-mlsAdELnZ_KdC',
+          receiptId: projectReceipt.eventId,
+        }
       : null;
 
   return {

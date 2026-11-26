@@ -33,12 +33,11 @@ afterEach(() => {
 async function loadRoot(
   checkoutDomain?: string,
   receipt?: {kind: string; eventId: string},
-  destination?: string,
+  origin = 'https://from-trees.com',
 ) {
   const context = {
     env: {
       PUBLIC_CHECKOUT_DOMAIN: checkoutDomain,
-      PUBLIC_GOOGLE_ADS_CABINETRY_CONVERSION: destination,
       PUBLIC_STORE_DOMAIN: 'example.myshopify.com',
       PUBLIC_STOREFRONT_API_TOKEN: 'public-token',
     },
@@ -53,7 +52,10 @@ async function loadRoot(
     cart: {get: vi.fn().mockResolvedValue(null)},
     customerAccount: {isLoggedIn: vi.fn().mockResolvedValue(false)},
   };
-  return loader({context} as unknown as Parameters<typeof loader>[0]);
+  return loader({
+    request: new Request(origin),
+    context,
+  } as unknown as Parameters<typeof loader>[0]);
 }
 
 describe('storefront Google Analytics coverage', () => {
@@ -117,19 +119,17 @@ describe('storefront Google Analytics coverage', () => {
 });
 
 it('sends a consented accepted cabinetry inquiry once to its Google Ads action', async () => {
-  const destination = 'AW-123456789/test-label';
+  const destination = 'AW-17800572089/ueg3CK-mlsAdELnZ_KdC';
   const receipt = {kind: 'cabinetry', eventId: 'test-inquiry'};
   for (const kind of ['contact', 'furniture', 'designers']) {
     expect(
-      (await loadRoot(undefined, {...receipt, kind}, destination))
-        .cabinetryConversion,
+      (await loadRoot(undefined, {...receipt, kind})).cabinetryConversion,
     ).toBeNull();
   }
+  expect((await loadRoot()).cabinetryConversion).toBeNull();
   expect(
-    (await loadRoot(undefined, undefined, destination)).cabinetryConversion,
-  ).toBeNull();
-  expect(
-    (await loadRoot(undefined, receipt, 'invalid')).cabinetryConversion,
+    (await loadRoot(undefined, receipt, 'http://localhost:3000'))
+      .cabinetryConversion,
   ).toBeNull();
 
   vi.stubEnv('DEV', false);
@@ -143,7 +143,7 @@ it('sends a consented accepted cabinetry inquiry once to its Google Ads action',
   const marketingAllowed = vi.fn(() => false);
   vi.stubGlobal('dataLayer', dataLayer);
   vi.stubGlobal('Shopify', {customerPrivacy: {marketingAllowed}});
-  const data = await loadRoot(undefined, receipt, destination);
+  const data = await loadRoot(undefined, receipt);
   const router = createMemoryRouter([
     {id: 'root', path: '/', loader: () => data, element: <App />},
   ]);
