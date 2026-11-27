@@ -14,6 +14,8 @@ export function AcquisitionTracking({
   version: string;
 }) {
   const {key, pathname, search} = useLocation();
+  // ScrollRestoration can assign the initial document a non-default key.
+  const documentKey = useRef(key);
   const lastView = useRef<{
     visit: string;
     url: string;
@@ -28,7 +30,7 @@ export function AcquisitionTracking({
       if (document.visibilityState === 'visible') {
         if (lastView.current?.visit !== visit) {
           const id = trackAcquisition(visitorTtl, version, 'view', url, {
-            initial: key === 'default',
+            initial: !lastView.current && key === documentKey.current,
             referrer: lastView.current?.url || document.referrer,
           });
           if (id) lastView.current = {visit, url: url.href, id};
