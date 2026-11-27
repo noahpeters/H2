@@ -116,7 +116,8 @@ export async function deliverAcquisition(
       new URL('/analytics/acquisition', env.CABINET_ROOMS_URL),
       {
         method: 'POST',
-        redirect: 'error',
+        // Reject redirect responses without forwarding the service credential.
+        redirect: 'manual',
         signal: AbortSignal.timeout(5000),
         headers: {
           Authorization: `Bearer ${env.CABINET_ROOMS_TOKEN}`,
