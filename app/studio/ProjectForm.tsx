@@ -9,6 +9,7 @@ export function ProjectForm({
   project = '',
   submissionId,
   defaultProjectType = '',
+  cabinetryOnly = false,
   fieldErrors = {},
   formError,
   configuratorSource,
@@ -20,6 +21,7 @@ export function ProjectForm({
   project?: string;
   submissionId: string;
   defaultProjectType?: string;
+  cabinetryOnly?: boolean;
   fieldErrors?: Record<string, string>;
   formError?: string;
   configuratorSource?: 'table' | 'cabinet';
@@ -141,7 +143,7 @@ export function ProjectForm({
             <option value="" disabled>
               Select one
             </option>
-            <option>Custom furniture</option>
+            {!cabinetryOnly && <option>Custom furniture</option>}
             <option>Kitchen or pantry</option>
             <option>Bathroom vanity</option>
             <option>Built-ins or storage</option>

@@ -191,7 +191,7 @@ export async function action({
         sourceKind: source
           ? `${source}_study`
           : url.pathname.startsWith('/inquire/')
-            ? url.pathname.split('/').pop()!
+            ? url.pathname.split('/')[2]
             : 'contact',
         configuratorSource: source,
         utm: attribution(sourceUrl),
