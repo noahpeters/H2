@@ -34,11 +34,10 @@ export async function action({request, context}: ActionFunctionArgs) {
   } catch {
     return respond(400);
   }
-  if (!input || typeof input !== 'object' || !('analytics' in input))
-    return respond(400);
-  if (input.analytics === false)
+  if (!input || typeof input !== 'object') return respond(400);
+  if ('optOut' in input && input.optOut === true)
     return respond(204, await acquisitionCookie(env));
-  if (input.analytics !== true || !('event' in input)) return respond(400);
+  if (!('event' in input)) return respond(400);
   const event = browserEvent(
     input.event,
     'marketing' in input && input.marketing === true,

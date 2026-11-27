@@ -213,7 +213,7 @@ const server = createServer(async (req, res) => {
       const response = new Response(html, {
         headers: {'Content-Type': 'text/html'},
       });
-      await captureArrival(
+      captureArrival(
         new Request(url, {headers: req.headers}),
         response,
         env,

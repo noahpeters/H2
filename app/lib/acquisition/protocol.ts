@@ -26,12 +26,13 @@ const campaignKeys = [
 export type Identity = {visitorId: string; sessionId: string};
 export type BrowserEvent = Identity & {
   id: string;
-  kind: 'view' | 'inquiry_cta' | 'configurator_cta';
+  kind: 'view' | 'inquiry_cta' | 'configurator_cta' | 'ad_attribution';
   path: string;
   occurredAt: string;
   version: string;
   referrer?: string;
   arrivalId?: string;
+  viewId?: string;
   attribution?: Record<string, string>;
 };
 export type AcquisitionEvent = {
@@ -82,9 +83,9 @@ export function referrerOrigin(value: string | null | undefined) {
   return undefined;
 }
 
-export function campaignFields(input: URLSearchParams, marketing: boolean) {
+function attributionFields(input: URLSearchParams, keys: readonly string[]) {
   const fields = Object.fromEntries(
-    [...campaignKeys, ...(marketing ? clickKeys : [])].flatMap((key) => {
+    keys.flatMap((key) => {
       const value = input.get(key)?.trim();
       const click = clickKeys.some((entry) => entry === key);
       if (!value || value.length > (click ? 2000 : 200)) return [];
@@ -98,6 +99,14 @@ export function campaignFields(input: URLSearchParams, marketing: boolean) {
     }),
   );
   return Object.keys(fields).length ? fields : undefined;
+}
+
+export function campaignFields(input: URLSearchParams) {
+  return attributionFields(input, campaignKeys);
+}
+
+export function advertisingClicks(input: URLSearchParams) {
+  return attributionFields(input, clickKeys);
 }
 
 export function validIdentity(value: unknown): value is Identity {
@@ -134,15 +143,25 @@ export function browserEvent(
   if (
     v.kind !== 'view' &&
     v.kind !== 'inquiry_cta' &&
-    v.kind !== 'configurator_cta'
+    v.kind !== 'configurator_cta' &&
+    v.kind !== 'ad_attribution'
   )
     return undefined;
   const fields = new URLSearchParams();
-  if (v.kind === 'view' && v.attribution && typeof v.attribution === 'object') {
+  if (v.attribution && typeof v.attribution === 'object') {
     for (const [key, value] of Object.entries(v.attribution)) {
       if (typeof value === 'string') fields.set(key, value);
     }
   }
+  const adClicks =
+    v.kind === 'ad_attribution' && marketing
+      ? advertisingClicks(fields)
+      : undefined;
+  if (
+    v.kind === 'ad_attribution' &&
+    (!adClicks || typeof v.viewId !== 'string' || !UUID.test(v.viewId))
+  )
+    return undefined;
   return {
     id: v.id,
     kind: v.kind,
@@ -151,9 +170,10 @@ export function browserEvent(
     occurredAt: new Date(v.occurredAt).toISOString(),
     visitorId: v.visitorId,
     sessionId: v.sessionId,
+    ...(adClicks ? {viewId: v.viewId, attribution: adClicks} : {}),
     ...(v.kind === 'view'
       ? {
-          attribution: campaignFields(fields, marketing),
+          attribution: campaignFields(fields),
           referrer: referrerOrigin(v.referrer),
           arrivalId:
             typeof v.arrivalId === 'string' && UUID.test(v.arrivalId)

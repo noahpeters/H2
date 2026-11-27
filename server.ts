@@ -55,7 +55,7 @@ export default {
       }
 
       try {
-        await captureArrival(
+        captureArrival(
           request,
           response,
           env,

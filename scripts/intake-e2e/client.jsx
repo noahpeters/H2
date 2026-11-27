@@ -11,10 +11,14 @@ import '../../app/styles/ad-landings.css';
 import '../../app/styles/cabinet-configurator.css';
 import '../../app/styles/custom-unit-editor.css';
 // Synthetic privacy controls for the browser harness.
-window.testAcquisitionConsent = (analytics, marketing = false) => {
+window.testAcquisitionPrivacy = (optOut, marketing = false) => {
+  Object.defineProperty(navigator, 'globalPrivacyControl', {
+    value: optOut,
+    configurable: true,
+  });
   window.Shopify = {
     customerPrivacy: {
-      analyticsProcessingAllowed: () => analytics,
+      analyticsProcessingAllowed: () => false,
       marketingAllowed: () => marketing,
     },
   };

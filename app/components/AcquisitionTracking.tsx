@@ -14,31 +14,34 @@ export function AcquisitionTracking({
   version: string;
 }) {
   const {key, pathname, search} = useLocation();
-  const lastView = useRef<{visit: string; url: string}>();
+  const lastView = useRef<{
+    visit: string;
+    url: string;
+    id: string;
+    adRecorded?: boolean;
+  }>();
 
   useEffect(() => {
     const url = new URL(pathname + search, window.location.origin);
     const visit = url.pathname + url.search;
-    const view = () => {
-      if (
-        lastView.current?.visit === visit ||
-        document.visibilityState !== 'visible'
-      )
-        return;
-      if (
-        trackAcquisition(
-          visitorTtl,
-          version,
-          'view',
-          url,
-          key === 'default',
-          lastView.current?.url || document.referrer,
-        )
-      )
-        lastView.current = {visit, url: url.href};
-    };
     const sync = () => {
-      view();
+      if (document.visibilityState === 'visible') {
+        if (lastView.current?.visit !== visit) {
+          const id = trackAcquisition(visitorTtl, version, 'view', url, {
+            initial: key === 'default',
+            referrer: lastView.current?.url || document.referrer,
+          });
+          if (id) lastView.current = {visit, url: url.href, id};
+        }
+        const current = lastView.current;
+        if (current?.visit === visit && !current.adRecorded) {
+          current.adRecorded = Boolean(
+            trackAcquisition(visitorTtl, version, 'ad_attribution', url, {
+              viewId: current.id,
+            }),
+          );
+        }
+      }
       void flushAcquisition(visitorTtl);
     };
     const click = (event: MouseEvent) => {
@@ -60,19 +63,12 @@ export function AcquisitionTracking({
         target?.startsWith('/inquire/') ||
         (anchor.pathname === url.pathname && anchor.hash === '#inquiry')
       ) {
-        trackAcquisition(visitorTtl, version, 'inquiry_cta', url, false, '');
+        trackAcquisition(visitorTtl, version, 'inquiry_cta', url);
       } else if (
         target === '/configurator' ||
         target === '/cabinet-configurator'
       ) {
-        trackAcquisition(
-          visitorTtl,
-          version,
-          'configurator_cta',
-          url,
-          false,
-          '',
-        );
+        trackAcquisition(visitorTtl, version, 'configurator_cta', url);
       }
     };
     sync();

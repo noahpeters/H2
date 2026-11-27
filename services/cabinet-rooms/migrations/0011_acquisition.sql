@@ -1,6 +1,6 @@
 CREATE TABLE acquisition_events (
   id TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('arrival', 'view', 'inquiry_cta', 'configurator_cta', 'inquiry_accepted')),
+  kind TEXT NOT NULL CHECK (kind IN ('arrival', 'view', 'inquiry_cta', 'configurator_cta', 'inquiry_accepted', 'ad_attribution')),
   occurred_at TEXT NOT NULL,
   received_at TEXT NOT NULL,
   visitor_id TEXT,

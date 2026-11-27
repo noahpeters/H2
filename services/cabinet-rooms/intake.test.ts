@@ -617,7 +617,7 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
         ...headers,
       } as HeadersInit,
     });
-    await captureArrival(
+    captureArrival(
       request,
       response,
       settings,
@@ -667,29 +667,15 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
       }),
       context: {env: settings},
     } as any);
+  expect((await proxy({event: view}, 'https://other.test')).status).toBe(403);
   expect(
-    (
-      await proxy(
-        {analytics: true, marketing: true, event: view},
-        'https://other.test',
-      )
-    ).status,
-  ).toBe(403);
-  expect(
-    (
-      await proxy(
-        {analytics: true, marketing: true, event: view},
-        'https://from-trees.com',
-        {'Sec-GPC': '1'},
-      )
-    ).status,
+    (await proxy({event: view}, 'https://from-trees.com', {'Sec-GPC': '1'}))
+      .status,
   ).toBe(204);
   expect(
     db.prepare("SELECT id FROM acquisition_events WHERE kind='view'").all(),
   ).toHaveLength(0);
   const receipt = await proxy({
-    analytics: true,
-    marketing: true,
     refresh: true,
     event: view,
   });
@@ -698,8 +684,6 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
   expect(
     (
       await proxy({
-        analytics: true,
-        marketing: true,
         event: {...view, attribution: {utm_source: 'changed'}},
       })
     ).status,
@@ -707,8 +691,6 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
   expect(
     (
       await proxy({
-        analytics: true,
-        marketing: false,
         event: {
           ...view,
           id: uuid(),
@@ -718,6 +700,9 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
       })
     ).status,
   ).toBe(204);
+  const ads = {...view, id: uuid(), kind: 'ad_attribution', viewId: view.id};
+  expect((await proxy({event: ads})).status).toBe(400);
+  expect((await proxy({event: ads, marketing: true})).status).toBe(204);
   const form = new FormData();
   for (const [key, value] of Object.entries({
     submissionId: sample.submissionId,
@@ -774,13 +759,19 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
   expect(views).toHaveLength(2);
   expect(stored.find(({id}) => id === view.id)).toMatchObject({
     arrivalId,
+    attribution: {utm_source: 'google', campaign_id: '123'},
+  });
+  expect(views.find(({id}) => id === view.id)).not.toHaveProperty(
+    'attribution.gclid',
+  );
+  expect(stored.find(({id}) => id === ads.id)).toMatchObject({
+    kind: 'ad_attribution',
+    viewId: view.id,
     attribution: {
-      utm_source: 'google',
       gclid: 'click',
       fbclid: 'meta-click',
       gbraid: 'gb',
       wbraid: 'wb',
-      campaign_id: '123',
     },
   });
   expect(
@@ -800,7 +791,7 @@ it('separates arrivals, preserves campaign touches and correlates a real accepte
   expect(() =>
     db.exec("UPDATE acquisition_events SET visitor_id=NULL WHERE kind='view'"),
   ).toThrow('immutable');
-  expect((await proxy({analytics: false})).headers.get('Set-Cookie')).toContain(
+  expect((await proxy({optOut: true})).headers.get('Set-Cookie')).toContain(
     'Max-Age=0',
   );
 });

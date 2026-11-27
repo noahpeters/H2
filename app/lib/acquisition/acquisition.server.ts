@@ -25,14 +25,14 @@ export function acquisitionConfig(env: AcquisitionEnv) {
   const mode = env.ACQUISITION_MODE;
   const visitorTtl = Number(env.ACQUISITION_VISITOR_TTL_SECONDS);
   if (
-    (mode === 'coarse-arrivals' || mode === 'consented') &&
+    mode === 'coarse-arrivals' &&
     Number.isSafeInteger(visitorTtl) &&
     visitorTtl > 0 &&
     env.CABINET_ROOMS_URL &&
     env.CABINET_ROOMS_TOKEN &&
     env.SESSION_SECRET
   ) {
-    return {mode, visitorTtl, version: acquisitionVersion(env)};
+    return {visitorTtl, version: acquisitionVersion(env)};
   }
   return undefined;
 }
@@ -145,16 +145,15 @@ export async function deliverFromOxygen(
   console.warn('acquisition_delivery_failed', {kind: event.kind, id: event.id});
 }
 
-export async function captureArrival(
+export function captureArrival(
   request: Request,
   response: Response,
   env: AcquisitionEnv,
   waitUntil: (work: Promise<unknown>) => void,
   observedAt: string,
 ) {
-  const config = acquisitionConfig(env);
   if (
-    !config ||
+    !acquisitionConfig(env) ||
     privacyOptOut(request) ||
     request.method !== 'GET' ||
     !response.ok ||
@@ -165,11 +164,6 @@ export async function captureArrival(
   const path = publicPath(pathname);
   const destination = request.headers.get('Sec-Fetch-Dest');
   if (!path || (destination && destination !== 'document')) return;
-  if (
-    config.mode === 'consented' &&
-    !(await readAcquisitionIdentity(request, env))
-  )
-    return;
   const purpose = [
     request.headers.get('Sec-Purpose'),
     request.headers.get('Purpose'),
