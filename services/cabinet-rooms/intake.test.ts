@@ -131,8 +131,10 @@ function setup() {
           hostname: 'from-trees.com',
           action: new URLSearchParams(init?.body as string).get('response'),
         });
-      if (url === 'https://rooms.test/analytics/acquisition')
+      if (url === 'https://rooms.test/analytics/acquisition') {
+        expect(init?.redirect).toBe('manual');
         return worker.fetch(new Request(url, init), env as any);
+      }
       if (url === 'https://rooms.test/intake')
         return call(JSON.parse(init?.body as string));
       if (url === 'https://rooms.test/quote')
