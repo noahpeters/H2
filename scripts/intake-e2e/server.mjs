@@ -12,9 +12,11 @@ const vite = await createViteServer({
   configFile: false,
   root,
   appType: 'custom',
+  cacheDir: 'node_modules/.vite-intake-e2e',
+  optimizeDeps: {entries: ['scripts/intake-e2e/client.jsx']},
   resolve: {alias: {'~': resolve(root, 'app')}},
   esbuild: {jsx: 'automatic'},
-  server: {middlewareMode: true, hmr: false, watch: null},
+  server: {middlewareMode: true, hmr: false, ws: false, watch: null},
 });
 const db = new DatabaseSync(':memory:');
 for (const file of readdirSync('services/cabinet-rooms/migrations')
@@ -23,6 +25,9 @@ for (const file of readdirSync('services/cabinet-rooms/migrations')
   db.exec(readFileSync(`services/cabinet-rooms/migrations/${file}`, 'utf8'));
 const env = {
   SERVICE_TOKEN: 'local-test-only',
+  SESSION_SECRET: 'local-test-only',
+  ACQUISITION_MODE: 'coarse-arrivals',
+  ACQUISITION_VISITOR_TTL_SECONDS: '900',
   RESEND_API_KEY: 'local-test-only',
   CONTACT_FROM_EMAIL: 'test@example.invalid',
   CONTACT_TO_EMAIL: 'owner@example.invalid',
@@ -59,6 +64,9 @@ const env = {
 const {default: worker} = await vite.ssrLoadModule(
   '/services/cabinet-rooms/worker.ts',
 );
+const {captureArrival} = await vite.ssrLoadModule(
+  '/app/lib/acquisition/acquisition.server.ts',
+);
 const {drainIntake} = await vite.ssrLoadModule(
   '/services/cabinet-rooms/intake.ts',
 );
@@ -69,7 +77,11 @@ let failure = '';
 globalThis.fetch = async (input, init) => {
   const request = input instanceof Request ? input : new Request(input, init);
   const url = new URL(request.url);
-  if (url.hostname === 'rooms.test') return worker.fetch(request, env);
+  if (url.hostname === 'rooms.test') {
+    if (url.pathname === '/analytics/acquisition' && failure === 'acquisition')
+      return new Response(null, {status: 503});
+    return worker.fetch(request, env);
+  }
   if (url.hostname === 'challenges.cloudflare.com') {
     const token = new URLSearchParams(await request.text()).get('response');
     return Response.json({
@@ -119,6 +131,7 @@ const routeFiles = {
   '/api/cabinet-share': 'api.cabinet-share.ts',
   '/api/cabinet-rooms': 'api.cabinet-rooms.ts',
   '/api/cabinet-analytics': 'api.cabinet-analytics.ts',
+  '/api/acquisition': 'api.acquisition.ts',
 };
 const server = createServer(async (req, res) => {
   try {
@@ -126,6 +139,10 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/__status')
       return json(res, {
         events,
+        acquisition: db
+          .prepare('SELECT payload FROM acquisition_events')
+          .all()
+          .map((row) => JSON.parse(row.payload)),
         intakes: [...intakes.values()],
         invitations: [...invitations.values()],
         deliveries: db.prepare('SELECT * FROM intake_deliveries').all(),
@@ -168,7 +185,13 @@ const server = createServer(async (req, res) => {
       });
       const result = await route[req.method === 'GET' ? 'loader' : 'action']({
         request,
-        context: {env, session: {set() {}}},
+        context: {
+          env,
+          waitUntil(work) {
+            void work;
+          },
+          session: {set() {}},
+        },
         params: {kind: path.split('/').pop()},
       });
       if (result instanceof Response) {
@@ -187,7 +210,17 @@ const server = createServer(async (req, res) => {
         req.url,
         '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/scripts/intake-e2e/client.jsx"></script></body></html>',
       );
-      res.writeHead(200, {'Content-Type': 'text/html'});
+      const response = new Response(html, {
+        headers: {'Content-Type': 'text/html'},
+      });
+      await captureArrival(
+        new Request(url, {headers: req.headers}),
+        response,
+        env,
+        (work) => void work,
+        new Date().toISOString(),
+      );
+      res.writeHead(response.status, Object.fromEntries(response.headers));
       return res.end(html);
     }
     vite.middlewares(req, res, () => {

@@ -1,3 +1,4 @@
+import {recordAcquisition} from './acquisition';
 import {costReport} from './costReport';
 import {fabricationExport} from './fabrication';
 import {intake, drainIntake, type IntakeServiceEnv} from './intake';
@@ -222,6 +223,17 @@ export default {
           {...input, version, updatedAt: now},
           previous ? 200 : 201,
         );
+      }
+      if (path === '/analytics/acquisition') {
+        if (
+          !(
+            await env.WRITES.limit({
+              key: `acquisition:${request.headers.get('X-Client-IP') || 'unknown'}`,
+            })
+          ).success
+        )
+          return new Response(null, {status: 429});
+        return await recordAcquisition(request, env.DB);
       }
       if (path === '/analytics/visit') {
         if (

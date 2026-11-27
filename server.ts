@@ -1,6 +1,7 @@
 // Virtual entry point for the app
 import {storefrontRedirect} from '@shopify/hydrogen';
 import {createRequestHandler} from '@shopify/hydrogen/oxygen';
+import {captureArrival} from '~/lib/acquisition/acquisition.server';
 import {createHydrogenRouterContext} from '~/lib/context';
 
 /**
@@ -12,6 +13,7 @@ export default {
     env: Env,
     executionContext: ExecutionContext,
   ): Promise<Response> {
+    const observedAt = new Date().toISOString();
     try {
       const hydrogenContext = await createHydrogenRouterContext(
         request,
@@ -52,6 +54,17 @@ export default {
         });
       }
 
+      try {
+        await captureArrival(
+          request,
+          response,
+          env,
+          executionContext.waitUntil.bind(executionContext),
+          observedAt,
+        );
+      } catch {
+        console.warn('acquisition_arrival_unavailable');
+      }
       return response;
     } catch (error) {
       console.error(error);

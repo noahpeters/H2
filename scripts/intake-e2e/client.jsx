@@ -1,6 +1,7 @@
 import {RouterProvider} from 'react-router/dom';
 import {createRoot} from 'react-dom/client';
-import {createBrowserRouter, redirect} from 'react-router';
+import {createBrowserRouter, Outlet, redirect} from 'react-router';
+import {AcquisitionTracking} from '../../app/components/AcquisitionTracking';
 import Contact from '../../app/routes/contact';
 import Inquiry from '../../app/routes/inquire.$kind';
 import Table from '../../app/routes/configurator';
@@ -9,6 +10,16 @@ import '../../app/styles/studio.css';
 import '../../app/styles/ad-landings.css';
 import '../../app/styles/cabinet-configurator.css';
 import '../../app/styles/custom-unit-editor.css';
+// Synthetic privacy controls for the browser harness.
+window.testAcquisitionConsent = (analytics, marketing = false) => {
+  window.Shopify = {
+    customerPrivacy: {
+      analyticsProcessingAllowed: () => analytics,
+      marketingAllowed: () => marketing,
+    },
+  };
+  document.dispatchEvent(new Event('visitorConsentCollected'));
+};
 // Deterministic local challenge double. The real action still verifies server-side.
 window.turnstile = {
   render(el, options) {
@@ -56,6 +67,12 @@ createRoot(document.getElementById('root')).render(
       {
         id: 'root',
         loader: () => ({footer}),
+        element: (
+          <>
+            <AcquisitionTracking visitorTtl={900} version="baseline-v1" />
+            <Outlet />
+          </>
+        ),
         children: [
           {path: '/', element: <h1>Test home — inquiry received</h1>},
           {path: '/contact', Component: Contact, loader, action},

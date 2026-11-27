@@ -1,3 +1,5 @@
+import {AcquisitionTracking} from '~/components/AcquisitionTracking';
+import {acquisitionConfig} from '~/lib/acquisition/acquisition.server';
 import {ConfiguratorAnalytics} from '~/components/ConfiguratorAnalytics';
 import {Analytics, getShopAnalytics, useNonce} from '@shopify/hydrogen';
 import {PageViewAnalytics} from '~/components/PageAnalyticsView';
@@ -115,6 +117,7 @@ export async function loader(args: Route.LoaderArgs) {
       : null;
 
   return {
+    acquisition: acquisitionConfig(env),
     projectReceipt,
     cabinetryConversion,
     ...deferredData,
@@ -207,6 +210,7 @@ export function TawkToTag({nonce}: {nonce?: string}) {
 
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
+  const acquisition = useRouteLoaderData<RootLoader>('root')?.acquisition;
   const location = useLocation();
   const studioOwned = isStudioOwnedPath(location.pathname);
 
@@ -240,6 +244,12 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
         <ConfiguratorAnalytics />
+        {acquisition ? (
+          <AcquisitionTracking
+            visitorTtl={acquisition.visitorTtl}
+            version={acquisition.version}
+          />
+        ) : null}
         {!studioOwned ? <TawkToTag nonce={nonce} /> : null}
         <MetaPixel nonce={nonce} />
       </body>
