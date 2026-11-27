@@ -1,0 +1,116 @@
+.cabinetry-pages {
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--forest);
+}
+.cabinetry-pages > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.3rem 5vw;
+  border-bottom: 1px solid var(--line);
+}
+.cabinetry-pages .brand img {
+  width: 28px;
+  height: 36px;
+  object-fit: contain;
+}
+.cabinetry-pages nav,
+.cab-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.4rem;
+}
+.cabinetry-pages nav a[aria-current],
+.cab-tags [aria-current] {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+.cab-feature,
+.cab-explore {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.cab-feature > div,
+.cab-body {
+  padding: clamp(2rem, 5vw, 6rem);
+}
+.cab-feature > img {
+  height: 100%;
+  min-height: 32rem;
+  width: 100%;
+  object-fit: cover;
+}
+.cabinetry-pages h1 {
+  font-size: clamp(3rem, 6vw, 6.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  margin: 0.4em 0;
+  white-space: normal;
+}
+.cabinetry-pages h2 {
+  font-size: clamp(1.5rem, 2.4vw, 2.6rem);
+  margin: 0.7em 0 0.35em;
+}
+.cabinetry-pages p {
+  max-width: 54ch;
+  line-height: 1.6;
+}
+.cab-choices {
+  display: grid;
+  margin: 2rem 0;
+}
+.cab-choices a {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+}
+.cab-process {
+  padding-left: 1.4rem;
+}
+.cab-explore {
+  gap: clamp(2rem, 6vw, 7rem);
+  margin-top: 2rem;
+}
+.cab-tags a,
+.cab-action {
+  display: inline-block;
+  border: 1px solid var(--line);
+  padding: 0.6rem 0.85rem;
+}
+.cab-tags {
+  gap: 0.5rem;
+}
+.cab-explore aside {
+  align-self: start;
+  background: var(--forest);
+  color: var(--paper);
+  padding: 2rem;
+}
+.cab-explore aside img {
+  max-height: 15rem;
+  width: 100%;
+  object-fit: cover;
+}
+.cab-explore aside a {
+  color: inherit;
+}
+.cab-explore h3 {
+  margin-top: 1.5rem;
+}
+@media (max-width: 760px) {
+  .cab-feature,
+  .cab-explore {
+    grid-template-columns: 1fr;
+  }
+  .cab-feature > img {
+    min-height: 0;
+    max-height: 24rem;
+  }
+  .cabinetry-pages nav {
+    gap: 0.75rem;
+  }
+}
