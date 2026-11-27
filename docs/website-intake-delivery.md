@@ -1,10 +1,12 @@
 # Website inquiry delivery
 
-## FTOPS staff notifications
+## FTOPS delivery
 
-To enable the new flow, first apply the FTOPS inquiry migration, deploy FTOPS, and save the team inbox under Templates → Inquiry email settings. The queue calls the private FTOPS H2InquiryIntake service binding. FTOPS resolves the existing active production website integration on each delivery. Only the customer acknowledgement uses the queue’s Resend key. Deploy the updated intake Worker before setting `INQUIRY_NOTIFICATION_OWNER=ftops` in Oxygen. Test with a controlled recipient.
+Oxygen saves the inquiry in the authenticated H2 queue before confirming the form. H2 signals the FTOPS private webhook after saving. FTOPS also polls the queue every minute, so a missed signal cannot strand a submission. The H2 queue exposes only a bounded read and an acknowledgement to the FTOPS service binding.
 
-All eight entry points use the authenticated intake queue in this mode. The storefront confirms a saved inquiry, and the worker retries delivery to FTOPS during an outage. The worker also triggers the existing customer acknowledgement. FTOPS creates the staff alert with the customer link, independently of the acknowledgement. If the queue itself is unavailable the form reports failure. Each saved inquiry keeps its original delivery mode across retries.
+FTOPS persists both delivery jobs before acknowledging the transfer. It selects the existing active From Trees website integration, matches the customer, queues the staff alert, and sends the customer acknowledgement event. FTOPS controls retry timing and ambiguous-send review. Replaying a transfer preserves the original submission and completed jobs.
+
+Deploy the H2 queue entrypoint first and the FTOPS pull worker second. Configure the workspace team inbox and then set `INQUIRY_NOTIFICATION_OWNER=ftops` in Oxygen. The queue needs no FTOPS integration credential or email provider key for this flow.
 
 ## Legacy delivery during rollout
 

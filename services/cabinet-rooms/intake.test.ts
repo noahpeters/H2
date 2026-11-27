@@ -7,7 +7,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import worker from './worker';
-import {drainIntake} from './intake';
+import {readInquiryQueue} from './inquiryQueue';
 import {captureArrival} from '../../app/lib/acquisition/acquisition.server';
 import {action as acquisition} from '../../app/routes/api.acquisition';
 import {acceptIntake} from '../../app/lib/intake/intake.server';
@@ -66,6 +66,12 @@ function setup() {
   db.exec(
     readFileSync(
       new URL('./migrations/0011_acquisition.sql', import.meta.url),
+      'utf8',
+    ),
+  );
+  db.exec(
+    readFileSync(
+      new URL('./migrations/0013_inquiry_transfers.sql', import.meta.url),
       'utf8',
     ),
   );
@@ -198,7 +204,7 @@ afterEach(() => {
 });
 describe('durable intake and delivery', () => {
   it('durably accepts a storefront inquiry and hands the staff notification to FTOPS once', async () => {
-    const {env, fetcher, events, ownerEmails, intakes, status} = setup();
+    const {env, events, ownerEmails} = setup();
     const config = {
       ...env,
       INQUIRY_NOTIFICATION_OWNER: 'ftops',
@@ -209,16 +215,29 @@ describe('durable intake and delivery', () => {
     await acceptIntake(sample, config);
     expect(ownerEmails).toHaveLength(0);
     expect(events).toHaveLength(0);
-    await drainIntake(env as any);
-    await drainIntake(env as any);
-    expect(events).toHaveLength(1);
-    expect(intakes.size).toBe(1);
-    expect(
-      fetcher.mock.calls.find(
-        ([url]) => String(url) === 'https://ftops.internal/h2-inquiry',
-      )?.[1]?.headers,
-    ).toHaveProperty('x-inquiry-notification', 'ftops');
-    expect(status().every((row) => row.state === 'sent')).toBe(true);
+    const pending = () =>
+      readInquiryQueue(new Request('https://queue/pending'), env as any).then(
+        (r) => r.json(),
+      ) as Promise<any[]>;
+    const [record] = await pending();
+    expect(record.id).toBe(sample.submissionId);
+    expect(record.notifyStaff).toBe(true);
+    expect(record.destinations.map((d: any) => d.kind).sort()).toEqual([
+      'ftops',
+      'resend',
+    ]);
+    expect(record.intake.externalEventId).toBe(sample.submissionId);
+    expect(record.acknowledgement.email).toBe(sample.email);
+    expect(await pending()).toEqual([record]);
+    for (let i = 0; i < 2; i++)
+      await readInquiryQueue(
+        new Request('https://queue/received', {
+          method: 'POST',
+          body: JSON.stringify({id: record.id}),
+        }),
+        env as any,
+      );
+    expect(await pending()).toEqual([]);
   });
   it('authenticates, rejects oversized evidence and refuses revocation before writing', async () => {
     const {call, db} = setup();
@@ -232,7 +251,7 @@ describe('durable intake and delivery', () => {
     expect(db.prepare('SELECT * FROM intake_events').all()).toHaveLength(0);
   });
   it('atomically stores both deliveries, reuses timestamps, rejects changed values and suppresses concurrent duplicates', async () => {
-    const {call, db, env, events, intakes, status} = setup();
+    const {call, db, events, intakes, status} = setup();
     expect((await call(sample)).status).toBe(202);
     const original = db.prepare('SELECT payload FROM intake_events').get();
     expect((await call({...sample})).status).toBe(202);
@@ -241,104 +260,8 @@ describe('durable intake and delivery', () => {
       original,
     );
     expect(status()).toHaveLength(2);
-    await Promise.all([drainIntake(env as any), drainIntake(env as any)]);
-    await call(sample);
-    await drainIntake(env as any);
-    expect(events).toHaveLength(1);
-    expect(intakes.size).toBe(1);
-    expect(status().every((row) => row.state === 'sent')).toBe(true);
-  });
-  it('retains ftops failure after Resend success and retries identical evidence without resending the event', async () => {
-    const {call, env, db, fetcher, events, intakes} = setup();
-    await call(sample);
-    const normal = fetcher.getMockImplementation()!;
-    fetcher.mockImplementation(async (url, init) =>
-      String(url) === 'https://ftops.internal/h2-inquiry'
-        ? Response.json({error: 'temporary'}, {status: 503})
-        : normal(url, init),
-    );
-    await drainIntake(env as any);
-    expect(events).toHaveLength(1);
-    expect(intakes.size).toBe(0);
-    expect(
-      db
-        .prepare(
-          "SELECT state FROM intake_deliveries WHERE destination='ftops'",
-        )
-        .get()?.state,
-    ).toBe('pending');
-    fetcher.mockImplementation(normal);
-    db.exec('UPDATE intake_deliveries SET next_attempt=0');
-    await drainIntake(env as any);
-    expect(events).toHaveLength(1);
-    expect(intakes.size).toBe(1);
-  });
-  it('deduplicates a ftops committed-but-lost response and recovers an interrupted lease', async () => {
-    const {call, env, db, fetcher, intakes, events} = setup();
-    await call(sample);
-    const normal = fetcher.getMockImplementation()!;
-    fetcher.mockImplementation(async (url, init) => {
-      const r = await normal(url, init);
-      if (String(url) === 'https://ftops.internal/h2-inquiry')
-        throw new Error('lost response');
-      return r;
-    });
-    await drainIntake(env as any);
-    fetcher.mockImplementation(normal);
-    db.exec(
-      "UPDATE intake_deliveries SET state='sending',lease_until=0,next_attempt=0 WHERE destination='ftops'",
-    );
-    await drainIntake(env as any);
-    expect(intakes.size).toBe(1);
-    expect(events).toHaveLength(1);
-    expect(
-      (
-        JSON.parse(
-          String(
-            db
-              .prepare(
-                "SELECT receipt FROM intake_deliveries WHERE destination='ftops'",
-              )
-              .get()?.receipt,
-          ),
-        ) as any
-      ).duplicate,
-    ).toBe(true);
-  });
-  it('isolates Resend 429, retries it once, and preserves successful ftops delivery', async () => {
-    const {call, env, db, fetcher, intakes, events} = setup();
-    await call(sample);
-    const normal = fetcher.getMockImplementation()!;
-    fetcher.mockImplementation(async (url, init) =>
-      String(url).includes('resend.com')
-        ? Response.json({}, {status: 429})
-        : normal(url, init),
-    );
-    await drainIntake(env as any);
-    expect(intakes.size).toBe(1);
     expect(events).toHaveLength(0);
-    db.exec('UPDATE intake_deliveries SET next_attempt=0');
-    fetcher.mockImplementation(normal);
-    await drainIntake(env as any);
-    expect(intakes.size).toBe(1);
-    expect(events).toHaveLength(1);
-  });
-  it('holds ambiguous Resend sends for review instead of risking duplicate acknowledgements', async () => {
-    const {call, env, fetcher, events, intakes, status} = setup();
-    await call(sample);
-    const normal = fetcher.getMockImplementation()!;
-    fetcher.mockImplementation(async (url, init) => {
-      const r = await normal(url, init);
-      if (String(url).includes('resend.com')) throw new Error('lost response');
-      return r;
-    });
-    await drainIntake(env as any);
-    await drainIntake(env as any);
-    expect(events).toHaveLength(1);
-    expect(intakes.size).toBe(1);
-    expect(status().find((r) => r.destination === 'resend')?.state).toBe(
-      'review',
-    );
+    expect(intakes.size).toBe(0);
   });
   it('does not accept or deliver anything if durable persistence fails', async () => {
     const {call, db, events, intakes} = setup();

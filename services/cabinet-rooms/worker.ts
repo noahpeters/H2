@@ -3,7 +3,7 @@ import {drainAcquisition} from './acquisitionDelivery';
 import {acquisitionReport} from './acquisitionReport';
 import {costReport} from './costReport';
 import {fabricationExport} from './fabrication';
-import {intake, drainIntake, type IntakeServiceEnv} from './intake';
+import {intake, type IntakeServiceEnv} from './intake';
 import {
   dashboard,
   designPreview,
@@ -89,7 +89,6 @@ async function projectEstimate(
 export default {
   async scheduled(_event: unknown, env: Env) {
     await Promise.all([
-      drainIntake(env),
       drainAcquisition(env).catch((error: unknown) => {
         // Raw events and their delivery rows remain in D1 for the next cron.
         console.error(
@@ -99,7 +98,11 @@ export default {
       }),
     ]);
   },
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx?: {waitUntil(promise: Promise<unknown>): void},
+  ): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (
       path === '/admin/dashboard' ||
@@ -162,7 +165,7 @@ export default {
     if (slug && !SLUG.test(slug))
       return jsonResponse({error: 'Invalid room link'}, 400);
     try {
-      if (path === '/intake') return await intake(request, env);
+      if (path === '/intake') return await intake(request, env, ctx);
       if (new URL(request.url).pathname === '/custom-cabinets') {
         const admin =
           !!env.ADMIN_TOKEN &&

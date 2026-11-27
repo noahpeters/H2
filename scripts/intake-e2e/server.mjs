@@ -68,8 +68,8 @@ const {default: worker} = await vite.ssrLoadModule(
 const {captureArrival} = await vite.ssrLoadModule(
   '/app/lib/acquisition/acquisition.server.ts',
 );
-const {drainIntake} = await vite.ssrLoadModule(
-  '/services/cabinet-rooms/intake.ts',
+const {readInquiryQueue} = await vite.ssrLoadModule(
+  '/services/cabinet-rooms/inquiryQueue.ts',
 );
 const events = [];
 const intakes = new Map();
@@ -158,11 +158,11 @@ const server = createServer(async (req, res) => {
           .map((r) => JSON.parse(r.payload)),
       });
     if (url.pathname === '/__drain') {
-      db.exec(
-        "UPDATE intake_deliveries SET next_attempt=0 WHERE state='pending'",
+      const result = await readInquiryQueue(
+        new Request('https://queue/pending'),
+        env,
       );
-      await drainIntake(env);
-      return json(res, {ok: true});
+      return json(res, {pending: await result.json()});
     }
     if (url.pathname === '/__failure') {
       failure = url.searchParams.get('destination') || '';
