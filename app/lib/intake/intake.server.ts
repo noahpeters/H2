@@ -1,3 +1,10 @@
+import {
+  deliverFromOxygen,
+  experience,
+  readAcquisitionIdentity,
+  type AcquisitionEnv,
+} from '../acquisition/acquisition.server';
+import {publicPath} from '../acquisition/protocol';
 import {validMetaAttribution, type MetaAttribution} from './metaAttribution';
 import {
   attribution,
@@ -8,7 +15,7 @@ import {
   MARKETING_VERSION,
   type Intake,
 } from './protocol';
-export type IntakeEnv = {
+export type IntakeEnv = AcquisitionEnv & {
   RESEND_API_KEY?: string;
   CONTACT_TO_EMAIL?: string;
   CONTACT_FROM_EMAIL?: string;
@@ -16,7 +23,12 @@ export type IntakeEnv = {
   FTOPS_INTAKE_TOKEN?: string;
 };
 /** Sends from Oxygen. The shop email and event must both be accepted; ftops is best effort. */
-export async function acceptIntake(intake: Intake, env: IntakeEnv) {
+export async function acceptIntake(
+  intake: Intake,
+  env: IntakeEnv,
+  request?: Request,
+  waitUntil?: (work: Promise<unknown>) => void,
+) {
   if (!env.RESEND_API_KEY) throw new Error('resend_not_configured');
   const event: StoredIntake = {
     ...intake,
@@ -42,6 +54,41 @@ export async function acceptIntake(intake: Intake, env: IntakeEnv) {
   if (receipt.object !== 'event' || receipt.event !== 'inquiry.received')
     throw new Error('resend_invalid_receipt');
 
+  let ftopsPayload = ftopsEvent(event);
+  const path = publicPath(event.sourcePath);
+  const identity =
+    path && request
+      ? await readAcquisitionIdentity(request, env).catch(() => undefined)
+      : undefined;
+  if (path && request && identity) {
+    const correlated = ftopsEvent({
+      ...event,
+      details: {...event.details, acquisition: identity},
+    });
+    // The FTOPS limits are also applied by the existing durable intake service.
+    if (
+      correlated.message.length <= 16000 &&
+      new TextEncoder().encode(JSON.stringify(correlated)).length <= 65536
+    ) {
+      ftopsPayload = correlated;
+    }
+    waitUntil?.(
+      deliverFromOxygen(
+        {
+          ...identity,
+          ...experience(env, new URL(request.url).origin, path),
+          path,
+          id: event.submissionId,
+          submissionId: event.submissionId,
+          kind: 'inquiry_accepted',
+          occurredAt: event.submittedAt,
+        },
+        env,
+        request.headers.get('oxygen-buyer-ip') || undefined,
+      ),
+    );
+  }
+
   // One bounded attempt, no queue and no automatic retry. Never undo Resend success.
   try {
     if (!env.FTOPS_INTAKE_URL || !env.FTOPS_INTAKE_TOKEN)
@@ -57,7 +104,7 @@ export async function acceptIntake(intake: Intake, env: IntakeEnv) {
         Authorization: `Bearer ${env.FTOPS_INTAKE_TOKEN}`,
         'Idempotency-Key': `inquiry-${intake.submissionId}`,
       },
-      body: JSON.stringify(ftopsEvent(event)),
+      body: JSON.stringify(ftopsPayload),
       signal: AbortSignal.timeout(2000),
       redirect: 'manual',
     });

@@ -77,7 +77,12 @@ export async function action({request, context}: ActionFunctionArgs) {
       );
     if (!data.shareSlug || !/^[a-f0-9]{32}$/.test(data.shareSlug))
       throw new Error('Invalid share response');
-    await acceptIntake(cabinetIntake(body, request, 'share'), env);
+    await acceptIntake(
+      cabinetIntake(body, request, 'share'),
+      env,
+      request,
+      context.waitUntil,
+    );
     const link = `${url.origin}/cabinet-configurator?design=${data.shareSlug}`;
     const escape = (s: string) =>
       s.replace(

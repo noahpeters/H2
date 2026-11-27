@@ -67,7 +67,12 @@ export async function action({request, context}: ActionFunctionArgs) {
       signal: AbortSignal.timeout(15000),
     });
     if (response.ok)
-      await acceptIntake(cabinetIntake(body, request, 'price'), env);
+      await acceptIntake(
+        cabinetIntake(body, request, 'price'),
+        env,
+        request,
+        context.waitUntil,
+      );
     return new Response(response.body, {
       status: response.status,
       headers: {

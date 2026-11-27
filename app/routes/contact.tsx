@@ -203,6 +203,8 @@ export async function action({
         details: {studySummary: source ? value('studySummary') : ''},
       },
       env,
+      request,
+      context.waitUntil,
     );
     // Root revalidation consumes this receipt and tracks the accepted lead.
     // Targeted landing actions replace the kind before redirecting home.
