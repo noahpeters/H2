@@ -1,4 +1,5 @@
 import {recordAcquisition} from './acquisition';
+import {acquisitionReport} from './acquisitionReport';
 import {costReport} from './costReport';
 import {fabricationExport} from './fabrication';
 import {intake, drainIntake, type IntakeServiceEnv} from './intake';
@@ -91,6 +92,7 @@ export default {
     const path = new URL(request.url).pathname;
     if (
       path === '/admin/dashboard' ||
+      path === '/admin/acquisition' ||
       path === '/admin/design' ||
       path === '/admin/export' ||
       path === '/admin/cost-report'
@@ -103,6 +105,8 @@ export default {
       )
         return jsonResponse({error: 'Unauthorized'}, 401);
       try {
+        if (path === '/admin/acquisition')
+          return await acquisitionReport(request, env.DB);
         return await (path === '/admin/cost-report'
           ? costReport(request, env.DB)
           : path === '/admin/export'
