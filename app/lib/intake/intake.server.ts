@@ -19,21 +19,95 @@ export type IntakeEnv = AcquisitionEnv & {
   RESEND_API_KEY?: string;
   CONTACT_TO_EMAIL?: string;
   CONTACT_FROM_EMAIL?: string;
+  INQUIRY_NOTIFICATION_OWNER?: string;
   FTOPS_INTAKE_URL?: string;
   FTOPS_INTAKE_TOKEN?: string;
 };
-/** Sends from Oxygen. The shop email and event must both be accepted; ftops is best effort. */
+/** Accept through the configured notification owner during the staged handoff. */
 export async function acceptIntake(
   intake: Intake,
   env: IntakeEnv,
   request?: Request,
   waitUntil?: (work: Promise<unknown>) => void,
 ) {
-  if (!env.RESEND_API_KEY) throw new Error('resend_not_configured');
   const event: StoredIntake = {
     ...intake,
     submittedAt: new Date().toISOString(),
   };
+  let queuedIntake = intake;
+  let ftopsPayload = ftopsEvent(event);
+  const path = publicPath(event.sourcePath);
+  const identity =
+    path && request
+      ? await readAcquisitionIdentity(request, env).catch(() => undefined)
+      : undefined;
+  if (path && request && identity) {
+    const correlated = ftopsEvent({
+      ...event,
+      details: {...event.details, acquisition: identity},
+    });
+    // The FTOPS limits are also applied by the existing durable intake service.
+    if (
+      correlated.message.length <= 16000 &&
+      new TextEncoder().encode(JSON.stringify(correlated)).length <= 65536
+    ) {
+      ftopsPayload = correlated;
+      queuedIntake = {
+        ...intake,
+        details: {...intake.details, acquisition: identity},
+      };
+    }
+  }
+
+  const trackAcceptance = () => {
+    if (path && request && identity) {
+      waitUntil?.(
+        deliverFromOxygen(
+          {
+            ...identity,
+            ...experience(env, new URL(request.url).origin, path),
+            path,
+            id: event.submissionId,
+            submissionId: event.submissionId,
+            kind: 'inquiry_accepted',
+            occurredAt: event.submittedAt,
+          },
+          env,
+          request.headers.get('oxygen-buyer-ip') || undefined,
+        ),
+      );
+    }
+  };
+  if (env.INQUIRY_NOTIFICATION_OWNER === 'ftops') {
+    if (!env.CABINET_ROOMS_URL || !env.CABINET_ROOMS_TOKEN)
+      throw new Error('inquiry_queue_not_configured');
+    const queued = await fetch(new URL('/intake', env.CABINET_ROOMS_URL), {
+      method: 'POST',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${env.CABINET_ROOMS_TOKEN}`,
+        'X-Inquiry-Notification': 'ftops',
+      },
+      body: JSON.stringify(queuedIntake),
+    });
+    if (!queued.ok) throw new Error('inquiry_queue_unavailable');
+    const receipt = (await queued.json()) as {
+      accepted?: boolean;
+      submissionId?: string;
+      notificationOwner?: string;
+    };
+    if (
+      !receipt.accepted ||
+      receipt.submissionId !== intake.submissionId ||
+      receipt.notificationOwner !== 'ftops'
+    )
+      throw new Error('invalid_inquiry_queue_receipt');
+    trackAcceptance();
+    return;
+  }
+  if (!env.RESEND_API_KEY) throw new Error('resend_not_configured');
   // Restore the direct owner notification. It is addressed independently of
   // Resend Automations, whose email step always targets the event contact.
   await sendInquiryEmail(event, env);
@@ -54,41 +128,7 @@ export async function acceptIntake(
   if (receipt.object !== 'event' || receipt.event !== 'inquiry.received')
     throw new Error('resend_invalid_receipt');
 
-  let ftopsPayload = ftopsEvent(event);
-  const path = publicPath(event.sourcePath);
-  const identity =
-    path && request
-      ? await readAcquisitionIdentity(request, env).catch(() => undefined)
-      : undefined;
-  if (path && request && identity) {
-    const correlated = ftopsEvent({
-      ...event,
-      details: {...event.details, acquisition: identity},
-    });
-    // The FTOPS limits are also applied by the existing durable intake service.
-    if (
-      correlated.message.length <= 16000 &&
-      new TextEncoder().encode(JSON.stringify(correlated)).length <= 65536
-    ) {
-      ftopsPayload = correlated;
-    }
-    waitUntil?.(
-      deliverFromOxygen(
-        {
-          ...identity,
-          ...experience(env, new URL(request.url).origin, path),
-          path,
-          id: event.submissionId,
-          submissionId: event.submissionId,
-          kind: 'inquiry_accepted',
-          occurredAt: event.submittedAt,
-        },
-        env,
-        request.headers.get('oxygen-buyer-ip') || undefined,
-      ),
-    );
-  }
-
+  trackAcceptance();
   // One bounded attempt, no queue and no automatic retry. Never undo Resend success.
   try {
     if (!env.FTOPS_INTAKE_URL || !env.FTOPS_INTAKE_TOKEN)

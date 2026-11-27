@@ -134,7 +134,10 @@ export async function action({
   if (Object.keys(fieldErrors).length) return {ok: false, fieldErrors};
 
   const env = context.env as Env;
-  if (!env.RESEND_API_KEY || !env.TURNSTILE_SECRET_KEY) {
+  if (
+    (!env.RESEND_API_KEY && env.INQUIRY_NOTIFICATION_OWNER !== 'ftops') ||
+    !env.TURNSTILE_SECRET_KEY
+  ) {
     console.error('Missing env vars for contact form');
     return {
       ok: false,
