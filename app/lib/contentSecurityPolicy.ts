@@ -74,6 +74,8 @@ function applyStorefrontSources(
   // Allow Oxygen CDN scripts in production
   out = addCspSource(out, 'script-src', 'https://cdn.shopify.com');
   out = addCspSource(out, 'script-src', 'https://www.googletagmanager.com');
+  out = addCspSource(out, 'script-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'script-src', 'https://www.google.com');
   out = addCspSource(out, 'script-src', "'self'");
   out = addCspSource(out, 'script-src', 'https://embed.tawk.to');
   out = addCspSource(out, 'script-src', 'https://*.tawk.to');
@@ -97,6 +99,8 @@ function applyStorefrontSources(
   out = addCspSource(out, 'connect-src', 'https://*.analytics.google.com');
   out = addCspSource(out, 'connect-src', 'https://google-analytics.com');
   out = addCspSource(out, 'connect-src', 'https://*.google-analytics.com');
+  out = addCspSource(out, 'connect-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'connect-src', 'https://pagead2.googlesyndication.com');
   out = addCspSource(out, 'connect-src', 'https://ad.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://g.doubleclick.net');
   out = addCspSource(out, 'connect-src', 'https://*.g.doubleclick.net');
@@ -126,9 +130,12 @@ function applyStorefrontSources(
   );
   out = addCspSource(out, 'frame-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'frame-src', 'https://*.tawk.to');
+  out = addCspSource(out, 'img-src', 'https://www.googletagmanager.com');
   out = addCspSource(out, 'img-src', 'https://ad.doubleclick.net');
   out = addCspSource(out, 'img-src', 'https://www.google.com');
   out = addCspSource(out, 'img-src', 'https://www.googleadservices.com');
+  out = addCspSource(out, 'img-src', 'https://googleads.g.doubleclick.net');
+  out = addCspSource(out, 'img-src', 'https://pagead2.googlesyndication.com');
   out = addCspSource(out, 'img-src', 'https://analytics.google.com');
   out = addCspSource(out, 'img-src', 'https://*.analytics.google.com');
   out = addCspSource(out, 'img-src', 'https://google-analytics.com');

@@ -1,13 +1,21 @@
 # Website inquiry delivery
 
-All public intake routes send directly from Oxygen, using the existing Oxygen
+## FTOPS staff notifications
+
+To enable the new flow, first apply the FTOPS inquiry migration, deploy FTOPS, and save the team inbox under Templates → Inquiry email settings. The existing cabinet intake Worker needs its website integration URL and token and its Resend event key. Deploy the updated intake Worker before setting `INQUIRY_NOTIFICATION_OWNER=ftops` in Oxygen. Test with a controlled recipient.
+
+All eight entry points use the authenticated intake queue in this mode. The storefront confirms a saved inquiry, and the worker retries delivery to FTOPS during an outage. The worker also triggers the existing customer acknowledgement. FTOPS creates the staff alert with the customer link, independently of the acknowledgement. If the queue itself is unavailable the form reports failure. Each saved inquiry keeps its original delivery mode across retries.
+
+## Legacy delivery during rollout
+
+Without the ownership setting, all public intake routes send directly from Oxygen, using the existing Oxygen
 `RESEND_API_KEY`, `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL`, `FTOPS_INTAKE_URL`,
 and `FTOPS_INTAKE_TOKEN` settings. There is no
 Cloudflare intake-service call, durable queue, callback, or automatic retry in the
 submission path. The existing cabinet service remains responsible for cabinet designs,
 sharing and pricing only.
 
-## Behavior
+### Legacy behavior
 
 1. Validate the form and Turnstile.
 2. Send a direct inquiry email to `CONTACT_TO_EMAIL` from `CONTACT_FROM_EMAIL`,
@@ -54,6 +62,15 @@ invitation email remains unchanged.
 All call the shared Oxygen `acceptIntake` adapter. General inquiries and study dialogs
 no longer require cabinet-service credentials. Actual cabinet saving/pricing/sharing
 retains its pre-existing cabinet-service dependency.
+
+## Cabinetry Google Ads conversion
+
+The storefront sends accepted cabinetry inquiries to the **Cabinetry inquiry
+completed** website action in Google Ads. The action counts **One** per ad
+interaction, with no monetary value. The existing Google tag fires the event
+only on the production storefront after analytics and marketing consent. It
+uses the inquiry receipt ID for deduplication. Verify the event in Google Tag
+Assistant after deployment before using it to optimize bidding.
 
 ## Deployment and validation
 

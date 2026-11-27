@@ -1,9 +1,15 @@
 // @vitest-environment node
+import type {
+  AcquisitionEvent,
+  Identity,
+} from '../../app/lib/acquisition/protocol';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import worker from './worker';
 import {drainIntake} from './intake';
+import {captureArrival} from '../../app/lib/acquisition/acquisition.server';
+import {action as acquisition} from '../../app/routes/api.acquisition';
 import {acceptIntake} from '../../app/lib/intake/intake.server';
 import {
   ftopsEvent,
@@ -57,7 +63,14 @@ function setup() {
       'utf8',
     ),
   );
+  db.exec(
+    readFileSync(
+      new URL('./migrations/0011_acquisition.sql', import.meta.url),
+      'utf8',
+    ),
+  );
   const env = {
+    WRITES: {limit: async () => ({success: true})},
     SERVICE_TOKEN: 'test',
     RESEND_API_KEY: 'test',
     CONTACT_TO_EMAIL: 'owner@example.invalid',
@@ -118,8 +131,12 @@ function setup() {
           hostname: 'from-trees.com',
           action: new URLSearchParams(init?.body as string).get('response'),
         });
+      if (url === 'https://rooms.test/analytics/acquisition') {
+        expect(init?.redirect).toBe('manual');
+        return worker.fetch(new Request(url, init), env as any);
+      }
       if (url === 'https://rooms.test/intake')
-        return call(JSON.parse(init?.body as string));
+        return worker.fetch(new Request(url, init), env as any);
       if (url === 'https://rooms.test/quote')
         return Response.json({range: {low: 5000, high: 6000}});
       if (url === 'https://rooms.test/share')
@@ -151,6 +168,9 @@ function setup() {
             submissionId: 'test-ftops-receipt',
             status: 'linked',
             duplicate: !!old,
+            staffNotificationQueued:
+              new Headers(init?.headers).get('X-Inquiry-Notification') ===
+              'ftops',
           },
           {status: old ? 200 : 201},
         );
@@ -166,6 +186,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('durable intake and delivery', () => {
+  it('durably accepts a storefront inquiry and hands the staff notification to FTOPS once', async () => {
+    const {env, fetcher, events, ownerEmails, intakes, status} = setup();
+    const config = {
+      ...env,
+      INQUIRY_NOTIFICATION_OWNER: 'ftops',
+      CABINET_ROOMS_URL: 'https://rooms.test',
+      CABINET_ROOMS_TOKEN: 'test',
+    };
+    await acceptIntake(sample, config);
+    await acceptIntake(sample, config);
+    expect(ownerEmails).toHaveLength(0);
+    expect(events).toHaveLength(0);
+    await drainIntake(env as any);
+    await drainIntake(env as any);
+    expect(events).toHaveLength(1);
+    expect(intakes.size).toBe(1);
+    expect(
+      fetcher.mock.calls.find(
+        ([url]) => String(url) === env.FTOPS_INTAKE_URL,
+      )?.[1]?.headers,
+    ).toHaveProperty('X-Inquiry-Notification', 'ftops');
+    expect(status().every((row) => row.state === 'sent')).toBe(true);
+  });
   it('authenticates, rejects oversized evidence and refuses revocation before writing', async () => {
     const {call, db} = setup();
     expect((await call(sample, 'wrong')).status).toBe(401);
@@ -570,4 +613,213 @@ it('passes structured Meta identifiers through direct Oxygen delivery without ch
     externalEventId: sample.submissionId,
     metaAttribution,
   });
+});
+
+it('separates arrivals, preserves campaign touches and correlates a real accepted inquiry', async () => {
+  const {env, db, intakes, events} = setup();
+  const settings = {
+    ...env,
+    SESSION_SECRET: 'test-session',
+    TURNSTILE_SECRET_KEY: 'test',
+    ACQUISITION_MODE: 'coarse-arrivals',
+    ACQUISITION_VISITOR_TTL_SECONDS: '900',
+    CABINET_ROOMS_URL: 'https://rooms.test',
+    CABINET_ROOMS_TOKEN: env.SERVICE_TOKEN,
+  };
+  const work: Promise<unknown>[] = [];
+  const waitUntil = (promise: Promise<unknown>) => work.push(promise);
+  const path =
+    'https://from-trees.com/inquire/cabinetry?gclid=click&customer_email=private@example.invalid';
+  const userAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
+  for (const headers of [
+    {},
+    {'Sec-Purpose': 'prefetch'},
+    {'User-Agent': 'Googlebot'},
+  ]) {
+    const response = new Response('', {headers: {'Content-Type': 'text/html'}});
+    const request = new Request(path, {
+      headers: {
+        'User-Agent': userAgent,
+        Referer: 'https://google.test/search?q=private',
+        ...headers,
+      } as HeadersInit,
+    });
+    captureArrival(
+      request,
+      response,
+      settings,
+      waitUntil,
+      new Date().toISOString(),
+    );
+    if (!Object.keys(headers).length) {
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+      work.push(Promise.resolve(response.headers.get('Server-Timing')));
+    }
+  }
+  const completed = await Promise.all(work);
+  const arrivalId = completed
+    .find((value): value is string => typeof value === 'string')
+    ?.split('"')[1];
+  expect(arrivalId).toMatch(/^[a-f0-9-]{36}$/);
+  const uuid = () => crypto.randomUUID();
+  const view = {
+    id: uuid(),
+    kind: 'view',
+    path: '/inquire/cabinetry',
+    occurredAt: new Date().toISOString(),
+    version: 'baseline-v1',
+    arrivalId,
+    visitorId: uuid(),
+    sessionId: uuid(),
+    attribution: {
+      gclid: 'click',
+      fbclid: 'meta-click',
+      gbraid: 'gb',
+      wbraid: 'wb',
+      utm_source: 'google',
+      campaign_id: '123',
+      email: 'never@example.invalid',
+    },
+  };
+  const proxy = (
+    payload: unknown,
+    origin = 'https://from-trees.com',
+    extra: HeadersInit = {},
+  ) =>
+    acquisition({
+      request: new Request('https://from-trees.com/api/acquisition', {
+        method: 'POST',
+        headers: {Origin: origin, 'User-Agent': userAgent, ...extra},
+        body: JSON.stringify(payload),
+      }),
+      context: {env: settings},
+    } as any);
+  expect((await proxy({event: view}, 'https://other.test')).status).toBe(403);
+  expect(
+    (await proxy({event: view}, 'https://from-trees.com', {'Sec-GPC': '1'}))
+      .status,
+  ).toBe(204);
+  expect(
+    db.prepare("SELECT id FROM acquisition_events WHERE kind='view'").all(),
+  ).toHaveLength(0);
+  const receipt = await proxy({
+    refresh: true,
+    event: view,
+  });
+  expect(receipt.status).toBe(204);
+  const cookie = receipt.headers.get('Set-Cookie')!.split(';')[0]!;
+  expect(
+    (
+      await proxy({
+        event: {...view, attribution: {utm_source: 'changed'}},
+      })
+    ).status,
+  ).toBe(204);
+  expect(
+    (
+      await proxy({
+        event: {
+          ...view,
+          id: uuid(),
+          arrivalId: undefined,
+          attribution: {...view.attribution, utm_source: 'newsletter'},
+        },
+      })
+    ).status,
+  ).toBe(204);
+  const ads = {...view, id: uuid(), kind: 'ad_attribution', viewId: view.id};
+  expect((await proxy({event: ads})).status).toBe(400);
+  expect((await proxy({event: ads, marketing: true})).status).toBe(204);
+  const form = new FormData();
+  for (const [key, value] of Object.entries({
+    submissionId: sample.submissionId,
+    name: sample.name,
+    email: sample.email,
+    message: sample.message,
+    location: sample.location,
+    projectType: 'Kitchen or pantry',
+    'cf-turnstile-response': 'cabinetry',
+  })) {
+    form.set(key, value);
+  }
+  const session = {set: vi.fn()};
+  const submitted = await inquiry({
+    request: new Request(path, {
+      method: 'POST',
+      headers: {Cookie: cookie},
+      body: form,
+    }),
+    context: {env: settings, waitUntil, session},
+    params: {kind: 'cabinetry'},
+  } as any);
+  await Promise.all(work);
+  expect(submitted).toBeInstanceOf(Response);
+  expect((submitted as Response).status).toBe(303);
+  expect(session.set).toHaveBeenLastCalledWith('projectReceipt', {
+    eventId: sample.submissionId,
+    kind: 'cabinetry',
+  });
+  expect(events).toHaveLength(1);
+  const intake = intakes.get(sample.submissionId);
+  const metadata = JSON.parse(intake.message) as {
+    details: {acquisition?: Identity};
+  };
+  expect(metadata.details.acquisition).toEqual({
+    visitorId: view.visitorId,
+    sessionId: view.sessionId,
+  });
+  const stored = db
+    .prepare('SELECT payload FROM acquisition_events')
+    .all()
+    .map(({payload}) => JSON.parse(String(payload)) as AcquisitionEvent);
+  expect(
+    stored
+      .filter((row) => row.kind === 'arrival')
+      .map((row) => row.traffic)
+      .sort(),
+  ).toEqual(['known_bot', 'navigation', 'prefetch']);
+  expect(stored.find(({id}) => id === arrivalId)).toMatchObject({
+    referrer: 'https://google.test',
+    url: 'https://from-trees.com/inquire/cabinetry',
+  });
+  const views = stored.filter((row) => row.kind === 'view');
+  expect(views).toHaveLength(2);
+  expect(stored.find(({id}) => id === view.id)).toMatchObject({
+    arrivalId,
+    attribution: {utm_source: 'google', campaign_id: '123'},
+  });
+  expect(views.find(({id}) => id === view.id)).not.toHaveProperty(
+    'attribution.gclid',
+  );
+  expect(stored.find(({id}) => id === ads.id)).toMatchObject({
+    kind: 'ad_attribution',
+    viewId: view.id,
+    attribution: {
+      gclid: 'click',
+      fbclid: 'meta-click',
+      gbraid: 'gb',
+      wbraid: 'wb',
+    },
+  });
+  expect(
+    views.find(
+      (row) =>
+        'attribution' in row && row.attribution?.utm_source === 'newsletter',
+    ),
+  ).toMatchObject({
+    attribution: {utm_source: 'newsletter', campaign_id: '123'},
+  });
+  expect(stored.find(({id}) => id === sample.submissionId)).toMatchObject({
+    kind: 'inquiry_accepted',
+    visitorId: view.visitorId,
+    sessionId: view.sessionId,
+  });
+  expect(JSON.stringify(stored)).not.toContain('@');
+  expect(() =>
+    db.exec("UPDATE acquisition_events SET visitor_id=NULL WHERE kind='view'"),
+  ).toThrow('immutable');
+  expect((await proxy({optOut: true})).headers.get('Set-Cookie')).toContain(
+    'Max-Age=0',
+  );
 });

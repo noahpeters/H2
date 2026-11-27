@@ -1,3 +1,6 @@
+import {recordAcquisition} from './acquisition';
+import {drainAcquisition} from './acquisitionDelivery';
+import {acquisitionReport} from './acquisitionReport';
 import {costReport} from './costReport';
 import {fabricationExport} from './fabrication';
 import {intake, drainIntake, type IntakeServiceEnv} from './intake';
@@ -30,6 +33,7 @@ interface Statement {
 }
 interface Env extends IntakeServiceEnv {
   CABINITRON?: {fetch(request: Request): Promise<Response>};
+  FTOPS_ACQUISITION?: {fetch(request: Request): Promise<Response>};
   DB: {prepare(sql: string): Statement};
   SERVICE_TOKEN: string;
   ANALYTICS_READ_TOKEN?: string;
@@ -84,12 +88,22 @@ async function projectEstimate(
 }
 export default {
   async scheduled(_event: unknown, env: Env) {
-    await drainIntake(env);
+    await Promise.all([
+      drainIntake(env),
+      drainAcquisition(env).catch((error: unknown) => {
+        // Raw events and their delivery rows remain in D1 for the next cron.
+        console.error(
+          'acquisition_delivery_failed',
+          error instanceof Error ? error.message : 'unknown_error',
+        );
+      }),
+    ]);
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (
       path === '/admin/dashboard' ||
+      path === '/admin/acquisition' ||
       path === '/admin/design' ||
       path === '/admin/export' ||
       path === '/admin/cost-report'
@@ -102,6 +116,8 @@ export default {
       )
         return jsonResponse({error: 'Unauthorized'}, 401);
       try {
+        if (path === '/admin/acquisition')
+          return await acquisitionReport(request, env.DB);
         return await (path === '/admin/cost-report'
           ? costReport(request, env.DB)
           : path === '/admin/export'
@@ -222,6 +238,17 @@ export default {
           {...input, version, updatedAt: now},
           previous ? 200 : 201,
         );
+      }
+      if (path === '/analytics/acquisition') {
+        if (
+          !(
+            await env.WRITES.limit({
+              key: `acquisition:${request.headers.get('X-Client-IP') || 'unknown'}`,
+            })
+          ).success
+        )
+          return new Response(null, {status: 429});
+        return await recordAcquisition(request, env.DB);
       }
       if (path === '/analytics/visit') {
         if (
