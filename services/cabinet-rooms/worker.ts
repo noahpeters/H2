@@ -1,4 +1,5 @@
 import {recordAcquisition} from './acquisition';
+import {drainAcquisition} from './acquisitionDelivery';
 import {acquisitionReport} from './acquisitionReport';
 import {costReport} from './costReport';
 import {fabricationExport} from './fabrication';
@@ -32,6 +33,7 @@ interface Statement {
 }
 interface Env extends IntakeServiceEnv {
   CABINITRON?: {fetch(request: Request): Promise<Response>};
+  FTOPS_ACQUISITION?: {fetch(request: Request): Promise<Response>};
   DB: {prepare(sql: string): Statement};
   SERVICE_TOKEN: string;
   ANALYTICS_READ_TOKEN?: string;
@@ -86,7 +88,16 @@ async function projectEstimate(
 }
 export default {
   async scheduled(_event: unknown, env: Env) {
-    await drainIntake(env);
+    await Promise.all([
+      drainIntake(env),
+      drainAcquisition(env).catch((error: unknown) => {
+        // Raw events and their delivery rows remain in D1 for the next cron.
+        console.error(
+          'acquisition_delivery_failed',
+          error instanceof Error ? error.message : 'unknown_error',
+        );
+      }),
+    ]);
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname;

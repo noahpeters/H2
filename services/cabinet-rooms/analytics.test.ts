@@ -4,14 +4,19 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {afterEach, expect, it} from 'vitest';
 import worker from './worker';
 import {recordEvent} from './analytics';
+import {drainAcquisition} from './acquisitionDelivery';
 const databases: DatabaseSync[] = [];
 afterEach(() => databases.splice(0).forEach((db) => db.close()));
-function setup() {
+function setup(includeAcquisitionDelivery = true) {
   const db = new DatabaseSync(':memory:');
   databases.push(db);
   for (const name of readdirSync(new URL('./migrations/', import.meta.url))
     .filter(
-      (name) => name.endsWith('.sql') && name !== '0010_cabinitron_cutover.sql',
+      (name) =>
+        name.endsWith('.sql') &&
+        name !== '0010_cabinitron_cutover.sql' &&
+        (includeAcquisitionDelivery ||
+          name !== '0012_acquisition_delivery.sql'),
     )
     .sort())
     db.exec(
@@ -284,4 +289,59 @@ it('reports only aggregate production acquisition data within the requested wind
     ],
   });
   expect(JSON.stringify(report)).not.toContain('visitor-1');
+});
+
+it('backfills existing rows and retries the same immutable batch after a failed delivery', async () => {
+  const {db, env} = setup(false);
+  const timestamp = '2026-11-27T09:00:00.000Z';
+  const payload =
+    '{"path":"/","origin":"https://from-trees.com","traffic":"navigation"}';
+  const insert = db.prepare(
+    'INSERT INTO acquisition_events VALUES (?, ?, ?, ?, ?, ?, ?)',
+  );
+  insert.run('backfill', 'arrival', timestamp, timestamp, null, null, payload);
+  db.exec(
+    readFileSync(
+      new URL('./migrations/0012_acquisition_delivery.sql', import.meta.url),
+      'utf8',
+    ),
+  );
+  insert.run('new', 'arrival', timestamp, timestamp, null, null, payload);
+  const batches: unknown[] = [];
+  const deliver = {
+    ...env,
+    FTOPS_ACQUISITION: {
+      fetch: async (request: Request) => {
+        expect(request.method).toBe('POST');
+        expect(new URL(request.url).pathname).toBe('/h2-acquisition');
+        batches.push(await request.json());
+        return new Response(null, {status: batches.length === 1 ? 503 : 204});
+      },
+    },
+  };
+  await expect(drainAcquisition(deliver)).rejects.toThrow('503');
+  expect(
+    db.prepare('SELECT COUNT(*) AS count FROM acquisition_delivery').get(),
+  ).toEqual({count: 2});
+  await drainAcquisition(deliver);
+  expect(batches[0]).toEqual(batches[1]);
+  expect(batches[1]).toEqual({
+    events: ['backfill', 'new'].map((id) => ({
+      id,
+      kind: 'arrival',
+      occurred_at: timestamp,
+      received_at: timestamp,
+      visitor_id: null,
+      session_id: null,
+      payload,
+    })),
+    caughtUp: false,
+  });
+  expect(batches[2]).toEqual({events: [], caughtUp: true});
+  expect(
+    db.prepare('SELECT COUNT(*) AS count FROM acquisition_events').get(),
+  ).toEqual({count: 2});
+  expect(
+    db.prepare('SELECT COUNT(*) AS count FROM acquisition_delivery').get(),
+  ).toEqual({count: 0});
 });
