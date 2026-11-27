@@ -30,7 +30,11 @@ afterEach(() => {
   document.querySelectorAll('script').forEach((script) => script.remove());
 });
 
-async function loadRoot(checkoutDomain?: string) {
+async function loadRoot(
+  checkoutDomain?: string,
+  receipt?: {kind: string; eventId: string},
+  origin = 'https://from-trees.com',
+) {
   const context = {
     env: {
       PUBLIC_CHECKOUT_DOMAIN: checkoutDomain,
@@ -44,11 +48,14 @@ async function loadRoot(checkoutDomain?: string) {
       CacheLong: vi.fn(),
       i18n: {country: 'US', language: 'EN'},
     },
-    session: {get: vi.fn(), unset: vi.fn()},
+    session: {get: vi.fn().mockReturnValue(receipt), unset: vi.fn()},
     cart: {get: vi.fn().mockResolvedValue(null)},
     customerAccount: {isLoggedIn: vi.fn().mockResolvedValue(false)},
   };
-  return loader({context} as unknown as Parameters<typeof loader>[0]);
+  return loader({
+    request: new Request(origin),
+    context,
+  } as unknown as Parameters<typeof loader>[0]);
 }
 
 describe('storefront Google Analytics coverage', () => {
@@ -109,4 +116,49 @@ describe('storefront Google Analytics coverage', () => {
       expect(document.querySelectorAll(tagSelector)).toHaveLength(1);
     },
   );
+});
+
+it('sends a consented accepted cabinetry inquiry once to its Google Ads action', async () => {
+  const destination = 'AW-17800572089/ueg3CK-mlsAdELnZ_KdC';
+  const receipt = {kind: 'cabinetry', eventId: 'test-inquiry'};
+  for (const kind of ['contact', 'furniture', 'designers']) {
+    expect(
+      (await loadRoot(undefined, {...receipt, kind})).cabinetryConversion,
+    ).toBeNull();
+  }
+  expect((await loadRoot()).cabinetryConversion).toBeNull();
+  expect(
+    (await loadRoot(undefined, receipt, 'http://localhost:3000'))
+      .cabinetryConversion,
+  ).toBeNull();
+
+  vi.stubEnv('DEV', false);
+  const dataLayer: unknown[] = [];
+  const conversions = () =>
+    dataLayer
+      .map((entry) => Array.from(entry as ArrayLike<unknown>))
+      .filter(
+        ([command, event]) => command === 'event' && event === 'conversion',
+      );
+  const marketingAllowed = vi.fn(() => false);
+  vi.stubGlobal('dataLayer', dataLayer);
+  vi.stubGlobal('Shopify', {customerPrivacy: {marketingAllowed}});
+  const data = await loadRoot(undefined, receipt);
+  const router = createMemoryRouter([
+    {id: 'root', path: '/', loader: () => data, element: <App />},
+  ]);
+  render(<RouterProvider router={router} />);
+
+  await waitFor(() => expect(document.querySelector('script')).not.toBeNull());
+  expect(conversions()).toEqual([]);
+  marketingAllowed.mockReturnValue(true);
+  document.dispatchEvent(new Event('visitorConsentCollected'));
+  document.dispatchEvent(new Event('shopifyCustomerPrivacyApiLoaded'));
+  expect(conversions()).toEqual([
+    [
+      'event',
+      'conversion',
+      {send_to: destination, transaction_id: receipt.eventId},
+    ],
+  ]);
 });
