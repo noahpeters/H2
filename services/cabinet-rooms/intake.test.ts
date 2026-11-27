@@ -77,6 +77,14 @@ function setup() {
     CONTACT_FROM_EMAIL: 'sender@example.invalid',
     FTOPS_INTAKE_URL: 'https://ftops.test/website-intake/test',
     FTOPS_INTAKE_TOKEN: 'test-integration',
+    FTOPS_INQUIRIES: {
+      fetch: async (request: Request) =>
+        await fetch(request.url, {
+          method: 'POST',
+          headers: Object.fromEntries(request.headers),
+          body: await request.text(),
+        }),
+    },
     DB: {
       prepare(sql: string) {
         return {
@@ -152,9 +160,12 @@ function setup() {
         events.push(body);
         return Response.json({object: 'event', event: body.event});
       }
-      if (url === env.FTOPS_INTAKE_URL) {
+      if (
+        url === env.FTOPS_INTAKE_URL ||
+        url === 'https://ftops.internal/h2-inquiry'
+      ) {
         expect(new Headers(init?.headers).get('Authorization')).toBe(
-          'Bearer test-integration',
+          url === env.FTOPS_INTAKE_URL ? 'Bearer test-integration' : null,
         );
         const old = intakes.get(body.externalEventId);
         if (old && JSON.stringify(old) !== JSON.stringify(body))
@@ -204,9 +215,9 @@ describe('durable intake and delivery', () => {
     expect(intakes.size).toBe(1);
     expect(
       fetcher.mock.calls.find(
-        ([url]) => String(url) === env.FTOPS_INTAKE_URL,
+        ([url]) => String(url) === 'https://ftops.internal/h2-inquiry',
       )?.[1]?.headers,
-    ).toHaveProperty('X-Inquiry-Notification', 'ftops');
+    ).toHaveProperty('x-inquiry-notification', 'ftops');
     expect(status().every((row) => row.state === 'sent')).toBe(true);
   });
   it('authenticates, rejects oversized evidence and refuses revocation before writing', async () => {
@@ -242,7 +253,7 @@ describe('durable intake and delivery', () => {
     await call(sample);
     const normal = fetcher.getMockImplementation()!;
     fetcher.mockImplementation(async (url, init) =>
-      String(url) === env.FTOPS_INTAKE_URL
+      String(url) === 'https://ftops.internal/h2-inquiry'
         ? Response.json({error: 'temporary'}, {status: 503})
         : normal(url, init),
     );
@@ -268,7 +279,7 @@ describe('durable intake and delivery', () => {
     const normal = fetcher.getMockImplementation()!;
     fetcher.mockImplementation(async (url, init) => {
       const r = await normal(url, init);
-      if (String(url) === env.FTOPS_INTAKE_URL)
+      if (String(url) === 'https://ftops.internal/h2-inquiry')
         throw new Error('lost response');
       return r;
     });

@@ -31,6 +31,7 @@ const env = {
   RESEND_API_KEY: 'local-test-only',
   CONTACT_FROM_EMAIL: 'test@example.invalid',
   CONTACT_TO_EMAIL: 'owner@example.invalid',
+  FTOPS_INQUIRIES: {fetch: (request) => fetch(request)},
   FTOPS_INTAKE_URL: 'https://ftops.test/website-intake/local-test',
   FTOPS_INTAKE_TOKEN: 'local-test-only',
   CABINET_ROOMS_URL: 'https://rooms.test',
@@ -103,7 +104,10 @@ globalThis.fetch = async (input, init) => {
     events.push(body);
     return Response.json({object: 'event', event: body.event});
   }
-  if (url.href === env.FTOPS_INTAKE_URL) {
+  if (
+    url.href === env.FTOPS_INTAKE_URL ||
+    url.href === 'https://ftops.internal/h2-inquiry'
+  ) {
     if (failure === 'ftops') return Response.json({}, {status: 503});
     const body = await request.json();
     const old = intakes.get(body.externalEventId);
@@ -115,6 +119,8 @@ globalThis.fetch = async (input, init) => {
         submissionId: `TEST-${body.externalEventId}`,
         status: 'linked',
         duplicate: !!old,
+        staffNotificationQueued:
+          request.headers.get('X-Inquiry-Notification') === 'ftops',
       },
       {status: old ? 200 : 201},
     );

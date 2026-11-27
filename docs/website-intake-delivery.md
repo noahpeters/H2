@@ -2,7 +2,7 @@
 
 ## FTOPS staff notifications
 
-To enable the new flow, first apply the FTOPS inquiry migration, deploy FTOPS, and save the team inbox under Templates → Inquiry email settings. The existing cabinet intake Worker needs its website integration URL and token and its Resend event key. Deploy the updated intake Worker before setting `INQUIRY_NOTIFICATION_OWNER=ftops` in Oxygen. Test with a controlled recipient.
+To enable the new flow, first apply the FTOPS inquiry migration, deploy FTOPS, and save the team inbox under Templates → Inquiry email settings. The queue calls the private FTOPS H2InquiryIntake service binding. FTOPS resolves the existing active production website integration on each delivery. Only the customer acknowledgement uses the queue’s Resend key. Deploy the updated intake Worker before setting `INQUIRY_NOTIFICATION_OWNER=ftops` in Oxygen. Test with a controlled recipient.
 
 All eight entry points use the authenticated intake queue in this mode. The storefront confirms a saved inquiry, and the worker retries delivery to FTOPS during an outage. The worker also triggers the existing customer acknowledgement. FTOPS creates the staff alert with the customer link, independently of the acknowledgement. If the queue itself is unavailable the form reports failure. Each saved inquiry keeps its original delivery mode across retries.
 

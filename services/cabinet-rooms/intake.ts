@@ -17,8 +17,7 @@ interface Statement {
 export interface IntakeServiceEnv {
   DB: {prepare(sql: string): Statement};
   RESEND_API_KEY?: string;
-  FTOPS_INTAKE_URL?: string;
-  FTOPS_INTAKE_TOKEN?: string;
+  FTOPS_INQUIRIES?: {fetch(request: Request): Promise<Response>};
 }
 // Stable JSON prevents key ordering from turning an identical retry into a conflict.
 function stable(value: unknown): string {
@@ -108,11 +107,6 @@ export async function drainIntake(env: IntakeServiceEnv) {
 }
 async function deliver(row: Delivery, env: IntakeServiceEnv) {
   const d = row.destination;
-  const key = d === 'resend' ? env.RESEND_API_KEY : env.FTOPS_INTAKE_TOKEN;
-  const endpoint =
-    d === 'resend'
-      ? 'https://api.resend.com/events/send'
-      : env.FTOPS_INTAKE_URL;
   const retry = async (reason: string, review = false) => {
     const delay = Math.min(3600000, 60000 * 2 ** Math.min(row.attempts, 6));
     await env.DB.prepare(
@@ -140,15 +134,8 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
     .bind(Date.now() + 120000, row.event_id, d, Date.now())
     .first();
   if (!claimed) return;
-  if (!key || !endpoint) {
+  if (d === 'resend' ? !env.RESEND_API_KEY : !env.FTOPS_INQUIRIES) {
     await retry('not_configured');
-    return;
-  }
-  if (
-    d === 'ftops' &&
-    !/^https:\/\/[^/?#]+\/website-intake\/[^/?#]+$/.test(endpoint)
-  ) {
-    await retry('invalid_ftops_endpoint', true);
     return;
   }
   const event = JSON.parse(row.payload) as StoredIntake & {
@@ -156,13 +143,15 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
   };
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         ...(d === 'ftops' && event.notificationOwner === 'ftops'
           ? {'X-Inquiry-Notification': 'ftops'}
           : {}),
-        Authorization: `Bearer ${key}`,
+        ...(d === 'resend'
+          ? {Authorization: `Bearer ${env.RESEND_API_KEY}`}
+          : {}),
         'Content-Type': 'application/json',
         'Idempotency-Key': `inquiry-${row.event_id}`,
       },
@@ -171,7 +160,13 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
       ),
       signal: AbortSignal.timeout(10000),
       redirect: 'error',
-    });
+    };
+    response =
+      d === 'resend'
+        ? await fetch('https://api.resend.com/events/send', init)
+        : await env.FTOPS_INQUIRIES!.fetch(
+            new Request('https://ftops.internal/h2-inquiry', init),
+          );
   } catch {
     await retry('network_or_timeout', d === 'resend');
     return;
