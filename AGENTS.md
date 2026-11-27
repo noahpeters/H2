@@ -4,7 +4,7 @@
 - Preserve the existing Shopify Storefront API, product, collection, cart, account, policy, search, analytics, sitemap, and redirect behavior unless an issue explicitly changes it.
 - Port approved editorial content and the inquiry-only furniture configurator from `noahpeters/from-trees-studio`; do not introduce prices or checkout into the configurator unless an issue explicitly requests it.
 - Preserve valuable URL paths from `from-trees.com`, `fromtrees.build`, and `from-trees-studio`. Add explicit permanent redirects when a path cannot remain unchanged.
-- Keep product data and product-feed sources in Shopify. Project case studies may use Shopify-managed content or repository-managed content as specified by the issue.
+- Shopify remains the live product and Google/Meta source until the staged Cloudflare migration is released. Phase-one migration tooling is read-only: archive Shopify source data outside the repository, reconcile spreadsheet variation IDs and actual channel exports, and keep live catalog producers unchanged. The target model may use simple sellable variation records with product-type detail tables rather than copying Shopify's schema. Spreadsheet pricing formulas remain in the spreadsheet for now. Etsy shop integration is a post-migration stretch goal, not product import or shared inventory work.
 - Ship only approved production artwork. Do not copy experimental, duplicate, or source-study image directories into the storefront bundle.
 - Keep server code compatible with the Oxygen worker runtime and web-standard APIs. Do not add a Node-only server dependency without proving Oxygen compatibility.
 - Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before proposing a change.
