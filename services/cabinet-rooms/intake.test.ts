@@ -136,7 +136,7 @@ function setup() {
         return worker.fetch(new Request(url, init), env as any);
       }
       if (url === 'https://rooms.test/intake')
-        return call(JSON.parse(init?.body as string));
+        return worker.fetch(new Request(url, init), env as any);
       if (url === 'https://rooms.test/quote')
         return Response.json({range: {low: 5000, high: 6000}});
       if (url === 'https://rooms.test/share')
@@ -168,6 +168,9 @@ function setup() {
             submissionId: 'test-ftops-receipt',
             status: 'linked',
             duplicate: !!old,
+            staffNotificationQueued:
+              new Headers(init?.headers).get('X-Inquiry-Notification') ===
+              'ftops',
           },
           {status: old ? 200 : 201},
         );
@@ -183,6 +186,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('durable intake and delivery', () => {
+  it('durably accepts a storefront inquiry and hands the staff notification to FTOPS once', async () => {
+    const {env, fetcher, events, ownerEmails, intakes, status} = setup();
+    const config = {
+      ...env,
+      INQUIRY_NOTIFICATION_OWNER: 'ftops',
+      CABINET_ROOMS_URL: 'https://rooms.test',
+      CABINET_ROOMS_TOKEN: 'test',
+    };
+    await acceptIntake(sample, config);
+    await acceptIntake(sample, config);
+    expect(ownerEmails).toHaveLength(0);
+    expect(events).toHaveLength(0);
+    await drainIntake(env as any);
+    await drainIntake(env as any);
+    expect(events).toHaveLength(1);
+    expect(intakes.size).toBe(1);
+    expect(
+      fetcher.mock.calls.find(
+        ([url]) => String(url) === env.FTOPS_INTAKE_URL,
+      )?.[1]?.headers,
+    ).toHaveProperty('X-Inquiry-Notification', 'ftops');
+    expect(status().every((row) => row.state === 'sent')).toBe(true);
+  });
   it('authenticates, rejects oversized evidence and refuses revocation before writing', async () => {
     const {call, db} = setup();
     expect((await call(sample, 'wrong')).status).toBe(401);

@@ -35,9 +35,16 @@ export async function intake(request: Request, env: IntakeServiceEnv) {
     return jsonResponse({error: 'Method not allowed'}, 405);
   const value = await readLimited(request);
   if (!validIntake(value)) return jsonResponse({error: 'Invalid intake'}, 400);
-  const input = stable(value);
-  const payload: StoredIntake = {
+  const notificationOwner =
+    request.headers.get('X-Inquiry-Notification') === 'ftops'
+      ? 'ftops'
+      : undefined;
+  const input = stable(
+    notificationOwner ? {...value, notificationOwner} : value,
+  );
+  const payload: StoredIntake & {notificationOwner?: string} = {
     ...value,
+    notificationOwner,
     submittedAt: new Date().toISOString(),
   };
   const target = ftopsEvent(payload);
@@ -60,7 +67,10 @@ export async function intake(request: Request, env: IntakeServiceEnv) {
   if (stored?.input !== input)
     return jsonResponse({error: 'event_id_payload_conflict'}, 409);
   // Do not let either provider prevent acceptance after the durable commit. Cron drains the outbox.
-  return jsonResponse({accepted: true, submissionId: value.submissionId}, 202);
+  return jsonResponse(
+    {accepted: true, submissionId: value.submissionId, notificationOwner},
+    202,
+  );
 }
 type Destination = 'resend' | 'ftops';
 type Delivery = {
@@ -141,12 +151,17 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
     await retry('invalid_ftops_endpoint', true);
     return;
   }
-  const event = JSON.parse(row.payload) as StoredIntake;
+  const event = JSON.parse(row.payload) as StoredIntake & {
+    notificationOwner?: string;
+  };
   let response: Response;
   try {
     response = await fetch(endpoint, {
       method: 'POST',
       headers: {
+        ...(d === 'ftops' && event.notificationOwner === 'ftops'
+          ? {'X-Inquiry-Notification': 'ftops'}
+          : {}),
         Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
         'Idempotency-Key': `inquiry-${row.event_id}`,
@@ -176,12 +191,15 @@ async function deliver(row: Delivery, env: IntakeServiceEnv) {
       event?: string;
       submissionId?: string;
       duplicate?: boolean;
+      staffNotificationQueued?: boolean;
       status?: string;
     };
     if (
       d === 'resend'
         ? result.object !== 'event' || result.event !== 'inquiry.received'
-        : !result.submissionId ||
+        : (event.notificationOwner === 'ftops' &&
+            !result.staffNotificationQueued) ||
+          !result.submissionId ||
           !['linked', 'needs_review'].includes(result.status || '') ||
           typeof result.duplicate !== 'boolean'
     ) {
