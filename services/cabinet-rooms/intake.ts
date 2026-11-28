@@ -1,6 +1,5 @@
 import {
   ftopsEvent,
-  resendEvent,
   validIntake,
   type StoredIntake,
 } from '../../app/lib/intake/protocol';
@@ -16,9 +15,7 @@ interface Statement {
 }
 export interface IntakeServiceEnv {
   DB: {prepare(sql: string): Statement};
-  RESEND_API_KEY?: string;
-  FTOPS_INTAKE_URL?: string;
-  FTOPS_INTAKE_TOKEN?: string;
+  FTOPS_INQUIRIES?: {fetch(request: Request): Promise<Response>};
 }
 // Stable JSON prevents key ordering from turning an identical retry into a conflict.
 function stable(value: unknown): string {
@@ -30,7 +27,11 @@ function stable(value: unknown): string {
       .join(',')}}`;
   return JSON.stringify(value);
 }
-export async function intake(request: Request, env: IntakeServiceEnv) {
+export async function intake(
+  request: Request,
+  env: IntakeServiceEnv,
+  ctx?: {waitUntil(promise: Promise<unknown>): void},
+) {
   if (request.method !== 'POST')
     return jsonResponse({error: 'Method not allowed'}, 405);
   const value = await readLimited(request);
@@ -66,152 +67,19 @@ export async function intake(request: Request, env: IntakeServiceEnv) {
     .first<{input: string}>();
   if (stored?.input !== input)
     return jsonResponse({error: 'event_id_payload_conflict'}, 409);
-  // Do not let either provider prevent acceptance after the durable commit. Cron drains the outbox.
+  // A missed wake-up is harmless: FTOPS also polls for unacknowledged records.
+  if (ctx && env.FTOPS_INQUIRIES)
+    ctx.waitUntil(
+      env.FTOPS_INQUIRIES.fetch(
+        new Request('https://ftops.internal/inquiries-ready', {method: 'POST'}),
+      )
+        .then((response) => {
+          if (!response.ok) throw Error('wake_failed');
+        })
+        .catch(() => console.error('inquiry_wakeup_failed')),
+    );
   return jsonResponse(
     {accepted: true, submissionId: value.submissionId, notificationOwner},
     202,
   );
-}
-type Destination = 'resend' | 'ftops';
-type Delivery = {
-  event_id: string;
-  destination: Destination;
-  attempts: number;
-  payload: string;
-};
-export async function drainIntake(env: IntakeServiceEnv) {
-  const now = Date.now();
-  // A crashed Resend attempt may already have triggered an automation. Never blindly replay it.
-  await env.DB.prepare(
-    "UPDATE intake_deliveries SET state='review',last_error='ambiguous_interrupted_send' WHERE destination='resend' AND state='sending' AND lease_until<?",
-  )
-    .bind(now)
-    .run();
-  await env.DB.prepare(
-    "UPDATE intake_deliveries SET state='pending' WHERE destination='ftops' AND state='sending' AND lease_until<?",
-  )
-    .bind(now)
-    .run();
-  const due = await env.DB.prepare(
-    "SELECT d.event_id,d.destination,d.attempts,e.payload FROM intake_deliveries d JOIN intake_events e ON e.id=d.event_id WHERE d.state='pending' AND d.next_attempt<=? ORDER BY d.next_attempt,e.created_at LIMIT 20",
-  )
-    .bind(now)
-    .all<Delivery>();
-  await Promise.all(due.results.map((row) => deliver(row, env)));
-  const review = await env.DB.prepare(
-    "SELECT COUNT(*) AS count FROM intake_deliveries WHERE state='review'",
-  )
-    .bind()
-    .first<{count: number}>();
-  if (review?.count)
-    console.error('intake_delivery_review_required', {count: review.count});
-}
-async function deliver(row: Delivery, env: IntakeServiceEnv) {
-  const d = row.destination;
-  const key = d === 'resend' ? env.RESEND_API_KEY : env.FTOPS_INTAKE_TOKEN;
-  const endpoint =
-    d === 'resend'
-      ? 'https://api.resend.com/events/send'
-      : env.FTOPS_INTAKE_URL;
-  const retry = async (reason: string, review = false) => {
-    const delay = Math.min(3600000, 60000 * 2 ** Math.min(row.attempts, 6));
-    await env.DB.prepare(
-      'UPDATE intake_deliveries SET state=?,next_attempt=?,last_error=? WHERE event_id=? AND destination=?',
-    )
-      .bind(
-        review ? 'review' : 'pending',
-        Date.now() + delay,
-        reason,
-        row.event_id,
-        d,
-      )
-      .run();
-    console.error('intake_delivery_failed', {
-      submissionId: row.event_id,
-      destination: d,
-      reason,
-      review,
-    });
-  };
-  // Claim before all state mutations so overlapping scheduled invocations cannot double-send.
-  const claimed = await env.DB.prepare(
-    "UPDATE intake_deliveries SET state='sending',attempts=attempts+1,lease_until=? WHERE event_id=? AND destination=? AND state='pending' AND next_attempt<=? RETURNING event_id",
-  )
-    .bind(Date.now() + 120000, row.event_id, d, Date.now())
-    .first();
-  if (!claimed) return;
-  if (!key || !endpoint) {
-    await retry('not_configured');
-    return;
-  }
-  if (
-    d === 'ftops' &&
-    !/^https:\/\/[^/?#]+\/website-intake\/[^/?#]+$/.test(endpoint)
-  ) {
-    await retry('invalid_ftops_endpoint', true);
-    return;
-  }
-  const event = JSON.parse(row.payload) as StoredIntake & {
-    notificationOwner?: string;
-  };
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        ...(d === 'ftops' && event.notificationOwner === 'ftops'
-          ? {'X-Inquiry-Notification': 'ftops'}
-          : {}),
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': `inquiry-${row.event_id}`,
-      },
-      body: JSON.stringify(
-        d === 'resend' ? resendEvent(event) : ftopsEvent(event),
-      ),
-      signal: AbortSignal.timeout(10000),
-      redirect: 'error',
-    });
-  } catch {
-    await retry('network_or_timeout', d === 'resend');
-    return;
-  }
-  if (!response.ok) {
-    // ftops explicitly guarantees retry safety. Events API does not document that guarantee.
-    const review =
-      d === 'resend'
-        ? response.status !== 429
-        : !(response.status === 429 || response.status >= 500);
-    await retry(`http_${response.status}`, review);
-    return;
-  }
-  try {
-    const result = (await response.json()) as {
-      object?: string;
-      event?: string;
-      submissionId?: string;
-      duplicate?: boolean;
-      staffNotificationQueued?: boolean;
-      status?: string;
-    };
-    if (
-      d === 'resend'
-        ? result.object !== 'event' || result.event !== 'inquiry.received'
-        : (event.notificationOwner === 'ftops' &&
-            !result.staffNotificationQueued) ||
-          !result.submissionId ||
-          !['linked', 'needs_review'].includes(result.status || '') ||
-          typeof result.duplicate !== 'boolean'
-    ) {
-      await retry('invalid_receipt', d === 'resend');
-      return;
-    }
-    await env.DB.prepare(
-      "UPDATE intake_deliveries SET state='sent',last_error=NULL,receipt=? WHERE event_id=? AND destination=?",
-    )
-      .bind(JSON.stringify(result), row.event_id, d)
-      .run();
-  } catch {
-    await retry('receipt_or_commit_failed', d === 'resend');
-  }
 }
